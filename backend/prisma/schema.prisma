@@ -15,13 +15,14 @@ datasource db {
 
 
 // Passager
-model Passager {
+model Passenger {
   id        String   @id @default(uuid())
   email     String   @unique
   password  String
-  nom       String?
-  prenom    String?
-  numTel    String?
+  nom       String
+  prenom    String
+  numTel    String
+  age       Int
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -29,15 +30,16 @@ model Passager {
 }
 
 // Conducteur
-model Conducteur {
+model Driver {
   id        String   @id @default(uuid())
   email     String   @unique
   password  String
-  nom       String?
-  prenom    String?
-  numTel    String?
-  sexe      String?  // "M" ou "F"
+  nom       String
+  prenom    String
+  numTel    String
+  sexe      String // "M" ou "F"
   isVerified Boolean @default(false) // OCR validé
+  age        Int
 
   // OCR & identité
   carteIdNum String?  
@@ -66,7 +68,7 @@ model Vehicule {
   plaque       String?
   couleur      String?
   
-  conducteur   Conducteur @relation(fields: [conducteurId], references: [id])
+  driver       Driver @relation(fields: [conducteurId], references: [id])
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
@@ -88,8 +90,8 @@ model Trajet {
   placesDispo  Int
   prix         Float
 
-  conducteur   Conducteur @relation("TrajetsConducteur", fields: [conducteurId], references: [id])
-  passager     Passager?  @relation("TrajetsPassager", fields: [passagerId], references: [id])
+  driver       Driver @relation("TrajetsConducteur", fields: [conducteurId], references: [id])
+  passenger     Passenger?  @relation("TrajetsPassager", fields: [passagerId], references: [id])
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
