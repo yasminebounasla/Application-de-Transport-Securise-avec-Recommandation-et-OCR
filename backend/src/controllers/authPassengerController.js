@@ -73,3 +73,46 @@ export const registerPassenger = async (req, res) => {
         });
     }
 }
+
+export const loginPassenger = async (req, res) => {
+    const { email, password } = req.body;
+
+    try {
+        //trouver le passager par email
+        const passenger = await prisma.passenger.findUnique({
+            where: { email: email.trim().toLowerCase() }
+        });
+
+        if(!passenger) {
+            return res.status(400).json({ message: "Passenger not found."});
+        }
+
+        //verifier le mot de passe
+        const validPassword = await bcrypt.compare(password, userExist.password)
+        if( !validPassword )  {
+
+            return res.status(400).json({
+                message : "Invalid password"
+            })
+        }
+
+        const token = jwt.sign(
+            { id: passenger.id, email: passenger.email },
+            jwtSecret,
+            { expiresIn: "1h" }
+        );
+
+        userExist.password = undefined;
+
+        res.status(200).json({
+            message: "Login successful.",
+            data: { passenger, token }
+        });
+
+    }catch(err) {
+        res.status(500).json({
+            message: "Failed to Login",
+            error: err.message
+        })
+    }
+}
