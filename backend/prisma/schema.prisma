@@ -1,0 +1,99 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+// Passager
+model Passager {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  nom       String?
+  prenom    String?
+  numTel    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  trajets   Trajet[] @relation("TrajetsPassager")
+}
+
+// Conducteur
+model Conducteur {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  nom       String?
+  prenom    String?
+  numTel    String?
+  sexe      String?  // "M" ou "F"
+  isVerified Boolean @default(false) // OCR validé
+
+  // OCR & identité
+  carteIdNum String?  
+  selfieUrl  String?  // URL du selfie
+
+  // critères pour recommandation
+  fumeur      Boolean?
+  note        Float?   // moyenne des évaluations
+  preference  String?  
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  vehicules Vehicule[]
+  trajets   Trajet[] @relation("TrajetsConducteur")
+}
+
+// Vehicule
+model Vehicule {
+  id           String @id @default(uuid())
+  conducteurId String
+  marque       String
+  modele       String?
+  annee        Int?
+  nbPlaces     Int?
+  plaque       String?
+  couleur      String?
+  
+  conducteur   Conducteur @relation(fields: [conducteurId], references: [id])
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([conducteurId])
+}
+
+
+// Trajet
+model Trajet {
+  id           String @id @default(uuid())
+  conducteurId String
+  passagerId   String?
+
+  depart       String
+  destination  String
+  dateDepart   DateTime
+  heureDepart  String?
+  placesDispo  Int
+  prix         Float
+
+  conducteur   Conducteur @relation("TrajetsConducteur", fields: [conducteurId], references: [id])
+  passager     Passager?  @relation("TrajetsPassager", fields: [passagerId], references: [id])
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([conducteurId])
+  @@index([passagerId])
+}
