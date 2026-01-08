@@ -42,11 +42,11 @@ model Driver {
   age        Int
 
   // OCR & identité
-  carteIdNum String?  
+  carteIdNum String
   selfieUrl  String?  // URL du selfie
 
   // critères pour recommandation
-  fumeur      Boolean?
+  fumeur      Boolean
   note        Float?   // moyenne des évaluations
   preference  String?  
 
@@ -60,27 +60,27 @@ model Driver {
 // Vehicule
 model Vehicule {
   id           String @id @default(uuid())
-  conducteurId String
+  driverId String
   marque       String
   modele       String?
   annee        Int?
   nbPlaces     Int?
   plaque       String?
   couleur      String?
-  
-  driver       Driver @relation(fields: [conducteurId], references: [id])
+
+  driver       Driver @relation(fields: [driverId], references: [id])
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  @@index([conducteurId])
+  @@index([driverId])
 }
 
 
 // Trajet
 model Trajet {
   id           String @id @default(uuid())
-  conducteurId String
+  driverId     String
   passagerId   String?
 
   depart       String
@@ -90,12 +90,12 @@ model Trajet {
   placesDispo  Int
   prix         Float
 
-  driver       Driver @relation("TrajetsConducteur", fields: [conducteurId], references: [id])
+  driver       Driver @relation("TrajetsConducteur", fields: [driverId], references: [id])
   passenger     Passenger?  @relation("TrajetsPassager", fields: [passagerId], references: [id])
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
-  @@index([conducteurId])
+  @@index([driverId])
   @@index([passagerId])
 }
