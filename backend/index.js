@@ -1,7 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import { prisma } from "./src/config/prisma.js"; // ✅ Un seul import
+import { prisma } from "./src/config/prisma.js"; 
+import authRoutes from './src/routes/authRoutes.js';
 
 dotenv.config();
 
@@ -17,13 +18,13 @@ app.use(
 );
 app.use(express.json());
 
-// ❌ SUPPRIME CETTE LIGNE (doublon) :
-// const prisma = new prismaConfig.PrismaClient();
-
 // Sample route
 app.get('/', (req, res) => {
   res.json({ message: "the server is running!" });
 });
+
+app.use("/api/auth", authRoutes);
+
 
 const startServer = async () => {
   try {

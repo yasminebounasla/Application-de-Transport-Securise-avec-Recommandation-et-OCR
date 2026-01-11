@@ -1,7 +1,7 @@
-import { validatePassword } from "../utils/validatePassword";
+import { validatePassword } from "../utils/validatePassword.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { prisma } from "../config/prisma";
+import { prisma } from "../config/prisma.js";
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -44,15 +44,20 @@ export const registerDriver = async (req, res) => {
         // créer un nouveau conducteur
         const newDriver = await prisma.driver.create({
             data: {
-                email: email.trim().toLowerCase(),  
+                email: email.trim().toLowerCase(),
                 password: hashedPassword,
-                nom : nom.trim(),
-                prenom : prenom.trim(),
+                nom: nom.trim(),
+                prenom: prenom.trim(),
                 age,
                 numTel,
-                sexe : sexe.trim().first().toUpperCase()
+                sexe: sexe.trim()[0].toUpperCase(),  // "M" ou "F"
+                fumeur: false,             // par défaut false
+                carteIdNum: null,                     // pas encore fourni
+                isVerified: false
             }
-        });
+            });
+
+
 
         const token = jwt.sign(
             { id: newDriver.id, email: newDriver.email },

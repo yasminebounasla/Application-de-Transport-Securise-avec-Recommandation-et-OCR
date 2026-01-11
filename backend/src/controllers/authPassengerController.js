@@ -1,7 +1,7 @@
-import { validatePassword } from "../utils/validatePassword";
+import { validatePassword } from "../utils/validatePassword.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-import { prisma } from "../config/prisma";
+import { prisma } from "../config/prisma.js";
 
 const jwtSecret = process.env.JWT_SECRET;
 
@@ -88,7 +88,7 @@ export const loginPassenger = async (req, res) => {
         }
 
         //verifier le mot de passe
-        const validPassword = await bcrypt.compare(password, userExist.password)
+        const validPassword = await bcrypt.compare(password, passenger.password)
         if( !validPassword )  {
 
             return res.status(400).json({
@@ -102,7 +102,7 @@ export const loginPassenger = async (req, res) => {
             { expiresIn: "1h" }
         );
 
-        userExist.password = undefined;
+        passenger.password = undefined;
 
         res.status(200).json({
             message: "Login successful.",
