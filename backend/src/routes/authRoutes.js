@@ -10,3 +10,5 @@ router.post('/driver/login', loginDriver);
 
 router.post('/passenger/register', registerPassenger);
 router.post('/passenger/login', loginPassenger);
+
+export default router;
