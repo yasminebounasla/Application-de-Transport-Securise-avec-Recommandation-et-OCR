@@ -1,7 +1,8 @@
 import { Button } from 'react-native';
 import { View, Text, TextInput } from 'react-native';
 import { useState } from 'react';
-import { Stack } from '../../.expo/types/router';
+import { Stack } from 'expo-router';
+import { registerPassenger } from '../../services/authService';
 
 export default function RegisterPassengerScreen() {
 
@@ -12,10 +13,31 @@ export default function RegisterPassengerScreen() {
     const [familyName, setFamilyName] = useState('');
     const [age, setAge] = useState('');
     const [phoneNumber, setPhoneNumber] = useState('');
+    const [error, setError] = useState('');
+
+    const handleRegister = async () => {
+        try{
+            const data = await registerPassenger({
+                email,
+                password,
+                confirmPassword,
+                firstName,
+                familyName,
+                age,
+                phoneNumber
+            });
+
+            console.log('Registration successful:', data);
+        } catch (error: any) {
+            setError(
+                error.response?.data?.message || 'Something went wrong'
+            );
+        }
+    }
 
     return (
         <View>
-        <Stack.Screen options={{ title: 'Register Driver' }} />
+        <Stack.Screen options={{ title: 'Register Passenger' }} />
         <View>
             <Text>email</Text>
             <TextInput value={email} onChangeText={setEmail} placeholder='Email'/>
@@ -40,18 +62,11 @@ export default function RegisterPassengerScreen() {
 
             <Text>Register Button</Text>
             <Button
-                title="Next"
-                onPress={() => {
-                    console.log({
-                    email,
-                    password,
-                    confirmPassword,
-                    firstName,
-                    familyName,
-                    phoneNumber,
-                    });
-                }}
+                title="Register"
+                onPress={handleRegister}
             />
+
+            <Text>{error}</Text>
 
         </View>
         </View>
