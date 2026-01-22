@@ -1,4 +1,4 @@
-export default function RecommendationDriverScreen() {
+export default function MapScreen() {
   return (
     <>
       {/* UI */}
