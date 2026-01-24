@@ -38,42 +38,46 @@ export default function RegisterDriverScreen() {
 
 
     return (
-        <View>
-        <Stack.Screen options={{ title: 'Register Driver' }} />
-        <View>
-            <Text>email</Text>
-            <TextInput value={email} onChangeText={setEmail} placeholder='Email'/>
+        <>
+            <View className="flex-1 items-center justify-center bg-red-500">
+                <Text className="text-white text-xl">Test</Text>
+            </View>
 
-            <Text>password</Text>
-            <TextInput value={password} onChangeText={setPassword} placeholder='Password' secureTextEntry/>
+            <Stack.Screen options={{ title: 'Register Driver' }} />
+            <View>
+                <Text>email</Text>
+                <TextInput value={email} onChangeText={setEmail} placeholder='Email'/>
 
-            <Text>confirm password</Text>
-            <TextInput value={confirmPassword} onChangeText={setConfirmPassword} placeholder='Confirm Password' secureTextEntry/>
+                <Text>password</Text>
+                <TextInput value={password} onChangeText={setPassword} placeholder='Password' secureTextEntry/>
 
-            <Text>first name</Text>
-            <TextInput value={firstName} onChangeText={setFirstName} placeholder='First Name'/>
+                <Text>confirm password</Text>
+                <TextInput value={confirmPassword} onChangeText={setConfirmPassword} placeholder='Confirm Password' secureTextEntry/>
 
-            <Text>family name</Text>  
-            <TextInput value={familyName} onChangeText={setFamilyName} placeholder='Family Name'/>
+                <Text>first name</Text>
+                <TextInput value={firstName} onChangeText={setFirstName} placeholder='First Name'/>
 
-            <Text>age</Text>
-            <TextInput value={age} onChangeText={setAge} placeholder='Age' keyboardType='numeric'/>
+                <Text>family name</Text>  
+                <TextInput value={familyName} onChangeText={setFamilyName} placeholder='Family Name'/>
 
-            <Text>sexe</Text>
-            <TextInput value={sexe} onChangeText={setSexe} placeholder='Sexe'/>
+                <Text>age</Text>
+                <TextInput value={age} onChangeText={setAge} placeholder='Age' keyboardType='numeric'/>
 
-            <Text>phone number</Text>
-            <TextInput value={phoneNumber} onChangeText={setPhoneNumber} placeholder='Phone Number' keyboardType='phone-pad'/>
+                <Text>sexe</Text>
+                <TextInput value={sexe} onChangeText={setSexe} placeholder='Sexe'/>
 
-            <Text>Register Button</Text>
-            <Button
-                title="Next"
-                onPress={handleRegister}
-            />
+                <Text>phone number</Text>
+                <TextInput value={phoneNumber} onChangeText={setPhoneNumber} placeholder='Phone Number' keyboardType='phone-pad'/>
 
-            <Text>{error}</Text>
+                <Text>Register Button</Text>
+                <Button
+                    title="Next"
+                    onPress={handleRegister}
+                />
 
-        </View>
-        </View>
+                <Text>{error}</Text>
+
+            </View>
+        </>
     );
 }
