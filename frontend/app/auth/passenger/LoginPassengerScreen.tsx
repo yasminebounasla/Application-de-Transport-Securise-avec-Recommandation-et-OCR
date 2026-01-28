@@ -1,38 +1,40 @@
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { useState } from 'react';
 import { Stack, router } from 'expo-router';
-import { loginDriver, loginPassenger } from '../../../services/authService';
+import { useAuth } from '../../../context/AuthContext';
 
-export default function LoginDriverScreen() {
+export default function LoginPassengerScreen() {
+    const { loginAsPassenger, loading } = useAuth();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
 
     const handleLogin = async () => {
-        try {
-            const data = await loginPassenger({
-                email,
-                password
-            });
-            console.log('Login successful:', data);
+        setError('');
 
+        // Validation simple
+        if (!email || !password) {
+            setError('Please fill in all fields');
+            return;
+        }
+
+        const result = await loginAsPassenger(email, password);
+
+        if (result.success) {
             Alert.alert(
                 'Success!',
                 'You have successfully logged in.',
                 [
                     {
                         text: 'OK',
-                        onPress: () => router.push('./../../../Passenger/HomeScreen'), 
+                        onPress: () => router.replace('./../../../passenger/HomeScreen'),
                     }
                 ]
             );
-
-        } catch (error: any) {
-            setError(
-                error.response?.data?.message || 'Something went wrong'
-            );
+        } else {
+            setError(result.message);
         }
-    }
+    };
 
     return (
         <>
@@ -49,46 +51,62 @@ export default function LoginDriverScreen() {
                         </Text>
                     </View>
 
-                    {/* Form Fields */}
+                    {/* Email */}
                     <View className="mb-4">
                         <Text className="text-sm font-medium text-black mb-2">Email</Text>
-                        <TextInput 
-                            value={email} 
-                            onChangeText={setEmail} 
-                            placeholder='email@email.com' 
-                            keyboardType='email-address'
-                            autoCapitalize='none'
+                        <TextInput
+                            value={email}
+                            onChangeText={setEmail}
+                            placeholder="email@email.com"
+                            keyboardType="email-address"
+                            autoCapitalize="none"
+                            editable={!loading}
                             className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-4 text-base"
                             placeholderTextColor="#9CA3AF"
                         />
                     </View>
 
+                    {/* Password */}
                     <View className="mb-4">
                         <Text className="text-sm font-medium text-black mb-2">Password</Text>
-                        <TextInput 
-                            value={password} 
-                            onChangeText={setPassword} 
-                            placeholder='••••••••' 
-                            secureTextEntry 
+                        <TextInput
+                            value={password}
+                            onChangeText={setPassword}
+                            placeholder="••••••••"
+                            secureTextEntry
+                            editable={!loading}
                             className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-4 text-base"
                             placeholderTextColor="#9CA3AF"
                         />
                     </View>
 
-                    {/* Error Message */}
+                    {/* Error */}
                     {error ? (
                         <View className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-6">
                             <Text className="text-red-600 text-sm">{error}</Text>
                         </View>
                     ) : null}
 
-                    {/* Submit Button */}
-                    <TouchableOpacity 
+                    {/* Submit */}
+                    <TouchableOpacity
                         onPress={handleLogin}
-                        className="bg-black rounded-xl py-5 items-center mb-4"
+                        disabled={loading}
+                        className={`rounded-xl py-5 items-center mb-4 ${loading ? 'bg-gray-400' : 'bg-black'}`}
                     >
-                        <Text className="text-white text-base font-semibold">Sign In</Text>
+                        {loading ? (
+                            <ActivityIndicator color="white" />
+                        ) : (
+                            <Text className="text-white text-base font-semibold">Sign In</Text>
+                        )}
                     </TouchableOpacity>
+
+                    {/* Register Link */}
+                    <View className="flex-row justify-center">
+                        <Text className="text-gray-600">Don't have an account? </Text>
+                        <TouchableOpacity onPress={() => router.push('./RegisterPassengerScreen')}>
+                            <Text className="text-black font-semibold">Register</Text>
+                        </TouchableOpacity>
+                    </View>
 
                     <View className="h-8" />
                 </View>
