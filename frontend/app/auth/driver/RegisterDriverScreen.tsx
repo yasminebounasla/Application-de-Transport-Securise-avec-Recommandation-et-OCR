@@ -1,9 +1,10 @@
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { useState } from 'react';
 import { Stack, router } from 'expo-router';
-import { registerDriver } from '../../../services/authService';
+import { useAuth } from '../../../context/AuthContext';
 
 export default function RegisterDriverScreen() {
+    const { registerAsDriver, loading } = useAuth();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -15,36 +16,45 @@ export default function RegisterDriverScreen() {
     const [error, setError] = useState('');
 
     const handleRegister = async () => {
-        try {
-            const data = await registerDriver({
-                email,
-                password,
-                confirmPassword,
-                firstName,
-                familyName,
-                age,
-                sexe,
-                phoneNumber
-            });
-            console.log('Registration successful:', data);
+        setError('');
 
+        // Validation
+        if (!email || !password || !confirmPassword || !firstName || !familyName || !age || !sexe || !phoneNumber) {
+            setError('Please fill in all fields');
+            return;
+        }
+
+        if (password !== confirmPassword) {
+            setError('Passwords do not match');
+            return;
+        }
+
+        const result = await registerAsDriver({
+            email,
+            password,
+            confirmPassword,
+            firstName,
+            familyName,
+            age,
+            sexe,
+            phoneNumber
+        });
+
+        if (result.success) {
             Alert.alert(
                 'Success!',
                 'Your account has been created successfully',
                 [
                     {
                         text: 'OK',
-                        onPress: () => router.push('./../../../driver/HomeScreen'), 
+                        onPress: () => router.replace('./../../../driver/HomeScreen'),
                     }
                 ]
             );
-
-        } catch (error: any) {
-            setError(
-                error.response?.data?.message || 'Something went wrong'
-            );
+        } else {
+            setError(result.message);
         }
-    }
+    };
 
     return (
         <>
@@ -67,7 +77,8 @@ export default function RegisterDriverScreen() {
                         <TextInput 
                             value={firstName} 
                             onChangeText={setFirstName} 
-                            placeholder='first name' 
+                            placeholder='First name' 
+                            editable={!loading}
                             className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-4 text-base"
                             placeholderTextColor="#9CA3AF"
                         />
@@ -78,7 +89,8 @@ export default function RegisterDriverScreen() {
                         <TextInput 
                             value={familyName} 
                             onChangeText={setFamilyName} 
-                            placeholder='family name' 
+                            placeholder='Family name' 
+                            editable={!loading}
                             className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-4 text-base"
                             placeholderTextColor="#9CA3AF"
                         />
@@ -90,7 +102,8 @@ export default function RegisterDriverScreen() {
                             value={age} 
                             onChangeText={setAge} 
                             placeholder='25' 
-                            keyboardType='numeric' 
+                            keyboardType='numeric'
+                            editable={!loading}
                             className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-4 text-base"
                             placeholderTextColor="#9CA3AF"
                         />
@@ -102,6 +115,7 @@ export default function RegisterDriverScreen() {
                             value={sexe} 
                             onChangeText={setSexe} 
                             placeholder='Male/Female' 
+                            editable={!loading}
                             className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-4 text-base"
                             placeholderTextColor="#9CA3AF"
                         />
@@ -115,6 +129,7 @@ export default function RegisterDriverScreen() {
                             placeholder='email@email.com' 
                             keyboardType='email-address'
                             autoCapitalize='none'
+                            editable={!loading}
                             className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-4 text-base"
                             placeholderTextColor="#9CA3AF"
                         />
@@ -126,7 +141,8 @@ export default function RegisterDriverScreen() {
                             value={phoneNumber} 
                             onChangeText={setPhoneNumber} 
                             placeholder='+213 XXX XXX XXX' 
-                            keyboardType='phone-pad' 
+                            keyboardType='phone-pad'
+                            editable={!loading}
                             className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-4 text-base"
                             placeholderTextColor="#9CA3AF"
                         />
@@ -138,7 +154,8 @@ export default function RegisterDriverScreen() {
                             value={password} 
                             onChangeText={setPassword} 
                             placeholder='••••••••' 
-                            secureTextEntry 
+                            secureTextEntry
+                            editable={!loading}
                             className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-4 text-base"
                             placeholderTextColor="#9CA3AF"
                         />
@@ -150,7 +167,8 @@ export default function RegisterDriverScreen() {
                             value={confirmPassword} 
                             onChangeText={setConfirmPassword} 
                             placeholder='••••••••' 
-                            secureTextEntry 
+                            secureTextEntry
+                            editable={!loading}
                             className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-4 text-base"
                             placeholderTextColor="#9CA3AF"
                         />
@@ -166,10 +184,23 @@ export default function RegisterDriverScreen() {
                     {/* Submit Button */}
                     <TouchableOpacity 
                         onPress={handleRegister}
-                        className="bg-black rounded-xl py-5 items-center mb-4"
+                        disabled={loading}
+                        className={`rounded-xl py-5 items-center mb-4 ${loading ? 'bg-gray-400' : 'bg-black'}`}
                     >
-                        <Text className="text-white text-base font-semibold">Create Account</Text>
+                        {loading ? (
+                            <ActivityIndicator color="white" />
+                        ) : (
+                            <Text className="text-white text-base font-semibold">Create Account</Text>
+                        )}
                     </TouchableOpacity>
+
+                    {/* Login Link */}
+                    <View className="flex-row justify-center">
+                        <Text className="text-gray-600">Already have an account? </Text>
+                        <TouchableOpacity onPress={() => router.push('./LoginDriverScreen')}>
+                            <Text className="text-black font-semibold">Sign In</Text>
+                        </TouchableOpacity>
+                    </View>
 
                     <View className="h-8" />
                 </View>

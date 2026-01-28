@@ -1,9 +1,10 @@
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { useState } from 'react';
 import { Stack, router } from 'expo-router';
-import { registerPassenger } from '../../../services/authService';
+import { useAuth } from '../../../context/AuthContext';
 
 export default function RegisterPassengerScreen() {
+    const { registerAsPassenger, loading } = useAuth();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [confirmPassword, setConfirmPassword] = useState('');
@@ -14,34 +15,44 @@ export default function RegisterPassengerScreen() {
     const [error, setError] = useState('');
 
     const handleRegister = async () => {
-        try {
-            const data = await registerPassenger({
-                email,
-                password,
-                confirmPassword,
-                firstName,
-                familyName,
-                age,
-                phoneNumber
-            });
-            console.log('Registration successful:', data);
-            Alert.alert(
-                            'Success!',
-                            'Your account has been created successfully',
-                            [
-                                {
-                                    text: 'OK',
-                                    onPress: () => router.push('./../../../passenger/HomeScreen'), 
-                                }
-                            ]
-                        );
-            
-        } catch (error: any) {
-            setError(
-                error.response?.data?.message || 'Something went wrong'
-            );
+        setError('');
+
+        // Validation simple
+        if (!email || !password || !confirmPassword || !firstName || !familyName || !age || !phoneNumber) {
+            setError('Please fill in all fields');
+            return;
         }
-    }
+
+        if (password !== confirmPassword) {
+            setError('Passwords do not match');
+            return;
+        }
+
+        const result = await registerAsPassenger({
+            email,
+            password,
+            confirmPassword,
+            firstName,
+            familyName,
+            age,
+            phoneNumber
+        });
+
+        if (result.success) {
+            Alert.alert(
+                'Success!',
+                'Your account has been created successfully',
+                [
+                    {
+                        text: 'OK',
+                        onPress: () => router.replace('./../../../passenger/HomeScreen'),
+                    }
+                ]
+            );
+        } else {
+            setError(result.message);
+        }
+    };
 
     return (
         <>
@@ -51,111 +62,137 @@ export default function RegisterPassengerScreen() {
                     {/* Header */}
                     <View className="mb-10">
                         <Text className="text-3xl font-bold text-black mb-2">
-                            Join as Passenger
+                            Register as Passenger
                         </Text>
                         <Text className="text-gray-500">
                             Fill in your details to get started
                         </Text>
                     </View>
 
-                    {/* Form Fields */}
+                    {/* First Name */}
                     <View className="mb-4">
                         <Text className="text-sm font-medium text-black mb-2">First Name</Text>
-                        <TextInput 
-                            value={firstName} 
-                            onChangeText={setFirstName} 
-                            placeholder='first name' 
+                        <TextInput
+                            value={firstName}
+                            onChangeText={setFirstName}
+                            placeholder="First name"
+                            editable={!loading}
                             className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-4 text-base"
                             placeholderTextColor="#9CA3AF"
                         />
                     </View>
 
+                    {/* Family Name */}
                     <View className="mb-4">
                         <Text className="text-sm font-medium text-black mb-2">Family Name</Text>
-                        <TextInput 
-                            value={familyName} 
-                            onChangeText={setFamilyName} 
-                            placeholder='family name' 
+                        <TextInput
+                            value={familyName}
+                            onChangeText={setFamilyName}
+                            placeholder="Family name"
+                            editable={!loading}
                             className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-4 text-base"
                             placeholderTextColor="#9CA3AF"
                         />
                     </View>
 
+                    {/* Age */}
                     <View className="mb-4">
                         <Text className="text-sm font-medium text-black mb-2">Age</Text>
-                        <TextInput 
-                            value={age} 
-                            onChangeText={setAge} 
-                            placeholder='25' 
-                            keyboardType='numeric' 
+                        <TextInput
+                            value={age}
+                            onChangeText={setAge}
+                            placeholder="25"
+                            keyboardType="numeric"
+                            editable={!loading}
                             className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-4 text-base"
                             placeholderTextColor="#9CA3AF"
                         />
                     </View>
 
+                    {/* Email */}
                     <View className="mb-4">
                         <Text className="text-sm font-medium text-black mb-2">Email</Text>
-                        <TextInput 
-                            value={email} 
-                            onChangeText={setEmail} 
-                            placeholder='email@email.com' 
-                            keyboardType='email-address'
-                            autoCapitalize='none'
+                        <TextInput
+                            value={email}
+                            onChangeText={setEmail}
+                            placeholder="email@email.com"
+                            keyboardType="email-address"
+                            autoCapitalize="none"
+                            editable={!loading}
                             className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-4 text-base"
                             placeholderTextColor="#9CA3AF"
                         />
                     </View>
 
+                    {/* Phone Number */}
                     <View className="mb-4">
                         <Text className="text-sm font-medium text-black mb-2">Phone Number</Text>
-                        <TextInput 
-                            value={phoneNumber} 
-                            onChangeText={setPhoneNumber} 
-                            placeholder='+213 XXX XXX XXX' 
-                            keyboardType='phone-pad' 
+                        <TextInput
+                            value={phoneNumber}
+                            onChangeText={setPhoneNumber}
+                            placeholder="+213 XXX XXX XXX"
+                            keyboardType="phone-pad"
+                            editable={!loading}
                             className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-4 text-base"
                             placeholderTextColor="#9CA3AF"
                         />
                     </View>
 
+                    {/* Password */}
                     <View className="mb-4">
                         <Text className="text-sm font-medium text-black mb-2">Password</Text>
-                        <TextInput 
-                            value={password} 
-                            onChangeText={setPassword} 
-                            placeholder='••••••••' 
-                            secureTextEntry 
+                        <TextInput
+                            value={password}
+                            onChangeText={setPassword}
+                            placeholder="••••••••"
+                            secureTextEntry
+                            editable={!loading}
                             className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-4 text-base"
                             placeholderTextColor="#9CA3AF"
                         />
                     </View>
 
+                    {/* Confirm Password */}
                     <View className="mb-6">
                         <Text className="text-sm font-medium text-black mb-2">Confirm Password</Text>
-                        <TextInput 
-                            value={confirmPassword} 
-                            onChangeText={setConfirmPassword} 
-                            placeholder='••••••••' 
-                            secureTextEntry 
+                        <TextInput
+                            value={confirmPassword}
+                            onChangeText={setConfirmPassword}
+                            placeholder="••••••••"
+                            secureTextEntry
+                            editable={!loading}
                             className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-4 text-base"
                             placeholderTextColor="#9CA3AF"
                         />
                     </View>
 
-                    {/* Error Message */}
+                    {/* Error */}
                     {error ? (
                         <View className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-6">
                             <Text className="text-red-600 text-sm">{error}</Text>
                         </View>
                     ) : null}
 
-                    {/* Submit Button */}
-                    <TouchableOpacity 
+                    {/* Submit */}
+                    <TouchableOpacity
                         onPress={handleRegister}
-                        className="bg-black rounded-xl py-5 items-center mb-4"
+                        disabled={loading}
+                        className={`rounded-xl py-5 items-center mb-4 ${loading ? 'bg-gray-400' : 'bg-black'}`}
                     >
-                        <Text className="text-white text-base font-semibold">Create Account</Text>
+                        {loading ? (
+                            <ActivityIndicator color="white" />
+                        ) : (
+                            <Text className="text-white text-base font-semibold">Create Account</Text>
+                        )}
                     </TouchableOpacity>
+
+                    {/* Login Link */}
+                    <View className="flex-row justify-center">
+                        <Text className="text-gray-600">Already have an account? </Text>
+                        <TouchableOpacity onPress={() => router.push('./LoginPassengerScreen')}>
+                            <Text className="text-black font-semibold">Sign In</Text>
+                        </TouchableOpacity>
+                    </View>
 
                     <View className="h-8" />
                 </View>

@@ -40,3 +40,29 @@ export const registerPassenger = async (passengerData) => {
         throw error;
     }
 }
+
+export const loginDriver = async (driverData) => {
+    try {
+        const backendData = {
+            email: driverData.email,
+            password: driverData.password,
+        };
+        const response = await api.post('/auth/driver/login', backendData);
+        return response.data;
+    } catch (error) {
+        throw error;
+    }
+}
+
+export const loginPassenger = async (passengerData) => {
+    try {
+        const backendData = {
+            email: passengerData.email,
+            password: passengerData.password,
+        };
+        const response = await api.post('/auth/passenger/login', backendData);
+        return response.data;
+    } catch (error) {
+        throw error;
+    }  
+}
