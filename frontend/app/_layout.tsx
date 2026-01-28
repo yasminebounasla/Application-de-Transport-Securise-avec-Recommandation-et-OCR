@@ -10,6 +10,7 @@ export default function Layout() {
         <Stack.Screen name="auth" options={{ headerShown: false }} />
         <Stack.Screen name="driver" options={{ headerShown: false }} />
         <Stack.Screen name="passenger" options={{ headerShown: false }} />
+        <Stack.Screen name="shared/MapScreen" options={{ title: 'Map' }} />
       </Stack>
     </AuthProvider>
   );

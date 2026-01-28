@@ -2,6 +2,7 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import { AuthProvider } from '../context/AuthContext';
 
+
 export default function Home() {
   return (
     <AuthProvider>
@@ -43,6 +44,15 @@ export default function Home() {
           </Text>
         </View>
       </View>
+        <TouchableOpacity
+          onPress={() => router.push('/shared/MapScreen')}
+          className="bg-blue-500 rounded-2xl py-5 mt-4"
+          >
+         <Text className="text-white text-center text-lg font-semibold">
+          Open Map
+         </Text>
+        </TouchableOpacity>
+
     </AuthProvider>
   );
 }
