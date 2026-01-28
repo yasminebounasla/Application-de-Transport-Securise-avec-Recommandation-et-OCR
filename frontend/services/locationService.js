@@ -1,21 +1,19 @@
-import * as Location from "expo-location";
+import * as Location from 'expo-location';
 
-export async function requestLocationPermission() {
-  const { status } = await Location.requestForegroundPermissionsAsync();
-  return status === "granted";
+export async function getCurrentLocation() {
+  let { status } = await Location.requestForegroundPermissionsAsync();
+  if (status !== 'granted') {
+    throw new Error('Permission denied');
+  }
+  let loc = await Location.getCurrentPositionAsync({});
+  return loc.coords; 
 }
 
-export async function getCurrentPosition() {
-  const hasPermission = await requestLocationPermission();
-
-  if (!hasPermission) {
-    throw new Error("Location permission denied");
-  }
-
-  const location = await Location.getCurrentPositionAsync({});
-
+export async function geocodeAddress(address) {
+  const result = await Location.geocodeAsync(address);
+  if (result.length === 0) return null;
   return {
-    latitude: location.coords.latitude,
-    longitude: location.coords.longitude,
+    latitude: result[0].latitude,
+    longitude: result[0].longitude,
   };
 }
