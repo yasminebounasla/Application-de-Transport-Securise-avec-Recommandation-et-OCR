@@ -23,7 +23,7 @@ export default function MapScreen() {
   const handleSearch = async () => {
     if (!searchText) return;
     try {
-      const coords = await geocodeAddress(searchText); // <-- use service
+      const coords = await geocodeAddress(searchText); 
       if (coords) setLocation(coords);
       else alert("Address not found");
     } catch (err) {
@@ -93,5 +93,6 @@ const styles = StyleSheet.create({
   },
 
 });
+
 
 
