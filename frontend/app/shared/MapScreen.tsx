@@ -2,36 +2,36 @@ import React, { useState, useEffect } from "react";
 import { View, StyleSheet ,TextInput, TouchableOpacity, Text } from "react-native";
 import MapView, { Marker }  from "react-native-maps";
 import * as Location from "expo-location";
-// @ts-ignore
-import { getCurrentLocation, geocodeAddress } from "../../../services/locationService";
 
 export default function MapScreen() {
   const [location, setLocation] = useState(null);
   const [searchText, setSearchText] = useState("");
 
   //Get user location
- useEffect(() => {
+  useEffect(() => {
     (async () => {
-      try {
-        const coords = await getCurrentLocation(); 
-        setLocation(coords);
-      } catch (err) {
-        alert(err.message);
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        alert("Permission denied");
+        return;
       }
+      let loc = await Location.getCurrentPositionAsync({});
+      setLocation(loc.coords);
     })();
   }, []);
   // Search address
   const handleSearch = async () => {
     if (!searchText) return;
-    try {
-      const coords = await geocodeAddress(searchText); 
-      if (coords) setLocation(coords);
-      else alert("Address not found");
-    } catch (err) {
-      alert("Error searching address");
+
+    const result = await Location.geocodeAsync(searchText);
+
+    if (result.length > 0) {
+      setLocation({
+        latitude: result[0].latitude,
+        longitude: result[0].longitude,
+      });
     }
   };
-  
   return (
     <View style={styles.container}>
     <View style={styles.searchBox}>
@@ -94,7 +94,3 @@ const styles = StyleSheet.create({
   },
 
 });
-
-
-
-
