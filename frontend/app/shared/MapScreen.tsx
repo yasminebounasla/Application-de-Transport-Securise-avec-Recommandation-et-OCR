@@ -2,7 +2,8 @@ import React, { useState, useEffect } from "react";
 import { View, StyleSheet ,TextInput, TouchableOpacity, Text } from "react-native";
 import MapView, { Marker }  from "react-native-maps";
 import * as Location from "expo-location";
-import { getCurrentLocation, geocodeAddress } from "../services/locationService"; 
+// @ts-ignore
+import { getCurrentLocation, geocodeAddress } from "../../../services/locationService";
 
 export default function MapScreen() {
   const [location, setLocation] = useState(null);
@@ -93,6 +94,7 @@ const styles = StyleSheet.create({
   },
 
 });
+
 
 
 
