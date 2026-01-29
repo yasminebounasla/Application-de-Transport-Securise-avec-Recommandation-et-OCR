@@ -1,38 +1,44 @@
-import React, { useState, useEffect } from "react";
+import React, { useContext, useRef, useEffect, useState } from "react";
 import { View, StyleSheet, TextInput, TouchableOpacity, Text } from "react-native";
 import MapView, { Marker } from "react-native-maps";
-import { getCurrentLocation, geocodeAddress } from "../../services/locationService";
+import { LocationContext } from "../../context/LocationContext";
 
 export default function MapScreen() {
-  const [location, setLocation] = useState(null);
+  const { currentLocation, endLocation, setEndLocation } = useContext(LocationContext);
+  const mapRef = useRef<MapView>(null);
   const [searchText, setSearchText] = useState("");
 
-  // Get user location
+  // Centrer la carte sur la position actuelle
   useEffect(() => {
-    (async () => {
-      try {
-        const coords = await getCurrentLocation(); 
-        setLocation(coords);
-      } catch (err) {
-        alert(err.message);
-      }
-    })();
-  }, []);
+    if (currentLocation && mapRef.current) {
+      mapRef.current.animateToRegion(
+        {
+          latitude: currentLocation.latitude,
+          longitude: currentLocation.longitude,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        },
+        1000
+      );
+    }
+  }, [currentLocation]);
 
-  // Search address 
-  const handleSearch = async () => {
-    if (!searchText) return;
-    try {
-      const coords = await geocodeAddress(searchText); 
-      if (coords) setLocation(coords);
-      else alert("Address not found");
-    } catch (err) {
-      alert("Error searching address");
+  if (!currentLocation) return null;
+
+  const handleSearchPress = () => {
+    if (searchText.trim() !== "") {
+      setEndLocation({
+        ...endLocation,
+        latitude: currentLocation.latitude, 
+        longitude: currentLocation.longitude,
+      });
+      setSearchText(""); 
     }
   };
 
   return (
     <View style={styles.container}>
+      {/* Barre de recherche toujours visible */}
       <View style={styles.searchBox}>
         <TextInput
           placeholder="Search address..."
@@ -40,26 +46,32 @@ export default function MapScreen() {
           onChangeText={setSearchText}
           style={styles.input}
         />
-        <TouchableOpacity onPress={handleSearch} style={styles.searchBtn}>
+        <TouchableOpacity onPress={handleSearchPress} style={styles.searchBtn}>
           <Text style={{ color: "white" }}>Go</Text>
         </TouchableOpacity>
       </View>
 
-      {location && (
-        <MapView
-          style={styles.map}
-          region={{
-            latitude: location.latitude,
-            longitude: location.longitude,
-            latitudeDelta: 0.01,
-            longitudeDelta: 0.01,
-          }}
-          showsUserLocation={true}
-          zoomControlEnabled={true}
-        >
-          <Marker coordinate={location} />
-        </MapView>
-      )}
+      <MapView
+        ref={mapRef}
+        style={styles.map}
+        initialRegion={{
+          latitude: currentLocation.latitude,
+          longitude: currentLocation.longitude,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        }}
+        showsUserLocation={true}
+        zoomControlEnabled={true}
+      >
+        {endLocation && (
+          <Marker
+            coordinate={endLocation}
+            draggable
+            onDragEnd={(e) => setEndLocation(e.nativeEvent.coordinate)}
+            pinColor="black"
+          />
+        )}
+      </MapView>
     </View>
   );
 }
@@ -82,16 +94,13 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 5,
   },
-
   input: {
     flex: 1,
     padding: 8,
   },
-
   searchBtn: {
     backgroundColor: "black",
     padding: 10,
     borderRadius: 5,
   },
-
 });
