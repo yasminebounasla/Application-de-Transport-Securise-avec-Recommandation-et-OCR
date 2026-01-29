@@ -1,7 +1,9 @@
 import React, { useContext, useRef, useEffect, useState } from "react";
-import { View, StyleSheet, TextInput, TouchableOpacity, Text } from "react-native";
-import MapView, { Marker } from "react-native-maps";
+import { View, StyleSheet, TextInput, TouchableOpacity, Text, Alert } from "react-native";
+import MapView from "react-native-maps";
 import { LocationContext } from "../../context/LocationContext";
+import LocationPicker from "../../components/LocationPicker";
+import { geocodeAddress } from "../../services/locationService";
 
 export default function MapScreen() {
   const { currentLocation, endLocation, setEndLocation } = useContext(LocationContext);
@@ -25,20 +27,37 @@ export default function MapScreen() {
 
   if (!currentLocation) return null;
 
-  const handleSearchPress = () => {
-    if (searchText.trim() !== "") {
-      setEndLocation({
-        ...endLocation,
-        latitude: currentLocation.latitude, 
-        longitude: currentLocation.longitude,
-      });
-      setSearchText(""); 
+  const handleSearchPress = async () => {
+    if (!searchText.trim()) return;
+
+    try {
+      const coords = await geocodeAddress(searchText);
+      if (!coords) {
+        Alert.alert("Adresse introuvable");
+        return;
+      }
+
+      setEndLocation(coords);
+
+      // Déplacer le marker et centrer la carte
+      mapRef.current?.animateToRegion(
+        {
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+          latitudeDelta: 0.01,
+          longitudeDelta: 0.01,
+        },
+        1000
+      );
+
+      setSearchText(""); // reset input
+    } catch (error) {
+      Alert.alert("Erreur", "Impossible de trouver cette adresse");
     }
   };
-
   return (
     <View style={styles.container}>
-      {/* Barre de recherche toujours visible */}
+      {/* Barre de recherche */}
       <View style={styles.searchBox}>
         <TextInput
           placeholder="Search address..."
@@ -63,19 +82,14 @@ export default function MapScreen() {
         showsUserLocation={true}
         zoomControlEnabled={true}
       >
-        {endLocation && (
-          <Marker
-            coordinate={endLocation}
-            draggable
-            onDragEnd={(e) => setEndLocation(e.nativeEvent.coordinate)}
-            pinColor="black"
-          />
-        )}
+        <LocationPicker
+          mapRef={mapRef}
+          searchLocation={endLocation} 
+        />
       </MapView>
     </View>
   );
 }
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
