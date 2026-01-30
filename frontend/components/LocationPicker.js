@@ -1,17 +1,33 @@
 import React, { useContext, useEffect, useRef } from "react";
 import { LocationContext } from "../context/LocationContext";
-import MapView, { Marker } from "react-native-maps";
+import { Marker } from "react-native-maps";
 
 export default function LocationPicker({ mapRef, searchLocation }) {
-  const { endLocation, setEndLocation } = useContext(LocationContext);
+  const { endLocation, setEndLocation, endAddress, setEndAddress } = useContext(LocationContext);
   const markerRef = useRef(null);
 
-  // Si searchLocation change, déplacer le marker
+  const reverseGeocodeNominatim = async ({ latitude, longitude }) => {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`
+      );
+      const data = await response.json();
+      if (data && data.display_name) {
+        setEndAddress(data.display_name);
+      } else {
+        setEndAddress("Adresse inconnue");
+      }
+    } catch (error) {
+      console.error("Erreur reverse geocoding Nominatim:", error);
+      setEndAddress("Adresse inconnue");
+    }
+  };
+
   useEffect(() => {
     if (searchLocation && setEndLocation) {
       setEndLocation(searchLocation);
+      reverseGeocodeNominatim(searchLocation);
 
-      // Centrer la carte sur la nouvelle position
       if (mapRef && mapRef.current) {
         mapRef.current.animateToRegion(
           {
@@ -26,6 +42,18 @@ export default function LocationPicker({ mapRef, searchLocation }) {
     }
   }, [searchLocation]);
 
+  const handleMapPress = (event) => {
+    const coords = event.nativeEvent.coordinate;
+    setEndLocation(coords);
+    reverseGeocodeNominatim(coords);
+  };
+
+  const handleDragEnd = (event) => {
+    const coords = event.nativeEvent.coordinate;
+    setEndLocation(coords);
+    reverseGeocodeNominatim(coords);
+  };
+
   if (!endLocation) return null;
 
   return (
@@ -33,7 +61,11 @@ export default function LocationPicker({ mapRef, searchLocation }) {
       ref={markerRef}
       coordinate={endLocation}
       draggable
-      onDragEnd={(e) => setEndLocation(e.nativeEvent.coordinate)}
+      onDragEnd={(e) => {
+        const coords = e.nativeEvent.coordinate;
+        setEndLocation(coords);
+        reverseGeocodeNominatim(coords);
+      }}
       pinColor="black"
     />
   );
