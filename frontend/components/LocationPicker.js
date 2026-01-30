@@ -25,6 +25,22 @@ export default function LocationPicker({ mapRef, searchLocation }) {
       }
     }
   }, [searchLocation]);
+  useEffect(() => {
+    if (!mapRef?.current) return;
+
+    const listener = mapRef.current.addListener("press", (event) => {
+      const coords = event.nativeEvent.coordinate;
+
+      setEndLocation({
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+      });
+    });
+    
+    return () => {
+      listener?.remove();
+    };
+  }, []);
 
   if (!endLocation) return null;
 
@@ -38,3 +54,4 @@ export default function LocationPicker({ mapRef, searchLocation }) {
     />
   );
 }
+
