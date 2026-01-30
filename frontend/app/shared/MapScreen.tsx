@@ -6,7 +6,13 @@ import LocationPicker from "../../components/LocationPicker";
 import { geocodeAddress } from "../../services/locationService";
 
 export default function MapScreen() {
-  const { currentLocation, endLocation, setEndLocation } = useContext(LocationContext);
+  const {
+  currentLocation,
+  endLocation,
+  setEndLocation,
+  endAddress,
+  setEndAddress
+  } = useContext(LocationContext);
   const mapRef = useRef<MapView>(null);
   const [searchText, setSearchText] = useState("");
 
@@ -50,7 +56,7 @@ export default function MapScreen() {
         1000
       );
 
-      setSearchText(""); // reset input
+      setSearchText(""); 
     } catch (error) {
       Alert.alert("Erreur", "Impossible de trouver cette adresse");
     }
@@ -81,9 +87,20 @@ export default function MapScreen() {
         }}
         showsUserLocation={true}
         zoomControlEnabled={true}
-        onPress={(event) => {
-          const coords = event.nativeEvent.coordinate;
+        onPress={(e) => {
+         const coords = e.nativeEvent.coordinate;
           setEndLocation(coords);
+          fetch(`https://nominatim.openstreetmap.org/reverse?lat=${coords.latitude}&lon=${coords.longitude}&format=json`)
+          .then(res => res.json())
+          .then(data => setEndAddress(data.display_name || "Adresse inconnue"))
+          .catch(() => setEndAddress("Adresse inconnue"));
+
+    
+          mapRef.current?.animateToRegion({
+           ...coords,
+           latitudeDelta: 0.01,
+           longitudeDelta: 0.01,
+          }, 1000);
         }}
       >
         <LocationPicker
@@ -122,6 +139,3 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
 });
-
-
-
