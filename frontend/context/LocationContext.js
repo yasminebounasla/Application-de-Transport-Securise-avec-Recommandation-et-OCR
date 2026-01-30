@@ -7,6 +7,7 @@ export const LocationProvider = ({ children }) => {
   const [currentLocation, setCurrentLocation] = useState(null);
   const [startLocation, setStartLocation] = useState(null);
   const [endLocation, setEndLocation] = useState(null);
+  const [endAddress, setEndAddress] = useState(null);
 
   
   useEffect(() => {
@@ -19,7 +20,15 @@ export const LocationProvider = ({ children }) => {
 
   return (
     <LocationContext.Provider
-      value={{ currentLocation, startLocation, endLocation, setStartLocation, setEndLocation }}
+      value={{
+       currentLocation,
+       startLocation,
+       endLocation,
+       endAddress,
+       setStartLocation,
+       setEndLocation,
+       setEndAddress
+      }}
     >
       {children}
     </LocationContext.Provider>
