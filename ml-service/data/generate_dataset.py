@@ -105,17 +105,25 @@ for p in passengers:
         if trip_time == "night" and d["works_night"] == "no":
             score -= 5
 
-        interaction = 1 if score >= 2 else 0
+        # Transformer le score en weight positif
+        weight = max(score, 0)   # tout ce qui est négatif devient 0
+
 
         interactions.append({
             "passenger_id": p["passenger_id"],
             "driver_id": d["driver_id"],
             "time_of_trip": trip_time,
-            "interaction": interaction
+            "weight": weight
         })
+
 
 interactions_df = pd.DataFrame(interactions)
 interactions_df.to_csv("interactions.csv", index=False)
+
+print(interactions_df.head())
+print(interactions_df.columns)
+print(interactions_df["weight"].describe())
+
 
 print("✅ Dataset generated successfully!")
 print(f"Passengers: {len(passengers_df)}")
