@@ -3,25 +3,32 @@ import { LocationContext } from "../context/LocationContext";
 import { Marker } from "react-native-maps";
 
 export default function LocationPicker({ mapRef, searchLocation }) {
-  const { endLocation, setEndLocation, endAddress, setEndAddress } = useContext(LocationContext);
+  const { endLocation, setEndLocation, setEndAddress } = useContext(LocationContext);
   const markerRef = useRef(null);
 
   const reverseGeocodeNominatim = async ({ latitude, longitude }) => {
-    try {
-      const response = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json`
-      );
-      const data = await response.json();
-      if (data && data.display_name) {
-        setEndAddress(data.display_name);
-      } else {
-        setEndAddress("Adresse inconnue");
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`,
+      {
+        headers: {
+          "User-Agent": "my-app"
+        }
       }
-    } catch (error) {
-      console.error("Erreur reverse geocoding Nominatim:", error);
+    );
+
+    const data = await response.json();
+
+    if (data && data.display_name) {
+      setEndAddress(data.display_name);
+    } else {
       setEndAddress("Adresse inconnue");
     }
-  };
+  } catch (error) {
+    console.error("Erreur reverse geocoding Nominatim:", error);
+    setEndAddress("Adresse inconnue");
+  }
+};
 
   useEffect(() => {
     if (searchLocation && setEndLocation) {
