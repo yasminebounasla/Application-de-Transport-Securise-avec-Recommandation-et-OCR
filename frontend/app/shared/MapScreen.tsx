@@ -81,10 +81,6 @@ export default function MapScreen() {
         }}
         showsUserLocation={true}
         zoomControlEnabled={true}
-        onPress={(e) => {
-          const coords = e.nativeEvent.coordinate;
-          setEndLocation(coords);
-        }}
       >
         <LocationPicker
           mapRef={mapRef}
@@ -122,4 +118,5 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
 });
+
 
