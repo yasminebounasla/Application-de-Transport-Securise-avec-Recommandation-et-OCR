@@ -4,6 +4,7 @@ import MapView from "react-native-maps";
 import { LocationContext } from "../../context/LocationContext";
 import LocationPicker from "../../components/LocationPicker";
 import { geocodeAddress } from "../../services/locationService";
+import { calculateDistance } from "../../utils/geoUtils";
 
 export default function MapScreen() {
   const {
@@ -13,6 +14,7 @@ export default function MapScreen() {
   endAddress,
   setEndAddress
   } = useContext(LocationContext);
+  const [distance, setDistance] = useState(null);
   const mapRef = useRef<MapView>(null);
   const [searchText, setSearchText] = useState("");
 
@@ -30,6 +32,17 @@ export default function MapScreen() {
       );
     }
   }, [currentLocation]);
+
+  useEffect(() => {
+  if (currentLocation && endLocation) {
+    const d = calculateDistance(
+      currentLocation.latitude,
+      currentLocation.longitude,
+      endLocation.latitude,
+      endLocation.longitude
+    );
+    setDistance(d);
+  }}, [currentLocation, endLocation]);
 
   if (!currentLocation) return null;
 
@@ -56,7 +69,7 @@ export default function MapScreen() {
         1000
       );
 
-      setSearchText(""); 
+      setSearchText(""); // reset input
     } catch (error) {
       Alert.alert("Erreur", "Impossible de trouver cette adresse");
     }
@@ -75,6 +88,12 @@ export default function MapScreen() {
           <Text style={{ color: "white" }}>Go</Text>
         </TouchableOpacity>
       </View>
+
+      {distance !== null && (
+      <View style={styles.distanceBox}>
+        <Text>Distance: {distance.toFixed(2)} km</Text>
+      </View>
+      )}
 
       <MapView
         ref={mapRef}
@@ -137,5 +156,16 @@ const styles = StyleSheet.create({
     backgroundColor: "black",
     padding: 10,
     borderRadius: 5,
+  },
+  distanceBox: {
+    position: "absolute",
+    top: 100,  
+    left: 10,
+    right: 10,
+    backgroundColor: "rgba(255,255,255,0.9)",
+    padding: 10,
+    borderRadius: 8,
+    zIndex: 1,
+    alignItems: "center",
   },
 });
