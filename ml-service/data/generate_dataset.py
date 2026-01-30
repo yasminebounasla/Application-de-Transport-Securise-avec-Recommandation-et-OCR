@@ -83,9 +83,9 @@ for p in passengers:
 
         # Luggage
         if p["luggage_large"] == "yes" and d["car_big"] == "yes":
-            score += 2
+            score += 3
         if p["luggage_large"] == "yes" and d["car_big"] == "no":
-            score -= 2
+            score -= 3
 
         # Female driver preference
         if p["female_driver_pref"] == "yes" and d["driver_gender"] == "female":
