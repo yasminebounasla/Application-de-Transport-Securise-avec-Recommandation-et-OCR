@@ -1,9 +1,10 @@
 import pandas as pd
 import random
+from sklearn.preprocessing import MinMaxScaler
 
 NUM_PASSENGERS = 250
 NUM_DRIVERS = 90
-INTERACTIONS_PER_PASSENGER = 60  # → ~15 000 interactions
+INTERACTIONS_PER_PASSENGER = 60  # ~15 000 interactions
 
 yes_no = ["yes", "no"]
 times_of_day = ["morning", "afternoon", "evening", "night"]
@@ -12,7 +13,6 @@ times_of_day = ["morning", "afternoon", "evening", "night"]
 # GENERATE PASSENGERS
 # -------------------------
 passengers = []
-
 for i in range(NUM_PASSENGERS):
     passengers.append({
         "passenger_id": f"P{i}",
@@ -31,7 +31,6 @@ passengers_df.to_csv("passengers.csv", index=False)
 # GENERATE DRIVERS
 # -------------------------
 drivers = []
-
 for i in range(NUM_DRIVERS):
     drivers.append({
         "driver_id": f"D{i}",
@@ -105,27 +104,32 @@ for p in passengers:
         if trip_time == "night" and d["works_night"] == "no":
             score -= 5
 
-        # Transformer le score en weight positif
-        weight = max(score, 0)   # tout ce qui est négatif devient 0
-
-
+        # Décaler pour éviter trop de 0 et normaliser ensuite
+        score += 7  # décalage pour rendre tout positif
         interactions.append({
             "passenger_id": p["passenger_id"],
             "driver_id": d["driver_id"],
             "time_of_trip": trip_time,
-            "weight": weight
+            "raw_score": score
         })
 
-
 interactions_df = pd.DataFrame(interactions)
+
+# -------------------------
+# SCALE LES WEIGHTS ENTRE 0 ET 1
+# -------------------------
+scaler = MinMaxScaler()
+interactions_df["weight"] = scaler.fit_transform(interactions_df[["raw_score"]])
+interactions_df.drop(columns=["raw_score"], inplace=True)
+
 interactions_df.to_csv("interactions.csv", index=False)
 
+# -------------------------
+# AFFICHER LES INFOS
+# -------------------------
 print(interactions_df.head())
-print(interactions_df.columns)
 print(interactions_df["weight"].describe())
-
-
-print("✅ Dataset generated successfully!")
+print("Dataset generated successfully!")
 print(f"Passengers: {len(passengers_df)}")
 print(f"Drivers: {len(drivers_df)}")
 print(f"Interactions: {len(interactions_df)}")
