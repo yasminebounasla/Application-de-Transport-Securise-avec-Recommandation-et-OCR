@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { prisma } from "./src/config/prisma.js"; 
 import authRoutes from './src/routes/authRoutes.js';
+import { notFound, errorHandler } from "./src/middleware/errorHandler.js";
 
 dotenv.config();
 
