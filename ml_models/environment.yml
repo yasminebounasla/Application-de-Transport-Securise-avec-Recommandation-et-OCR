@@ -1,0 +1,16 @@
+name: ml311
+channels:
+  - conda-forge
+dependencies:
+  - python=3.11
+  - lightfm
+  - flask
+  - python-dotenv
+  - pillow
+  - pytesseract
+  - numpy
+  - scikit-learn
+  - opencv
+  - pip
+  - pip:
+      - tensorflow==2.20.0
