@@ -1,0 +1,9 @@
+flask
+python-dotenv
+pillow
+pytesseract
+tensorflow
+lightfm
+numpy
+scikit-learn
+opencv-python
