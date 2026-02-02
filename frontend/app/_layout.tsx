@@ -13,6 +13,7 @@ export default function Layout() {
         <Stack.Screen name="driver" options={{ headerShown: false }} />
         <Stack.Screen name="passenger" options={{ headerShown: false }} />
         <Stack.Screen name="shared/MapScreen" options={{ title: 'Map' }} />
+        <Stack.Screen name="passenger/SearchRideScreen" options={{ title: "Search Ride" }} />
       </Stack>
       </LocationProvider>
     </AuthProvider>

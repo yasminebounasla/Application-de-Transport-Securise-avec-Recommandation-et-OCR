@@ -46,13 +46,13 @@ export default function Home() {
       </View>
 
        <TouchableOpacity
-          onPress={() => router.push('/shared/MapScreen')}
+          onPress={() => router.push('/passenger/SearchRideScreen')}
           className="bg-blue-500 rounded-2xl py-5 mt-4"
-       >
-         <Text className="text-white text-center text-lg font-semibold">
-          Open Map
-         </Text>
-       </TouchableOpacity>
+        >
+          <Text className="text-white text-center text-lg font-semibold">
+            Open Search Ride
+          </Text>
+        </TouchableOpacity>
     </AuthProvider>
   );
 }

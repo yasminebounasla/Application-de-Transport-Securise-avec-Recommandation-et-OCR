@@ -1,41 +1,24 @@
 import React, { useContext, useEffect, useRef } from "react";
 import { LocationContext } from "../context/LocationContext";
 import { Marker } from "react-native-maps";
+import { reverseGeocode } from "../utils/reverseGeocode";
 
 export default function LocationPicker({ mapRef, searchLocation }) {
-  const { endLocation, setEndLocation, setEndAddress } = useContext(LocationContext);
+  const { endLocation, setEndLocation, setEndAddress } =
+    useContext(LocationContext);
+
   const markerRef = useRef(null);
 
-  const reverseGeocodeNominatim = async ({ latitude, longitude }) => {
-  try {
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`,
-      {
-        headers: {
-          "User-Agent": "my-app"
-        }
-      }
-    );
-
-    const data = await response.json();
-
-    if (data && data.display_name) {
-      setEndAddress(data.display_name);
-    } else {
-      setEndAddress("Adresse inconnue");
-    }
-  } catch (error) {
-    console.error("Erreur reverse geocoding Nominatim:", error);
-    setEndAddress("Adresse inconnue");
-  }
-};
-
+  // Quand une localisation est fournie depuis recherche
   useEffect(() => {
-    if (searchLocation && setEndLocation) {
-      setEndLocation(searchLocation);
-      reverseGeocodeNominatim(searchLocation);
+    const loadAddress = async () => {
+      if (!searchLocation) return;
 
-      if (mapRef && mapRef.current) {
+      setEndLocation(searchLocation);
+      const address = await reverseGeocode(searchLocation);
+      setEndAddress(address);
+
+      if (mapRef?.current) {
         mapRef.current.animateToRegion(
           {
             latitude: searchLocation.latitude,
@@ -46,19 +29,25 @@ export default function LocationPicker({ mapRef, searchLocation }) {
           1000
         );
       }
-    }
+    };
+
+    loadAddress();
   }, [searchLocation]);
 
-  const handleMapPress = (event) => {
+  // Click sur carte
+  const handleMapPress = async (event) => {
     const coords = event.nativeEvent.coordinate;
     setEndLocation(coords);
-    reverseGeocodeNominatim(coords);
+    const address = await reverseGeocode(coords);
+    setEndAddress(address);
   };
 
-  const handleDragEnd = (event) => {
+  // Drag marker
+  const handleDragEnd = async (event) => {
     const coords = event.nativeEvent.coordinate;
     setEndLocation(coords);
-    reverseGeocodeNominatim(coords);
+    const address = await reverseGeocode(coords);
+    setEndAddress(address);
   };
 
   if (!endLocation) return null;
@@ -68,11 +57,8 @@ export default function LocationPicker({ mapRef, searchLocation }) {
       ref={markerRef}
       coordinate={endLocation}
       draggable
-      onDragEnd={(e) => {
-        const coords = e.nativeEvent.coordinate;
-        setEndLocation(coords);
-        reverseGeocodeNominatim(coords);
-      }}
+      onPress={handleMapPress}
+      onDragEnd={handleDragEnd}
       pinColor="black"
     />
   );
