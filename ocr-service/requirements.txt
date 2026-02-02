@@ -1,6 +1,17 @@
-flask
-easyocr
-opencv-python
-pillow
-numpy
-python-dotenv
+
+# Dépendances pour OCR Permis de Conduire
+
+# Computer Vision
+opencv-python>=4.8.0
+numpy>=1.24.0
+
+# OCR
+easyocr>=1.7.0
+
+# API (optionnel)
+fastapi>=0.104.0
+uvicorn>=0.24.0
+python-multipart>=0.0.6
+
+# Utilitaires
+pillow>=10.0.0
