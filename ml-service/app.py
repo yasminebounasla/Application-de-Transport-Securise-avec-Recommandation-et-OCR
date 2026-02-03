@@ -1,18 +1,22 @@
 import os
-from flask import Flask, request, jsonify
+from fastapi import FastAPI
+from pydantic import BaseModel
 from recommender import get_recommendations
 
-app = Flask(__name__)
+app = FastAPI()
 
-@app.route('/recommend', methods=['POST']) 
-def recommend():
-    data = request.get_json()
-    user_id = data.get('user_id')
-    preference = data.get('preference')       
-    
-    recommendations = get_recommendations(user_id, preference)
-    
-    return jsonify({'recommendations': recommendations})
+# 🔹 Define expected request body
+class RecommendationRequest(BaseModel):
+    user_id: int
+    preferences: dict
+
+
+@app.post("/recommend")
+def recommend(data: RecommendationRequest):
+    recommendations = get_recommendations(data.user_id, data.preferences)
+    return {"recommendations": recommendations}
 
 if __name__ == "__main__":
-    app.run(debug=True, port=int(os.getenv("FLASK_PORT", 5000)))
+    import uvicorn
+    port = int(os.getenv("FLASK_PORT", 5000))
+    uvicorn.run(app, host=os.getenv("FLASK_HOST", "127.0.0.1"), port=port)
