@@ -3,6 +3,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { prisma } from "./src/config/prisma.js"; 
 import authRoutes from './src/routes/authRoutes.js';
+import recommendationRoutes from './src/routes/recommendationRoutes.js';
 import { notFound, errorHandler } from "./src/middleware/errorHandler.js";
 
 dotenv.config();
@@ -25,6 +26,11 @@ app.get('/', (req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
+app.use("/api/recomnmendations", recommendationRoutes);
+
+// Error Handling Middleware
+app.use(notFound);
+app.use(errorHandler);
 
 
 const startServer = async () => {
