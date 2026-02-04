@@ -1,8 +1,8 @@
-const API_URL = 'http://localhost:3000'; 
+import { API_URL } from './api';
 
 export async function calculateRouteAPI(start, end) {
   try {
-    const response = await fetch(`${API_URL}/api/ride/calculate`, {
+    const response = await fetch(`${API_URL}/ride/calculate`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -28,7 +28,7 @@ export function isInAlgeria(latitude, longitude) {
   const ALGERIA_BOUNDS = {
     north: 37.5,
     south: 18.5,
-    east: 12.0,
+    east: 12,
     west: -8.7
   };
 
