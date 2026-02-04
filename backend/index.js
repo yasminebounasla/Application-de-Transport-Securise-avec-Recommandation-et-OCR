@@ -29,7 +29,7 @@ app.get('/', (req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
-app.use("/api/recomnmendations", recommendationRoutes);
+app.use("/api/driver", recommendationRoutes);
 app.use("/api/ride", rideRoutes);
 app.use("/api/drivers", driverRoutes);
 app.use("/api/passengers", passengerRoutes);
