@@ -1,6 +1,6 @@
 import { prisma } from "../config/prisma.js";
 
-export const addDriverpreferances = async (req, res) => {
+export const addDriverPreferences = async (req, res) => {
   // On prend l'ID directement depuis le token
   const driverId = req.user.driverId;
 
