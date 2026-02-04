@@ -50,7 +50,7 @@ model Driver {
   age        Int
 
   // OCR & identité
-  carteIdNum String?
+  permisNum String?
   selfieUrl  String?  // URL du selfie
 
   // critères pour recommandation
