@@ -4,7 +4,7 @@ import dotenv from 'dotenv';
 import { prisma } from "./src/config/prisma.js"; 
 import authRoutes from './src/routes/authRoutes.js';
 import recommendationRoutes from './src/routes/recommendationRoutes.js';
-import rideRoutes from './src/ride/rideRoutes.js'; 
+import rideRoutes from './src/routes/rideRoutes.js'; 
 import { notFound, errorHandler } from "./src/middleware/errorHandler.js";
 
 dotenv.config();
