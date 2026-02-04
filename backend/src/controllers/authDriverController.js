@@ -122,3 +122,39 @@ export const loginDriver = async (req, res) => {
         })
     }
 }
+
+export const getAllDrivers = async (req, res) => { 
+    try {
+        const drivers = await prisma.driver.findMany({
+            select: {
+                id: true,
+                email: true,
+                nom: true,
+                prenom: true,
+                age: true,
+                numTel: true,
+                sexe: true,
+                fumeur: true,
+                talkative: true,
+                radio_on: true,
+                smoking_allowed: true,
+                pets_allowed: true,
+                car_big: true,
+                works_morning: true,
+                works_afternoon: true,
+                works_evening: true,
+                works_night: true,
+                isVerified: true
+            }
+        });
+        res.status(200).json({
+            message: "Drivers retrieved successfully.",
+            data: drivers
+        });
+    } catch (err) {
+        res.status(500).json({
+            message: "Failed to retrieve drivers.",
+            error: err.message
+        });
+    }
+};
