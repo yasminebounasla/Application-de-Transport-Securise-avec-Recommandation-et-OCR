@@ -1,0 +1,36 @@
+# ============================================================================
+# FACE RECOGNITION SERVICE - DEPENDENCIES
+# ============================================================================
+# Service de reconnaissance faciale pour KYC (Know Your Customer)
+# Basé sur InsightFace - Production Grade Face Recognition
+
+# Core Face Recognition
+insightface==0.7.3
+onnxruntime==1.16.3
+
+# Computer Vision
+opencv-python==4.8.1.78
+scikit-image==0.22.0
+Pillow==10.1.0
+
+# API Framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+
+# Data Processing
+numpy==1.24.3
+pandas==2.1.3
+
+# Utilities
+python-dotenv==1.0.0
+pydantic==2.5.0
+pydantic-settings==2.1.0
+
+# Testing (optional)
+pytest==7.4.3
+pytest-asyncio==0.21.1
+httpx==0.25.2
+
+# Logging & Monitoring
+loguru==0.7.2
