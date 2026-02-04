@@ -1,6 +1,8 @@
 import express from 'express';
-import { getRecommendations } from '../controllers/recommendationController.js';
+import { recommendDrivers } from '../controllers/recommendationController.js';
 
 const router = express.Router();
 
-router.post('/recommendations', getRecommendations);
+router.post('/recommendations', recommendDrivers);
+
+export default router;
