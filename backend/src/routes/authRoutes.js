@@ -7,7 +7,7 @@ const router = express.Router();
 // Routes for Driver authentication
 router.post('/driver/register', registerDriver);
 router.post('/driver/login', loginDriver);
-router.get('/driver/All', getAllDrivers);
+router.get('/driver/all', getAllDrivers);
 
 
 // Routes for Passenger authentication
