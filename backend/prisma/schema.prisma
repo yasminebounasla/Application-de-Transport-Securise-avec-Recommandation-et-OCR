@@ -1,0 +1,118 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+
+// Passager
+model Passenger {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  nom       String
+  prenom    String
+  numTel    String
+  age       Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // préférences pour recommandation
+  quiet_ride         Boolean?
+  radio_ok           Boolean?
+  smoking_ok         Boolean?
+  pets_ok            Boolean?
+  luggage_large      Boolean?
+  female_driver_pref Boolean?
+
+  trajets   Trajet[] @relation("TrajetsPassager")
+}
+
+// Conducteur
+model Driver {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  nom       String
+  prenom    String
+  numTel    String
+  sexe      String // "M" ou "F"
+  isVerified Boolean @default(false) // OCR validé
+  age        Int
+
+  // OCR & identité
+  permisNum String?
+  selfieUrl  String?  // URL du selfie
+
+  // critères pour recommandation
+  fumeur           Boolean?
+  talkative        Boolean?
+  radio_on         Boolean?
+  smoking_allowed  Boolean?
+  pets_allowed     Boolean?
+  car_big          Boolean?
+  works_morning    Boolean?
+  works_afternoon  Boolean?
+  works_evening    Boolean?
+  works_night      Boolean?
+
+  note        Float?   // moyenne des évaluations 
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  vehicules Vehicule[]
+  trajets   Trajet[] @relation("TrajetsConducteur")
+}
+
+// Vehicule
+model Vehicule {
+  id           String @id @default(uuid())
+  driverId String
+  marque       String
+  modele       String?
+  annee        Int?
+  nbPlaces     Int?
+  plaque       String?
+  couleur      String?
+
+  driver       Driver @relation(fields: [driverId], references: [id])
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([driverId])
+}
+
+
+// Trajet
+model Trajet {
+  id           String @id @default(uuid())
+  driverId     String
+  passagerId   String?
+
+  depart       String
+  destination  String
+  dateDepart   DateTime
+  heureDepart  String?
+  placesDispo  Int
+  prix         Float
+
+  driver       Driver @relation("TrajetsConducteur", fields: [driverId], references: [id])
+  passenger     Passenger?  @relation("TrajetsPassager", fields: [passagerId], references: [id])
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([driverId])
+  @@index([passagerId])
+}
