@@ -7,6 +7,65 @@ async function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+function cleanMultilingualText(text) {
+  if (!text) return '';
+  
+  const cleaned = text
+    .replace(/[\u0600-\u06FF]/g, '') 
+    .replace(/[\u2D30-\u2D7F]/g, '') 
+    .replace(/\s+/g, ' ') 
+    .trim();
+  
+  return cleaned;
+}
+
+function getShortName(place) {
+  const addr = place.address;
+  
+  const name = 
+    addr.university ||
+    addr.hospital ||
+    addr.school ||
+    addr.amenity ||
+    place.name ||
+    addr.suburb ||
+    addr.neighbourhood ||
+    addr.quarter ||
+    addr.village ||
+    addr.town ||
+    addr.city ||
+    place.display_name.split(',')[0];
+  
+  return cleanMultilingualText(name);
+}
+
+function getWilaya(place) {
+  const addr = place.address;
+  
+  const wilaya = 
+    addr.state ||
+    addr.province ||
+    addr.city ||
+    addr.county;
+  
+  return cleanMultilingualText(wilaya);
+}
+
+function formatAddress(place) {
+  const shortName = getShortName(place);
+  const wilaya = getWilaya(place);
+  
+  if (shortName && wilaya && shortName !== wilaya) {
+    return `${shortName}, ${wilaya}`;
+  } else if (shortName) {
+    return shortName;
+  } else if (wilaya) {
+    return wilaya;
+  }
+  
+  return cleanMultilingualText(place.display_name.split(',')[0]);
+}
+
 export async function searchPlaces(query, userLocation = null) {
   if (!query || query.length < 2) return [];
 
@@ -20,17 +79,15 @@ export async function searchPlaces(query, userLocation = null) {
   try {
     lastRequestTime = Date.now();
 
-    // Limiter la recherche à l'Algérie
     const params = new URLSearchParams({
       q: query,
       format: 'json',
-      countrycodes: 'dz', 
+      countrycodes: 'dz',
       limit: '5',
       addressdetails: '1',
       'accept-language': 'fr,en'
     });
 
-    // Si position utilisateur disponible, prioriser les résultats proches
     if (userLocation?.latitude && userLocation?.longitude) {
       params.append('lat', userLocation.latitude);
       params.append('lon', userLocation.longitude);
@@ -56,6 +113,7 @@ export async function searchPlaces(query, userLocation = null) {
       id: place.place_id,
       name: place.display_name,
       shortName: getShortName(place),
+      displayName: formatAddress(place), 
       latitude: parseFloat(place.lat),
       longitude: parseFloat(place.lon),
       type: place.type,
@@ -66,22 +124,4 @@ export async function searchPlaces(query, userLocation = null) {
     console.error('Erreur recherche de lieux:', error);
     return [];
   }
-}
-
-function getShortName(place) {
-  const addr = place.address;
-  
-  return (
-    addr.university ||
-    addr.hospital ||
-    addr.school ||
-    addr.amenity ||
-    addr.suburb ||
-    addr.neighbourhood ||
-    addr.quarter ||
-    addr.village ||
-    addr.town ||
-    addr.city ||
-    place.display_name.split(',')[0]
-  );
 }

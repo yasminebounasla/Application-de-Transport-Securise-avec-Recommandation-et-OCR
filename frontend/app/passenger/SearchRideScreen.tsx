@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   Text,
   ActivityIndicator,
-  FlatList,
   Keyboard,
 } from "react-native";
 import { useRouter } from "expo-router";
@@ -37,7 +36,6 @@ export default function SearchRideScreen() {
   const [loadingStartSuggestions, setLoadingStartSuggestions] = useState(false);
   const [loadingEndSuggestions, setLoadingEndSuggestions] = useState(false);
 
-  // Charger l'adresse de départ
   useEffect(() => {
     const loadStartAddress = async () => {
       if (!startLocation?.latitude || !startLocation?.longitude) {
@@ -52,7 +50,7 @@ export default function SearchRideScreen() {
         await new Promise(resolve => setTimeout(resolve, 150));
         const address = await reverseGeocode(startLocation);
         setStartAddress(address);
-        setStartQuery(""); 
+        setStartQuery("");
       } catch (error) {
         console.error("Erreur chargement adresse départ:", error);
         setStartAddress("Erreur de chargement");
@@ -64,7 +62,6 @@ export default function SearchRideScreen() {
     loadStartAddress();
   }, [startLocation?.latitude, startLocation?.longitude]);
 
-  // Charger l'adresse de destination
   useEffect(() => {
     const loadEndAddress = async () => {
       if (!endLocation?.latitude || !endLocation?.longitude) {
@@ -91,7 +88,6 @@ export default function SearchRideScreen() {
     loadEndAddress();
   }, [endLocation?.latitude, endLocation?.longitude]);
 
-  // Autocomplete pour "From"
   useEffect(() => {
     const fetchSuggestions = async () => {
       if (startQuery.length < 2) {
@@ -114,7 +110,6 @@ export default function SearchRideScreen() {
     return () => clearTimeout(timer);
   }, [startQuery]);
 
-  // Autocomplete pour "Where to"
   useEffect(() => {
     const fetchSuggestions = async () => {
       if (endQuery.length < 2) {
@@ -139,7 +134,7 @@ export default function SearchRideScreen() {
 
   const handleStartFocus = () => {
     setFocusedField('start');
-    setStartQuery(startAddress); 
+    setStartQuery(startAddress);
   };
 
   const handleEndFocus = () => {
@@ -151,6 +146,24 @@ export default function SearchRideScreen() {
     setTimeout(() => {
       setFocusedField(null);
     }, 200);
+  };
+
+  const handleClearStart = () => {
+    setStartLocation(null);
+    setStartAddress("");
+    setStartQuery("");
+    setStartSuggestions([]);
+    setFocusedField('start');
+    startInputRef.current?.focus();
+  };
+
+  const handleClearEnd = () => {
+    setEndLocation(null);
+    setEndAddress("");
+    setEndQuery("");
+    setEndSuggestions([]);
+    setFocusedField('destination');
+    endInputRef.current?.focus();
   };
 
   const handleCurrentPosition = async () => {
@@ -195,7 +208,7 @@ export default function SearchRideScreen() {
 
   const handleSearchRides = () => {
     if (startLocation && endLocation) {
-      router.push("/shared/MapScreen?selectionType=view");
+      router.push("/shared/MapScreen?selectionType=route");
     }
   };
 
@@ -212,23 +225,34 @@ export default function SearchRideScreen() {
               <Text style={styles.loadingText}>Chargement...</Text>
             </View>
           ) : (
-            <TextInput
-              ref={startInputRef}
-              placeholder="From?"
-              value={focusedField === 'start' ? startQuery : startAddress}
-              onChangeText={setStartQuery}
-              onFocus={handleStartFocus}
-              onBlur={handleBlur}
-              style={styles.input}
-              placeholderTextColor="#999"
-            />
+            <>
+              <TextInput
+                ref={startInputRef}
+                placeholder="From?"
+                value={focusedField === 'start' ? startQuery : startAddress}
+                onChangeText={setStartQuery}
+                onFocus={handleStartFocus}
+                onBlur={handleBlur}
+                style={styles.input}
+                placeholderTextColor="#999"
+              />
+              {/* Bouton ❌ */}
+              {(startAddress || startQuery) && (
+                <TouchableOpacity
+                  onPress={handleClearStart}
+                  style={styles.clearButton}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons name="close-circle" size={20} color="#999" />
+                </TouchableOpacity>
+              )}
+            </>
           )}
         </View>
 
         {/* Options sous "From" */}
         {focusedField === 'start' && (
           <View style={styles.optionsContainer}>
-            {/* Current Position */}
             <TouchableOpacity
               style={styles.optionButton}
               onPress={handleCurrentPosition}
@@ -238,7 +262,6 @@ export default function SearchRideScreen() {
               <Text style={styles.optionText}>Current position</Text>
             </TouchableOpacity>
 
-            {/* Set on Map */}
             <TouchableOpacity
               style={styles.optionButton}
               onPress={handleSetOnMapStart}
@@ -248,7 +271,6 @@ export default function SearchRideScreen() {
               <Text style={styles.optionText}>Set on map</Text>
             </TouchableOpacity>
 
-            {/* Suggestions */}
             {loadingStartSuggestions && <ActivityIndicator style={{ marginTop: 10 }} />}
             
             {startSuggestions.length > 0 && (
@@ -262,10 +284,7 @@ export default function SearchRideScreen() {
                   >
                     <Ionicons name="location-outline" size={18} color="#666" style={styles.suggestionIcon} />
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.suggestionTitle}>{item.shortName}</Text>
-                      <Text style={styles.suggestionSubtitle} numberOfLines={1}>
-                        {item.name}
-                      </Text>
+                      <Text style={styles.suggestionTitle}>{item.displayName}</Text>
                     </View>
                   </TouchableOpacity>
                 ))}
@@ -284,23 +303,34 @@ export default function SearchRideScreen() {
               <Text style={styles.loadingText}>Chargement...</Text>
             </View>
           ) : (
-            <TextInput
-              ref={endInputRef}
-              placeholder="Where to?"
-              value={focusedField === 'destination' ? endQuery : endAddress}
-              onChangeText={setEndQuery}
-              onFocus={handleEndFocus}
-              onBlur={handleBlur}
-              style={styles.input}
-              placeholderTextColor="#999"
-            />
+            <>
+              <TextInput
+                ref={endInputRef}
+                placeholder="Where to?"
+                value={focusedField === 'destination' ? endQuery : endAddress}
+                onChangeText={setEndQuery}
+                onFocus={handleEndFocus}
+                onBlur={handleBlur}
+                style={styles.input}
+                placeholderTextColor="#999"
+              />
+              {/* Bouton ❌ */}
+              {(endAddress || endQuery) && (
+                <TouchableOpacity
+                  onPress={handleClearEnd}
+                  style={styles.clearButton}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Ionicons name="close-circle" size={20} color="#999" />
+                </TouchableOpacity>
+              )}
+            </>
           )}
         </View>
 
         {/* Options sous "Where to" */}
         {focusedField === 'destination' && (
           <View style={styles.optionsContainer}>
-            {/* Set on Map SEULEMENT */}
             <TouchableOpacity
               style={styles.optionButton}
               onPress={handleSetOnMapEnd}
@@ -310,7 +340,6 @@ export default function SearchRideScreen() {
               <Text style={styles.optionText}>Set on map</Text>
             </TouchableOpacity>
 
-            {/* Suggestions */}
             {loadingEndSuggestions && <ActivityIndicator style={{ marginTop: 10 }} />}
             
             {endSuggestions.length > 0 && (
@@ -324,10 +353,7 @@ export default function SearchRideScreen() {
                   >
                     <Ionicons name="location-outline" size={18} color="#666" style={styles.suggestionIcon} />
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.suggestionTitle}>{item.shortName}</Text>
-                      <Text style={styles.suggestionSubtitle} numberOfLines={1}>
-                        {item.name}
-                      </Text>
+                      <Text style={styles.suggestionTitle}>{item.displayName}</Text>
                     </View>
                   </TouchableOpacity>
                 ))}
@@ -372,19 +398,26 @@ const styles = StyleSheet.create({
   },
 
   inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: "#F5F5F5",
     padding: 16,
     borderRadius: 12,
     minHeight: 56,
-    justifyContent: "center",
   },
 
   input: {
+    flex: 1,
     fontSize: 16,
     color: "#000",
   },
 
+  clearButton: {
+    marginLeft: 8,
+  },
+
   loadingRow: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
@@ -396,7 +429,6 @@ const styles = StyleSheet.create({
     fontStyle: "italic",
   },
 
-  // Options sous les champs
   optionsContainer: {
     marginTop: 8,
     backgroundColor: "#FAFAFA",
@@ -423,7 +455,6 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
 
-  // Suggestions
   suggestionsContainer: {
     marginTop: 8,
   },
@@ -445,15 +476,8 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
     color: "#000",
-    marginBottom: 2,
   },
 
-  suggestionSubtitle: {
-    fontSize: 13,
-    color: "#666",
-  },
-
-  // Bouton Search
   searchButton: {
     backgroundColor: "#000",
     padding: 18,

@@ -6,6 +6,19 @@ async function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+// Nettoyer le texte multilingue
+function cleanMultilingualText(text) {
+  if (!text) return '';
+  
+  const cleaned = text
+    .replace(/[\u0600-\u06FF]/g, '') 
+    .replace(/[\u2D30-\u2D7F]/g, '') 
+    .replace(/\s+/g, ' ')
+    .trim();
+  
+  return cleaned;
+}
+
 export async function reverseGeocode({ latitude, longitude }) {
   if (!latitude || !longitude) return "Adresse inconnue";
 
@@ -40,8 +53,8 @@ export async function reverseGeocode({ latitude, longitude }) {
     }
 
     const text = await response.text();
-
     let data;
+    
     try {
       data = JSON.parse(text);
     } catch {
@@ -54,7 +67,7 @@ export async function reverseGeocode({ latitude, longitude }) {
     if (data.address) {
       const addr = data.address;
       
-      const locality = 
+      const locality = cleanMultilingualText(
         addr.suburb ||
         addr.neighbourhood ||
         addr.quarter ||
@@ -62,13 +75,15 @@ export async function reverseGeocode({ latitude, longitude }) {
         addr.town ||
         addr.city ||
         addr.municipality ||
-        addr.county;
+        addr.county
+      );
       
-      const wilaya = 
+      const wilaya = cleanMultilingualText(
         addr.state ||
         addr.province ||
         addr.city ||
-        addr.county;
+        addr.county
+      );
       
       if (locality && wilaya && locality !== wilaya) {
         result = `${locality}, ${wilaya}`;
@@ -77,10 +92,10 @@ export async function reverseGeocode({ latitude, longitude }) {
       } else if (wilaya) {
         result = wilaya;
       } else if (data.display_name) {
-        result = data.display_name.split(',')[0];
+        result = cleanMultilingualText(data.display_name.split(',')[0]);
       }
     } else if (data.display_name) {
-      result = data.display_name.split(',')[0];
+      result = cleanMultilingualText(data.display_name.split(',')[0]);
     }
 
     cache.set(cacheKey, result);
