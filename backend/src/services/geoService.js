@@ -1,5 +1,5 @@
-const axios = require('axios');
-const { calculateDistance } = require('../utils/geo');
+import axios from 'axios';
+import { calculateDistance } from '../utils/geo.js'; 
 
 const OSRM_BASE_URL = 'https://router.project-osrm.org';
 
@@ -20,7 +20,7 @@ async function calculateRoute(start, end) {
           steps: true,
           alternatives: false
         },
-        timeout: 10000
+        timeout: 30000
       }
     );
 
@@ -95,7 +95,7 @@ async function getAlternativeRoutes(start, end, numAlternatives = 2) {
           alternatives: Math.min(numAlternatives, 3),
           steps: true
         },
-        timeout: 10000
+        timeout: 30000
       }
     );
 
@@ -145,7 +145,7 @@ async function calculateMultiPointRoute(points) {
           geometries: 'geojson',
           steps: true
         },
-        timeout: 15000
+        timeout: 30000
       }
     );
 
@@ -176,10 +176,10 @@ async function calculateMultiPointRoute(points) {
   }
 }
 
-module.exports = {
+export {
   calculateRoute,
   estimateTripDuration,
-  calculateStraightLineDistance,
+  calculateDistance,
   getAlternativeRoutes,
   calculateMultiPointRoute
 };
