@@ -26,6 +26,14 @@ model Passenger {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // préférences pour recommandation
+  quiet_ride         Boolean?
+  radio_ok           Boolean?
+  smoking_ok         Boolean?
+  pets_ok            Boolean?
+  luggage_large      Boolean?
+  female_driver_pref Boolean?
+
   trajets   Trajet[] @relation("TrajetsPassager")
 }
 
@@ -46,9 +54,18 @@ model Driver {
   selfieUrl  String?  // URL du selfie
 
   // critères pour recommandation
-  fumeur      Boolean
-  note        Float?   // moyenne des évaluations
-  preference  String?  
+  fumeur           Boolean?
+  talkative        Boolean?
+  radio_on         Boolean?
+  smoking_allowed  Boolean?
+  pets_allowed     Boolean?
+  car_big          Boolean?
+  works_morning    Boolean?
+  works_afternoon  Boolean?
+  works_evening    Boolean?
+  works_night      Boolean?
+
+  note        Float?   // moyenne des évaluations 
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
