@@ -16,7 +16,7 @@ datasource db {
 
 // Passager
 model Passenger {
-  id        String   @id @default(uuid())
+  id        Int @id @default(autoincrement())  
   email     String   @unique
   password  String
   nom       String
@@ -39,18 +39,18 @@ model Passenger {
 
 // Conducteur
 model Driver {
-  id        String   @id @default(uuid())
-  email     String   @unique
-  password  String
-  nom       String
-  prenom    String
-  numTel    String
-  sexe      String // "M" ou "F"
+  id        Int @id @default(autoincrement())  
+  email      String   @unique
+  password   String
+  nom        String
+  prenom     String
+  numTel     String
+  sexe       String // "M" ou "F"
   isVerified Boolean @default(false) // OCR validé
   age        Int
 
   // OCR & identité
-  permisNum String?
+  permisNum  String?
   selfieUrl  String?  // URL du selfie
 
   // critères pour recommandation
@@ -76,42 +76,41 @@ model Driver {
 
 // Vehicule
 model Vehicule {
-  id           String @id @default(uuid())
-  driverId String
-  marque       String
-  modele       String?
-  annee        Int?
-  nbPlaces     Int?
-  plaque       String?
-  couleur      String?
+  id        Int @id @default(autoincrement())
+  driverId  Int
+  marque    String
+  modele    String?
+  annee     Int?
+  nbPlaces  Int?
+  plaque    String?
+  couleur   String?
 
-  driver       Driver @relation(fields: [driverId], references: [id])
+  driver    Driver @relation(fields: [driverId], references: [id])
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([driverId])
 }
 
-
 // Trajet
 model Trajet {
-  id           String @id @default(uuid())
-  driverId     String
-  passagerId   String?
+  id          Int @id @default(autoincrement())
+  driverId    Int
+  passagerId  Int?
 
-  depart       String
-  destination  String
-  dateDepart   DateTime
-  heureDepart  String?
-  placesDispo  Int
-  prix         Float
+  depart      String
+  destination String
+  dateDepart  DateTime
+  heureDepart String?
+  placesDispo Int
+  prix        Float
 
-  driver       Driver @relation("TrajetsConducteur", fields: [driverId], references: [id])
-  passenger     Passenger?  @relation("TrajetsPassager", fields: [passagerId], references: [id])
+  driver      Driver    @relation("TrajetsConducteur", fields: [driverId], references: [id])
+  passenger   Passenger? @relation("TrajetsPassager", fields: [passagerId], references: [id])
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   @@index([driverId])
   @@index([passagerId])
