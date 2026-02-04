@@ -3,6 +3,8 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { prisma } from "./src/config/prisma.js"; 
 import authRoutes from './src/routes/authRoutes.js';
+import driverRoutes from './src/routes/driverRoutes.js';
+import passengerRoutes from './src/routes/passengerRoutes.js';
 import recommendationRoutes from './src/routes/recommendationRoutes.js';
 import rideRoutes from './src/ride/rideRoutes.js'; 
 import { notFound, errorHandler } from "./src/middleware/errorHandler.js";
@@ -29,6 +31,10 @@ app.get('/', (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/recomnmendations", recommendationRoutes);
 app.use("/api/ride", rideRoutes);
+app.use("/api/drivers", driverRoutes);
+app.use("/api/passengers", passengerRoutes);
+
+
 // Error Handling Middleware
 app.use(notFound);
 app.use(errorHandler);

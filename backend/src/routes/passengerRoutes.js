@@ -4,6 +4,6 @@ import { addPassengerPreferences } from "../controllers/passengerController.js";
 
 const router = express.Router();
 
-router.patch("/passengers/preferences", authenticate, addPassengerPreferences);
+router.patch("/preferences", authenticate, addPassengerPreferences);
 
 export default router;

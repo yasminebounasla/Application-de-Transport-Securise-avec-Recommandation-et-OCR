@@ -4,5 +4,5 @@ import { addDriverPreferances } from "../controllers/driverPreferencesController
 
 const router = express.Router();
 
-router.patch("/drivers/preferences", authenticate, addDriverPreferances);  
+router.patch("/preferences", authenticate, addDriverPreferances);  
 export default router;
