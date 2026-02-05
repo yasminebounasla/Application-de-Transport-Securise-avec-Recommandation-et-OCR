@@ -49,9 +49,8 @@ model Driver {
   isVerified Boolean @default(false) // OCR validé
   age        Int
 
-  // OCR & identité
-  permisNum  String?
-  selfieUrl  String?  // URL du selfie
+ //  CONSENTEMENT (Checkbox "J'accepte...")
+  hasAcceptedPhotoStorage Boolean @default(false)
 
   // critères pour recommandation
   fumeur           Boolean?
@@ -70,8 +69,11 @@ model Driver {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  vehicules Vehicule[]
-  trajets   Trajet[] @relation("TrajetsConducteur")
+
+  verification     Verification?
+  license          License?
+  vehicules        Vehicule[]
+  trajets          Trajet[]      @relation("TrajetsConducteur")
 }
 
 // Vehicule
@@ -92,6 +94,52 @@ model Vehicule {
 
   @@index([driverId])
 }
+
+// --- SERVICE DE VÉRIFICATION & SÉCURITÉ ---
+
+model Verification {
+  id              Int      @id @default(autoincrement())
+  driverId        Int      @unique
+  driver          Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  
+  // Stockage image
+  selfieImage     Bytes    
+  
+  // Résultats de Reconnaicens
+  similarityScore Float    
+  verdict         String   // "MATCH" ou "NO_MATCH"
+  threshold       Float    // seuil
+  margin          Float    
+  confidence      String   
+  
+  // Qualité technique
+  licenseQuality  Int?     // Score de netteté permis 
+  selfieQuality   Int?     // Score de netteté selfie 
+  
+  isApproved      Boolean  @default(false)
+  createdAt       DateTime @default(now())
+}
+//permis
+model License {
+  id            Int      @id @default(autoincrement())
+  driverId      Int      @unique
+  driver        Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
+  
+  // Données sensibles (Chiffrées au niveau applicatif avant stockage)
+  ninEncrypted  String   @db.VarChar(500) // Numéro d'identité national chiffré
+  permisImage   Bytes    // Image du permis
+  
+  // Dates du document
+  issueDate     DateTime? //date de creation de permis
+  expiryDate    DateTime  //date de exprimation de permis
+  
+  // Métadonnées
+  ocrConfidence Int?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+
 
 // Trajet
 model Trajet {
