@@ -147,13 +147,29 @@ export const getAllDrivers = async (req, res) => {
                 isVerified: true
             }
         });
-        res.status(200).json({
-            message: "Drivers retrieved successfully.",
-            data: drivers
-        });
+        
+        //  Retourne directement l'array (sans wrapper)
+        res.status(200).json(drivers);
+        
     } catch (err) {
         res.status(500).json({
             message: "Failed to retrieve drivers.",
+            error: err.message
+        });
+    }
+};
+
+export const deleteAllDrivers = async (req, res) => { 
+    try {
+        const result = await prisma.driver.deleteMany({});
+        
+        res.status(200).json({
+            message: "All drivers deleted successfully.",
+            deletedCount: result.count
+        });
+    } catch (err) {
+        res.status(500).json({
+            message: "Failed to delete drivers.",
             error: err.message
         });
     }
