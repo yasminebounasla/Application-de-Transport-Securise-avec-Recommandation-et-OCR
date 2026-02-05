@@ -8,6 +8,7 @@ import passengerRoutes from './src/routes/passengerRoutes.js';
 import recommendationRoutes from './src/routes/recommendationRoutes.js';
 import rideRoutes from './src/routes/rideRoutes.js'; 
 import { notFound, errorHandler } from "./src/middleware/errorHandler.js";
+import exportRoute from './src/routes/exportRoute.js';
 
 dotenv.config();
 
@@ -33,6 +34,7 @@ app.use("/api/driver", recommendationRoutes);
 app.use("/api/ride", rideRoutes);
 app.use("/api/drivers", driverRoutes);
 app.use("/api/passengers", passengerRoutes);
+app.use("/api/export", exportRoute);
 
 
 // Error Handling Middleware
