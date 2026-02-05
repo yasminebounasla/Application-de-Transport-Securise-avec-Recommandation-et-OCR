@@ -1,14 +1,15 @@
 import os
 from fastapi import FastAPI
 from pydantic import BaseModel
-from typing import Dict, Any
+from typing import Dict, Any, Union
 from service.recommender import get_recommendations
 
 app = FastAPI(title="Driver Recommendation Service")
 
 class RecommendationRequest(BaseModel):
-    passenger_id: int
+    passenger_id: Union[int, str]
     preferences: Dict[str, Any] = {}
+    top_n: int = 5
 
 @app.post("/recommend")
 async def recommend(data: RecommendationRequest):

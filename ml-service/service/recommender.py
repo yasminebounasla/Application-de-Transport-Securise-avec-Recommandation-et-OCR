@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 load_dotenv()
 BACKEND_URL = os.getenv("BACKEND_URL")
 
-
+#algo de matching des préférences 
 def calculate_match_score(driver: Dict, preferences: Dict) -> int:
     """Calcule un score de matching entre driver et préférences"""
     score = 0
