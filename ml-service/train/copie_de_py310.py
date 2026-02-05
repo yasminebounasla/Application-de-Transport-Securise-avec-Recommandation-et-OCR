@@ -95,7 +95,7 @@ for epoch in range(1, 41):
         print(f"Époque {epoch} | AUC: {current_auc:.4f}")
 
 # 5. Sauvegarde
-with open("model_final.pkl", "wb") as f:
+with open("lightFm_model.pkl", "wb") as f:
     pickle.dump({"model": model, "dataset": dataset, "u_feats": user_features, "i_feats": item_features}, f)
 
 import pickle, numpy as np, pandas as pd
