@@ -1,5 +1,5 @@
 import express from 'express';
-import { registerDriver, loginDriver, getAllDrivers } from '../controllers/authDriverController.js';
+import { registerDriver, loginDriver, getAllDrivers, deleteAllDrivers } from '../controllers/authDriverController.js';
 import { registerPassenger, loginPassenger } from '../controllers/authPassengerController.js';
 
 const router = express.Router();
@@ -8,6 +8,7 @@ const router = express.Router();
 router.post('/driver/register', registerDriver);
 router.post('/driver/login', loginDriver);
 router.get('/driver/all', getAllDrivers);
+router.delete('/driver/clear', deleteAllDrivers); // Route pour supprimer tous les drivers (pour tests)
 
 
 // Routes for Passenger authentication
