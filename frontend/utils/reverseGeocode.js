@@ -6,7 +6,6 @@ async function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// Nettoyer le texte multilingue
 function cleanMultilingualText(text) {
   if (!text) return '';
   

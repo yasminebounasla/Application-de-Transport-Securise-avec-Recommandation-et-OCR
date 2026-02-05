@@ -1,10 +1,11 @@
 import express from 'express';
 import { calculateRoute, estimateTripDuration, getAlternativeRoutes } from '../services/geoService.js';
+import { validateAlgeriaLocations } from '../utils/validateLocation.js';
 
 const router = express.Router();
 
 // POST /api/ride/calculate
-router.post('/calculate', async (req, res) => {
+router.post('/calculate', validateAlgeriaLocations, async (req, res) => {
   try {
     const { start, end } = req.body;
 
@@ -33,7 +34,7 @@ router.post('/calculate', async (req, res) => {
 });
 
 // POST /api/ride/estimate
-router.post('/estimate', async (req, res) => {
+router.post('/estimate',validateAlgeriaLocations, async (req, res) => {
   try {
     const { start, end } = req.body;
 
@@ -58,7 +59,7 @@ router.post('/estimate', async (req, res) => {
 });
 
 // POST /api/ride/alternatives
-router.post('/alternatives', async (req, res) => {
+router.post('/alternatives',validateAlgeriaLocations, async (req, res) => {
   try {
     const { start, end, numAlternatives } = req.body;
 
