@@ -5,6 +5,7 @@ export default function Layout() {
     <Stack>
       <Stack.Screen name="HomeScreen" />
       <Stack.Screen name="SearchRideScreen" />
+      <Stack.Screen name="RecommendationDriverScreen" />
     </Stack>
   );
 }
