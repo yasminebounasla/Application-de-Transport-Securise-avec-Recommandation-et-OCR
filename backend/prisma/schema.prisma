@@ -35,6 +35,7 @@ model Passenger {
   female_driver_pref Boolean?
 
   trajets   Trajet[] @relation("TrajetsPassager")
+  rides     Ride[]   @relation("RideRequests")
 }
 
 // Conducteur
@@ -74,6 +75,7 @@ model Driver {
   license          License?
   vehicules        Vehicule[]
   trajets          Trajet[]      @relation("TrajetsConducteur")
+  rides     Ride[]   @relation("DriverRides")
 }
 
 // Vehicule
@@ -162,4 +164,46 @@ model Trajet {
 
   @@index([driverId])
   @@index([passagerId])
+}
+
+//Ride
+enum RideStatus {
+  PENDING      
+  ACCEPTED    
+  IN_PROGRESS 
+  COMPLETED    
+  CANCELLED    
+}
+
+model Ride {
+  id        Int        @id @default(autoincrement())
+  
+  startLat     Float
+  startLng     Float
+  startAddress String
+
+  endLat       Float
+  endLng       Float
+  endAddress   String
+
+  departureTime DateTime
+
+  noSmoking Boolean @default(false)
+  noPets    Boolean @default(false)
+  quiet     Boolean @default(false)
+
+  status    RideStatus @default(PENDING)
+
+  passengerId Int
+  passenger   Passenger @relation("RideRequests", fields: [passengerId], references: [id], onDelete: Cascade)
+  
+  driverId    Int?
+  driver      Driver?   @relation("DriverRides", fields: [driverId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  
+  @@index([passengerId])
+  @@index([driverId])
+  @@index([status])
 }
