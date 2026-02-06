@@ -7,8 +7,10 @@ import driverRoutes from './src/routes/driverRoutes.js';
 import passengerRoutes from './src/routes/passengerRoutes.js';
 import recommendationRoutes from './src/routes/recommendationRoutes.js';
 import rideRoutes from './src/routes/rideRoutes.js'; 
+import ridesDemRoutes from './src/routes/ridesDemRoutes.js'
 import { notFound, errorHandler } from "./src/middleware/errorHandler.js";
 import exportRoute from './src/routes/exportRoute.js';
+
 
 dotenv.config();
 
@@ -32,6 +34,7 @@ app.get('/', (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/driver", recommendationRoutes);
 app.use("/api/ride", rideRoutes);
+app.use("/api/ridesDem", ridesDemRoutes);
 app.use("/api/drivers", driverRoutes);
 app.use("/api/passengers", passengerRoutes);
 app.use("/api/export", exportRoute);
