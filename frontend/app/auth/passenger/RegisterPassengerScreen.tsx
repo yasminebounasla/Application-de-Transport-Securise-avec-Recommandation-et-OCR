@@ -1,7 +1,9 @@
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, Alert } from 'react-native';
 import { useState } from 'react';
 import { Stack, router } from 'expo-router';
 import { useAuth } from '../../../context/AuthContext';
+import Input from '../../../components/Input';
+import Button from '../../../components/Button';
 
 export default function RegisterPassengerScreen() {
     const { registerAsPassenger, loading } = useAuth();
@@ -17,7 +19,6 @@ export default function RegisterPassengerScreen() {
     const handleRegister = async () => {
         setError('');
 
-        // Validation simple
         if (!email || !password || !confirmPassword || !firstName || !familyName || !age || !phoneNumber) {
             setError('Please fill in all fields');
             return;
@@ -69,129 +70,93 @@ export default function RegisterPassengerScreen() {
                         </Text>
                     </View>
 
-                    {/* First Name */}
-                    <View className="mb-4">
-                        <Text className="text-sm font-medium text-black mb-2">First Name</Text>
-                        <TextInput
-                            value={firstName}
-                            onChangeText={setFirstName}
-                            placeholder="First name"
-                            editable={!loading}
-                            className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-4 text-base"
-                            placeholderTextColor="#9CA3AF"
-                        />
-                    </View>
+                    {/* Form Fields */}
+                    <Input
+                        label="First Name"
+                        value={firstName}
+                        onChangeText={setFirstName}
+                        placeholder="First name"
+                        style={{ marginBottom: 16 }}
+                    />
 
-                    {/* Family Name */}
-                    <View className="mb-4">
-                        <Text className="text-sm font-medium text-black mb-2">Family Name</Text>
-                        <TextInput
-                            value={familyName}
-                            onChangeText={setFamilyName}
-                            placeholder="Family name"
-                            editable={!loading}
-                            className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-4 text-base"
-                            placeholderTextColor="#9CA3AF"
-                        />
-                    </View>
+                    <Input
+                        label="Family Name"
+                        value={familyName}
+                        onChangeText={setFamilyName}
+                        placeholder="Family name"
+                        style={{ marginBottom: 16 }}
+                    />
 
-                    {/* Age */}
-                    <View className="mb-4">
-                        <Text className="text-sm font-medium text-black mb-2">Age</Text>
-                        <TextInput
-                            value={age}
-                            onChangeText={setAge}
-                            placeholder="25"
-                            keyboardType="numeric"
-                            editable={!loading}
-                            className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-4 text-base"
-                            placeholderTextColor="#9CA3AF"
-                        />
-                    </View>
+                    <Input
+                        label="Age"
+                        value={age}
+                        onChangeText={setAge}
+                        placeholder="25"
+                        keyboardType="numeric"
+                        style={{ marginBottom: 16 }}
+                    />
 
-                    {/* Email */}
-                    <View className="mb-4">
-                        <Text className="text-sm font-medium text-black mb-2">Email</Text>
-                        <TextInput
-                            value={email}
-                            onChangeText={setEmail}
-                            placeholder="email@email.com"
-                            keyboardType="email-address"
-                            autoCapitalize="none"
-                            editable={!loading}
-                            className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-4 text-base"
-                            placeholderTextColor="#9CA3AF"
-                        />
-                    </View>
+                    <Input
+                        label="Email"
+                        value={email}
+                        onChangeText={setEmail}
+                        placeholder="email@email.com"
+                        keyboardType="email-address"
+                        style={{ marginBottom: 16 }}
+                    />
 
-                    {/* Phone Number */}
-                    <View className="mb-4">
-                        <Text className="text-sm font-medium text-black mb-2">Phone Number</Text>
-                        <TextInput
-                            value={phoneNumber}
-                            onChangeText={setPhoneNumber}
-                            placeholder="+213 XXX XXX XXX"
-                            keyboardType="phone-pad"
-                            editable={!loading}
-                            className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-4 text-base"
-                            placeholderTextColor="#9CA3AF"
-                        />
-                    </View>
+                    <Input
+                        label="Phone Number"
+                        value={phoneNumber}
+                        onChangeText={setPhoneNumber}
+                        placeholder="+213 XXX XXX XXX"
+                        keyboardType="phone-pad"
+                        style={{ marginBottom: 16 }}
+                    />
 
-                    {/* Password */}
-                    <View className="mb-4">
-                        <Text className="text-sm font-medium text-black mb-2">Password</Text>
-                        <TextInput
-                            value={password}
-                            onChangeText={setPassword}
-                            placeholder="••••••••"
-                            secureTextEntry
-                            editable={!loading}
-                            className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-4 text-base"
-                            placeholderTextColor="#9CA3AF"
-                        />
-                    </View>
+                    <Input
+                        label="Password"
+                        value={password}
+                        onChangeText={setPassword}
+                        placeholder="••••••••"
+                        secureTextEntry
+                        style={{ marginBottom: 16 }}
+                    />
 
-                    {/* Confirm Password */}
-                    <View className="mb-6">
-                        <Text className="text-sm font-medium text-black mb-2">Confirm Password</Text>
-                        <TextInput
-                            value={confirmPassword}
-                            onChangeText={setConfirmPassword}
-                            placeholder="••••••••"
-                            secureTextEntry
-                            editable={!loading}
-                            className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-4 text-base"
-                            placeholderTextColor="#9CA3AF"
-                        />
-                    </View>
+                    <Input
+                        label="Confirm Password"
+                        value={confirmPassword}
+                        onChangeText={setConfirmPassword}
+                        placeholder="••••••••"
+                        secureTextEntry
+                        style={{ marginBottom: 16 }}
+                    />
 
-                    {/* Error */}
+                    {/* Error Message */}
                     {error ? (
                         <View className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-6">
                             <Text className="text-red-600 text-sm">{error}</Text>
                         </View>
                     ) : null}
 
-                    {/* Submit */}
-                    <TouchableOpacity
+                    {/* Submit Button */}
+                    <Button
+                        title="Create Account"
                         onPress={handleRegister}
-                        disabled={loading}
-                        className={`rounded-xl py-5 items-center mb-4 ${loading ? 'bg-gray-400' : 'bg-black'}`}
-                    >
-                        {loading ? (
-                            <ActivityIndicator color="white" />
-                        ) : (
-                            <Text className="text-white text-base font-semibold">Create Account</Text>
-                        )}
-                    </TouchableOpacity>
+                        variant="primary"
+                        loading={loading}
+                        style={{ marginBottom: 16 }}
+                    />
 
                     {/* Login Link */}
                     <View className="flex-row justify-center">
                         <Text className="text-gray-600">Already have an account? </Text>
-                        <TouchableOpacity onPress={() => router.push('./LoginPassengerScreen')}>
-                            <Text className="text-black font-semibold">Sign In</Text>
-                        </TouchableOpacity>
+                        <Text 
+                            onPress={() => router.push('./LoginPassengerScreen')}
+                            className="text-black font-semibold"
+                        >
+                            Sign In
+                        </Text>
                     </View>
 
                     <View className="h-8" />

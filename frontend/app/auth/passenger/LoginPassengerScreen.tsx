@@ -1,7 +1,9 @@
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, Alert } from 'react-native';
 import { useState } from 'react';
 import { Stack, router } from 'expo-router';
 import { useAuth } from '../../../context/AuthContext';
+import Input from '../../../components/Input';
+import Button from '../../../components/Button';
 
 export default function LoginPassengerScreen() {
     const { loginAsPassenger, loading } = useAuth();
@@ -12,7 +14,6 @@ export default function LoginPassengerScreen() {
     const handleLogin = async () => {
         setError('');
 
-        // Validation simple
         if (!email || !password) {
             setError('Please fill in all fields');
             return;
@@ -51,61 +52,50 @@ export default function LoginPassengerScreen() {
                         </Text>
                     </View>
 
-                    {/* Email */}
-                    <View className="mb-4">
-                        <Text className="text-sm font-medium text-black mb-2">Email</Text>
-                        <TextInput
-                            value={email}
-                            onChangeText={setEmail}
-                            placeholder="email@email.com"
-                            keyboardType="email-address"
-                            autoCapitalize="none"
-                            editable={!loading}
-                            className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-4 text-base"
-                            placeholderTextColor="#9CA3AF"
-                        />
-                    </View>
+                    {/* Form Fields */}
+                    <Input
+                        label="Email"
+                        value={email}
+                        onChangeText={setEmail}
+                        placeholder="email@email.com"
+                        keyboardType="email-address"
+                        style={{ marginBottom: 16 }}
+                    />
 
-                    {/* Password */}
-                    <View className="mb-4">
-                        <Text className="text-sm font-medium text-black mb-2">Password</Text>
-                        <TextInput
-                            value={password}
-                            onChangeText={setPassword}
-                            placeholder="••••••••"
-                            secureTextEntry
-                            editable={!loading}
-                            className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-4 text-base"
-                            placeholderTextColor="#9CA3AF"
-                        />
-                    </View>
+                    <Input
+                        label="Password"
+                        value={password}
+                        onChangeText={setPassword}
+                        placeholder="••••••••"
+                        secureTextEntry
+                        style={{ marginBottom: 16 }}
+                    />
 
-                    {/* Error */}
+                    {/* Error Message */}
                     {error ? (
                         <View className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-6">
                             <Text className="text-red-600 text-sm">{error}</Text>
                         </View>
                     ) : null}
 
-                    {/* Submit */}
-                    <TouchableOpacity
+                    {/* Submit Button */}
+                    <Button
+                        title="Sign In"
                         onPress={handleLogin}
-                        disabled={loading}
-                        className={`rounded-xl py-5 items-center mb-4 ${loading ? 'bg-gray-400' : 'bg-black'}`}
-                    >
-                        {loading ? (
-                            <ActivityIndicator color="white" />
-                        ) : (
-                            <Text className="text-white text-base font-semibold">Sign In</Text>
-                        )}
-                    </TouchableOpacity>
+                        variant="primary"
+                        loading={loading}
+                        style={{ marginBottom: 16 }}
+                    />
 
                     {/* Register Link */}
                     <View className="flex-row justify-center">
                         <Text className="text-gray-600">Don't have an account? </Text>
-                        <TouchableOpacity onPress={() => router.push('./RegisterPassengerScreen')}>
-                            <Text className="text-black font-semibold">Register</Text>
-                        </TouchableOpacity>
+                        <Text 
+                            onPress={() => router.push('./RegisterPassengerScreen')}
+                            className="text-black font-semibold"
+                        >
+                            Register
+                        </Text>
                     </View>
 
                     <View className="h-8" />
