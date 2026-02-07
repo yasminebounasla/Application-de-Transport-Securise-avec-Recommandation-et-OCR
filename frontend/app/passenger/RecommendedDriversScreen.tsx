@@ -12,7 +12,11 @@ import {
 export default function RecommendationDriverScreen() {
   return (
     <>
-      {/* UI */}
+      <View >
+        <Text>Recommended Drivers</Text>
+        {/* Placeholder for recommended drivers list */}
+        
+      </View>
     </>
   );
 }
