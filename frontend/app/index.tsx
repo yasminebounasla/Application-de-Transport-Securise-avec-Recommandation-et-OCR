@@ -1,6 +1,7 @@
 import { View, Text, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import { AuthProvider } from '../context/AuthContext';
+import Button from '../components/Button';
 
 
 export default function Home() {
@@ -28,7 +29,7 @@ export default function Home() {
             
             <TouchableOpacity
               onPress={() => router.push('/auth/passenger/passenger')}
-              className="bg-white border-2 border-black rounded-2xl py-5"
+              className="bg-white border-2 border-gray-300 rounded-2xl py-5"
             >
               <Text className="text-black text-center text-lg font-semibold">
                 I'm a Passenger
@@ -36,6 +37,20 @@ export default function Home() {
             </TouchableOpacity>
           </View>
         </View>
+
+        <Button
+          title="Open Search Ride"
+          onPress={() => router.push('/passenger/SearchRideScreen')}
+          variant="primary"
+          style={{ marginTop: 16 }}
+        />
+
+        <Button 
+          title="Open Demande Trajet"
+          onPress={() => router.push('/passenger/DemandeTrajetScreen')}
+          variant="secondary"
+          style={{ marginTop: 16 }}
+        />
         
         {/* Footer */}
         <View className="pb-8 px-6">
@@ -45,14 +60,7 @@ export default function Home() {
         </View>
       </View>
 
-       <TouchableOpacity
-          onPress={() => router.push('/passenger/SearchRideScreen')}
-          className="bg-blue-500 rounded-2xl py-5 mt-4"
-        >
-          <Text className="text-white text-center text-lg font-semibold">
-            Open Search Ride
-          </Text>
-        </TouchableOpacity>
+        
     </AuthProvider>
   );
 }
