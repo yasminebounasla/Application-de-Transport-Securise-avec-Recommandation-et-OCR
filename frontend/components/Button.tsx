@@ -4,26 +4,26 @@ import { Pressable, Text, StyleSheet, ActivityIndicator } from "react-native";
 export default function Button({
   title,
   onPress,
-  variant = "primary", // "primary" | "secondary"
+  variant = "primary",
   disabled = false,
   loading = false,
   style,
 }) {
   const isDisabled = disabled || loading;
-
   return (
     <Pressable
       onPress={onPress}
       disabled={isDisabled}
-      style={[
+      style={({ pressed }) => [ // Ajouté effet pressed
         styles.base,
         variant === "primary" ? styles.primary : styles.secondary,
         isDisabled && styles.disabled,
+        pressed && styles.pressed, // Feedback visuel
         style,
       ]}
     >
       {loading ? (
-        <ActivityIndicator />
+        <ActivityIndicator color={variant === "primary" ? "white" : "#111827"} />
       ) : (
         <Text
           style={[
@@ -40,22 +40,25 @@ export default function Button({
 
 const styles = StyleSheet.create({
   base: {
-    height: 48,
-    borderRadius: 12,
+    height: 56,
+    borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
     paddingHorizontal: 16,
   },
   primary: {
-    backgroundColor: "#111827",
+    backgroundColor: "#000000",
   },
   secondary: {
-    backgroundColor: "#F3F4F6",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
+    backgroundColor: "white",
+    borderWidth: 2, 
+    borderColor: "#D1D5DB",
   },
   disabled: {
     opacity: 0.6,
+  },
+  pressed: { 
+    opacity: 0.8,
   },
   text: {
     fontSize: 16,
@@ -65,6 +68,6 @@ const styles = StyleSheet.create({
     color: "white",
   },
   secondaryText: {
-    color: "#111827",
+    color: "#000000",
   },
 });
