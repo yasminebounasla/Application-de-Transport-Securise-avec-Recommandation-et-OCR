@@ -145,26 +145,32 @@ model License {
 
 // Trajet
 model Trajet {
-  id          Int @id @default(autoincrement())
+  id          Int        @id @default(autoincrement())
   driverId    Int
   passagerId  Int?
-
   depart      String
   destination String
   dateDepart  DateTime
   heureDepart String?
   placesDispo Int
   prix        Float
-
-  driver      Driver    @relation("TrajetsConducteur", fields: [driverId], references: [id])
+  
+  // CHAMPS POUR LE ML
+  status      RideStatus @default(PENDING)
+  rating      Float?     // Note du passager (1.0-5.0) - NULL si pas encore noté
+  completedAt DateTime?  // Date de complétion
+  
+  driver      Driver     @relation("TrajetsConducteur", fields: [driverId], references: [id])
   passenger   Passenger? @relation("TrajetsPassager", fields: [passagerId], references: [id])
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
+  
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+  
   @@index([driverId])
   @@index([passagerId])
+  @@index([status])
 }
+
 
 //Ride
 enum RideStatus {
@@ -172,7 +178,8 @@ enum RideStatus {
   ACCEPTED    
   IN_PROGRESS 
   COMPLETED    
-  CANCELLED    
+  CANCELLED_BY_PASSENGER 
+  CANCELLED_BY_DRIVER     
 }
 
 model Ride {
