@@ -5,9 +5,9 @@ const PRENOMS_F = ["Sara", "Lina", "Amira", "Nour", "Yasmine", "Fatima", "Meriem
 const PRENOMS_M = ["Ahmed", "Mohamed", "Yassine", "Karim", "Mehdi", "Hamza", "Rami", "Khaled", "Sofiane", "Amine"];
 const NOMS = ["Benali", "Mansouri", "Bouzid", "Belkacem", "Haddad", "Amrani", "Slimani", "Meziane", "Bouaziz", "Cherif"];
 
-const randomChoice = (arr) => arr[Math.floor(Math.random() * arr.length)];
-const randomBool = () => Math.random() > 0.5;
-const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+const randomChoice = (arr) => arr[Math.floor(Math.random() * arr.length)]; //prendre un element au hasard dans un tableau
+const randomBool = () => Math.random() > 0.5; //prendre un booléen au hasard (true ou false)
+const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min; //prendre un entier au hasard entre min et max
 
 async function seedDrivers(count = 30) {
     console.log(`Création de ${count} drivers...\n`);
@@ -65,5 +65,4 @@ async function seedDrivers(count = 30) {
     }
 }
 
-// Lance le script
-seedDrivers(30);  // Change le nombre si tu veux
+seedDrivers(30);  
