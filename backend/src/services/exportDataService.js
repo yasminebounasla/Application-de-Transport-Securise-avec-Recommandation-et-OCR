@@ -127,8 +127,4 @@ async function exportLightFM() {
 }
 
 
-
-// Lancer immédiatement
-exportLightFM();
-
 export { exportLightFM };
