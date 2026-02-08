@@ -7,12 +7,15 @@ import {
   Text,
   ActivityIndicator,
   Keyboard,
+  Modal,
+  Platform,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { LocationContext } from "../../context/LocationContext";
 import { reverseGeocode } from "../../utils/reverseGeocode";
 import { searchPlaces } from "../../services/placesService";
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 type FocusedField = 'start' | 'destination' | null;
 
@@ -35,6 +38,13 @@ export default function SearchRideScreen() {
   const [endSuggestions, setEndSuggestions] = useState([]);
   const [loadingStartSuggestions, setLoadingStartSuggestions] = useState(false);
   const [loadingEndSuggestions, setLoadingEndSuggestions] = useState(false);
+
+  // 🗓️ États pour Date & Heure
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+  const [dateDepart, setDateDepart] = useState<Date | null>(null);
+  const [heureDepart, setHeureDepart] = useState<string | null>(null);
 
   useEffect(() => {
     const loadStartAddress = async () => {
@@ -206,8 +216,79 @@ export default function SearchRideScreen() {
     Keyboard.dismiss();
   };
 
+  // 🗓️ Gestion du calendrier
+  const handleOpenDatePicker = () => {
+    setShowDatePicker(true);
+  };
+
+  const handleDateChange = (event: any, date?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
+    
+    if (date) {
+      setSelectedDate(date);
+      if (Platform.OS === 'android') {
+        // Sur Android, ouvrir directement le time picker
+        setTimeout(() => setShowTimePicker(true), 100);
+      }
+    }
+  };
+
+  const handleTimeChange = (event: any, time?: Date) => {
+    setShowTimePicker(false);
+    
+    if (time) {
+      // Combiner la date et l'heure
+      const combinedDateTime = new Date(selectedDate);
+      combinedDateTime.setHours(time.getHours());
+      combinedDateTime.setMinutes(time.getMinutes());
+      
+      setDateDepart(combinedDateTime);
+      setHeureDepart(
+        `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`
+      );
+      
+      if (Platform.OS === 'ios') {
+        setShowDatePicker(false);
+      }
+    }
+  };
+
+  const handleApplyDateTime = () => {
+    setShowDatePicker(false);
+    setShowTimePicker(false);
+  };
+
+  const handleCancelDateTime = () => {
+    setShowDatePicker(false);
+    setShowTimePicker(false);
+  };
+
+  const formatDisplayDate = () => {
+    if (!dateDepart) return "Select date & time";
+    
+    const options: Intl.DateTimeFormatOptions = { 
+      weekday: 'short', 
+      month: 'short', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    };
+    
+    return dateDepart.toLocaleDateString('en-US', options);
+  };
+
   const handleSearchRides = () => {
-    if (startLocation && endLocation) {
+    if (startLocation && endLocation && dateDepart && heureDepart) {
+      // TODO: Appeler createRide() avec les données
+      console.log({
+        startLocation,
+        endLocation,
+        dateDepart,
+        heureDepart
+      });
+      
       router.push("/shared/MapScreen?selectionType=route");
     }
   };
@@ -236,7 +317,6 @@ export default function SearchRideScreen() {
                 style={styles.input}
                 placeholderTextColor="#999"
               />
-              {/* Bouton ❌ */}
               {(startAddress || startQuery) && (
                 <TouchableOpacity
                   onPress={handleClearStart}
@@ -250,7 +330,6 @@ export default function SearchRideScreen() {
           )}
         </View>
 
-        {/* Options sous "From" */}
         {focusedField === 'start' && (
           <View style={styles.optionsContainer}>
             <TouchableOpacity
@@ -314,7 +393,6 @@ export default function SearchRideScreen() {
                 style={styles.input}
                 placeholderTextColor="#999"
               />
-              {/* Bouton ❌ */}
               {(endAddress || endQuery) && (
                 <TouchableOpacity
                   onPress={handleClearEnd}
@@ -328,7 +406,6 @@ export default function SearchRideScreen() {
           )}
         </View>
 
-        {/* Options sous "Where to" */}
         {focusedField === 'destination' && (
           <View style={styles.optionsContainer}>
             <TouchableOpacity
@@ -363,13 +440,101 @@ export default function SearchRideScreen() {
         )}
       </View>
 
+      {/* 🗓️ Sélecteur de Date & Heure */}
+      <TouchableOpacity
+        style={styles.dateTimeButton}
+        onPress={handleOpenDatePicker}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="calendar-outline" size={24} color="#6B46C1" />
+        <Text style={[
+          styles.dateTimeText,
+          dateDepart && styles.dateTimeTextSelected
+        ]}>
+          {formatDisplayDate()}
+        </Text>
+      </TouchableOpacity>
+
+      {/* DatePicker pour iOS */}
+      {Platform.OS === 'ios' && showDatePicker && (
+        <Modal
+          transparent
+          animationType="slide"
+          visible={showDatePicker}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.datePickerContainer}>
+              <View style={styles.pickerHeader}>
+                <TouchableOpacity onPress={handleCancelDateTime}>
+                  <Text style={styles.cancelButton}>Cancel</Text>
+                </TouchableOpacity>
+                <Text style={styles.pickerTitle}>
+                  {showTimePicker ? 'Time' : 'Feb 2026'}
+                </Text>
+                <TouchableOpacity onPress={handleApplyDateTime}>
+                  <Text style={styles.applyButton}>Apply</Text>
+                </TouchableOpacity>
+              </View>
+
+              {!showTimePicker ? (
+                <DateTimePicker
+                  value={selectedDate}
+                  mode="date"
+                  display="inline"
+                  onChange={handleDateChange}
+                  minimumDate={new Date()}
+                  textColor="#000"
+                />
+              ) : (
+                <DateTimePicker
+                  value={selectedDate}
+                  mode="time"
+                  display="spinner"
+                  onChange={handleTimeChange}
+                  textColor="#000"
+                />
+              )}
+
+              {!showTimePicker && (
+                <TouchableOpacity
+                  style={styles.nextButton}
+                  onPress={() => setShowTimePicker(true)}
+                >
+                  <Text style={styles.nextButtonText}>Next: Select Time</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* DatePicker pour Android */}
+      {Platform.OS === 'android' && showDatePicker && (
+        <DateTimePicker
+          value={selectedDate}
+          mode="date"
+          display="default"
+          onChange={handleDateChange}
+          minimumDate={new Date()}
+        />
+      )}
+
+      {Platform.OS === 'android' && showTimePicker && (
+        <DateTimePicker
+          value={selectedDate}
+          mode="time"
+          display="default"
+          onChange={handleTimeChange}
+        />
+      )}
+
       {/* Bouton Search Rides */}
       <TouchableOpacity
         style={[
           styles.searchButton,
-          (!startLocation || !endLocation || loadingStart || loadingEnd) && styles.disabled,
+          (!startLocation || !endLocation || !dateDepart || loadingStart || loadingEnd) && styles.disabled,
         ]}
-        disabled={!startLocation || !endLocation || loadingStart || loadingEnd}
+        disabled={!startLocation || !endLocation || !dateDepart || loadingStart || loadingEnd}
         onPress={handleSearchRides}
         activeOpacity={0.8}
       >
@@ -476,6 +641,86 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
     color: "#000",
+  },
+
+  // 🗓️ Styles Date & Heure
+  dateTimeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 2,
+    borderColor: 'transparent',
+  },
+
+  dateTimeText: {
+    fontSize: 16,
+    color: '#999',
+    marginLeft: 12,
+    flex: 1,
+  },
+
+  dateTimeTextSelected: {
+    color: '#000',
+    fontWeight: '500',
+  },
+
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  datePickerContainer: {
+    backgroundColor: '#FFF',
+    borderRadius: 20,
+    padding: 20,
+    width: '85%',
+    maxWidth: 400,
+  },
+
+  pickerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEE',
+  },
+
+  pickerTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000',
+  },
+
+  cancelButton: {
+    fontSize: 16,
+    color: '#6B46C1',
+  },
+
+  applyButton: {
+    fontSize: 16,
+    color: '#6B46C1',
+    fontWeight: '600',
+  },
+
+  nextButton: {
+    backgroundColor: '#6B46C1',
+    padding: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 16,
+  },
+
+  nextButtonText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '600',
   },
 
   searchButton: {

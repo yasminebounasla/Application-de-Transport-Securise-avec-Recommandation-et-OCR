@@ -12,9 +12,6 @@ export const createRide = async (req, res) => {
       endLng,
       endAddress,
       departureTime,
-      noSmoking,
-      noPets,
-      quiet,
     } = req.body;
 
     if (!passengerId || !startLat || !startLng || !startAddress || 
@@ -34,7 +31,7 @@ export const createRide = async (req, res) => {
       });
     }
 
-    const newRide = await prisma.ride.create({
+    const newRide = await prisma.trajet.create({
       data: {
         passengerId: parseInt(passengerId),
         startLat: parseFloat(startLat),
@@ -43,10 +40,10 @@ export const createRide = async (req, res) => {
         endLat: parseFloat(endLat),
         endLng: parseFloat(endLng),
         endAddress,
-        departureTime: new Date(departureTime),
-        noSmoking: noSmoking || false,
-        noPets: noPets || false,
-        quiet: quiet || false,
+        dateDepart: new Date(departureTime),
+        heureDepart: new Date(departureTime).toTimeString().slice(0, 5),
+        placesDispo: 1,
+        prix: 0,
         status: 'PENDING',
       },
       include: {
@@ -57,6 +54,10 @@ export const createRide = async (req, res) => {
             prenom: true,
             numTel: true,
             email: true,
+            quiet_ride: true,
+            smoking_ok: true,
+            pets_ok: true,
+            luggage_large: true,
           },
         },
       },
@@ -93,7 +94,7 @@ export const getPassengerRides = async (req, res) => {
       });
     }
 
-    const rides = await prisma.ride.findMany({
+    const rides = await prisma.trajet.findMany({
       where: {
         passengerId: parseInt(id),
       },
@@ -145,10 +146,9 @@ export const getDriverRequests = async (req, res) => {
       });
     }
 
-    const pendingRides = await prisma.ride.findMany({
+    const pendingRides = await prisma.trajet.findMany({
       where: {
         status: 'PENDING',
-
       },
       include: {
         passenger: {
@@ -186,11 +186,88 @@ export const getDriverRequests = async (req, res) => {
   }
 };
 
+export const acceptRide = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { driverId } = req.body;
+
+    const ride = await prisma.trajet.findUnique({
+      where: { id: parseInt(id) }
+    });
+
+    if (!ride) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Demande de trajet introuvable' 
+      });
+    }
+
+    if (ride.status !== 'PENDING') {
+      return res.status(400).json({ 
+        success: false,
+        message: `Impossible d'accepter un trajet avec le status ${ride.status}` 
+      });
+    }
+
+    const driverExists = await prisma.driver.findUnique({
+      where: { id: parseInt(driverId) }
+    });
+
+    if (!driverExists) {
+      return res.status(404).json({ 
+        success: false,
+        message: 'Conducteur introuvable' 
+      });
+    }
+
+    const updatedRide = await prisma.trajet.update({
+      where: { id: parseInt(id) },
+      data: { 
+        status: 'ACCEPTED',
+        driverId: parseInt(driverId),
+        updatedAt: new Date()
+      },
+      include: {
+        passenger: {
+          select: {
+            id: true,
+            nom: true,
+            prenom: true,
+            numTel: true,
+          },
+        },
+        driver: {
+          select: {
+            id: true,
+            nom: true,
+            prenom: true,
+            numTel: true,
+          },
+        },
+      },
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Demande acceptée avec succès',
+      data: updatedRide
+    });
+
+  } catch (error) {
+    console.error('❌ Erreur acceptRide:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Erreur lors de l\'acceptation de la demande',
+      error: error.message 
+    });
+  }
+};
+
 export const rejectRide = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const ride = await prisma.ride.findUnique({
+    const ride = await prisma.trajet.findUnique({
       where: { id: parseInt(id) }
     });
 
@@ -208,10 +285,10 @@ export const rejectRide = async (req, res) => {
       });
     }
 
-    const updatedRide = await prisma.ride.update({
+    const updatedRide = await prisma.trajet.update({
       where: { id: parseInt(id) },
       data: { 
-        status: 'CANCELLED',
+        status: 'CANCELLED_BY_DRIVER',
         updatedAt: new Date()
       },
       include: {
@@ -245,7 +322,7 @@ export const startRide = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const ride = await prisma.ride.findUnique({
+    const ride = await prisma.trajet.findUnique({
       where: { id: parseInt(id) }
     });
 
@@ -263,7 +340,7 @@ export const startRide = async (req, res) => {
       });
     }
 
-    const updatedRide = await prisma.ride.update({
+    const updatedRide = await prisma.trajet.update({
       where: { id: parseInt(id) },
       data: { 
         status: 'IN_PROGRESS',
@@ -309,8 +386,7 @@ export const completeRide = async (req, res) => {
   try {
     const { id } = req.params;
 
-    // Vérifier que le ride existe
-    const ride = await prisma.ride.findUnique({
+    const ride = await prisma.trajet.findUnique({
       where: { id: parseInt(id) }
     });
 
@@ -328,10 +404,11 @@ export const completeRide = async (req, res) => {
       });
     }
 
-    const updatedRide = await prisma.ride.update({
+    const updatedRide = await prisma.trajet.update({
       where: { id: parseInt(id) },
       data: { 
         status: 'COMPLETED',
+        completedAt: new Date(),
         updatedAt: new Date()
       },
       include: {
@@ -372,7 +449,7 @@ export const cancelRide = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const ride = await prisma.ride.findUnique({
+    const ride = await prisma.trajet.findUnique({
       where: { id: parseInt(id) }
     });
 
@@ -383,17 +460,17 @@ export const cancelRide = async (req, res) => {
       });
     }
 
-    if (ride.status === 'COMPLETED' || ride.status === 'CANCELLED') {
+    if (ride.status === 'COMPLETED' || ride.status.startsWith('CANCELLED')) {
       return res.status(400).json({ 
         success: false,
         message: `Impossible d'annuler un trajet avec le status ${ride.status}` 
       });
     }
 
-    const updatedRide = await prisma.ride.update({
+    const updatedRide = await prisma.trajet.update({
       where: { id: parseInt(id) },
       data: { 
-        status: 'CANCELLED',
+        status: 'CANCELLED_BY_PASSENGER',
         updatedAt: new Date()
       },
       include: {
