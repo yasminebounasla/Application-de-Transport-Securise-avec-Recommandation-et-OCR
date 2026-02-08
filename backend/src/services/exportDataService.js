@@ -1,7 +1,7 @@
 import { prisma } from "../config/prisma.js";
 import fs from "fs";
 import path from "path";
-import { fileURLToPath } from 'url';
+
 
 const boolToYesNo = (b) => (b ? "yes" : "no");
 
@@ -9,18 +9,16 @@ async function exportLightFM() {
   console.log("🚀 Export LightFM avec données RÉELLES...\n");
 
   try {
-    // 1️⃣ Récupérer tous les passagers et drivers
+    // Récupérer tous les passagers et drivers
     const passengers = await prisma.passenger.findMany();
     const drivers = await prisma.driver.findMany();
 
-    console.log(`👥 ${passengers.length} passagers trouvés`);
-    console.log(`🚗 ${drivers.length} drivers trouvés\n`);
-
-    // 2️⃣ Récupérer les VRAIS trajets (completed ou cancelled par passager)
+    // Récupérer les VRAIS trajets 
     const trajets = await prisma.trajet.findMany({
       where: {
         status: {
-          in: ['COMPLETED', 'CANCELLED_BY_PASSENGER']
+          in: ['COMPLETED', 'CANCELLED_BY_PASSENGER'] // on fait que les tarjet completés ou annulés par le passager 
+          // les tarjet anulés par le driver sont moins pertinents pour apprendre les préférences du passager, car c'est souvent hors de son contrôle (ex: panne, urgence, etc.)
         }
       },
       include: {
@@ -29,15 +27,14 @@ async function exportLightFM() {
       }
     });
 
-    console.log(`📊 ${trajets.length} trajets réels trouvés dans la BD`);
 
-    // 3️⃣ Créer les interactions avec WEIGHT RÉEL
+    // Créer les interactions avec WEIGHT RÉEL
     const interactions = trajets
       .filter(t => t.passagerId !== null)
       .map(t => {
         let weight = 0.0;
 
-        if (t.status === 'CANCELLED_BY_PASSENGER') {
+        if (t.status === 'CANCELLED_BY_PASSENGER' || t.status === 'CANCELLED_BY_DRIVER') {
           weight = 0.2;
         } else if (t.status === 'COMPLETED') {
           if (t.rating === null) {
@@ -54,6 +51,7 @@ async function exportLightFM() {
             weight = 0.2;
           }
         }
+
 
         return {
           passenger_id: `P${t.passagerId}`,
@@ -73,8 +71,8 @@ async function exportLightFM() {
     console.log(`   - Mauvais (<0.4): ${w3}\n`);
 
     if (interactions.length === 0) {
-      console.log("❌ AUCUNE interaction trouvée !");
-      console.log("❌ Lance d'abord : node src/seeds/seedTrajets.js\n");
+      console.log("AUCUNE interaction trouvée !");
+  
       await prisma.$disconnect();
       process.exit(1);
     }
@@ -114,9 +112,8 @@ async function exportLightFM() {
     fs.writeFileSync(iPath, iHeader + iRows);
     console.log(`✅ interactions.csv créé (${iPath})\n`);
 
-    console.log("🎉 Export terminé avec succès !");
-    console.log(`📂 Fichiers dans : ${exportDir}\n`);
-    console.log("🚀 Prochaine étape : cd ../ml-service && python train_model.py\n");
+    console.log(" Export terminé avec succès !");
+  
 
     await prisma.$disconnect();
     process.exit(0);
@@ -129,9 +126,7 @@ async function exportLightFM() {
   }
 }
 
-// ✅ EXÉCUTION DIRECTE (CORRIGÉE)
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+
 
 // Lancer immédiatement
 exportLightFM();

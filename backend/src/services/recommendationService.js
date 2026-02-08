@@ -1,7 +1,8 @@
 import axios from 'axios';
 
-const ML_SERVICE_URL = process.env.ML_SERVICE_URL || "http://localhost:8000/recommend";  // ← Enlève le ; si présent
+const ML_SERVICE_URL = process.env.ML_SERVICE_URL || "http://localhost:8000/recommend";  
 
+// Fonction pour appeler le service de recommandation ML et récupérer les recommandations de drivers pour un passager donné 
 export const getRecommendations = async (passenger_id, preferences) => {
   try {
     console.log("Sending to ML:", { passenger_id, preferences });
@@ -12,6 +13,7 @@ export const getRecommendations = async (passenger_id, preferences) => {
     });
     
     return response.data.recommendations;
+
   } catch (error) {
     console.error("Error fetching recommendations:", error.response?.data || error.message);
     throw error;
