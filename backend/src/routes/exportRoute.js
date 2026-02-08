@@ -1,5 +1,5 @@
 import express from "express";
-import { exportLightFM } from "../controllers/exportLightFM.js";
+import { exportLightFM } from "../services/exportDataService.js";
 
 const router = express.Router();
 
