@@ -153,8 +153,8 @@ model Trajet {
   id Int @id @default(autoincrement())
 
   // Relations
-  driverId Int
-  driver   Driver @relation("TrajetsConducteur", fields: [driverId], references: [id])
+  driverId Int?
+  driver   Driver? @relation("TrajetsConducteur", fields: [driverId], references: [id])
 
   passagerId Int?
   passenger  Passenger? @relation("TrajetsPassager", fields: [passagerId], references: [id], onDelete: SetNull)
