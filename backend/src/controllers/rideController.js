@@ -33,7 +33,9 @@ export const createRide = async (req, res) => {
 
     const newRide = await prisma.trajet.create({
       data: {
-        passengerId: parseInt(passengerId),
+        passenger: {
+          connect: { id: parseInt(passengerId) }
+        },
         startLat: parseFloat(startLat),
         startLng: parseFloat(startLng),
         startAddress,
@@ -70,7 +72,7 @@ export const createRide = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Erreur createRide:', error);
+    console.error('Erreur createRide:', error);
     res.status(500).json({ 
       success: false,
       message: 'Erreur lors de la création de la demande',
@@ -96,7 +98,7 @@ export const getPassengerRides = async (req, res) => {
 
     const rides = await prisma.trajet.findMany({
       where: {
-        passengerId: parseInt(id),
+        passagerId: parseInt(id),
       },
       include: {
         driver: {
@@ -122,7 +124,7 @@ export const getPassengerRides = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Erreur getPassengerRides:', error);
+    console.error('Erreur getPassengerRides:', error);
     res.status(500).json({ 
       success: false,
       message: 'Erreur lors de la récupération des trajets',
@@ -177,7 +179,7 @@ export const getDriverRequests = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Erreur getDriverRequests:', error);
+    console.error('Erreur getDriverRequests:', error);
     res.status(500).json({ 
       success: false,
       message: 'Erreur lors de la récupération des demandes',
@@ -224,7 +226,9 @@ export const acceptRide = async (req, res) => {
       where: { id: parseInt(id) },
       data: { 
         status: 'ACCEPTED',
-        driverId: parseInt(driverId),
+        driver: {
+          connect: { id: parseInt(driverId) }
+        },
         updatedAt: new Date()
       },
       include: {
@@ -254,7 +258,7 @@ export const acceptRide = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Erreur acceptRide:', error);
+    console.error('Erreur acceptRide:', error);
     res.status(500).json({ 
       success: false,
       message: 'Erreur lors de l\'acceptation de la demande',
@@ -309,7 +313,7 @@ export const rejectRide = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Erreur rejectRide:', error);
+    console.error('Erreur rejectRide:', error);
     res.status(500).json({ 
       success: false,
       message: 'Erreur lors du refus de la demande',
@@ -373,7 +377,7 @@ export const startRide = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Erreur startRide:', error);
+    console.error('Erreur startRide:', error);
     res.status(500).json({ 
       success: false,
       message: 'Erreur lors du démarrage du trajet',
@@ -436,7 +440,7 @@ export const completeRide = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Erreur completeRide:', error);
+    console.error('Erreur completeRide:', error);
     res.status(500).json({ 
       success: false,
       message: 'Erreur lors de la complétion du trajet',
@@ -491,7 +495,7 @@ export const cancelRide = async (req, res) => {
     });
 
   } catch (error) {
-    console.error('❌ Erreur cancelRide:', error);
+    console.error('Erreur cancelRide:', error);
     res.status(500).json({ 
       success: false,
       message: 'Erreur lors de l\'annulation du trajet',
