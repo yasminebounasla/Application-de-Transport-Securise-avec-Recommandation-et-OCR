@@ -63,7 +63,7 @@ dataset.fit(
 
 
 # 3. Construction des Matrices avec FILTRE
-good_interactions = i_df[i_df['weight'] > 0.6]
+good_interactions = i_df[i_df['weight'] > 0.8]
 
 (interactions, weights) = dataset.build_interactions(
     [(row["passenger_id"], row["driver_id"], row["weight"])
