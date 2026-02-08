@@ -144,7 +144,8 @@ enum TrajetStatus {
   ACCEPTED
   IN_PROGRESS
   COMPLETED
-  CANCELLED
+  CANCELLED_BY_PASSENGER
+  CANCELLED_BY_DRIVER
 }
 
 // Trajet (combiné avec Ride + champs ML)
