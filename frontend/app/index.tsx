@@ -59,7 +59,6 @@ export default function Home() {
           </Text>
         </View>
       </View>
-
         
     </AuthProvider>
   );
