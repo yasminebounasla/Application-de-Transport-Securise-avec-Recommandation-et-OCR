@@ -13,10 +13,9 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-
 // Passager
 model Passenger {
-  id        Int @id @default(autoincrement())  
+  id        Int      @id @default(autoincrement())
   email     String   @unique
   password  String
   nom       String
@@ -34,14 +33,13 @@ model Passenger {
   luggage_large      Boolean?
   female_driver_pref Boolean?
 
-  trajets   Trajet[] @relation("TrajetsPassager")
-  rides     Ride[]   @relation("RideRequests")
+  trajets Trajet[] @relation("TrajetsPassager")
 }
 
 // Conducteur
 model Driver {
-  id        Int @id @default(autoincrement())  
-  email      String   @unique
+  id         Int     @id @default(autoincrement())
+  email      String  @unique
   password   String
   nom        String
   prenom     String
@@ -50,46 +48,44 @@ model Driver {
   isVerified Boolean @default(false) // OCR validé
   age        Int
 
- //  CONSENTEMENT (Checkbox "J'accepte...")
+  //  CONSENTEMENT (Checkbox "J'accepte...")
   hasAcceptedPhotoStorage Boolean @default(false)
 
   // critères pour recommandation
-  fumeur           Boolean?
-  talkative        Boolean?
-  radio_on         Boolean?
-  smoking_allowed  Boolean?
-  pets_allowed     Boolean?
-  car_big          Boolean?
-  works_morning    Boolean?
-  works_afternoon  Boolean?
-  works_evening    Boolean?
-  works_night      Boolean?
+  fumeur          Boolean?
+  talkative       Boolean?
+  radio_on        Boolean?
+  smoking_allowed Boolean?
+  pets_allowed    Boolean?
+  car_big         Boolean?
+  works_morning   Boolean?
+  works_afternoon Boolean?
+  works_evening   Boolean?
+  works_night     Boolean?
 
-  note        Float?   // moyenne des évaluations 
+  note Float? // moyenne des évaluations 
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-
-  verification     Verification?
-  license          License?
-  vehicules        Vehicule[]
-  trajets          Trajet[]      @relation("TrajetsConducteur")
-  rides     Ride[]   @relation("DriverRides")
+  verification Verification?
+  license      License?
+  vehicules    Vehicule[]
+  trajets      Trajet[]      @relation("TrajetsConducteur")
 }
 
 // Vehicule
 model Vehicule {
-  id        Int @id @default(autoincrement())
-  driverId  Int
-  marque    String
-  modele    String?
-  annee     Int?
-  nbPlaces  Int?
-  plaque    String?
-  couleur   String?
+  id       Int     @id @default(autoincrement())
+  driverId Int
+  marque   String
+  modele   String?
+  annee    Int?
+  nbPlaces Int?
+  plaque   String?
+  couleur  String?
 
-  driver    Driver @relation(fields: [driverId], references: [id])
+  driver Driver @relation(fields: [driverId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -100,110 +96,102 @@ model Vehicule {
 // --- SERVICE DE VÉRIFICATION & SÉCURITÉ ---
 
 model Verification {
-  id              Int      @id @default(autoincrement())
-  driverId        Int      @unique
-  driver          Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
-  
+  id       Int    @id @default(autoincrement())
+  driverId Int    @unique
+  driver   Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
   // Stockage image
-  selfieImage     Bytes    
-  
+  selfieImage Bytes
+
   // Résultats de Reconnaicens
-  similarityScore Float    
-  verdict         String   // "MATCH" ou "NO_MATCH"
-  threshold       Float    // seuil
-  margin          Float    
-  confidence      String   
-  
+  similarityScore Float
+  verdict         String // "MATCH" ou "NO_MATCH"
+  threshold       Float // seuil
+  margin          Float
+  confidence      String
+
   // Qualité technique
-  licenseQuality  Int?     // Score de netteté permis 
-  selfieQuality   Int?     // Score de netteté selfie 
-  
-  isApproved      Boolean  @default(false)
-  createdAt       DateTime @default(now())
+  licenseQuality Int? // Score de netteté permis 
+  selfieQuality  Int? // Score de netteté selfie 
+
+  isApproved Boolean  @default(false)
+  createdAt  DateTime @default(now())
 }
+
 //permis
 model License {
-  id            Int      @id @default(autoincrement())
-  driverId      Int      @unique
-  driver        Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
-  
+  id       Int    @id @default(autoincrement())
+  driverId Int    @unique
+  driver   Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
   // Données sensibles (Chiffrées au niveau applicatif avant stockage)
-  ninEncrypted  String   @db.VarChar(500) // Numéro d'identité national chiffré
-  permisImage   Bytes    // Image du permis
-  
+  ninEncrypted String @db.VarChar(500) // Numéro d'identité national chiffré
+  permisImage  Bytes // Image du permis
+
   // Dates du document
-  issueDate     DateTime? //date de creation de permis
-  expiryDate    DateTime  //date de exprimation de permis
-  
+  issueDate  DateTime? //date de creation de permis
+  expiryDate DateTime //date de exprimation de permis
+
   // Métadonnées
   ocrConfidence Int?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
 
+// Enum pour le statut
+enum TrajetStatus {
+  PENDING
+  ACCEPTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
 
-
-// Trajet
+// Trajet (combiné avec Ride + champs ML)
 model Trajet {
-  id          Int @id @default(autoincrement())
-  driverId    Int
-  passagerId  Int?
+  id Int @id @default(autoincrement())
 
-  depart      String
-  destination String
-  dateDepart  DateTime
-  heureDepart String?
-  placesDispo Int
-  prix        Float
+  // Relations
+  driverId Int
+  driver   Driver @relation("TrajetsConducteur", fields: [driverId], references: [id])
 
-  driver      Driver    @relation("TrajetsConducteur", fields: [driverId], references: [id])
-  passenger   Passenger? @relation("TrajetsPassager", fields: [passagerId], references: [id])
+  passagerId Int?
+  passenger  Passenger? @relation("TrajetsPassager", fields: [passagerId], references: [id], onDelete: SetNull)
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@index([driverId])
-  @@index([passagerId])
-}
-
-//Ride
-enum RideStatus {
-  PENDING      
-  ACCEPTED    
-  IN_PROGRESS 
-  COMPLETED    
-  CANCELLED    
-}
-
-model Ride {
-  id        Int        @id @default(autoincrement())
-  
+  // Coordonnées de départ
   startLat     Float
   startLng     Float
   startAddress String
 
-  endLat       Float
-  endLng       Float
-  endAddress   String
+  // Coordonnées de destination
+  endLat     Float
+  endLng     Float
+  endAddress String
 
-  departureTime DateTime
+  // Date et heure
+  dateDepart  DateTime
+  heureDepart String?
 
+  // Capacité et prix
+  placesDispo Int
+  prix        Float
+
+  // Préférences du trajet
   noSmoking Boolean @default(false)
   noPets    Boolean @default(false)
   quiet     Boolean @default(false)
 
-  status    RideStatus @default(PENDING)
+  // Statut du trajet
+  status TrajetStatus @default(PENDING)
 
-  passengerId Int
-  passenger   Passenger @relation("RideRequests", fields: [passengerId], references: [id], onDelete: Cascade)
-  
-  driverId    Int?
-  driver      Driver?   @relation("DriverRides", fields: [driverId], references: [id], onDelete: SetNull)
+  // CHAMPS POUR LE ML
+  rating      Float? // Note du passager (1.0-5.0) - NULL si pas encore noté
+  completedAt DateTime? // Date de complétion
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  
-  @@index([passengerId])
+
   @@index([driverId])
+  @@index([passagerId])
   @@index([status])
 }
