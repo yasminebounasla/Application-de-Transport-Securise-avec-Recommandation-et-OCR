@@ -1,6 +1,5 @@
 from fastapi import APIRouter
 from pydantic import BaseModel
-from typing import List
 from services.recommender import get_recommendations
 
 router = APIRouter(prefix="/recommendations", tags=["Recommendations"])

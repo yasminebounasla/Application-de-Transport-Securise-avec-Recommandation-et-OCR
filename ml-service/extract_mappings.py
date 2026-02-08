@@ -1,6 +1,6 @@
 import pickle
 
-# ✅ Charge depuis model_real/
+# Charge depuis model_real/
 with open("model_real/dataset_real.pkl", "rb") as f:
     dataset = pickle.load(f)
 
