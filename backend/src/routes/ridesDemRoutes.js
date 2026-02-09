@@ -4,6 +4,7 @@ import {
   createRide,
   getPassengerRides,
   getDriverRequests,
+  acceptRide,
   rejectRide,      
   startRide,      
   completeRide,   
@@ -19,6 +20,9 @@ router.get('/passenger/:id', getPassengerRides);
 
 //Demandes PENDING pour un conducteur
 router.get('/driver/:id', getDriverRequests);
+
+//Accepte une demande
+router.put('/:id/accept', acceptRide);
 
 //Refuser une demande
 router.put('/:id/reject', rejectRide);
