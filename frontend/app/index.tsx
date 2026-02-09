@@ -44,13 +44,6 @@ export default function Home() {
           variant="primary"
           style={{ marginTop: 16 }}
         />
-
-        <Button 
-          title="Open Demande Trajet"
-          onPress={() => router.push('/passenger/DemandeTrajetScreen')}
-          variant="secondary"
-          style={{ marginTop: 16 }}
-        />
         
         {/* Footer */}
         <View className="pb-8 px-6">
