@@ -2,27 +2,34 @@ import { PrismaClient } from '@prisma/client';
 const prisma = new PrismaClient();
 
 export const createRide = async (req, res) => {
-  try {
-    const {
-      passengerId,
-      startLat,
-      startLng,
-      startAddress,
-      endLat,
-      endLng,
-      endAddress,
-      departureTime,
-    } = req.body;
+  console.log("REQ.USER:", req.user); 
+  const passengerId = req.user.passengerId;
+  
+  if (!passengerId) {
+    return res.status(400).json({ message: "User not found in request" });
+  }
 
-    if (!passengerId || !startLat || !startLng || !startAddress || 
-        !endLat || !endLng || !endAddress || !departureTime) {
-      return res.status(400).json({ 
-        message: 'Tous les champs obligatoires doivent être remplis' 
-      });
-    }
+  const {
+    startLat,
+    startLng,
+    startAddress,
+    endLat,
+    endLng,
+    endAddress,
+    departureTime,
+  } = req.body;
+
+  if (!startLat || !startLng || !startAddress || 
+      !endLat || !endLng || !endAddress || !departureTime) {
+    return res.status(400).json({ 
+      message: 'Tous les champs obligatoires doivent être remplis' 
+    });
+  }
+
+  try {
 
     const passengerExists = await prisma.passenger.findUnique({
-      where: { id: parseInt(passengerId) }
+      where: { id: passengerId }
     });
 
     if (!passengerExists) {
@@ -34,7 +41,7 @@ export const createRide = async (req, res) => {
     const newRide = await prisma.trajet.create({
       data: {
         passenger: {
-          connect: { id: parseInt(passengerId) }
+          connect: { id: passengerId }
         },
         startLat: parseFloat(startLat),
         startLng: parseFloat(startLng),
@@ -65,7 +72,7 @@ export const createRide = async (req, res) => {
       },
     });
 
-    res.status(201).json({
+    return res.status(201).json({
       success: true,
       message: 'Demande de trajet créée avec succès',
       data: newRide
@@ -73,8 +80,7 @@ export const createRide = async (req, res) => {
 
   } catch (error) {
     console.error('Erreur createRide:', error);
-    res.status(500).json({ 
-      success: false,
+    return res.status(500).json({ 
       message: 'Erreur lors de la création de la demande',
       error: error.message 
     });
@@ -82,23 +88,18 @@ export const createRide = async (req, res) => {
 };
 
 export const getPassengerRides = async (req, res) => {
+  console.log("REQ.USER:", req.user);
+
+  const passengerId = req.user.passengerId;
+
+  if (!passengerId) {
+    return res.status(400).json({ message: "User not found in request" });
+  }
+
   try {
-    const { id } = req.params;
-
-    const passengerExists = await prisma.passenger.findUnique({
-      where: { id: parseInt(id) }
-    });
-
-    if (!passengerExists) {
-      return res.status(404).json({ 
-        success: false,
-        message: 'Passager introuvable' 
-      });
-    }
-
     const rides = await prisma.trajet.findMany({
       where: {
-        passagerId: parseInt(id),
+        passagerId: passengerId,
       },
       include: {
         driver: {
@@ -117,7 +118,7 @@ export const getPassengerRides = async (req, res) => {
       },
     });
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       count: rides.length,
       data: rides
@@ -125,8 +126,7 @@ export const getPassengerRides = async (req, res) => {
 
   } catch (error) {
     console.error('Erreur getPassengerRides:', error);
-    res.status(500).json({ 
-      success: false,
+    return res.status(500).json({ 
       message: 'Erreur lors de la récupération des trajets',
       error: error.message 
     });
@@ -134,16 +134,22 @@ export const getPassengerRides = async (req, res) => {
 };
 
 export const getDriverRequests = async (req, res) => {
+  console.log("REQ.USER:", req.user);
+
+  const driverId = req.user.driverId;
+
+  if (!driverId) {
+    return res.status(400).json({ message: "Driver not found in request" });
+  }
+
   try {
-    const { id } = req.params;
 
     const driverExists = await prisma.driver.findUnique({
-      where: { id: parseInt(id) }
+      where: { id: driverId }
     });
 
     if (!driverExists) {
       return res.status(404).json({ 
-        success: false,
         message: 'Conducteur introuvable' 
       });
     }
@@ -172,7 +178,7 @@ export const getDriverRequests = async (req, res) => {
       },
     });
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       count: pendingRides.length,
       data: pendingRides
@@ -180,8 +186,7 @@ export const getDriverRequests = async (req, res) => {
 
   } catch (error) {
     console.error('Erreur getDriverRequests:', error);
-    res.status(500).json({ 
-      success: false,
+    return res.status(500).json({ 
       message: 'Erreur lors de la récupération des demandes',
       error: error.message 
     });
@@ -189,36 +194,30 @@ export const getDriverRequests = async (req, res) => {
 };
 
 export const acceptRide = async (req, res) => {
-  try {
-    const { id } = req.params;
-    const { driverId } = req.body;
+  console.log("REQ.USER:", req.user);
 
+  const driverId = req.user.driverId;
+
+  if (!driverId) {
+    return res.status(400).json({ message: "Driver not found in request" });
+  }
+
+  const { id } = req.params;
+
+  try {
     const ride = await prisma.trajet.findUnique({
       where: { id: parseInt(id) }
     });
 
     if (!ride) {
       return res.status(404).json({ 
-        success: false,
         message: 'Demande de trajet introuvable' 
       });
     }
 
     if (ride.status !== 'PENDING') {
       return res.status(400).json({ 
-        success: false,
         message: `Impossible d'accepter un trajet avec le status ${ride.status}` 
-      });
-    }
-
-    const driverExists = await prisma.driver.findUnique({
-      where: { id: parseInt(driverId) }
-    });
-
-    if (!driverExists) {
-      return res.status(404).json({ 
-        success: false,
-        message: 'Conducteur introuvable' 
       });
     }
 
@@ -227,7 +226,7 @@ export const acceptRide = async (req, res) => {
       data: { 
         status: 'ACCEPTED',
         driver: {
-          connect: { id: parseInt(driverId) }
+          connect: { id: driverId }
         },
         updatedAt: new Date()
       },
@@ -251,7 +250,7 @@ export const acceptRide = async (req, res) => {
       },
     });
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: 'Demande acceptée avec succès',
       data: updatedRide
@@ -259,8 +258,7 @@ export const acceptRide = async (req, res) => {
 
   } catch (error) {
     console.error('Erreur acceptRide:', error);
-    res.status(500).json({ 
-      success: false,
+    return res.status(500).json({ 
       message: 'Erreur lors de l\'acceptation de la demande',
       error: error.message 
     });
@@ -268,23 +266,21 @@ export const acceptRide = async (req, res) => {
 };
 
 export const rejectRide = async (req, res) => {
-  try {
-    const { id } = req.params;
+  const { id } = req.params;
 
+  try {
     const ride = await prisma.trajet.findUnique({
       where: { id: parseInt(id) }
     });
 
     if (!ride) {
       return res.status(404).json({ 
-        success: false,
         message: 'Demande de trajet introuvable' 
       });
     }
 
     if (ride.status !== 'PENDING') {
       return res.status(400).json({ 
-        success: false,
         message: `Impossible de refuser un trajet avec le status ${ride.status}` 
       });
     }
@@ -306,7 +302,7 @@ export const rejectRide = async (req, res) => {
       },
     });
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: 'Demande refusée avec succès',
       data: updatedRide
@@ -314,8 +310,7 @@ export const rejectRide = async (req, res) => {
 
   } catch (error) {
     console.error('Erreur rejectRide:', error);
-    res.status(500).json({ 
-      success: false,
+    return res.status(500).json({ 
       message: 'Erreur lors du refus de la demande',
       error: error.message 
     });
@@ -323,23 +318,21 @@ export const rejectRide = async (req, res) => {
 };
 
 export const startRide = async (req, res) => {
-  try {
-    const { id } = req.params;
+  const { id } = req.params;
 
+  try {
     const ride = await prisma.trajet.findUnique({
       where: { id: parseInt(id) }
     });
 
     if (!ride) {
       return res.status(404).json({ 
-        success: false,
         message: 'Trajet introuvable' 
       });
     }
 
     if (ride.status !== 'ACCEPTED') {
       return res.status(400).json({ 
-        success: false,
         message: `Impossible de démarrer un trajet avec le status ${ride.status}. Le trajet doit être ACCEPTED.` 
       });
     }
@@ -370,7 +363,7 @@ export const startRide = async (req, res) => {
       },
     });
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: 'Trajet démarré avec succès',
       data: updatedRide
@@ -378,8 +371,7 @@ export const startRide = async (req, res) => {
 
   } catch (error) {
     console.error('Erreur startRide:', error);
-    res.status(500).json({ 
-      success: false,
+    return res.status(500).json({ 
       message: 'Erreur lors du démarrage du trajet',
       error: error.message 
     });
@@ -387,23 +379,21 @@ export const startRide = async (req, res) => {
 };
 
 export const completeRide = async (req, res) => {
-  try {
-    const { id } = req.params;
+  const { id } = req.params;
 
+  try {
     const ride = await prisma.trajet.findUnique({
       where: { id: parseInt(id) }
     });
 
     if (!ride) {
       return res.status(404).json({ 
-        success: false,
         message: 'Trajet introuvable' 
       });
     }
 
     if (ride.status !== 'IN_PROGRESS') {
       return res.status(400).json({ 
-        success: false,
         message: `Impossible de terminer un trajet avec le status ${ride.status}. Le trajet doit être IN_PROGRESS.` 
       });
     }
@@ -433,7 +423,7 @@ export const completeRide = async (req, res) => {
       },
     });
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: 'Trajet terminé avec succès',
       data: updatedRide
@@ -441,8 +431,7 @@ export const completeRide = async (req, res) => {
 
   } catch (error) {
     console.error('Erreur completeRide:', error);
-    res.status(500).json({ 
-      success: false,
+    return res.status(500).json({ 
       message: 'Erreur lors de la complétion du trajet',
       error: error.message 
     });
@@ -450,23 +439,35 @@ export const completeRide = async (req, res) => {
 };
 
 export const cancelRide = async (req, res) => {
-  try {
-    const { id } = req.params;
+  console.log("REQ.USER:", req.user);
 
+  const passengerId = req.user.passengerId;
+
+  if (!passengerId) {
+    return res.status(400).json({ message: "User not found in request" });
+  }
+
+  const { id } = req.params;
+
+  try {
     const ride = await prisma.trajet.findUnique({
       where: { id: parseInt(id) }
     });
 
     if (!ride) {
       return res.status(404).json({ 
-        success: false,
         message: 'Trajet introuvable' 
+      });
+    }
+
+    if (ride.passagerId !== passengerId) {
+      return res.status(403).json({ 
+        message: 'Vous ne pouvez annuler que vos propres trajets' 
       });
     }
 
     if (ride.status === 'COMPLETED' || ride.status.startsWith('CANCELLED')) {
       return res.status(400).json({ 
-        success: false,
         message: `Impossible d'annuler un trajet avec le status ${ride.status}` 
       });
     }
@@ -488,7 +489,7 @@ export const cancelRide = async (req, res) => {
       },
     });
 
-    res.status(200).json({
+    return res.status(200).json({
       success: true,
       message: 'Trajet annulé avec succès',
       data: updatedRide
@@ -496,8 +497,7 @@ export const cancelRide = async (req, res) => {
 
   } catch (error) {
     console.error('Erreur cancelRide:', error);
-    res.status(500).json({ 
-      success: false,
+    return res.status(500).json({ 
       message: 'Erreur lors de l\'annulation du trajet',
       error: error.message 
     });

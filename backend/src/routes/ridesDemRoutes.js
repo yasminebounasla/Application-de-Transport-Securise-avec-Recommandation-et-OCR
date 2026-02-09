@@ -10,30 +10,18 @@ import {
   completeRide,   
   cancelRide,      
 } from '../controllers/rideController.js';
+import { authenticate } from '../middleware/authMiddleware.js'; 
 
+// Routes PASSAGER (protégées par authenticate)
+router.post('/', authenticate, createRide);              // Créer une demande
+router.get('/my-rides', authenticate, getPassengerRides); // Mes rides
+router.put('/:id/cancel', authenticate, cancelRide);      // Annuler
 
-//Créer une demande
-router.post('/', createRide);
-
-//Rides d'un passager
-router.get('/passenger/:id', getPassengerRides);
-
-//Demandes PENDING pour un conducteur
-router.get('/driver/:id', getDriverRequests);
-
-//Accepte une demande
-router.put('/:id/accept', acceptRide);
-
-//Refuser une demande
-router.put('/:id/reject', rejectRide);
-
-//Démarrer un trajet
-router.put('/:id/start', startRide);
-
-//Terminer un trajet
-router.put('/:id/complete', completeRide);
-
-//Annuler un trajet (passager)
-router.put('/:id/cancel', cancelRide);
+// Routes CONDUCTEUR (protégées par authenticate)
+router.get('/driver/requests', authenticate, getDriverRequests); // Demandes PENDING
+router.put('/:id/accept', authenticate, acceptRide);             // Accepter
+router.put('/:id/reject', authenticate, rejectRide);             // Refuser
+router.put('/:id/start', authenticate, startRide);               // Démarrer
+router.put('/:id/complete', authenticate, completeRide);         // Terminer
 
 export default router;

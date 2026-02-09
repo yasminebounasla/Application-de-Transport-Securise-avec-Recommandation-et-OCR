@@ -284,7 +284,6 @@ export default function SearchRideScreen() {
 
     try {
       const rideData = {
-        passengerId: 1,
         startLat: startLocation.latitude,
         startLng: startLocation.longitude,
         startAddress: startAddress || "Departure point",
