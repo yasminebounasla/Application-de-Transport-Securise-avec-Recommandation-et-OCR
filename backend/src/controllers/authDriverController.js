@@ -60,9 +60,13 @@ export const registerDriver = async (req, res) => {
 
 
         const token = jwt.sign(
-            { id: newDriver.id, email: newDriver.email },
+            {
+                driverId: newDriver.id,  
+                email: newDriver.email,
+                name: `${newDriver.nom} ${newDriver.prenom}`
+            },
             jwtSecret,
-            { expiresIn: "1h" }
+            { expiresIn: "7d" }
         );
 
         newDriver.password = undefined;
@@ -103,11 +107,14 @@ export const loginDriver = async (req, res) => {
         }
 
         const token = jwt.sign(
-            { id: driver.id, email: driver.email },
+            {
+                driverId: driver.id,  
+                email: driver.email,
+                name: `${driver.nom} ${driver.prenom}`
+            },
             jwtSecret,
-            { expiresIn: "1h" }
+            { expiresIn: "7d" }
         );
-
         driver.password = undefined;
 
         res.status(200).json({
@@ -148,7 +155,7 @@ export const getAllDrivers = async (req, res) => {
             }
         });
         
-        //  Retourne directement l'array (sans wrapper)
+        //  Retourne directement l'array des conducteurs sans envelopper dans un objet "data"
         res.status(200).json(drivers);
         
     } catch (err) {
