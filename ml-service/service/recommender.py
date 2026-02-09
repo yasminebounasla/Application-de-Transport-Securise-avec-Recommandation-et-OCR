@@ -7,18 +7,10 @@ import os
 from dotenv import load_dotenv
 
 load_dotenv()
-BACKEND_URL = os.getenv("BACKEND_URL")
-
-
-# =========================
-# Helper : calcul score selon préférences
-# =========================
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:5000")
 
 def calculate_match_score(driver: Dict, preferences: Dict) -> int:
-    """
-    Calcule un score simple de matching entre un driver et les préférences du passenger.
-    Booléens et None sont convertis en 'yes' / 'no' pour comparer proprement.
-    """
+    """Calcule le score de matching"""
     score = 0
 
     def bool_to_yesno(val):
@@ -61,27 +53,18 @@ def calculate_match_score(driver: Dict, preferences: Dict) -> int:
     return score
 
 
-# =========================
-# Classe Recommender
-# =========================
 class Recommender:
     def __init__(self):
-        """
-        Charge tous les modèles et mappings pickle pour le LightFM.
-        self.index_to_driver_id sert à retrouver l'ID réel du driver depuis l'index LightFM.
-        """
         self.model = self.load_pickle("model_real/lightfm_model_real.pkl")
         self.dataset = self.load_pickle("model_real/dataset_real.pkl")
         self.user_features = self.load_pickle("model_real/user_features_real.pkl")
         self.item_features = self.load_pickle("model_real/item_features_real.pkl")
         self.user_id_map = self.load_pickle("model_real/user_id_map.pkl")
         self.driver_id_map = self.load_pickle("model_real/driver_id_map.pkl")
-
-        # mapping index LightFM → driver_id réel
         self.index_to_driver_id = {v: k for k, v in self.driver_id_map.items()} if self.driver_id_map else {}
 
+
     def load_pickle(self, path: str):
-        """Charge un fichier pickle, retourne None si absent"""
         try:
             with open(path, "rb") as file:
                 return pickle.load(file)
@@ -89,33 +72,46 @@ class Recommender:
             print(f"[WARNING] Fichier non trouvé: {path}")
             return None
 
+
     async def get_all_drivers_from_db(self) -> List[Dict]:
-        """Récupère tous les drivers depuis le backend pour avoir infos complètes et IDs réels"""
+        """Récupère tous les drivers depuis le backend Node.js"""
         try:
-            async with httpx.AsyncClient() as client:
-                response = await client.get(f"{BACKEND_URL}/api/auth/driver/all", timeout=30.0)
+            #récupérer tous les drivers depuis la BD via le backend Node.js
+            async with httpx.AsyncClient() as client: 
+                response = await client.get(
+                    f"{BACKEND_URL}/api/auth/driver/all", 
+                    timeout=30.0
+                )
+                
                 if response.status_code == 200:
                     result = response.json()
-                    return result.get("data", result) if isinstance(result, dict) else result
+                    drivers = result.get("data", result) if isinstance(result, dict) else result
+                    print(f"✅ {len(drivers)} drivers récupérés depuis la DB")
+                    return drivers
+                
                 else:
-                    print(f"[ERROR] get_all_drivers status: {response.status_code}")
+                    print(f"Erreur DB: status {response.status_code}")
                     return []
+                
         except Exception as e:
-            print(f"[ERROR] get_all_drivers: {e}")
-            import traceback
-            traceback.print_exc()
+            print(f"Erreur get_all_drivers: {e}")
             return []
 
+
+
     def predict_drivers(self, passenger_db_id: str) -> Dict[str, float]:
-        """
-        Retourne les scores LightFM pour tous les drivers d'un passenger.
-        Si passenger inconnu → cold start.
-        """
+        """Retourne les scores LightFM"""
+        
         if not self.model or not self.user_id_map or not self.driver_id_map:
+            print("Modèle non chargé, retour cold start")
             return {}
 
+        # S'assurer que l'ID commence par "P" (pour faire le mapping avec les IDs de la DB)
+        if not passenger_db_id.startswith("P"):
+            passenger_db_id = f"P{passenger_db_id}"
+
         if passenger_db_id not in self.user_id_map:
-            # Passenger jamais vu par LightFM
+            print(f"Passager {passenger_db_id} inconnu du modèle (cold start)")
             return {}
 
         user_index = self.user_id_map[passenger_db_id]
@@ -131,42 +127,45 @@ class Recommender:
         return {self.index_to_driver_id[idx]: float(scores[i]) for i, idx in enumerate(all_driver_indices)}
 
 
-# Instance globale pour éviter de recharger le modèle à chaque appel
+# Instance globale
 recommender = Recommender()
 
 
-# =========================
-# Fonction principale de recommandation
-# =========================
-
-async def get_recommendations(passenger_id: str, preferences: Dict = {}, top_n: int = 5) -> List[Dict]:
+async def get_recommendations(passenger_id: str, preferences: Dict = {}, top_n: int = 10) -> List[Dict]:
     """
-    Retourne les top_n drivers recommandés pour un passenger.
-    Combine score LightFM + score matching des préférences.
+    Fonction principale de recommandation
     """
+    print(f"\nRecherche recommandations pour passager: {passenger_id}")
+    
+    # S'assurer que l'ID commence par "P"
+    if not passenger_id.startswith("P"):
+        passenger_id = f"P{passenger_id}"
+    
     # Scores LightFM
     lightfm_scores = recommender.predict_drivers(passenger_id)
+    print(f"   Scores LightFM: {len(lightfm_scores)} drivers")
 
-    # Récupère les drivers depuis la DB
+    # Récupérer drivers depuis DB
     all_drivers = await recommender.get_all_drivers_from_db()
     if not all_drivers:
+        print("Aucun driver trouvé dans la DB")
         return []
 
-    # Combine LightFM + matching des préférences
+    # Combiner scores
     for driver in all_drivers:
         driver_id = f"D{driver['id']}"
         lightfm_score = lightfm_scores.get(driver_id, 0.0)
         pref_score = calculate_match_score(driver, preferences) if preferences else 0
 
-        # Score final : 70% LightFM + 30% preferences (normalisé)
+        # Score final : 70% LightFM + 30% preferences (normalisé sur 13) pour donner plus de poids au modèle
         driver['final_score'] = (0.7 * lightfm_score) + (0.3 * pref_score / 13)
 
-    # Trie par score final
+    # Trier par score
     all_drivers.sort(key=lambda d: d.get('final_score', 0), reverse=True)
 
-    # Supprime final_score avant retour
+    # Supprimer final_score
     for driver in all_drivers:
         driver.pop('final_score', None)
 
-    # Retourne top_n
+    print(f"Retour de {min(top_n, len(all_drivers))} drivers")
     return all_drivers[:top_n]
