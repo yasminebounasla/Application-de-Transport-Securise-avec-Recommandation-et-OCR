@@ -321,51 +321,37 @@ export default function SearchRideScreen() {
     }
 
     try {
-      const rideData = {
-        startLat: startLocation.latitude,
-        startLng: startLocation.longitude,
-        startAddress: startAddress || "Departure point",
-        endLat: endLocation.latitude,
-        endLng: endLocation.longitude,
-        endAddress: endAddress || "Destination",
-        departureTime: dateDepart.toISOString(),
-      };
+    const rideData = {
+      startLat: startLocation.latitude,
+      startLng: startLocation.longitude,
+      startAddress: startAddress || "Departure point",
+      endLat: endLocation.latitude,
+      endLng: endLocation.longitude,
+      endAddress: endAddress || "Destination",
+      departureTime: dateDepart.toISOString(),
+    };
 
-      console.log('📤 Creating ride:', rideData);
-      const newRide = await createRide(rideData);
-      console.log('✅ Ride created successfully:', newRide);
+    const newRide = await createRide(rideData);
 
-      const preferences = {
-        quiet_ride: quiet_ride ? 'yes' : 'no',
-        radio_ok: radio_ok ? 'yes' : 'no',
-        smoking_ok: smoking_ok ? 'yes' : 'no',
-        pets_ok: pets_ok ? 'yes' : 'no',
-        luggage_large: luggage_large ? 'yes' : 'no',
-        female_driver_pref: female_driver_pref ? 'yes' : 'no'
-      };
-
-      router.push({
-        pathname: '/passenger/RecommendedDriversScreen',
-        params: {
-          rideId: newRide.id,
-          startAddress: startAddress,
-          endAddress: endAddress,
-          preferences: JSON.stringify(preferences)
-        }
-      });
-
-    } catch (error) {
-      console.error('❌ Error creating ride:', error);
-      let errorMessage = 'Unable to create your request. Please try again.';
-      if (error.response?.data?.message) {
-        errorMessage = error.response.data.message;
-      } else if (error.message) {
-        errorMessage = error.message;
+    router.push({
+      pathname: '/shared/MapScreen',
+      params: {
+        rideId: newRide.id.toString(),
+        startLat: startLocation.latitude.toString(),
+        startLng: startLocation.longitude.toString(),
+        endLat: endLocation.latitude.toString(),
+        endLng: endLocation.longitude.toString(),
+        startAddress: startAddress,
+        endAddress: endAddress,
+        selectionType: 'route',
+        showRecommendations: 'true', 
       }
-      Alert.alert('Error', errorMessage);
-    }
-  };
+    });
 
+  } catch (error) {
+    Alert.alert('Error', 'Unable to create your request');
+  }
+};
   const isFormValid = () => {
     return startLocation && endLocation && dateDepart && !loadingStart && !loadingEnd && !rideLoading;
   };
