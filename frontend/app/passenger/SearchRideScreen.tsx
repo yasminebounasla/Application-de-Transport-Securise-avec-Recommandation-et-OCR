@@ -10,6 +10,8 @@ import {
   Modal,
   Platform,
   Alert,
+  ScrollView,
+  Switch,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { LocationContext } from "../../context/LocationContext";
@@ -45,6 +47,14 @@ export default function SearchRideScreen() {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [dateDepart, setDateDepart] = useState(null);
   const [heureDepart, setHeureDepart] = useState(null);
+
+  // ✅ PRÉFÉRENCES (depuis DemandeTrajetScreen)
+  const [smoking_ok, setSmokingOk] = useState(false);
+  const [pets_ok, setPetsOk] = useState(false);
+  const [luggage_large, setLuggageLarge] = useState(false);
+  const [quiet_ride, setQuietRide] = useState(false);
+  const [radio_ok, setRadioOk] = useState(false);
+  const [female_driver_pref, setFemaleDriverPref] = useState(false);
 
   useEffect(() => {
     const loadStartAddress = async () => {
@@ -184,18 +194,23 @@ export default function SearchRideScreen() {
     }
   };
 
-  const handleSetOnMapStart = () => {
-    setFocusedField(null);
-    Keyboard.dismiss();
-    router.push("/shared/MapScreen?selectionType=start");
-  };
+const handleSetOnMapStart = () => {
+  setFocusedField(null);
+  Keyboard.dismiss();
+  router.push({
+    pathname: "/shared/MapScreen",
+    params: { selectionType: "start" }
+  });
+};
 
-  const handleSetOnMapEnd = () => {
-    setFocusedField(null);
-    Keyboard.dismiss();
-    router.push("/shared/MapScreen?selectionType=destination");
-  };
-
+const handleSetOnMapEnd = () => {
+  setFocusedField(null);
+  Keyboard.dismiss();
+  router.push({
+    pathname: "/shared/MapScreen",
+    params: { selectionType: "destination" }
+  });
+};
   const handleSelectStartSuggestion = (place) => {
     const location = {
       latitude: place.latitude,
@@ -283,6 +298,7 @@ export default function SearchRideScreen() {
     }
 
     try {
+      // ✅ Créer le ride avec préférences
       const rideData = {
         startLat: startLocation.latitude,
         startLng: startLocation.longitude,
@@ -299,18 +315,25 @@ export default function SearchRideScreen() {
 
       console.log('✅ Ride created successfully:', newRide);
 
-      Alert.alert(
-        'Request created!',
-        'Your ride request has been sent to drivers.',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              router.push("/shared/MapScreen?selectionType=route");
-            }
-          }
-        ]
-      );
+      // ✅ Naviguer vers RecommendedDriversScreen avec préférences
+      const preferences = {
+        quiet_ride: quiet_ride ? 'yes' : 'no',
+        radio_ok: radio_ok ? 'yes' : 'no',
+        smoking_ok: smoking_ok ? 'yes' : 'no',
+        pets_ok: pets_ok ? 'yes' : 'no',
+        luggage_large: luggage_large ? 'yes' : 'no',
+        female_driver_pref: female_driver_pref ? 'yes' : 'no'
+      };
+
+      router.push({
+        pathname: '/passenger/RecommendedDriversScreen',
+        params: {
+          rideId: newRide.id,
+          startAddress: startAddress,
+          endAddress: endAddress,
+          preferences: JSON.stringify(preferences)
+        }
+      });
 
     } catch (error) {
       console.error('❌ Error creating ride:', error);
@@ -332,9 +355,10 @@ export default function SearchRideScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <ScrollView style={styles.container}>
       <Text style={styles.title}>Book a Ride</Text>
 
+      {/* LOCATIONS */}
       <View style={styles.fieldContainer}>
         <View style={styles.inputContainer}>
           {loadingStart ? (
@@ -476,6 +500,7 @@ export default function SearchRideScreen() {
         )}
       </View>
 
+      {/* DATE & TIME */}
       <TouchableOpacity
         style={styles.dateTimeButton}
         onPress={handleOpenDatePicker}
@@ -490,6 +515,70 @@ export default function SearchRideScreen() {
         </Text>
       </TouchableOpacity>
 
+      {/* ✅ PRÉFÉRENCES */}
+      <Text style={styles.sectionTitle}>Your Preferences</Text>
+
+      <View style={styles.preferenceRow}>
+        <Text style={styles.preferenceLabel}>Quiet ride</Text>
+        <Switch
+          value={quiet_ride}
+          onValueChange={setQuietRide}
+          trackColor={{ false: '#D1D5DB', true: '#000000' }}
+          thumbColor={quiet_ride ? '#FFFFFF' : '#F3F4F6'}
+        />
+      </View>
+
+      <View style={styles.preferenceRow}>
+        <Text style={styles.preferenceLabel}>Radio OK</Text>
+        <Switch
+          value={radio_ok}
+          onValueChange={setRadioOk}
+          trackColor={{ false: '#D1D5DB', true: '#000000' }}
+          thumbColor={radio_ok ? '#FFFFFF' : '#F3F4F6'}
+        />
+      </View>
+
+      <View style={styles.preferenceRow}>
+        <Text style={styles.preferenceLabel}>Smoking allowed</Text>
+        <Switch
+          value={smoking_ok}
+          onValueChange={setSmokingOk}
+          trackColor={{ false: '#D1D5DB', true: '#000000' }}
+          thumbColor={smoking_ok ? '#FFFFFF' : '#F3F4F6'}
+        />
+      </View>
+
+      <View style={styles.preferenceRow}>
+        <Text style={styles.preferenceLabel}>Pets allowed</Text>
+        <Switch
+          value={pets_ok}
+          onValueChange={setPetsOk}
+          trackColor={{ false: '#D1D5DB', true: '#000000' }}
+          thumbColor={pets_ok ? '#FFFFFF' : '#F3F4F6'}
+        />
+      </View>
+
+      <View style={styles.preferenceRow}>
+        <Text style={styles.preferenceLabel}>Large luggage</Text>
+        <Switch
+          value={luggage_large}
+          onValueChange={setLuggageLarge}
+          trackColor={{ false: '#D1D5DB', true: '#000000' }}
+          thumbColor={luggage_large ? '#FFFFFF' : '#F3F4F6'}
+        />
+      </View>
+
+      <View style={styles.preferenceRow}>
+        <Text style={styles.preferenceLabel}>Female driver preferred</Text>
+        <Switch
+          value={female_driver_pref}
+          onValueChange={setFemaleDriverPref}
+          trackColor={{ false: '#D1D5DB', true: '#000000' }}
+          thumbColor={female_driver_pref ? '#FFFFFF' : '#F3F4F6'}
+        />
+      </View>
+
+      {/* DATE PICKER MODALS */}
       {Platform.OS === 'ios' && showDatePicker && (
         <Modal
           transparent
@@ -561,6 +650,7 @@ export default function SearchRideScreen() {
         />
       )}
 
+      {/* ✅ BOUTON FIND DRIVERS */}
       <TouchableOpacity
         style={[
           styles.searchButton,
@@ -573,10 +663,12 @@ export default function SearchRideScreen() {
         {rideLoading ? (
           <ActivityIndicator color="#fff" />
         ) : (
-          <Text style={styles.searchText}>Create Ride Request</Text>
+          <Text style={styles.searchText}>Find Recommended Drivers</Text>
         )}
       </TouchableOpacity>
-    </View>
+
+      <View style={{ height: 40 }} />
+    </ScrollView>
   );
 }
 
@@ -591,6 +683,13 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     marginBottom: 24,
     color: "#000",
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#000",
+    marginTop: 24,
+    marginBottom: 16,
   },
   fieldContainer: {
     marginBottom: 16,
@@ -683,6 +782,20 @@ const styles = StyleSheet.create({
     color: '#000',
     fontWeight: '500',
   },
+  preferenceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+  },
+  preferenceLabel: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#000',
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -736,7 +849,7 @@ const styles = StyleSheet.create({
     padding: 18,
     borderRadius: 12,
     alignItems: "center",
-    marginTop: 20,
+    marginTop: 24,
   },
   disabled: {
     backgroundColor: "#CCC",
