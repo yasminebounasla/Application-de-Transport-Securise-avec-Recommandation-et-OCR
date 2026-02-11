@@ -37,13 +37,6 @@ export default function Home() {
             </TouchableOpacity>
           </View>
         </View>
-
-        <Button
-          title="Open Search Ride"
-          onPress={() => router.push('/passenger/SearchRideScreen')}
-          variant="primary"
-          style={{ marginTop: 16 }}
-        />
         
         {/* Footer */}
         <View className="pb-8 px-6">
