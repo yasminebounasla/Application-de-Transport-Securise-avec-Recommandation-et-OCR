@@ -35,6 +35,11 @@ export default function SearchRideScreen() {
   const startInputRef = useRef(null);
   const endInputRef = useRef(null);
 
+  // ✅ FIX 1: Ref pour empêcher le blur de fermer les suggestions
+  const isSelectingSuggestion = useRef(false);
+  const isNavigatingToMap = useRef(false);
+  const blurTimeoutRef = useRef(null);
+
   const [startQuery, setStartQuery] = useState("");
   const [endQuery, setEndQuery] = useState("");
   const [startSuggestions, setStartSuggestions] = useState([]);
@@ -48,13 +53,19 @@ export default function SearchRideScreen() {
   const [dateDepart, setDateDepart] = useState(null);
   const [heureDepart, setHeureDepart] = useState(null);
 
-  // ✅ PRÉFÉRENCES (depuis DemandeTrajetScreen)
   const [smoking_ok, setSmokingOk] = useState(false);
   const [pets_ok, setPetsOk] = useState(false);
   const [luggage_large, setLuggageLarge] = useState(false);
   const [quiet_ride, setQuietRide] = useState(false);
   const [radio_ok, setRadioOk] = useState(false);
   const [female_driver_pref, setFemaleDriverPref] = useState(false);
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     const loadStartAddress = async () => {
@@ -63,9 +74,7 @@ export default function SearchRideScreen() {
         setLoadingStart(false);
         return;
       }
-
       setLoadingStart(true);
-      
       try {
         await new Promise(resolve => setTimeout(resolve, 150));
         const address = await reverseGeocode(startLocation);
@@ -78,7 +87,6 @@ export default function SearchRideScreen() {
         setLoadingStart(false);
       }
     };
-
     loadStartAddress();
   }, [startLocation?.latitude, startLocation?.longitude]);
 
@@ -89,9 +97,7 @@ export default function SearchRideScreen() {
         setLoadingEnd(false);
         return;
       }
-
       setLoadingEnd(true);
-      
       try {
         await new Promise(resolve => setTimeout(resolve, 300));
         const address = await reverseGeocode(endLocation);
@@ -104,7 +110,6 @@ export default function SearchRideScreen() {
         setLoadingEnd(false);
       }
     };
-
     loadEndAddress();
   }, [endLocation?.latitude, endLocation?.longitude]);
 
@@ -114,7 +119,6 @@ export default function SearchRideScreen() {
         setStartSuggestions([]);
         return;
       }
-
       setLoadingStartSuggestions(true);
       try {
         const results = await searchPlaces(startQuery, currentLocation);
@@ -125,7 +129,6 @@ export default function SearchRideScreen() {
         setLoadingStartSuggestions(false);
       }
     };
-
     const timer = setTimeout(fetchSuggestions, 500);
     return () => clearTimeout(timer);
   }, [startQuery]);
@@ -136,7 +139,6 @@ export default function SearchRideScreen() {
         setEndSuggestions([]);
         return;
       }
-
       setLoadingEndSuggestions(true);
       try {
         const results = await searchPlaces(endQuery, currentLocation);
@@ -147,25 +149,29 @@ export default function SearchRideScreen() {
         setLoadingEndSuggestions(false);
       }
     };
-
     const timer = setTimeout(fetchSuggestions, 500);
     return () => clearTimeout(timer);
   }, [endQuery]);
 
   const handleStartFocus = () => {
+    if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
     setFocusedField('start');
     setStartQuery(startAddress);
   };
 
   const handleEndFocus = () => {
+    if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
     setFocusedField('destination');
     setEndQuery(endAddress);
   };
 
+  // ✅ FIX 1: Blur augmenté à 400ms ET vérifie isSelectingSuggestion
   const handleBlur = () => {
-    setTimeout(() => {
-      setFocusedField(null);
-    }, 200);
+    blurTimeoutRef.current = setTimeout(() => {
+      if (!isSelectingSuggestion.current && !isNavigatingToMap.current) {
+        setFocusedField(null);
+      }
+    }, 400);
   };
 
   const handleClearStart = () => {
@@ -194,39 +200,62 @@ export default function SearchRideScreen() {
     }
   };
 
-const handleSetOnMapStart = () => {
-  setFocusedField(null);
-  Keyboard.dismiss();
-  router.push({
-    pathname: "/shared/MapScreen",
-    params: { selectionType: "start" }
-  });
-};
+  // ✅ FIX 2: Navigation vers map sans dépendre de focusedField
+  const handleSetOnMapStart = () => {
+    isNavigatingToMap.current = true;
+    if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
+    setFocusedField(null);
+    Keyboard.dismiss();
+    // Petit délai pour s'assurer que le keyboard est fermé
+    setTimeout(() => {
+      isNavigatingToMap.current = false;
+      router.push({
+        pathname: "/shared/MapScreen",
+        params: { selectionType: "start" }
+      });
+    }, 50);
+  };
 
-const handleSetOnMapEnd = () => {
-  setFocusedField(null);
-  Keyboard.dismiss();
-  router.push({
-    pathname: "/shared/MapScreen",
-    params: { selectionType: "destination" }
-  });
-};
+  const handleSetOnMapEnd = () => {
+    isNavigatingToMap.current = true;
+    if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
+    setFocusedField(null);
+    Keyboard.dismiss();
+    // ✅ FIX: Délai minimal pour éviter le double-tap
+    setTimeout(() => {
+      isNavigatingToMap.current = false;
+      router.push({
+        pathname: "/shared/MapScreen",
+        params: { selectionType: "destination" }
+      });
+    }, 50);
+  };
+
+  // ✅ FIX 3: onPressIn au lieu de onPress + isSelectingSuggestion ref
   const handleSelectStartSuggestion = (place) => {
+    isSelectingSuggestion.current = false;
+    if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
+    
     const location = {
       latitude: place.latitude,
       longitude: place.longitude
     };
     setStartLocation(location);
+    setStartSuggestions([]);
     setFocusedField(null);
     Keyboard.dismiss();
   };
 
   const handleSelectEndSuggestion = (place) => {
+    isSelectingSuggestion.current = false;
+    if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
+    
     const location = {
       latitude: place.latitude,
       longitude: place.longitude
     };
     setEndLocation(location);
+    setEndSuggestions([]);
     setFocusedField(null);
     Keyboard.dismiss();
   };
@@ -239,7 +268,6 @@ const handleSetOnMapEnd = () => {
     if (Platform.OS === 'android') {
       setShowDatePicker(false);
     }
-    
     if (date) {
       setSelectedDate(date);
       if (Platform.OS === 'android') {
@@ -250,17 +278,14 @@ const handleSetOnMapEnd = () => {
 
   const handleTimeChange = (event, time) => {
     setShowTimePicker(false);
-    
     if (time) {
       const combinedDateTime = new Date(selectedDate);
       combinedDateTime.setHours(time.getHours());
       combinedDateTime.setMinutes(time.getMinutes());
-      
       setDateDepart(combinedDateTime);
       setHeureDepart(
         `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`
       );
-      
       if (Platform.OS === 'ios') {
         setShowDatePicker(false);
       }
@@ -279,15 +304,13 @@ const handleSetOnMapEnd = () => {
 
   const formatDisplayDate = () => {
     if (!dateDepart) return "Select date & time";
-    
-    const options = { 
-      weekday: 'short', 
-      month: 'short', 
+    const options = {
+      weekday: 'short',
+      month: 'short',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
     };
-    
     return dateDepart.toLocaleDateString('en-US', options);
   };
 
@@ -298,7 +321,6 @@ const handleSetOnMapEnd = () => {
     }
 
     try {
-      // ✅ Créer le ride avec préférences
       const rideData = {
         startLat: startLocation.latitude,
         startLng: startLocation.longitude,
@@ -310,12 +332,9 @@ const handleSetOnMapEnd = () => {
       };
 
       console.log('📤 Creating ride:', rideData);
-
       const newRide = await createRide(rideData);
-
       console.log('✅ Ride created successfully:', newRide);
 
-      // ✅ Naviguer vers RecommendedDriversScreen avec préférences
       const preferences = {
         quiet_ride: quiet_ride ? 'yes' : 'no',
         radio_ok: radio_ok ? 'yes' : 'no',
@@ -337,15 +356,12 @@ const handleSetOnMapEnd = () => {
 
     } catch (error) {
       console.error('❌ Error creating ride:', error);
-      
       let errorMessage = 'Unable to create your request. Please try again.';
-      
       if (error.response?.data?.message) {
         errorMessage = error.response.data.message;
       } else if (error.message) {
         errorMessage = error.message;
       }
-      
       Alert.alert('Error', errorMessage);
     }
   };
@@ -355,10 +371,10 @@ const handleSetOnMapEnd = () => {
   };
 
   return (
-    <ScrollView style={styles.container}>
+    <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
       <Text style={styles.title}>Book a Ride</Text>
 
-      {/* LOCATIONS */}
+      {/* FROM */}
       <View style={styles.fieldContainer}>
         <View style={styles.inputContainer}>
           {loadingStart ? (
@@ -402,9 +418,10 @@ const handleSetOnMapEnd = () => {
               <Text style={styles.optionText}>Current position</Text>
             </TouchableOpacity>
 
+            {/* ✅ FIX: onPressIn pour naviguer avant le blur */}
             <TouchableOpacity
               style={styles.optionButton}
-              onPress={handleSetOnMapStart}
+              onPressIn={handleSetOnMapStart}
               activeOpacity={0.7}
             >
               <Ionicons name="map-outline" size={20} color="#000" style={styles.optionIcon} />
@@ -412,13 +429,15 @@ const handleSetOnMapEnd = () => {
             </TouchableOpacity>
 
             {loadingStartSuggestions && <ActivityIndicator style={{ marginTop: 10 }} />}
-            
+
             {startSuggestions.length > 0 && (
               <View style={styles.suggestionsContainer}>
                 {startSuggestions.map((item) => (
                   <TouchableOpacity
                     key={item.id}
                     style={styles.suggestionItem}
+                    // ✅ FIX: onPressIn déclenche AVANT onBlur
+                    onPressIn={() => { isSelectingSuggestion.current = true; }}
                     onPress={() => handleSelectStartSuggestion(item)}
                     activeOpacity={0.7}
                   >
@@ -434,6 +453,7 @@ const handleSetOnMapEnd = () => {
         )}
       </View>
 
+      {/* WHERE TO */}
       <View style={styles.fieldContainer}>
         <View style={styles.inputContainer}>
           {loadingEnd ? (
@@ -468,9 +488,10 @@ const handleSetOnMapEnd = () => {
 
         {focusedField === 'destination' && (
           <View style={styles.optionsContainer}>
+            {/* ✅ FIX: onPressIn pour naviguer avant le blur */}
             <TouchableOpacity
               style={styles.optionButton}
-              onPress={handleSetOnMapEnd}
+              onPressIn={handleSetOnMapEnd}
               activeOpacity={0.7}
             >
               <Ionicons name="map-outline" size={20} color="#000" style={styles.optionIcon} />
@@ -478,13 +499,15 @@ const handleSetOnMapEnd = () => {
             </TouchableOpacity>
 
             {loadingEndSuggestions && <ActivityIndicator style={{ marginTop: 10 }} />}
-            
+
             {endSuggestions.length > 0 && (
               <View style={styles.suggestionsContainer}>
                 {endSuggestions.map((item) => (
                   <TouchableOpacity
                     key={item.id}
                     style={styles.suggestionItem}
+                    // ✅ FIX: onPressIn déclenche AVANT onBlur
+                    onPressIn={() => { isSelectingSuggestion.current = true; }}
                     onPress={() => handleSelectEndSuggestion(item)}
                     activeOpacity={0.7}
                   >
@@ -507,84 +530,36 @@ const handleSetOnMapEnd = () => {
         activeOpacity={0.7}
       >
         <Ionicons name="calendar-outline" size={24} color="#6B46C1" />
-        <Text style={[
-          styles.dateTimeText,
-          dateDepart && styles.dateTimeTextSelected
-        ]}>
+        <Text style={[styles.dateTimeText, dateDepart && styles.dateTimeTextSelected]}>
           {formatDisplayDate()}
         </Text>
       </TouchableOpacity>
 
-      {/* ✅ PRÉFÉRENCES */}
+      {/* PRÉFÉRENCES */}
       <Text style={styles.sectionTitle}>Your Preferences</Text>
 
-      <View style={styles.preferenceRow}>
-        <Text style={styles.preferenceLabel}>Quiet ride</Text>
-        <Switch
-          value={quiet_ride}
-          onValueChange={setQuietRide}
-          trackColor={{ false: '#D1D5DB', true: '#000000' }}
-          thumbColor={quiet_ride ? '#FFFFFF' : '#F3F4F6'}
-        />
-      </View>
-
-      <View style={styles.preferenceRow}>
-        <Text style={styles.preferenceLabel}>Radio OK</Text>
-        <Switch
-          value={radio_ok}
-          onValueChange={setRadioOk}
-          trackColor={{ false: '#D1D5DB', true: '#000000' }}
-          thumbColor={radio_ok ? '#FFFFFF' : '#F3F4F6'}
-        />
-      </View>
-
-      <View style={styles.preferenceRow}>
-        <Text style={styles.preferenceLabel}>Smoking allowed</Text>
-        <Switch
-          value={smoking_ok}
-          onValueChange={setSmokingOk}
-          trackColor={{ false: '#D1D5DB', true: '#000000' }}
-          thumbColor={smoking_ok ? '#FFFFFF' : '#F3F4F6'}
-        />
-      </View>
-
-      <View style={styles.preferenceRow}>
-        <Text style={styles.preferenceLabel}>Pets allowed</Text>
-        <Switch
-          value={pets_ok}
-          onValueChange={setPetsOk}
-          trackColor={{ false: '#D1D5DB', true: '#000000' }}
-          thumbColor={pets_ok ? '#FFFFFF' : '#F3F4F6'}
-        />
-      </View>
-
-      <View style={styles.preferenceRow}>
-        <Text style={styles.preferenceLabel}>Large luggage</Text>
-        <Switch
-          value={luggage_large}
-          onValueChange={setLuggageLarge}
-          trackColor={{ false: '#D1D5DB', true: '#000000' }}
-          thumbColor={luggage_large ? '#FFFFFF' : '#F3F4F6'}
-        />
-      </View>
-
-      <View style={styles.preferenceRow}>
-        <Text style={styles.preferenceLabel}>Female driver preferred</Text>
-        <Switch
-          value={female_driver_pref}
-          onValueChange={setFemaleDriverPref}
-          trackColor={{ false: '#D1D5DB', true: '#000000' }}
-          thumbColor={female_driver_pref ? '#FFFFFF' : '#F3F4F6'}
-        />
-      </View>
+      {[
+        { label: 'Quiet ride', value: quiet_ride, setter: setQuietRide },
+        { label: 'Radio OK', value: radio_ok, setter: setRadioOk },
+        { label: 'Smoking allowed', value: smoking_ok, setter: setSmokingOk },
+        { label: 'Pets allowed', value: pets_ok, setter: setPetsOk },
+        { label: 'Large luggage', value: luggage_large, setter: setLuggageLarge },
+        { label: 'Female driver preferred', value: female_driver_pref, setter: setFemaleDriverPref },
+      ].map(({ label, value, setter }) => (
+        <View key={label} style={styles.preferenceRow}>
+          <Text style={styles.preferenceLabel}>{label}</Text>
+          <Switch
+            value={value}
+            onValueChange={setter}
+            trackColor={{ false: '#D1D5DB', true: '#000000' }}
+            thumbColor={value ? '#FFFFFF' : '#F3F4F6'}
+          />
+        </View>
+      ))}
 
       {/* DATE PICKER MODALS */}
       {Platform.OS === 'ios' && showDatePicker && (
-        <Modal
-          transparent
-          animationType="slide"
-          visible={showDatePicker}
-        >
+        <Modal transparent animationType="slide" visible={showDatePicker}>
           <View style={styles.modalOverlay}>
             <View style={styles.datePickerContainer}>
               <View style={styles.pickerHeader}>
@@ -650,12 +625,9 @@ const handleSetOnMapEnd = () => {
         />
       )}
 
-      {/* ✅ BOUTON FIND DRIVERS */}
+      {/* BOUTON FIND DRIVERS */}
       <TouchableOpacity
-        style={[
-          styles.searchButton,
-          !isFormValid() && styles.disabled,
-        ]}
+        style={[styles.searchButton, !isFormValid() && styles.disabled]}
         disabled={!isFormValid()}
         onPress={handleSearchRides}
         activeOpacity={0.8}
