@@ -69,3 +69,45 @@ export const submitFeedback = async (req, res) => {
         });
     }
 }
+
+
+export const getDriverFeedback = async (req, res) => {
+    const driverId = parseInt(req.params.driverId);
+    try {
+
+        //pagination
+        const page = parseInt(req.query.page) || 1; // page actuelle depuis query params, par défaut 1
+        const limit = parseInt(req.query.limit) || 10; // nombre de feedbacks par page
+
+        const feedbacks = await prisma.evaluation.findMany({
+            where: {
+                trajet: {
+                    driverId: driverId
+                }
+            },
+            include: {
+                trajet: {
+                    select: {
+                        id: true,
+                        startAddress: true,
+                        endAddress: true,
+                        dateDepart: true
+                    }
+                }
+            },
+            orderBy: { createdAt: 'desc' },
+            skip: (page - 1) * limit,
+            take: limit
+        });
+
+        return res.status(200).json({
+            message: "Feedback retrieved successfully.",
+            data: feedbacks
+        });
+    } catch(err) {
+        return res.status(500).json({
+            message: "Failed to retrieve feedback.",
+            error: err.message
+        });
+    }   
+}
