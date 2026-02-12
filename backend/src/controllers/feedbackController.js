@@ -72,7 +72,12 @@ export const submitFeedback = async (req, res) => {
 
 
 export const getDriverFeedback = async (req, res) => {
-    const driverId = parseInt(req.params.driverId);
+    const driverId = req.user.driverId;
+
+    if (!driverId) {
+        return res.status(403).json({ message: "Access restricted to drivers only." });
+    }
+    
     try {
 
         //pagination

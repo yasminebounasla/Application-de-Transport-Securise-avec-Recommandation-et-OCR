@@ -4,6 +4,6 @@ import { submitFeedback } from "../controllers/feedbackController.js";
 
 const router = express.Router();
 
-router.post("/submit", authenticate, submitFeedback);
+router.post("/", authenticate, submitFeedback);
 
 export default router;

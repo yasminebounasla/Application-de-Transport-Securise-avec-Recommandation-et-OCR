@@ -10,6 +10,7 @@ import rideRoutes from './src/routes/rideRoutes.js';
 import ridesDemRoutes from './src/routes/ridesDemRoutes.js'
 import { notFound, errorHandler } from "./src/middleware/errorHandler.js";
 import exportRoute from './src/routes/exportRoute.js';
+import feedbackRoutes from './src/routes/feedbackRoutes.js';
 
 
 dotenv.config();
@@ -38,6 +39,7 @@ app.use("/api/ridesDem", ridesDemRoutes);
 app.use("/api/drivers", driverRoutes);
 app.use("/api/passengers", passengerRoutes);
 app.use("/api/export", exportRoute);
+app.use("/api/feedback", feedbackRoutes);
 
 
 // Error Handling Middleware
