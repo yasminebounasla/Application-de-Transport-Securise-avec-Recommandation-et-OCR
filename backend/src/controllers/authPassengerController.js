@@ -106,7 +106,7 @@ export const registerPassenger = async (req, res) => {
     
     res.status(201).json({
       message: "Passenger registered successfully.",
-      data: { newPassenger, token }
+      data: { passenger: newPassenger, token }
     });
     
   } catch (err) {
