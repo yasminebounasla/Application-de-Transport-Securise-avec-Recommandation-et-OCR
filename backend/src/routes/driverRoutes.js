@@ -5,6 +5,6 @@ import { addDriverPreferences } from "../controllers/driverController.js";
 const router = express.Router();
 
 router.put("/preferences", authenticate, addDriverPreferences);  
-router.get("/rating", authenticate, getDriverRating);
+router.get("/:driverId/rating", authenticate, getDriverRating);
 
 export default router;
