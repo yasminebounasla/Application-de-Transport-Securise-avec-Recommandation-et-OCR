@@ -1,108 +1,123 @@
 const cache = new Map();
 let lastRequestTime = 0;
-const MIN_REQUEST_INTERVAL = 1100;
+const MIN_REQUEST_INTERVAL = 1000; // 1 seconde (LocationIQ est plus permissif)
+
+// ✅ LocationIQ API Key
+const LOCATIONIQ_API_KEY = 'pk.18d0f1cca3e1780f246f04c6c53d8d1c';
 
 async function delay(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function cleanMultilingualText(text) {
+function cleanText(text) {
   if (!text) return '';
-  
-  const cleaned = text
-    .replace(/[\u0600-\u06FF]/g, '') 
-    .replace(/[\u2D30-\u2D7F]/g, '') 
+  return text
+    .replace(/[\u0600-\u06FF\u2D30-\u2D7F]/g, '') // Supprime arabe & tifinagh
     .replace(/\s+/g, ' ')
     .trim();
-  
-  return cleaned;
 }
 
-export async function reverseGeocode({ latitude, longitude }) {
-  if (!latitude || !longitude) return "Adresse inconnue";
-
-  const cacheKey = `${latitude.toFixed(4)},${longitude.toFixed(4)}`;
-  
-  if (cache.has(cacheKey)) {
-    return cache.get(cacheKey);
-  }
-
+async function performGeocode(latitude, longitude) {
   const now = Date.now();
   const timeSinceLastRequest = now - lastRequestTime;
-  
+
   if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
     await delay(MIN_REQUEST_INTERVAL - timeSinceLastRequest);
   }
 
-  try {
-    lastRequestTime = Date.now();
-    
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`,
-      {
-        headers: { 
-          "User-Agent": "my-transport-app",
-          "Accept": "application/json"
-        },
-      }
+  lastRequestTime = Date.now();
+
+  console.log(`📡 LocationIQ geocoding: ${latitude.toFixed(4)}, ${longitude.toFixed(4)}`);
+
+  const url = `https://us1.locationiq.com/v1/reverse?key=${LOCATIONIQ_API_KEY}&lat=${latitude}&lon=${longitude}&format=json&accept-language=en`;
+
+  const fetchPromise = fetch(url, {
+    headers: {
+      'Accept': 'application/json',
+    },
+  });
+
+  const timeoutPromise = new Promise((_, reject) =>
+    setTimeout(() => reject(new Error('TIMEOUT')), 8000)
+  );
+
+  const response = await Promise.race([fetchPromise, timeoutPromise]);
+
+  if (response.status === 429) {
+    console.warn('⚠️ LocationIQ rate limited');
+    throw new Error('RATE_LIMIT');
+  }
+
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+
+  const data = await response.json();
+
+  let result = 'Unknown location';
+
+  if (data.address) {
+    const addr = data.address;
+
+    const locality = cleanText(
+      addr.suburb ||
+      addr.neighbourhood ||
+      addr.quarter ||
+      addr.village ||
+      addr.town ||
+      addr.city_district ||
+      addr.city
     );
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
-    }
+    const wilaya = cleanText(
+      addr.state ||
+      addr.province ||
+      addr.county
+    );
 
-    const text = await response.text();
-    let data;
-    
-    try {
-      data = JSON.parse(text);
-    } catch {
-      console.warn("Nominatim non-JSON:", text);
-      return "Adresse inconnue";
-    }
-
-    let result = "Adresse inconnue";
-
-    if (data.address) {
-      const addr = data.address;
-      
-      const locality = cleanMultilingualText(
-        addr.suburb ||
-        addr.neighbourhood ||
-        addr.quarter ||
-        addr.village ||
-        addr.town ||
-        addr.city ||
-        addr.municipality ||
-        addr.county
-      );
-      
-      const wilaya = cleanMultilingualText(
-        addr.state ||
-        addr.province ||
-        addr.city ||
-        addr.county
-      );
-      
-      if (locality && wilaya && locality !== wilaya) {
-        result = `${locality}, ${wilaya}`;
-      } else if (locality) {
-        result = locality;
-      } else if (wilaya) {
-        result = wilaya;
-      } else if (data.display_name) {
-        result = cleanMultilingualText(data.display_name.split(',')[0]);
-      }
+    if (locality && wilaya && locality !== wilaya) {
+      result = `${locality}, ${wilaya}`;
+    } else if (locality) {
+      result = locality;
+    } else if (wilaya) {
+      result = wilaya;
     } else if (data.display_name) {
-      result = cleanMultilingualText(data.display_name.split(',')[0]);
+      result = cleanText(data.display_name.split(',')[0]);
     }
+  } else if (data.display_name) {
+    result = cleanText(data.display_name.split(',')[0]);
+  }
 
+  console.log(`✅ Address: ${result}`);
+  return result;
+}
+
+export async function reverseGeocode({ latitude, longitude }) {
+  if (!latitude || !longitude) {
+    console.warn('⚠️ Invalid coordinates');
+    return 'Unknown location';
+  }
+
+  const cacheKey = `${latitude.toFixed(3)},${longitude.toFixed(3)}`;
+
+  if (cache.has(cacheKey)) {
+    console.log('🎯 Cache hit:', cacheKey);
+    return cache.get(cacheKey);
+  }
+
+  try {
+    const result = await performGeocode(latitude, longitude);
     cache.set(cacheKey, result);
-    
     return result;
+  } catch (error) {
+    console.error('❌ Reverse geocode failed:', error.message);
 
-  } catch (err) {
-    console.error("Reverse geocode error:", err);
-    return "Adresse inconnue";
+    const fallback =
+      error.message === 'RATE_LIMIT'   ? 'Selected location' :
+      error.message === 'TIMEOUT'      ? 'Location (timeout)' :
+                                         'Selected location';
+
+    cache.set(cacheKey, fallback);
+    return fallback;
   }
 }

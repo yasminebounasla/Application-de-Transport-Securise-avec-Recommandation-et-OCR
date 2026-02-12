@@ -6,25 +6,21 @@ import {
   FlatList,
   RefreshControl,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
-import { useRouter } from 'expo-router';
 import { useRide } from '../../context/RideContext';
 import RideCard from '../../components/RideCard';
 
 export default function RideRequestsScreen() {
-  const router = useRouter();
-  const { driverRequests, getDriverRequests, loading } = useRide();
-  
+  const { driverRequests, getDriverRequests, acceptRide, rejectRide, loading } = useRide();
   const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    console.log('🔵 RideRequestsScreen monté');
     loadRequests();
   }, []);
 
   const loadRequests = async () => {
     try {
-      console.log('🔄 Chargement des demandes...');
       await getDriverRequests();
     } catch (error) {
       console.error('❌ Erreur chargement demandes:', error);
@@ -37,23 +33,51 @@ export default function RideRequestsScreen() {
     setRefreshing(false);
   };
 
-  const handleCardPress = (ride) => {
-    console.log('📍 Opening map for ride:', ride.id);
-    
-    router.push({
-      pathname: '/shared/MapScreen',
-      params: {
-        rideId: ride.id.toString(),
-        startLat: ride.startLat.toString(),
-        startLng: ride.startLng.toString(),
-        endLat: ride.endLat.toString(),
-        endLng: ride.endLng.toString(),
-        startAddress: ride.startAddress,
-        endAddress: ride.endAddress,
-        status: ride.status,
-        selectionType: 'route',
-      }
-    });
+  // ✅ Accept avec confirmation
+  const handleAccept = (rideId) => {
+    Alert.alert(
+      'Accept Ride',
+      'Are you sure you want to accept this ride?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Accept',
+          style: 'default',
+          onPress: async () => {
+            try {
+              await acceptRide(rideId);
+              Alert.alert('✅ Success', 'Ride accepted!');
+              loadRequests();
+            } catch (error) {
+              Alert.alert('Error', error.message || 'Failed to accept ride');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // ✅ Reject avec confirmation
+  const handleReject = (rideId) => {
+    Alert.alert(
+      'Reject Ride',
+      'Are you sure you want to reject this ride?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reject',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await rejectRide(rideId);
+              loadRequests();
+            } catch (error) {
+              Alert.alert('Error', error.message || 'Failed to reject ride');
+            }
+          },
+        },
+      ]
+    );
   };
 
   if (loading && !refreshing) {
@@ -76,8 +100,9 @@ export default function RideRequestsScreen() {
 
       {driverRequests.length === 0 ? (
         <View style={styles.emptyContainer}>
+          <Text style={styles.emptyIcon}>🚗</Text>
           <Text style={styles.emptyText}>No pending requests</Text>
-          <Text style={styles.emptySubText}>Pull to refresh</Text>
+          <Text style={styles.emptySubText}>Pull down to refresh</Text>
         </View>
       ) : (
         <FlatList
@@ -86,8 +111,11 @@ export default function RideRequestsScreen() {
           renderItem={({ item }) => (
             <RideCard
               ride={item}
-              onPress={() => handleCardPress(item)}
-              showActions={false} onAccept={undefined} onReject={undefined}            />
+              showActions={true}      
+              onAccept={handleAccept} 
+              onReject={handleReject} 
+              onPress={null}         
+            />
           )}
           contentContainerStyle={styles.listContainer}
           refreshControl={
@@ -136,7 +164,8 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   listContainer: {
-    padding: 20,
+    padding: 16,
+    paddingBottom: 40,
   },
   centerContainer: {
     flex: 1,
@@ -153,6 +182,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 40,
+  },
+  emptyIcon: {
+    fontSize: 60,
+    marginBottom: 16,
   },
   emptyText: {
     fontSize: 18,

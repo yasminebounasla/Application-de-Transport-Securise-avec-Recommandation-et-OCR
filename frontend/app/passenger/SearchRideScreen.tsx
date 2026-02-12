@@ -14,6 +14,7 @@ import {
   Switch,
 } from "react-native";
 import { useRouter } from "expo-router";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LocationContext } from "../../context/LocationContext";
 import { useRide } from "../../context/RideContext";
 import { reverseGeocode } from "../../utils/reverseGeocode";
@@ -35,10 +36,12 @@ export default function SearchRideScreen() {
   const startInputRef = useRef(null);
   const endInputRef = useRef(null);
 
-  // ✅ FIX 1: Ref pour empêcher le blur de fermer les suggestions
   const isSelectingSuggestion = useRef(false);
   const isNavigatingToMap = useRef(false);
   const blurTimeoutRef = useRef(null);
+
+  const lastStartCoords = useRef(null);
+  const lastEndCoords = useRef(null);
 
   const [startQuery, setStartQuery] = useState("");
   const [endQuery, setEndQuery] = useState("");
@@ -60,7 +63,6 @@ export default function SearchRideScreen() {
   const [radio_ok, setRadioOk] = useState(false);
   const [female_driver_pref, setFemaleDriverPref] = useState(false);
 
-  // Cleanup timeouts on unmount
   useEffect(() => {
     return () => {
       if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
@@ -72,21 +74,34 @@ export default function SearchRideScreen() {
       if (!startLocation?.latitude || !startLocation?.longitude) {
         setStartAddress("");
         setLoadingStart(false);
+        lastStartCoords.current = null;
         return;
       }
+
+      const coordsKey = `${startLocation.latitude.toFixed(4)},${startLocation.longitude.toFixed(4)}`;
+      
+      if (lastStartCoords.current === coordsKey) {
+        console.log('⏭️ Start coords unchanged, skipping geocode');
+        return;
+      }
+
+      lastStartCoords.current = coordsKey;
+
       setLoadingStart(true);
       try {
+        console.log('📍 Loading start address...');
         await new Promise(resolve => setTimeout(resolve, 150));
         const address = await reverseGeocode(startLocation);
         setStartAddress(address);
         setStartQuery("");
       } catch (error) {
-        console.error("Erreur chargement adresse départ:", error);
-        setStartAddress("Erreur de chargement");
+        console.error("❌ Erreur chargement adresse départ:", error);
+        setStartAddress("Error loading address");
       } finally {
         setLoadingStart(false);
       }
     };
+    
     loadStartAddress();
   }, [startLocation?.latitude, startLocation?.longitude]);
 
@@ -95,29 +110,42 @@ export default function SearchRideScreen() {
       if (!endLocation?.latitude || !endLocation?.longitude) {
         setEndAddress("");
         setLoadingEnd(false);
+        lastEndCoords.current = null;
         return;
       }
+
+      const coordsKey = `${endLocation.latitude.toFixed(4)},${endLocation.longitude.toFixed(4)}`;
+      
+      if (lastEndCoords.current === coordsKey) {
+        console.log('⏭️ End coords unchanged, skipping geocode');
+        return;
+      }
+
+      lastEndCoords.current = coordsKey;
+
       setLoadingEnd(true);
       try {
-        await new Promise(resolve => setTimeout(resolve, 300));
+        console.log('📍 Loading end address...');
+        await new Promise(resolve => setTimeout(resolve, 500));
         const address = await reverseGeocode(endLocation);
         setEndAddress(address);
         setEndQuery("");
       } catch (error) {
-        console.error("Erreur chargement adresse destination:", error);
-        setEndAddress("Erreur de chargement");
+        console.error("❌ Erreur chargement adresse destination:", error);
+        setEndAddress("Error loading address");
       } finally {
         setLoadingEnd(false);
       }
     };
+    
     loadEndAddress();
   }, [endLocation?.latitude, endLocation?.longitude]);
 
   useEffect(() => {
     const fetchSuggestions = async () => {
-      if (startQuery.length < 2) {
-        setStartSuggestions([]);
-        return;
+      if (startQuery.length < 2) { 
+        setStartSuggestions([]); 
+        return; 
       }
       setLoadingStartSuggestions(true);
       try {
@@ -135,9 +163,9 @@ export default function SearchRideScreen() {
 
   useEffect(() => {
     const fetchSuggestions = async () => {
-      if (endQuery.length < 2) {
-        setEndSuggestions([]);
-        return;
+      if (endQuery.length < 2) { 
+        setEndSuggestions([]); 
+        return; 
       }
       setLoadingEndSuggestions(true);
       try {
@@ -165,7 +193,6 @@ export default function SearchRideScreen() {
     setEndQuery(endAddress);
   };
 
-  // ✅ FIX 1: Blur augmenté à 400ms ET vérifie isSelectingSuggestion
   const handleBlur = () => {
     blurTimeoutRef.current = setTimeout(() => {
       if (!isSelectingSuggestion.current && !isNavigatingToMap.current) {
@@ -179,6 +206,7 @@ export default function SearchRideScreen() {
     setStartAddress("");
     setStartQuery("");
     setStartSuggestions([]);
+    lastStartCoords.current = null; 
     setFocusedField('start');
     startInputRef.current?.focus();
   };
@@ -188,6 +216,7 @@ export default function SearchRideScreen() {
     setEndAddress("");
     setEndQuery("");
     setEndSuggestions([]);
+    lastEndCoords.current = null; 
     setFocusedField('destination');
     endInputRef.current?.focus();
   };
@@ -200,19 +229,14 @@ export default function SearchRideScreen() {
     }
   };
 
-  // ✅ FIX 2: Navigation vers map sans dépendre de focusedField
   const handleSetOnMapStart = () => {
     isNavigatingToMap.current = true;
     if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
     setFocusedField(null);
     Keyboard.dismiss();
-    // Petit délai pour s'assurer que le keyboard est fermé
     setTimeout(() => {
       isNavigatingToMap.current = false;
-      router.push({
-        pathname: "/shared/MapScreen",
-        params: { selectionType: "start" }
-      });
+      router.push({ pathname: "/shared/MapScreen", params: { selectionType: "start" } });
     }, 50);
   };
 
@@ -221,26 +245,16 @@ export default function SearchRideScreen() {
     if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
     setFocusedField(null);
     Keyboard.dismiss();
-    // ✅ FIX: Délai minimal pour éviter le double-tap
     setTimeout(() => {
       isNavigatingToMap.current = false;
-      router.push({
-        pathname: "/shared/MapScreen",
-        params: { selectionType: "destination" }
-      });
+      router.push({ pathname: "/shared/MapScreen", params: { selectionType: "destination" } });
     }, 50);
   };
 
-  // ✅ FIX 3: onPressIn au lieu de onPress + isSelectingSuggestion ref
   const handleSelectStartSuggestion = (place) => {
     isSelectingSuggestion.current = false;
     if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
-    
-    const location = {
-      latitude: place.latitude,
-      longitude: place.longitude
-    };
-    setStartLocation(location);
+    setStartLocation({ latitude: place.latitude, longitude: place.longitude });
     setStartSuggestions([]);
     setFocusedField(null);
     Keyboard.dismiss();
@@ -249,30 +263,19 @@ export default function SearchRideScreen() {
   const handleSelectEndSuggestion = (place) => {
     isSelectingSuggestion.current = false;
     if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
-    
-    const location = {
-      latitude: place.latitude,
-      longitude: place.longitude
-    };
-    setEndLocation(location);
+    setEndLocation({ latitude: place.latitude, longitude: place.longitude });
     setEndSuggestions([]);
     setFocusedField(null);
     Keyboard.dismiss();
   };
 
-  const handleOpenDatePicker = () => {
-    setShowDatePicker(true);
-  };
+  const handleOpenDatePicker = () => setShowDatePicker(true);
 
   const handleDateChange = (event, date) => {
-    if (Platform.OS === 'android') {
-      setShowDatePicker(false);
-    }
+    if (Platform.OS === 'android') setShowDatePicker(false);
     if (date) {
       setSelectedDate(date);
-      if (Platform.OS === 'android') {
-        setTimeout(() => setShowTimePicker(true), 100);
-      }
+      if (Platform.OS === 'android') setTimeout(() => setShowTimePicker(true), 100);
     }
   };
 
@@ -286,72 +289,80 @@ export default function SearchRideScreen() {
       setHeureDepart(
         `${time.getHours().toString().padStart(2, '0')}:${time.getMinutes().toString().padStart(2, '0')}`
       );
-      if (Platform.OS === 'ios') {
-        setShowDatePicker(false);
-      }
+      if (Platform.OS === 'ios') setShowDatePicker(false);
     }
-  };
-
-  const handleApplyDateTime = () => {
-    setShowDatePicker(false);
-    setShowTimePicker(false);
-  };
-
-  const handleCancelDateTime = () => {
-    setShowDatePicker(false);
-    setShowTimePicker(false);
   };
 
   const formatDisplayDate = () => {
     if (!dateDepart) return "Select date & time";
-    const options = {
-      weekday: 'short',
-      month: 'short',
+    return dateDepart.toLocaleDateString('en-US', {
+      weekday: 'short', 
+      month: 'short', 
       day: 'numeric',
-      hour: '2-digit',
+      hour: '2-digit', 
       minute: '2-digit'
-    };
-    return dateDepart.toLocaleDateString('en-US', options);
+    });
   };
 
-  const handleSearchRides = async () => {
+  const handleRideRequest = async () => {
     if (!startLocation || !endLocation || !dateDepart) {
       Alert.alert('Error', 'Please fill all fields');
       return;
     }
 
     try {
-    const rideData = {
-      startLat: startLocation.latitude,
-      startLng: startLocation.longitude,
-      startAddress: startAddress || "Departure point",
-      endLat: endLocation.latitude,
-      endLng: endLocation.longitude,
-      endAddress: endAddress || "Destination",
-      departureTime: dateDepart.toISOString(),
-    };
+      const rideData = {
+        startLat: startLocation.latitude,
+        startLng: startLocation.longitude,
+        startAddress: startAddress || "Departure point",
+        endLat: endLocation.latitude,
+        endLng: endLocation.longitude,
+        endAddress: endAddress || "Destination",
+        departureTime: dateDepart.toISOString(),
+      };
 
-    const newRide = await createRide(rideData);
+      console.log('📤 Creating ride:', rideData);
+      const newRide = await createRide(rideData);
+      console.log('✅ Ride created:', newRide);
 
-    router.push({
-      pathname: '/shared/MapScreen',
-      params: {
-        rideId: newRide.id.toString(),
-        startLat: startLocation.latitude.toString(),
-        startLng: startLocation.longitude.toString(),
-        endLat: endLocation.latitude.toString(),
-        endLng: endLocation.longitude.toString(),
-        startAddress: startAddress,
-        endAddress: endAddress,
-        selectionType: 'route',
-        showRecommendations: 'true', 
-      }
-    });
+      const preferences = {
+        quiet_ride: quiet_ride ? 'yes' : 'no',
+        radio_ok: radio_ok ? 'yes' : 'no',
+        smoking_ok: smoking_ok ? 'yes' : 'no',
+        pets_ok: pets_ok ? 'yes' : 'no',
+        luggage_large: luggage_large ? 'yes' : 'no',
+        female_driver_pref: female_driver_pref ? 'yes' : 'no',
+      };
 
-  } catch (error) {
-    Alert.alert('Error', 'Unable to create your request');
-  }
-};
+      await AsyncStorage.setItem('tripRequest', JSON.stringify({
+        rideId: newRide.id,
+        passengerId: newRide.passengerId || 1,
+        preferences,
+        startAddress: startAddress || "Departure point",
+        endAddress: endAddress || "Destination",
+      }));
+
+      console.log('✅ tripRequest saved to AsyncStorage');
+
+      router.push({
+        pathname: "/shared/MapScreen",
+        params: {
+          selectionType: "route",
+          rideId: String(newRide.id),
+          startAddress: startAddress || "Departure point",
+          endAddress: endAddress || "Destination",
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ Error creating ride:', error);
+      let errorMessage = 'Unable to create your request. Please try again.';
+      if (error.response?.data?.message) errorMessage = error.response.data.message;
+      else if (error.message) errorMessage = error.message;
+      Alert.alert('Error', errorMessage);
+    }
+  };
+
   const isFormValid = () => {
     return startLocation && endLocation && dateDepart && !loadingStart && !loadingEnd && !rideLoading;
   };
@@ -381,11 +392,8 @@ export default function SearchRideScreen() {
                 placeholderTextColor="#999"
               />
               {(startAddress || startQuery) && (
-                <TouchableOpacity
-                  onPress={handleClearStart}
-                  style={styles.clearButton}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
+                <TouchableOpacity onPress={handleClearStart} style={styles.clearButton}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                   <Ionicons name="close-circle" size={20} color="#999" />
                 </TouchableOpacity>
               )}
@@ -395,42 +403,23 @@ export default function SearchRideScreen() {
 
         {focusedField === 'start' && (
           <View style={styles.optionsContainer}>
-            <TouchableOpacity
-              style={styles.optionButton}
-              onPress={handleCurrentPosition}
-              activeOpacity={0.7}
-            >
+            <TouchableOpacity style={styles.optionButton} onPress={handleCurrentPosition} activeOpacity={0.7}>
               <Ionicons name="location" size={20} color="#000" style={styles.optionIcon} />
               <Text style={styles.optionText}>Current position</Text>
             </TouchableOpacity>
-
-            {/* ✅ FIX: onPressIn pour naviguer avant le blur */}
-            <TouchableOpacity
-              style={styles.optionButton}
-              onPressIn={handleSetOnMapStart}
-              activeOpacity={0.7}
-            >
+            <TouchableOpacity style={styles.optionButton} onPressIn={handleSetOnMapStart} activeOpacity={0.7}>
               <Ionicons name="map-outline" size={20} color="#000" style={styles.optionIcon} />
               <Text style={styles.optionText}>Set on map</Text>
             </TouchableOpacity>
-
             {loadingStartSuggestions && <ActivityIndicator style={{ marginTop: 10 }} />}
-
             {startSuggestions.length > 0 && (
               <View style={styles.suggestionsContainer}>
                 {startSuggestions.map((item) => (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={styles.suggestionItem}
-                    // ✅ FIX: onPressIn déclenche AVANT onBlur
+                  <TouchableOpacity key={item.id} style={styles.suggestionItem}
                     onPressIn={() => { isSelectingSuggestion.current = true; }}
-                    onPress={() => handleSelectStartSuggestion(item)}
-                    activeOpacity={0.7}
-                  >
+                    onPress={() => handleSelectStartSuggestion(item)} activeOpacity={0.7}>
                     <Ionicons name="location-outline" size={18} color="#666" style={styles.suggestionIcon} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.suggestionTitle}>{item.displayName}</Text>
-                    </View>
+                    <Text style={styles.suggestionTitle}>{item.displayName}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -460,11 +449,8 @@ export default function SearchRideScreen() {
                 placeholderTextColor="#999"
               />
               {(endAddress || endQuery) && (
-                <TouchableOpacity
-                  onPress={handleClearEnd}
-                  style={styles.clearButton}
-                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
+                <TouchableOpacity onPress={handleClearEnd} style={styles.clearButton}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
                   <Ionicons name="close-circle" size={20} color="#999" />
                 </TouchableOpacity>
               )}
@@ -474,33 +460,19 @@ export default function SearchRideScreen() {
 
         {focusedField === 'destination' && (
           <View style={styles.optionsContainer}>
-            {/* ✅ FIX: onPressIn pour naviguer avant le blur */}
-            <TouchableOpacity
-              style={styles.optionButton}
-              onPressIn={handleSetOnMapEnd}
-              activeOpacity={0.7}
-            >
+            <TouchableOpacity style={styles.optionButton} onPressIn={handleSetOnMapEnd} activeOpacity={0.7}>
               <Ionicons name="map-outline" size={20} color="#000" style={styles.optionIcon} />
               <Text style={styles.optionText}>Set on map</Text>
             </TouchableOpacity>
-
             {loadingEndSuggestions && <ActivityIndicator style={{ marginTop: 10 }} />}
-
             {endSuggestions.length > 0 && (
               <View style={styles.suggestionsContainer}>
                 {endSuggestions.map((item) => (
-                  <TouchableOpacity
-                    key={item.id}
-                    style={styles.suggestionItem}
-                    // ✅ FIX: onPressIn déclenche AVANT onBlur
+                  <TouchableOpacity key={item.id} style={styles.suggestionItem}
                     onPressIn={() => { isSelectingSuggestion.current = true; }}
-                    onPress={() => handleSelectEndSuggestion(item)}
-                    activeOpacity={0.7}
-                  >
+                    onPress={() => handleSelectEndSuggestion(item)} activeOpacity={0.7}>
                     <Ionicons name="location-outline" size={18} color="#666" style={styles.suggestionIcon} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.suggestionTitle}>{item.displayName}</Text>
-                    </View>
+                    <Text style={styles.suggestionTitle}>{item.displayName}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -510,11 +482,7 @@ export default function SearchRideScreen() {
       </View>
 
       {/* DATE & TIME */}
-      <TouchableOpacity
-        style={styles.dateTimeButton}
-        onPress={handleOpenDatePicker}
-        activeOpacity={0.7}
-      >
+      <TouchableOpacity style={styles.dateTimeButton} onPress={handleOpenDatePicker} activeOpacity={0.7}>
         <Ionicons name="calendar-outline" size={24} color="#6B46C1" />
         <Text style={[styles.dateTimeText, dateDepart && styles.dateTimeTextSelected]}>
           {formatDisplayDate()}
@@ -523,7 +491,6 @@ export default function SearchRideScreen() {
 
       {/* PRÉFÉRENCES */}
       <Text style={styles.sectionTitle}>Your Preferences</Text>
-
       {[
         { label: 'Quiet ride', value: quiet_ride, setter: setQuietRide },
         { label: 'Radio OK', value: radio_ok, setter: setRadioOk },
@@ -534,56 +501,35 @@ export default function SearchRideScreen() {
       ].map(({ label, value, setter }) => (
         <View key={label} style={styles.preferenceRow}>
           <Text style={styles.preferenceLabel}>{label}</Text>
-          <Switch
-            value={value}
-            onValueChange={setter}
+          <Switch value={value} onValueChange={setter}
             trackColor={{ false: '#D1D5DB', true: '#000000' }}
-            thumbColor={value ? '#FFFFFF' : '#F3F4F6'}
-          />
+            thumbColor={value ? '#FFFFFF' : '#F3F4F6'} />
         </View>
       ))}
 
-      {/* DATE PICKER MODALS */}
+      {/* DATE PICKER */}
       {Platform.OS === 'ios' && showDatePicker && (
         <Modal transparent animationType="slide" visible={showDatePicker}>
           <View style={styles.modalOverlay}>
             <View style={styles.datePickerContainer}>
               <View style={styles.pickerHeader}>
-                <TouchableOpacity onPress={handleCancelDateTime}>
+                <TouchableOpacity onPress={() => { setShowDatePicker(false); setShowTimePicker(false); }}>
                   <Text style={styles.cancelButton}>Cancel</Text>
                 </TouchableOpacity>
-                <Text style={styles.pickerTitle}>
-                  {showTimePicker ? 'Time' : 'Select Date'}
-                </Text>
-                <TouchableOpacity onPress={handleApplyDateTime}>
+                <Text style={styles.pickerTitle}>{showTimePicker ? 'Time' : 'Select Date'}</Text>
+                <TouchableOpacity onPress={() => { setShowDatePicker(false); setShowTimePicker(false); }}>
                   <Text style={styles.applyButton}>Apply</Text>
                 </TouchableOpacity>
               </View>
-
               {!showTimePicker ? (
-                <DateTimePicker
-                  value={selectedDate}
-                  mode="date"
-                  display="inline"
-                  onChange={handleDateChange}
-                  minimumDate={new Date()}
-                  textColor="#000"
-                />
+                <DateTimePicker value={selectedDate} mode="date" display="inline"
+                  onChange={handleDateChange} minimumDate={new Date()} textColor="#000" />
               ) : (
-                <DateTimePicker
-                  value={selectedDate}
-                  mode="time"
-                  display="spinner"
-                  onChange={handleTimeChange}
-                  textColor="#000"
-                />
+                <DateTimePicker value={selectedDate} mode="time" display="spinner"
+                  onChange={handleTimeChange} textColor="#000" />
               )}
-
               {!showTimePicker && (
-                <TouchableOpacity
-                  style={styles.nextButton}
-                  onPress={() => setShowTimePicker(true)}
-                >
+                <TouchableOpacity style={styles.nextButton} onPress={() => setShowTimePicker(true)}>
                   <Text style={styles.nextButtonText}>Next: Select Time</Text>
                 </TouchableOpacity>
               )}
@@ -591,37 +537,28 @@ export default function SearchRideScreen() {
           </View>
         </Modal>
       )}
-
       {Platform.OS === 'android' && showDatePicker && (
-        <DateTimePicker
-          value={selectedDate}
-          mode="date"
-          display="default"
-          onChange={handleDateChange}
-          minimumDate={new Date()}
-        />
+        <DateTimePicker value={selectedDate} mode="date" display="default"
+          onChange={handleDateChange} minimumDate={new Date()} />
       )}
-
       {Platform.OS === 'android' && showTimePicker && (
-        <DateTimePicker
-          value={selectedDate}
-          mode="time"
-          display="default"
-          onChange={handleTimeChange}
-        />
+        <DateTimePicker value={selectedDate} mode="time" display="default" onChange={handleTimeChange} />
       )}
 
-      {/* BOUTON FIND DRIVERS */}
+      {/* BOUTON RIDE REQUEST */}
       <TouchableOpacity
-        style={[styles.searchButton, !isFormValid() && styles.disabled]}
+        style={[styles.rideRequestButton, !isFormValid() && styles.disabled]}
         disabled={!isFormValid()}
-        onPress={handleSearchRides}
+        onPress={handleRideRequest}
         activeOpacity={0.8}
       >
         {rideLoading ? (
           <ActivityIndicator color="#fff" />
         ) : (
-          <Text style={styles.searchText}>Find Recommended Drivers</Text>
+          <View style={styles.rideRequestContent}>
+            <Ionicons name="car" size={22} color="#fff" />
+            <Text style={styles.rideRequestText}>Ride Request</Text>
+          </View>
         )}
       </TouchableOpacity>
 
@@ -631,191 +568,115 @@ export default function SearchRideScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#fff",
-    padding: 20,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 24,
-    color: "#000",
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#000",
-    marginTop: 24,
-    marginBottom: 16,
-  },
-  fieldContainer: {
-    marginBottom: 16,
-  },
+  container: { flex: 1, backgroundColor: "#fff", padding: 20 },
+  title: { fontSize: 24, fontWeight: "bold", marginBottom: 24, color: "#000" },
+  sectionTitle: { fontSize: 18, fontWeight: "600", color: "#000", marginTop: 24, marginBottom: 16 },
+  fieldContainer: { marginBottom: 16 },
   inputContainer: {
-    flexDirection: 'row',
+    flexDirection: 'row', 
     alignItems: 'center',
-    backgroundColor: "#F5F5F5",
-    padding: 16,
-    borderRadius: 12,
+    backgroundColor: "#F5F5F5", 
+    padding: 16, 
+    borderRadius: 12, 
     minHeight: 56,
   },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    color: "#000",
-  },
-  clearButton: {
-    marginLeft: 8,
-  },
-  loadingRow: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-  },
-  loadingText: {
-    fontSize: 16,
-    color: "#666",
-    fontStyle: "italic",
-  },
-  optionsContainer: {
-    marginTop: 8,
-    backgroundColor: "#FAFAFA",
-    borderRadius: 12,
-    padding: 8,
-  },
+  input: { flex: 1, fontSize: 16, color: "#000" },
+  clearButton: { marginLeft: 8 },
+  loadingRow: { flex: 1, flexDirection: "row", alignItems: "center", gap: 10 },
+  loadingText: { fontSize: 16, color: "#666", fontStyle: "italic" },
+  optionsContainer: { marginTop: 8, backgroundColor: "#FAFAFA", borderRadius: 12, padding: 8 },
   optionButton: {
-    flexDirection: "row",
+    flexDirection: "row", 
     alignItems: "center",
-    padding: 12,
-    backgroundColor: "#FFF",
-    borderRadius: 8,
+    padding: 12, 
+    backgroundColor: "#FFF", 
+    borderRadius: 8, 
     marginBottom: 6,
   },
-  optionIcon: {
-    marginRight: 12,
-  },
-  optionText: {
-    fontSize: 15,
-    color: "#000",
-    fontWeight: "500",
-  },
-  suggestionsContainer: {
-    marginTop: 8,
-  },
+  optionIcon: { marginRight: 12 },
+  optionText: { fontSize: 15, color: "#000", fontWeight: "500" },
+  suggestionsContainer: { marginTop: 8 },
   suggestionItem: {
-    flexDirection: "row",
+    flexDirection: "row", 
     alignItems: "center",
-    padding: 12,
-    backgroundColor: "#FFF",
-    borderRadius: 8,
+    padding: 12, 
+    backgroundColor: "#FFF", 
+    borderRadius: 8, 
     marginBottom: 6,
   },
-  suggestionIcon: {
-    marginRight: 12,
-  },
-  suggestionTitle: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: "#000",
-  },
+  suggestionIcon: { marginRight: 12 },
+  suggestionTitle: { fontSize: 15, fontWeight: "600", color: "#000" },
   dateTimeButton: {
-    flexDirection: 'row',
+    flexDirection: 'row', 
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-    padding: 16,
-    borderRadius: 12,
+    backgroundColor: '#F5F5F5', 
+    padding: 16, 
+    borderRadius: 12, 
     marginBottom: 16,
-    borderWidth: 2,
+    borderWidth: 2, 
     borderColor: 'transparent',
   },
-  dateTimeText: {
-    fontSize: 16,
-    color: '#999',
-    marginLeft: 12,
-    flex: 1,
-  },
-  dateTimeTextSelected: {
-    color: '#000',
-    fontWeight: '500',
-  },
+  dateTimeText: { fontSize: 16, color: '#999', marginLeft: 12, flex: 1 },
+  dateTimeTextSelected: { color: '#000', fontWeight: '500' },
   preferenceRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-    padding: 16,
-    borderRadius: 12,
+    backgroundColor: '#F5F5F5', 
+    padding: 16, 
+    borderRadius: 12, 
     marginBottom: 12,
   },
-  preferenceLabel: {
-    fontSize: 15,
-    fontWeight: '500',
-    color: '#000',
-  },
+  preferenceLabel: { fontSize: 15, fontWeight: '500', color: '#000' },
   modalOverlay: {
-    flex: 1,
+    flex: 1, 
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
+    justifyContent: 'center', 
     alignItems: 'center',
   },
   datePickerContainer: {
-    backgroundColor: '#FFF',
-    borderRadius: 20,
-    padding: 20,
-    width: '85%',
+    backgroundColor: '#FFF', 
+    borderRadius: 20, 
+    padding: 20, 
+    width: '85%', 
     maxWidth: 400,
   },
   pickerHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
     alignItems: 'center',
-    marginBottom: 16,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
+    marginBottom: 16, 
+    paddingBottom: 12, 
+    borderBottomWidth: 1, 
     borderBottomColor: '#EEE',
   },
-  pickerTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#000',
-  },
-  cancelButton: {
-    fontSize: 16,
-    color: '#6B46C1',
-  },
-  applyButton: {
-    fontSize: 16,
-    color: '#6B46C1',
-    fontWeight: '600',
-  },
+  pickerTitle: { fontSize: 18, fontWeight: '600', color: '#000' },
+  cancelButton: { fontSize: 16, color: '#6B46C1' },
+  applyButton: { fontSize: 16, color: '#6B46C1', fontWeight: '600' },
   nextButton: {
-    backgroundColor: '#6B46C1',
+    backgroundColor: '#6B46C1', 
     padding: 16,
-    borderRadius: 12,
-    alignItems: 'center',
+    borderRadius: 12, 
+    alignItems: 'center', 
     marginTop: 16,
   },
-  nextButtonText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  searchButton: {
+  nextButtonText: { color: '#FFF', fontSize: 16, fontWeight: '600' },
+  rideRequestButton: {
     backgroundColor: "#000",
     padding: 18,
     borderRadius: 12,
     alignItems: "center",
     marginTop: 24,
   },
-  disabled: {
-    backgroundColor: "#CCC",
-    opacity: 0.6,
+  rideRequestContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
-  searchText: {
+  rideRequestText: {
     color: "#fff",
     fontSize: 16,
     fontWeight: "600",
   },
+  disabled: { backgroundColor: "#CCC", opacity: 0.6 },
 });
