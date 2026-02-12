@@ -179,6 +179,7 @@ model Trajet {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  rating      Float? // finale note (average of evaluations)
   evaluation  Evaluation?
 
   @@index([driverId])
@@ -192,7 +193,7 @@ model Evaluation {
   trajet     Trajet   @relation(fields: [trajetId], references: [id], onDelete: Cascade)
 
   rating     Float
-  comment    String?
+  comment    String?   //feedback textuel optionnel
 
   createdAt  DateTime @default(now())
 }
