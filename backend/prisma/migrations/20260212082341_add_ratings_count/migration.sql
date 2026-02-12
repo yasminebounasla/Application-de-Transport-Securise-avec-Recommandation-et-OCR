@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Trajet" ADD COLUMN     "ratingsCount" INTEGER NOT NULL DEFAULT 0,
+ALTER COLUMN "rating" SET DEFAULT 0.0;

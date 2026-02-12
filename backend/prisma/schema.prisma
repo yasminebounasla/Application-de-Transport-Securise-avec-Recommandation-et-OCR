@@ -63,7 +63,7 @@ model Driver {
   works_evening   Boolean?
   works_night     Boolean?
 
-  note Float? // moyenne des évaluations 
+  ratingsCount    Int     @default(0)  //number of evaluations received
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -179,7 +179,7 @@ model Trajet {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  rating      Float? // finale note (average of evaluations)
+  rating      Float? @default(0.0) // finale note (average of evaluations)
   evaluation  Evaluation?
 
   @@index([driverId])
