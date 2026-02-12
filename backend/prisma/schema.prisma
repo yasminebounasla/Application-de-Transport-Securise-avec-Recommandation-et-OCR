@@ -152,42 +152,47 @@ enum TrajetStatus {
 model Trajet {
   id Int @id @default(autoincrement())
 
-  // Relations
   driverId Int?
   driver   Driver? @relation("TrajetsConducteur", fields: [driverId], references: [id])
 
   passagerId Int?
   passenger  Passenger? @relation("TrajetsPassager", fields: [passagerId], references: [id], onDelete: SetNull)
 
-  // Coordonnées de départ
   startLat     Float
   startLng     Float
   startAddress String
 
-  // Coordonnées de destination
   endLat     Float
   endLng     Float
   endAddress String
 
-  // Date et heure
   dateDepart  DateTime
   heureDepart String?
 
-  // Capacité et prix
   placesDispo Int
   prix        Float
 
-  // Statut du trajet
   status TrajetStatus @default(PENDING)
 
-  // CHAMPS POUR LE ML
-  rating      Float? // Note du passager (1.0-5.0) - NULL si pas encore noté
-  completedAt DateTime? // Date de complétion
+  completedAt DateTime?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  evaluation  Evaluation?
+
   @@index([driverId])
   @@index([passagerId])
   @@index([status])
+}
+
+model Evaluation {
+  id         Int      @id @default(autoincrement())
+  trajetId   Int      @unique
+  trajet     Trajet   @relation(fields: [trajetId], references: [id], onDelete: Cascade)
+
+  rating     Float
+  comment    String?
+
+  createdAt  DateTime @default(now())
 }
