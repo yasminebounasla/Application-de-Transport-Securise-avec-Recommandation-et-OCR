@@ -205,6 +205,7 @@ export default function MapScreen() {
 
   const handleCancelRide = () => {
     if (!rideId) {
+      // Pas de rideId → juste retourner
       router.push("/passenger/SearchRideScreen");
       return;
     }
@@ -219,10 +220,11 @@ export default function MapScreen() {
           style: "destructive",
           onPress: async () => {
             try {
-              await api.put(`/ride/${rideId}/cancel`);
-              console.log('✅ Ride cancelled in DB, status → CANCELLED_BY_PASSENGER');
+              console.log('🔄 Cancelling ride ID:', rideId);
+              const response = await api.put(`/ridesDem/${rideId}/cancel`);
+              console.log(`✅ Ride ${rideId} cancelled → CANCELLED_BY_PASSENGER`, response.data);
             } catch (error) {
-              console.error('❌ Erreur cancel:', error);
+              console.error('❌ Erreur cancel:', error.response?.data || error.message);
             } finally {
               router.push("/passenger/SearchRideScreen");
             }
