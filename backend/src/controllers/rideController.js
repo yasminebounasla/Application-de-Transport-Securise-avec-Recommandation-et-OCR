@@ -108,7 +108,7 @@ export const getPassengerRides = async (req, res) => {
             nom: true,
             prenom: true,
             numTel: true,
-            note: true,
+            avgRating : true,
             sexe: true,
           },
         },
