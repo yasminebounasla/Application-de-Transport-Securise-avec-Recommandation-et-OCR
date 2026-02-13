@@ -4,26 +4,40 @@ const ALGERIA_BOUNDS = {
   minLng: -8.67, 
   maxLng: 11.98,  
 };
-const MOROCCO_BOUNDS = {
-  minLat: 21.0,
+
+const MOROCCO_EXCLUSION = {
+  minLat: 27.0,
   maxLat: 36.0,
-  minLng: -17.0, 
-  maxLng: -1.0,   
+  minLng: -17.0,
+  maxLng: -1.0,
 };
 
-
-const TUNISIA_BOUNDS = {
+const TUNISIA_EXCLUSION = {
   minLat: 30.2,
-  maxLat: 37.5,
+  maxLat: 37.6,
   minLng: 7.5,
-  maxLng: 11.6,
+  maxLng: 11.98,
 };
 
-const LIBYA_BOUNDS = {
+const LIBYA_EXCLUSION = {
   minLat: 19.5,
   maxLat: 33.2,
-  minLng: 9.3,
+  minLng: 11.0,
   maxLng: 25.0,
+};
+
+const MALI_NIGER_EXCLUSION = {
+  minLat: 10.0,
+  maxLat: 20.0,
+  minLng: -8.67,
+  maxLng: 11.98,
+};
+
+const WESTERN_SAHARA_EXCLUSION = {
+  minLat: 20.0,
+  maxLat: 27.7,
+  minLng: -17.0,
+  maxLng: -8.67,
 };
 
 export function isInAlgeria(location) {
@@ -44,26 +58,49 @@ export function isInAlgeria(location) {
     return false;
   }
 
-  if (longitude < -1.0 && latitude > 27.0) {
-    console.log('❌ Détecté comme Maroc (lng < -1°)');
+  if (
+    latitude >= MOROCCO_EXCLUSION.minLat &&
+    latitude <= MOROCCO_EXCLUSION.maxLat &&
+    longitude >= MOROCCO_EXCLUSION.minLng &&
+    longitude <= MOROCCO_EXCLUSION.maxLng
+  ) {
+    console.log('❌ Zone Maroc détectée');
     return false;
   }
 
-  if (longitude > 8.5 && latitude > 35.0) {
-    const inTunisia =
-      latitude >= TUNISIA_BOUNDS.minLat &&
-      latitude <= TUNISIA_BOUNDS.maxLat &&
-      longitude >= TUNISIA_BOUNDS.minLng &&
-      longitude <= TUNISIA_BOUNDS.maxLng;
-    
-    if (inTunisia) {
-      console.log('❌ Détecté comme Tunisie');
+  if (
+    latitude >= TUNISIA_EXCLUSION.minLat &&
+    latitude <= TUNISIA_EXCLUSION.maxLat &&
+    longitude >= TUNISIA_EXCLUSION.minLng &&
+    longitude <= TUNISIA_EXCLUSION.maxLng
+  ) {
+    if (longitude >= 8.0 && latitude >= 32.0) {
+      console.log('❌ Zone Tunisie détectée');
       return false;
     }
   }
 
-  if (longitude > 11.5) {
-    console.log('❌ Détecté comme Libye (lng > 11.5°)');
+  if (longitude >= LIBYA_EXCLUSION.minLng) {
+    console.log('❌ Zone Libye détectée (lng >= 11.0°)');
+    return false;
+  }
+
+  if (
+    latitude >= MALI_NIGER_EXCLUSION.minLat &&
+    latitude <= MALI_NIGER_EXCLUSION.maxLat &&
+    latitude < 20.5
+  ) {
+    console.log('❌ Zone Mali/Niger détectée');
+    return false;
+  }
+
+  if (
+    latitude >= WESTERN_SAHARA_EXCLUSION.minLat &&
+    latitude <= WESTERN_SAHARA_EXCLUSION.maxLat &&
+    longitude >= WESTERN_SAHARA_EXCLUSION.minLng &&
+    longitude < -8.0
+  ) {
+    console.log('❌ Zone Sahara Occidental détectée');
     return false;
   }
 
@@ -126,11 +163,35 @@ export function getApproximateCountry(location) {
 
   const { latitude, longitude } = location;
 
-  if (longitude < -1.0 && latitude > 27.0) return "Maroc 🇲🇦";
-  if (longitude > 8.5 && latitude > 35.0) return "Tunisie 🇹🇳";
-  if (longitude > 11.5) return "Libye 🇱🇾";
-  if (latitude > 37.09) return "Méditerranée 🌊";
-  if (latitude < 18.96) return "Mali/Niger 🇲🇱🇳🇪";
+  if (
+    latitude >= MOROCCO_EXCLUSION.minLat &&
+    latitude <= MOROCCO_EXCLUSION.maxLat &&
+    longitude >= MOROCCO_EXCLUSION.minLng &&
+    longitude <= MOROCCO_EXCLUSION.maxLng
+  ) {
+    return "Maroc 🇲🇦";
+  }
+
+  if (
+    latitude >= TUNISIA_EXCLUSION.minLat &&
+    latitude <= TUNISIA_EXCLUSION.maxLat &&
+    longitude >= TUNISIA_EXCLUSION.minLng &&
+    longitude <= TUNISIA_EXCLUSION.maxLng
+  ) {
+    return "Tunisie 🇹🇳";
+  }
+
+  if (longitude >= LIBYA_EXCLUSION.minLng) {
+    return "Libye 🇱🇾";
+  }
+
+  if (latitude < 20.5) {
+    return "Mali/Niger 🇲🇱🇳🇪";
+  }
+
+  if (longitude < -8.0 && latitude < 27.7) {
+    return "Sahara Occidental";
+  }
 
   return "Hors Algérie";
 }
@@ -143,9 +204,15 @@ export function testCoordinates() {
   const tests = [
     { name: "Alger", lat: 36.7538, lng: 3.0588 },
     { name: "Oran", lat: 35.6969, lng: -0.6331 },
+    { name: "Constantine", lat: 36.3650, lng: 6.6147 },
+    { name: "Tlemcen (frontière Maroc)", lat: 34.8780, lng: -1.3157 },
+    { name: "Annaba (frontière Tunisie)", lat: 36.9000, lng: 7.7667 },
+    { name: "Tamanrasset (sud)", lat: 22.7850, lng: 5.5228 },
     { name: "Casablanca (Maroc)", lat: 33.5731, lng: -7.5898 },
     { name: "Tunis (Tunisie)", lat: 36.8065, lng: 10.1815 },
-    { name: "Tindouf (frontière)", lat: 27.6719, lng: -8.1475 },
+    { name: "Sfax (Tunisie)", lat: 34.7406, lng: 10.7603 },
+    { name: "Tripoli (Libye)", lat: 32.8872, lng: 13.1913 },
+    { name: "Bamako (Mali)", lat: 12.6392, lng: -8.0029 },
   ];
 
   console.log('\n🧪 Test de validation géographique:\n');
