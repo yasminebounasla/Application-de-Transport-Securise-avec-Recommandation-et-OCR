@@ -20,8 +20,6 @@ function LocationNotSupported({ onTryAnother }) {
   return (
     <View style={errorStyles.overlay}>
       <View style={errorStyles.card}>
-
-        {/* Icône */}
         <View style={errorStyles.iconContainer}>
           <View style={errorStyles.iconCircle}>
             <Ionicons name="location-outline" size={48} color="#000" />
@@ -30,15 +28,11 @@ function LocationNotSupported({ onTryAnother }) {
             <Ionicons name="warning" size={18} color="#FFF" />
           </View>
         </View>
-
-        {/* Texte */}
         <Text style={errorStyles.title}>Location is not supported</Text>
         <Text style={errorStyles.subtitle}>
           Sorry, our service is currently unavailable outside Algeria.{'\n'}
           Please try a different location.
         </Text>
-
-        {/* Bouton */}
         <TouchableOpacity
           style={errorStyles.button}
           onPress={onTryAnother}
@@ -46,7 +40,6 @@ function LocationNotSupported({ onTryAnother }) {
         >
           <Text style={errorStyles.buttonText}>Try another location</Text>
         </TouchableOpacity>
-
       </View>
     </View>
   );
@@ -59,6 +52,10 @@ export default function MapScreen() {
     rideId, 
     startAddress, 
     endAddress,
+    startLat,
+    startLng,
+    endLat,
+    endLng,
   } = useLocalSearchParams();
 
   const {
@@ -89,8 +86,27 @@ export default function MapScreen() {
   useEffect(() => {
     if (selectionType === "route" && startLocation && endLocation) {
       validateAndFetchRoute();
+    } else if (selectionType === "route" && startLat && startLng && endLat && endLng) {
+      const parseCoord = (coord) => {
+        if (!coord) return null;
+        const val = Array.isArray(coord) ? coord[0] : coord;
+        return parseFloat(val);
+      };
+
+      const startLatNum = parseCoord(startLat);
+      const startLngNum = parseCoord(startLng);
+      const endLatNum = parseCoord(endLat);
+      const endLngNum = parseCoord(endLng);
+
+      if (startLatNum && startLngNum && endLatNum && endLngNum) {
+        const start = { latitude: startLatNum, longitude: startLngNum };
+        const end = { latitude: endLatNum, longitude: endLngNum };
+        
+        setStartLocation(start);
+        setEndLocation(end);
+      }
     }
-  }, [selectionType, startLocation, endLocation]);
+  }, [selectionType, startLocation, endLocation, startLat, startLng, endLat, endLng]);
 
   useEffect(() => {
     if (selectionType === "route" && startLocation && endLocation && mapRef.current) {
@@ -119,7 +135,7 @@ export default function MapScreen() {
       setRouteCoordinates([]);
       setRouteDistance(null);
       setRouteDuration(null);
-      setShowLocationError(true); 
+      setShowLocationError(true);
       centerMapOnMarkers();
       return;
     }
@@ -200,12 +216,11 @@ export default function MapScreen() {
     } else {
       setEndLocation(selectedLocation);
     }
-    router.push("/passenger/SearchRideScreen");
+    router.back();
   };
 
   const handleCancelRide = () => {
     if (!rideId) {
-      // Pas de rideId → juste retourner
       router.push("/passenger/SearchRideScreen");
       return;
     }
@@ -222,7 +237,7 @@ export default function MapScreen() {
             try {
               console.log('🔄 Cancelling ride ID:', rideId);
               const response = await api.put(`/ridesDem/${rideId}/cancel`);
-              console.log(`✅ Ride ${rideId} cancelled → CANCELLED_BY_PASSENGER`, response.data);
+              console.log(`✅ Ride ${rideId} cancelled`, response.data);
             } catch (error) {
               console.error('❌ Erreur cancel:', error.response?.data || error.message);
             } finally {
@@ -276,13 +291,12 @@ export default function MapScreen() {
           {isValidRoute && routeCoordinates.length > 0 && (
             <Polyline
               coordinates={routeCoordinates}
-              strokeColor="#cea056"
+              strokeColor="#caab2c"
               strokeWidth={2.5}
             />
           )}
         </MapView>
 
-        {/* Adresses en haut */}
         <View style={styles.topAddresses}>
           <View style={styles.addressCard}>
             <View style={styles.addressRow}>
@@ -301,7 +315,6 @@ export default function MapScreen() {
           </View>
         </View>
 
-        {/* ✅ Soit l'écran d'erreur, soit le bottomSheet normal */}
         {showLocationError ? (
           <LocationNotSupported onTryAnother={handleTryAnother} />
         ) : (
@@ -504,19 +517,28 @@ const styles = StyleSheet.create({
   },
   addressSeparator: { height: 10 },
   dotGreen: {
-    width: 12, height: 12, borderRadius: 6,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
     backgroundColor: "#22C55E",
   },
   dotRed: {
-    width: 12, height: 12, borderRadius: 6,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
     backgroundColor: "#E53E3E",
   },
   addressText: {
-    fontSize: 15, color: "#202124", flex: 1, fontWeight: "500",
+    fontSize: 15,
+    color: "#202124",
+    flex: 1,
+    fontWeight: "500",
   },
   bottomSheet: {
     position: "absolute",
-    bottom: 0, left: 0, right: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
     backgroundColor: "#FFF",
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
@@ -530,7 +552,8 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   dragHandle: {
-    width: 40, height: 5,
+    width: 40,
+    height: 5,
     backgroundColor: "#DADCE0",
     borderRadius: 3,
     alignSelf: "center",
@@ -543,7 +566,9 @@ const styles = StyleSheet.create({
     marginVertical: 12,
   },
   loadingText: {
-    fontSize: 15, color: "#666", fontStyle: "italic",
+    fontSize: 15,
+    color: "#666",
+    fontStyle: "italic",
   },
   recommendedSection: {
     flexDirection: "row",
@@ -556,10 +581,14 @@ const styles = StyleSheet.create({
   },
   recommendedContent: { flex: 1 },
   recommendedTitle: {
-    fontSize: 17, fontWeight: "700", color: "#000", marginBottom: 4,
+    fontSize: 17,
+    fontWeight: "700",
+    color: "#000",
+    marginBottom: 4,
   },
   distanceText: {
-    fontSize: 14, color: "#5F6368",
+    fontSize: 14,
+    color: "#5F6368",
   },
   cancelRideButton: {
     flexDirection: "row",
@@ -573,11 +602,15 @@ const styles = StyleSheet.create({
     borderColor: "#FEE2E2",
   },
   cancelRideText: {
-    fontSize: 16, fontWeight: "600", color: "#E53E3E",
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#E53E3E",
   },
   bottomSheetFixed: {
     position: "absolute",
-    bottom: 0, left: 0, right: 0,
+    bottom: 0,
+    left: 0,
+    right: 0,
     height: 200,
     backgroundColor: "#FFF",
     paddingHorizontal: 20,
@@ -592,10 +625,15 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   title: {
-    fontSize: 18, fontWeight: "700", color: "#000", marginBottom: 8,
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#000",
+    marginBottom: 8,
   },
   address: {
-    fontSize: 15, color: "#666", marginBottom: 16,
+    fontSize: 15,
+    color: "#666",
+    marginBottom: 16,
   },
   confirmBtn: {
     backgroundColor: "#000",
@@ -604,9 +642,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   confirmBtnDisabled: {
-    backgroundColor: "#CCC", opacity: 0.6,
+    backgroundColor: "#CCC",
+    opacity: 0.6,
   },
   confirmText: {
-    color: "#FFF", fontWeight: "600", fontSize: 16,
+    color: "#FFF",
+    fontWeight: "600",
+    fontSize: 16,
   },
 });
