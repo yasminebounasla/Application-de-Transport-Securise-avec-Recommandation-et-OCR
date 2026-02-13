@@ -63,7 +63,8 @@ model Driver {
   works_evening   Boolean?
   works_night     Boolean?
 
-  ratingsCount    Int     @default(0)  //number of evaluations received
+  ratingsCount    Int?     @default(0)  //number of evaluations received
+  avgRating       Float?   @default(0.0) //average rating (calculated from evaluations)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

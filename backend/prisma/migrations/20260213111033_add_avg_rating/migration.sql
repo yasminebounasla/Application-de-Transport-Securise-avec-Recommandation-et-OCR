@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Driver" ADD COLUMN     "avgRating" DOUBLE PRECISION DEFAULT 0.0,
+ALTER COLUMN "ratingsCount" DROP NOT NULL;
