@@ -33,7 +33,7 @@ export default function RideRequestsScreen() {
     setRefreshing(false);
   };
 
-  // ✅ Accept avec confirmation
+  //  Accept avec confirmation
   const handleAccept = (rideId) => {
     Alert.alert(
       'Accept Ride',
@@ -46,8 +46,9 @@ export default function RideRequestsScreen() {
           onPress: async () => {
             try {
               await acceptRide(rideId);
-              Alert.alert('✅ Success', 'Ride accepted!');
+              Alert.alert('Success', 'Ride accepted!');
               loadRequests();
+
             } catch (error) {
               Alert.alert('Error', error.message || 'Failed to accept ride');
             }
@@ -57,7 +58,7 @@ export default function RideRequestsScreen() {
     );
   };
 
-  // ✅ Reject avec confirmation
+  //  Reject avec confirmation
   const handleReject = (rideId) => {
     Alert.alert(
       'Reject Ride',
@@ -79,6 +80,19 @@ export default function RideRequestsScreen() {
       ]
     );
   };
+  const { completeRide } = useRide();
+
+  const handleComplete = async (rideId) => {
+    try {
+      await completeRide(rideId);
+      Alert.alert('Success', 'Ride completed!');
+      loadRequests();
+
+    } catch (error) {
+      Alert.alert('Error', 'Failed to complete ride');
+    }
+  };
+
 
   if (loading && !refreshing) {
     return (
@@ -100,7 +114,6 @@ export default function RideRequestsScreen() {
 
       {driverRequests.length === 0 ? (
         <View style={styles.emptyContainer}>
-          <Text style={styles.emptyIcon}>🚗</Text>
           <Text style={styles.emptyText}>No pending requests</Text>
           <Text style={styles.emptySubText}>Pull down to refresh</Text>
         </View>
@@ -114,7 +127,8 @@ export default function RideRequestsScreen() {
               showActions={true}      
               onAccept={handleAccept} 
               onReject={handleReject} 
-              onPress={null}         
+              onPress={null}   
+              onComplete={handleComplete}      
             />
           )}
           contentContainerStyle={styles.listContainer}
