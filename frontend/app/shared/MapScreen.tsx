@@ -16,6 +16,35 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from '@expo/vector-icons';
 import api from "../../services/api";
 
+function LocationNotSupported({ onTryAnother }) {
+  return (
+    <View style={errorStyles.overlay}>
+      <View style={errorStyles.card}>
+        <View style={errorStyles.iconContainer}>
+          <View style={errorStyles.iconCircle}>
+            <Ionicons name="location-outline" size={48} color="#000" />
+          </View>
+          <View style={errorStyles.iconBadge}>
+            <Ionicons name="warning" size={18} color="#FFF" />
+          </View>
+        </View>
+        <Text style={errorStyles.title}>Location is not supported</Text>
+        <Text style={errorStyles.subtitle}>
+          Sorry, our service is currently unavailable outside Algeria.{'\n'}
+          Please try a different location.
+        </Text>
+        <TouchableOpacity
+          style={errorStyles.button}
+          onPress={onTryAnother}
+          activeOpacity={0.85}
+        >
+          <Text style={errorStyles.buttonText}>Try another location</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+
 export default function MapScreen() {
   const router = useRouter();
   const { 
@@ -23,6 +52,10 @@ export default function MapScreen() {
     rideId, 
     startAddress, 
     endAddress,
+    startLat,
+    startLng,
+    endLat,
+    endLng,
   } = useLocalSearchParams();
 
   const {
@@ -45,14 +78,35 @@ export default function MapScreen() {
   const [routeDistance, setRouteDistance] = useState(null);
   const [routeDuration, setRouteDuration] = useState(null);
 
+  const [showLocationError, setShowLocationError] = useState(false);
+
   const mapRef = useRef(null);
   const debounceTimeout = useRef(null);
 
   useEffect(() => {
     if (selectionType === "route" && startLocation && endLocation) {
       validateAndFetchRoute();
+    } else if (selectionType === "route" && startLat && startLng && endLat && endLng) {
+      const parseCoord = (coord) => {
+        if (!coord) return null;
+        const val = Array.isArray(coord) ? coord[0] : coord;
+        return parseFloat(val);
+      };
+
+      const startLatNum = parseCoord(startLat);
+      const startLngNum = parseCoord(startLng);
+      const endLatNum = parseCoord(endLat);
+      const endLngNum = parseCoord(endLng);
+
+      if (startLatNum && startLngNum && endLatNum && endLngNum) {
+        const start = { latitude: startLatNum, longitude: startLngNum };
+        const end = { latitude: endLatNum, longitude: endLngNum };
+        
+        setStartLocation(start);
+        setEndLocation(end);
+      }
     }
-  }, [selectionType, startLocation, endLocation]);
+  }, [selectionType, startLocation, endLocation, startLat, startLng, endLat, endLng]);
 
   useEffect(() => {
     if (selectionType === "route" && startLocation && endLocation && mapRef.current) {
@@ -81,10 +135,12 @@ export default function MapScreen() {
       setRouteCoordinates([]);
       setRouteDistance(null);
       setRouteDuration(null);
+      setShowLocationError(true);
       centerMapOnMarkers();
       return;
     }
     setIsValidRoute(true);
+    setShowLocationError(false);
     fetchRoute();
   };
 
@@ -160,10 +216,15 @@ export default function MapScreen() {
     } else {
       setEndLocation(selectedLocation);
     }
-    router.push("/passenger/SearchRideScreen");
+    router.back();
   };
 
   const handleCancelRide = () => {
+    if (!rideId) {
+      router.push("/passenger/SearchRideScreen");
+      return;
+    }
+
     Alert.alert(
       "Cancel Ride",
       "Are you sure you want to cancel this ride?",
@@ -172,13 +233,25 @@ export default function MapScreen() {
         {
           text: "Yes, Cancel",
           style: "destructive",
-          onPress: () => {
-            console.log('✅ Ride cancelled');
-            router.push("/passenger/SearchRideScreen");
-          }
+          onPress: async () => {
+            try {
+              console.log('🔄 Cancelling ride ID:', rideId);
+              const response = await api.put(`/ridesDem/${rideId}/cancel`);
+              console.log(`✅ Ride ${rideId} cancelled`, response.data);
+            } catch (error) {
+              console.error('❌ Erreur cancel:', error.response?.data || error.message);
+            } finally {
+              router.push("/passenger/SearchRideScreen");
+            }
+          },
         }
       ]
     );
+  };
+
+  const handleTryAnother = () => {
+    setShowLocationError(false);
+    router.push("/passenger/SearchRideScreen");
   };
 
   const getInitialRegion = () => {
@@ -203,40 +276,27 @@ export default function MapScreen() {
   if (selectionType === "route") {
     return (
       <View style={styles.container}>
-        {/* Map */}
         <MapView
           ref={mapRef}
           style={styles.map}
           initialRegion={getInitialRegion()}
           showsUserLocation
         >
-          {/* Marqueur départ VERT */}
           {startLocation?.latitude && startLocation?.longitude && (
-            <Marker 
-              coordinate={startLocation}
-              pinColor="green"
-            />
+            <Marker coordinate={startLocation} pinColor="green" />
           )}
-
-          {/* Marqueur destination ROUGE */}
           {endLocation?.latitude && endLocation?.longitude && (
-            <Marker 
-              coordinate={endLocation}
-              pinColor="red"
-            />
+            <Marker coordinate={endLocation} pinColor="red" />
           )}
-
-          {/* Route BLEUE */}
           {isValidRoute && routeCoordinates.length > 0 && (
             <Polyline
               coordinates={routeCoordinates}
-              strokeColor="#cea056"
+              strokeColor="#caab2c"
               strokeWidth={2.5}
             />
           )}
         </MapView>
 
-        {/* ADRESSES EN HAUT */}
         <View style={styles.topAddresses}>
           <View style={styles.addressCard}>
             <View style={styles.addressRow}>
@@ -255,51 +315,52 @@ export default function MapScreen() {
           </View>
         </View>
 
-        {/* BottomSheet */}
-        <View style={styles.bottomSheet}>
-          <View style={styles.dragHandle} />
+        {showLocationError ? (
+          <LocationNotSupported onTryAnother={handleTryAnother} />
+        ) : (
+          <View style={styles.bottomSheet}>
+            <View style={styles.dragHandle} />
 
-          {loadingRoute ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="small" color="#000" />
-              <Text style={styles.loadingText}>Calculating route...</Text>
-            </View>
-          ) : (
-            <>
-              {/* Recommended Drivers */}
-              <TouchableOpacity
-                style={styles.recommendedSection}
-                onPress={() =>
-                  router.push({
-                    pathname: "/passenger/RecommendedDriversScreen",
-                    params: { rideId, startAddress, endAddress },
-                  })
-                }
-                activeOpacity={0.7}
-              >
-                <View style={styles.recommendedContent}>
-                  <Text style={styles.recommendedTitle}>Recommended Drivers</Text>
-                  {routeDistance && routeDuration && (
-                    <Text style={styles.distanceText}>
-                      {formatDistance(routeDistance)} • {formatDuration(routeDuration)}
-                    </Text>
-                  )}
-                </View>
-                <Ionicons name="chevron-forward" size={24} color="#666" />
-              </TouchableOpacity>
+            {loadingRoute ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="small" color="#000" />
+                <Text style={styles.loadingText}>Calculating route...</Text>
+              </View>
+            ) : (
+              <>
+                <TouchableOpacity
+                  style={styles.recommendedSection}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/passenger/RecommendedDriversScreen",
+                      params: { rideId, startAddress, endAddress },
+                    })
+                  }
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.recommendedContent}>
+                    <Text style={styles.recommendedTitle}>Recommended Drivers</Text>
+                    {routeDistance && routeDuration && (
+                      <Text style={styles.distanceText}>
+                        {formatDistance(routeDistance)} • {formatDuration(routeDuration)}
+                      </Text>
+                    )}
+                  </View>
+                  <Ionicons name="chevron-forward" size={24} color="#666" />
+                </TouchableOpacity>
 
-              {/* Cancel Ride */}
-              <TouchableOpacity
-                style={styles.cancelRideButton}
-                onPress={handleCancelRide}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.cancelRideText}>Cancel Ride</Text>
-                <Ionicons name="close-circle" size={22} color="#E53E3E" />
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
+                <TouchableOpacity
+                  style={styles.cancelRideButton}
+                  onPress={handleCancelRide}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.cancelRideText}>Cancel Ride</Text>
+                  <Ionicons name="close-circle" size={22} color="#E53E3E" />
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        )}
       </View>
     );
   }
@@ -324,11 +385,9 @@ export default function MapScreen() {
 
       <View style={styles.bottomSheetFixed}>
         <View style={styles.dragHandle} />
-
         <Text style={styles.title}>
           {selectionType === "start" ? "Set pickup location" : "Set destination"}
         </Text>
-
         {loadingAddress ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="small" color="#666" />
@@ -337,12 +396,8 @@ export default function MapScreen() {
         ) : (
           <Text style={styles.address}>{selectedAddress || "Tap on map"}</Text>
         )}
-
         <TouchableOpacity
-          style={[
-            styles.confirmBtn,
-            (!selectedLocation || loadingAddress) && styles.confirmBtnDisabled,
-          ]}
+          style={[styles.confirmBtn, (!selectedLocation || loadingAddress) && styles.confirmBtnDisabled]}
           onPress={handleConfirm}
           disabled={!selectedLocation || loadingAddress}
           activeOpacity={0.8}
@@ -354,16 +409,90 @@ export default function MapScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    backgroundColor: "#FFF" 
+const errorStyles = StyleSheet.create({
+  overlay: {
+    position: "absolute",
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: "#FFF",
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingHorizontal: 24,
+    paddingBottom: 40,
+    paddingTop: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 12,
   },
-  
-  map: { 
-    flex: 1 
+  card: {
+    alignItems: "center",
   },
+  iconContainer: {
+    position: "relative",
+    marginBottom: 20,
+    marginTop: 8,
+  },
+  iconCircle: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: "#F5F5F5",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#E0E0E0",
+  },
+  iconBadge: {
+    position: "absolute",
+    bottom: -2,
+    right: -2,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: "#000",
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: "#FFF",
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: "800",
+    color: "#000",
+    marginBottom: 12,
+    textAlign: "center",
+    letterSpacing: -0.3,
+  },
+  subtitle: {
+    fontSize: 15,
+    color: "#666",
+    textAlign: "center",
+    lineHeight: 22,
+    marginBottom: 28,
+    paddingHorizontal: 8,
+  },
+  button: {
+    backgroundColor: "#000",
+    paddingVertical: 16,
+    paddingHorizontal: 40,
+    borderRadius: 50,
+    width: "100%",
+    alignItems: "center",
+  },
+  buttonText: {
+    color: "#FFF",
+    fontSize: 16,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+});
 
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: "#FFF" },
+  map: { flex: 1 },
   topAddresses: {
     position: "absolute",
     top: 50,
@@ -371,7 +500,6 @@ const styles = StyleSheet.create({
     right: 20,
     zIndex: 10,
   },
-  
   addressCard: {
     backgroundColor: "#FFF",
     borderRadius: 16,
@@ -382,38 +510,30 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 5,
   },
-  
   addressRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
   },
-  
-  addressSeparator: {
-    height: 10,
-  },
-  
+  addressSeparator: { height: 10 },
   dotGreen: {
     width: 12,
     height: 12,
     borderRadius: 6,
     backgroundColor: "#22C55E",
   },
-  
   dotRed: {
     width: 12,
     height: 12,
     borderRadius: 6,
     backgroundColor: "#E53E3E",
   },
-  
   addressText: {
     fontSize: 15,
     color: "#202124",
     flex: 1,
     fontWeight: "500",
   },
-
   bottomSheet: {
     position: "absolute",
     bottom: 0,
@@ -431,7 +551,6 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 10,
   },
-
   dragHandle: {
     width: 40,
     height: 5,
@@ -440,20 +559,17 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     marginBottom: 12,
   },
-
   loadingContainer: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
     marginVertical: 12,
   },
-  
   loadingText: {
     fontSize: 15,
     color: "#666",
     fontStyle: "italic",
   },
-
   recommendedSection: {
     flexDirection: "row",
     alignItems: "center",
@@ -463,23 +579,17 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 10,
   },
-  
-  recommendedContent: {
-    flex: 1,
-  },
-  
+  recommendedContent: { flex: 1 },
   recommendedTitle: {
     fontSize: 17,
     fontWeight: "700",
     color: "#000",
     marginBottom: 4,
   },
-  
   distanceText: {
     fontSize: 14,
     color: "#5F6368",
   },
-
   cancelRideButton: {
     flexDirection: "row",
     alignItems: "center",
@@ -491,13 +601,11 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: "#FEE2E2",
   },
-  
   cancelRideText: {
     fontSize: 16,
     fontWeight: "600",
     color: "#E53E3E",
   },
-
   bottomSheetFixed: {
     position: "absolute",
     bottom: 0,
@@ -516,32 +624,27 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 6,
   },
-
   title: {
     fontSize: 18,
     fontWeight: "700",
     color: "#000",
     marginBottom: 8,
   },
-  
   address: {
     fontSize: 15,
     color: "#666",
     marginBottom: 16,
   },
-  
   confirmBtn: {
     backgroundColor: "#000",
     padding: 16,
     borderRadius: 12,
     alignItems: "center",
   },
-  
   confirmBtnDisabled: {
     backgroundColor: "#CCC",
     opacity: 0.6,
   },
-  
   confirmText: {
     color: "#FFF",
     fontWeight: "600",

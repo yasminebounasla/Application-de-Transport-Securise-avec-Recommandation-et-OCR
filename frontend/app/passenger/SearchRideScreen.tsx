@@ -19,6 +19,7 @@ import { LocationContext } from "../../context/LocationContext";
 import { useRide } from "../../context/RideContext";
 import { reverseGeocode } from "../../utils/reverseGeocode";
 import { searchPlaces } from "../../services/placesService";
+import { validateLocationsInAlgeria } from "../../utils/Geovalidation";
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
@@ -81,21 +82,18 @@ export default function SearchRideScreen() {
       const coordsKey = `${startLocation.latitude.toFixed(4)},${startLocation.longitude.toFixed(4)}`;
       
       if (lastStartCoords.current === coordsKey) {
-        console.log('⏭️ Start coords unchanged, skipping geocode');
         return;
       }
 
       lastStartCoords.current = coordsKey;
-
       setLoadingStart(true);
+      
       try {
-        console.log('📍 Loading start address...');
         await new Promise(resolve => setTimeout(resolve, 150));
         const address = await reverseGeocode(startLocation);
         setStartAddress(address);
         setStartQuery("");
       } catch (error) {
-        console.error("❌ Erreur chargement adresse départ:", error);
         setStartAddress("Error loading address");
       } finally {
         setLoadingStart(false);
@@ -117,21 +115,18 @@ export default function SearchRideScreen() {
       const coordsKey = `${endLocation.latitude.toFixed(4)},${endLocation.longitude.toFixed(4)}`;
       
       if (lastEndCoords.current === coordsKey) {
-        console.log('⏭️ End coords unchanged, skipping geocode');
         return;
       }
 
       lastEndCoords.current = coordsKey;
-
       setLoadingEnd(true);
+      
       try {
-        console.log('📍 Loading end address...');
         await new Promise(resolve => setTimeout(resolve, 500));
         const address = await reverseGeocode(endLocation);
         setEndAddress(address);
         setEndQuery("");
       } catch (error) {
-        console.error("❌ Erreur chargement adresse destination:", error);
         setEndAddress("Error loading address");
       } finally {
         setLoadingEnd(false);
@@ -310,6 +305,26 @@ export default function SearchRideScreen() {
       return;
     }
 
+   const validation = validateLocationsInAlgeria(startLocation, endLocation);
+  
+   if (!validation.valid) {
+     console.log('❌ Validation failed:', validation.message);
+    
+      router.push({
+       pathname: "/shared/MapScreen",
+       params: {
+         selectionType: "route",
+         rideId: "",
+         startAddress: startAddress || "Departure point",
+         endAddress: endAddress || "Destination",
+         startLat: startLocation.latitude.toString(),
+         startLng: startLocation.longitude.toString(),
+         endLat: endLocation.latitude.toString(),
+         endLng: endLocation.longitude.toString(),
+        }
+      });
+     return;
+    }
     try {
       const rideData = {
         startLat: startLocation.latitude,
@@ -371,7 +386,6 @@ export default function SearchRideScreen() {
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
       <Text style={styles.title}>Book a Ride</Text>
 
-      {/* FROM */}
       <View style={styles.fieldContainer}>
         <View style={styles.inputContainer}>
           {loadingStart ? (
@@ -428,7 +442,6 @@ export default function SearchRideScreen() {
         )}
       </View>
 
-      {/* WHERE TO */}
       <View style={styles.fieldContainer}>
         <View style={styles.inputContainer}>
           {loadingEnd ? (
@@ -481,7 +494,6 @@ export default function SearchRideScreen() {
         )}
       </View>
 
-      {/* DATE & TIME */}
       <TouchableOpacity style={styles.dateTimeButton} onPress={handleOpenDatePicker} activeOpacity={0.7}>
         <Ionicons name="calendar-outline" size={24} color="#6B46C1" />
         <Text style={[styles.dateTimeText, dateDepart && styles.dateTimeTextSelected]}>
@@ -489,7 +501,6 @@ export default function SearchRideScreen() {
         </Text>
       </TouchableOpacity>
 
-      {/* PRÉFÉRENCES */}
       <Text style={styles.sectionTitle}>Your Preferences</Text>
       {[
         { label: 'Quiet ride', value: quiet_ride, setter: setQuietRide },
@@ -507,7 +518,6 @@ export default function SearchRideScreen() {
         </View>
       ))}
 
-      {/* DATE PICKER */}
       {Platform.OS === 'ios' && showDatePicker && (
         <Modal transparent animationType="slide" visible={showDatePicker}>
           <View style={styles.modalOverlay}>
@@ -545,7 +555,6 @@ export default function SearchRideScreen() {
         <DateTimePicker value={selectedDate} mode="time" display="default" onChange={handleTimeChange} />
       )}
 
-      {/* BOUTON RIDE REQUEST */}
       <TouchableOpacity
         style={[styles.rideRequestButton, !isFormValid() && styles.disabled]}
         disabled={!isFormValid()}
@@ -566,7 +575,6 @@ export default function SearchRideScreen() {
     </ScrollView>
   );
 }
-
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#fff", padding: 20 },
   title: { fontSize: 24, fontWeight: "bold", marginBottom: 24, color: "#000" },
