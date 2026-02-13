@@ -1,7 +1,7 @@
 import axios from "axios";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const API_URL = "http://192.168.1.129:3000/api";  
+const API_URL = "http://192.168.1.69:5000/api";  
 
 export const recommendDrivers = async (passengerId, preferences) => {
   try {
