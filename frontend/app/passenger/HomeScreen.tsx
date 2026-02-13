@@ -21,6 +21,13 @@ export default function Home() {
           variant="secondary"
           style={{ marginTop: 16 }}
         />
+
+        <Button
+          title="test feedback screen"
+          onPress={() => router.push('/passenger/FeedbackScreen')}
+          variant="primary"
+          style={{ marginTop: 16 }}
+        />
       
         </View>
     </ScrollView>

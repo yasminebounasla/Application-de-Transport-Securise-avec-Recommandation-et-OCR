@@ -9,6 +9,7 @@ export default function Layout() {
       <Stack.Screen name="DemandeTrajetScreen" />
       <Stack.Screen name="HistoryScreen" />
       <Stack.Screen name="RideTrackingScreen" />
+      <Stack.Screen name="FeedbackScreen" />
     </Stack>
   );
 }
