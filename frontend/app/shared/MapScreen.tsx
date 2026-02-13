@@ -119,7 +119,7 @@ export default function MapScreen() {
       setRouteCoordinates([]);
       setRouteDistance(null);
       setRouteDuration(null);
-      setShowLocationError(true);  
+      setShowLocationError(true); 
       centerMapOnMarkers();
       return;
     }
@@ -204,6 +204,11 @@ export default function MapScreen() {
   };
 
   const handleCancelRide = () => {
+    if (!rideId) {
+      router.push("/passenger/SearchRideScreen");
+      return;
+    }
+
     Alert.alert(
       "Cancel Ride",
       "Are you sure you want to cancel this ride?",
@@ -212,7 +217,16 @@ export default function MapScreen() {
         {
           text: "Yes, Cancel",
           style: "destructive",
-          onPress: () => router.push("/passenger/SearchRideScreen"),
+          onPress: async () => {
+            try {
+              await api.put(`/ride/${rideId}/cancel`);
+              console.log('✅ Ride cancelled in DB, status → CANCELLED_BY_PASSENGER');
+            } catch (error) {
+              console.error('❌ Erreur cancel:', error);
+            } finally {
+              router.push("/passenger/SearchRideScreen");
+            }
+          },
         }
       ]
     );
