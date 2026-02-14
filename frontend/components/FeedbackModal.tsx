@@ -46,19 +46,26 @@ export default function FeedbackModal({ visible, trajetId, onClose }) {
     }
   };
 
+  // Reset le state quand le modal se ferme
+  const handleClose = () => {
+    setUserRating(0);
+    setComment('');
+    onClose();
+  };
+
   return (
     <Modal
       visible={visible}
       transparent={true}
       animationType="fade"
-      onRequestClose={onClose}
+      onRequestClose={handleClose}
     >
       {/* Blur Background */}
       <BlurView intensity={90} style={styles.blurContainer} tint="light">
         <TouchableOpacity 
           style={styles.backdrop} 
           activeOpacity={1} 
-          onPress={onClose}
+          onPress={handleClose}
         >
           <TouchableOpacity activeOpacity={1} onPress={(e) => e.stopPropagation()}>
             {/* Modal Card */}
@@ -88,11 +95,13 @@ export default function FeedbackModal({ visible, trajetId, onClose }) {
                 <Text style={styles.label}>Comment (optional):</Text>
                 <TextInput
                   placeholder="Share your experience..."
+                  placeholderTextColor="#999"
                   value={comment}
                   onChangeText={setComment}
                   multiline
                   numberOfLines={4}
                   style={styles.input}
+                  textAlignVertical="top"
                 />
 
                 {/* Buttons */}
@@ -104,8 +113,9 @@ export default function FeedbackModal({ visible, trajetId, onClose }) {
                 />
                 
                 <TouchableOpacity 
-                  onPress={onClose}
+                  onPress={handleClose}
                   style={styles.skipButton}
+                  disabled={loading}
                 >
                   <Text style={styles.skipText}>Skip for now</Text>
                 </TouchableOpacity>
@@ -162,17 +172,25 @@ const styles = StyleSheet.create({
     marginTop: 12,
     color: '#666',
     fontSize: 16,
+    fontWeight: '500',
   },
   label: {
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 8,
-    color: '#000',
+    color: '#333',
   },
   input: {
     height: 100,
-    textAlignVertical: 'top',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 15,
+    color: '#000',
+    backgroundColor: '#F9F9F9',
     marginBottom: 20,
+    textAlignVertical: 'top',
   },
   submitButton: {
     marginBottom: 12,
