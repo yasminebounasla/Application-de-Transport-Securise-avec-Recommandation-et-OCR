@@ -87,3 +87,184 @@ export const getDriverRating = async (req, res) => {
         });
     }
 };
+/**
+ * @route   POST /api/drivers/vehicle
+ * @desc    Ajouter un véhicule
+ */
+export const addVehicle = async (req, res) => {
+  const driverId = req.user.driverId;
+  
+  if (!driverId) {
+    return res.status(403).json({ 
+      message: "Access restricted to drivers only." 
+    });
+  }
+
+  try {
+    const { marque, modele, annee, nbPlaces, plaque, couleur } = req.body;
+
+    if (!marque) {
+      return res.status(400).json({ 
+        message: "Vehicle brand (marque) is required." 
+      });
+    }
+
+    const vehicle = await prisma.vehicule.create({
+      data: {
+        driverId,
+        marque,
+        modele: modele || null,
+        annee: annee ? parseInt(annee) : null,
+        nbPlaces: nbPlaces ? parseInt(nbPlaces) : null,
+        plaque: plaque || null,
+        couleur: couleur || null,
+      },
+    });
+
+    res.status(201).json({
+      message: "Vehicle added successfully.",
+      data: vehicle,
+    });
+  } catch (err) {
+    console.error("Error adding vehicle:", err);
+    res.status(500).json({
+      message: "Failed to add vehicle.",
+      error: err.message,
+    });
+  }
+};
+
+/**
+ * @route   PUT /api/drivers/vehicle/:vehicleId
+ * @desc    Modifier un véhicule
+ */
+export const updateVehicle = async (req, res) => {
+  const driverId = req.user.driverId;
+  const { vehicleId } = req.params;
+
+  if (!driverId) {
+    return res.status(403).json({ 
+      message: "Access restricted to drivers only." 
+    });
+  }
+
+  try {
+    // Vérifier que le véhicule appartient au conducteur
+    const existingVehicle = await prisma.vehicule.findFirst({
+      where: { 
+        id: parseInt(vehicleId), 
+        driverId 
+      },
+    });
+
+    if (!existingVehicle) {
+      return res.status(404).json({ 
+        message: "Vehicle not found or you don't have permission to update it." 
+      });
+    }
+
+    const { marque, modele, annee, nbPlaces, plaque, couleur } = req.body;
+
+    // Préparer les données à mettre à jour
+    const updateData = {};
+    if (marque !== undefined) updateData.marque = marque;
+    if (modele !== undefined) updateData.modele = modele;
+    if (annee !== undefined) updateData.annee = annee ? parseInt(annee) : null;
+    if (nbPlaces !== undefined) updateData.nbPlaces = nbPlaces ? parseInt(nbPlaces) : null;
+    if (plaque !== undefined) updateData.plaque = plaque;
+    if (couleur !== undefined) updateData.couleur = couleur;
+
+    const updatedVehicle = await prisma.vehicule.update({
+      where: { id: parseInt(vehicleId) },
+      data: updateData,
+    });
+
+    res.status(200).json({
+      message: "Vehicle updated successfully.",
+      data: updatedVehicle,
+    });
+  } catch (err) {
+    console.error("Error updating vehicle:", err);
+    res.status(500).json({
+      message: "Failed to update vehicle.",
+      error: err.message,
+    });
+  }
+};
+
+/**
+ * @route   GET /api/drivers/vehicle
+ * @desc    Récupérer tous les véhicules du conducteur
+ */
+export const getDriverVehicles = async (req, res) => {
+  const driverId = req.user.driverId;
+
+  if (!driverId) {
+    return res.status(403).json({ 
+      message: "Access restricted to drivers only." 
+    });
+  }
+
+  try {
+    const vehicles = await prisma.vehicule.findMany({
+      where: { driverId },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    res.status(200).json({
+      message: "Vehicles retrieved successfully.",
+      data: vehicles,
+      count: vehicles.length,
+    });
+  } catch (err) {
+    console.error("Error retrieving vehicles:", err);
+    res.status(500).json({
+      message: "Failed to retrieve vehicles.",
+      error: err.message,
+    });
+  }
+};
+
+/**
+ * @route   DELETE /api/drivers/vehicle/:vehicleId
+ * @desc    Supprimer un véhicule
+ */
+export const deleteVehicle = async (req, res) => {
+  const driverId = req.user.driverId;
+  const { vehicleId } = req.params;
+
+  if (!driverId) {
+    return res.status(403).json({ 
+      message: "Access restricted to drivers only." 
+    });
+  }
+
+  try {
+    const existingVehicle = await prisma.vehicule.findFirst({
+      where: { 
+        id: parseInt(vehicleId), 
+        driverId 
+      },
+    });
+
+    if (!existingVehicle) {
+      return res.status(404).json({ 
+        message: "Vehicle not found or you don't have permission to delete it." 
+      });
+    }
+
+    await prisma.vehicule.delete({
+      where: { id: parseInt(vehicleId) },
+    });
+
+    res.status(200).json({
+      message: "Vehicle deleted successfully.",
+    });
+  } catch (err) {
+    console.error("Error deleting vehicle:", err);
+    res.status(500).json({
+      message: "Failed to delete vehicle.",
+      error: err.message,
+    });
+  }
+};
