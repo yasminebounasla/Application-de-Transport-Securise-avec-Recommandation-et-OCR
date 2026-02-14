@@ -127,7 +127,7 @@ export default function RideRequestsScreen() {
               onAccept={handleAccept} 
               onReject={handleReject} 
               onPress={null}   
-              onComplete={handleComplete}      
+              //onComplete={handleComplete}      
             />
           )}
           contentContainerStyle={styles.listContainer}
