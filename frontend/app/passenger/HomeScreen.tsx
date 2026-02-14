@@ -8,6 +8,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_URL = "http://192.168.1.69:5000/api";
+const FEEDBACK_REQUESTED_KEY = 'feedback_requested_rides';
 
 export default function Home() {
   const { getPassengerRides, passengerRides } = useRide();
@@ -18,6 +19,35 @@ export default function Home() {
   useEffect(() => {
     getPassengerRides();
   }, []);
+
+  // Vérifier si le feedback a déjà été demandé pour ce trajet (localement)
+  const isFeedbackRequested = async (rideId: number): Promise<boolean> => {
+    try {
+      const requestedRides = await AsyncStorage.getItem(FEEDBACK_REQUESTED_KEY);
+      if (!requestedRides) return false;
+      
+      const ridesArray = JSON.parse(requestedRides);
+      return ridesArray.includes(rideId);
+    } catch (error) {
+      console.error("Erreur lecture feedback requested:", error);
+      return false;
+    }
+  };
+
+  // Marquer le feedback comme demandé pour ce trajet
+  const markFeedbackAsRequested = async (rideId: number) => {
+    try {
+      const requestedRides = await AsyncStorage.getItem(FEEDBACK_REQUESTED_KEY);
+      const ridesArray = requestedRides ? JSON.parse(requestedRides) : [];
+      
+      if (!ridesArray.includes(rideId)) {
+        ridesArray.push(rideId);
+        await AsyncStorage.setItem(FEEDBACK_REQUESTED_KEY, JSON.stringify(ridesArray));
+      }
+    } catch (error) {
+      console.error("Erreur sauvegarde feedback requested:", error);
+    }
+  };
 
   useEffect(() => {
     const handleRides = async () => {
@@ -43,6 +73,14 @@ export default function Home() {
       
       if (completedRide) {
         try {
+          // Vérifier d'abord si on a déjà demandé le feedback localement
+          const alreadyRequested = await isFeedbackRequested(completedRide.id);
+          if (alreadyRequested) {
+            console.log("Feedback déjà demandé pour ce trajet");
+            return;
+          }
+
+          // Vérifier si un feedback existe dans le backend
           const token = await AsyncStorage.getItem('token');
           const response = await axios.get(
             `${API_URL}/feedback/trajet/${completedRide.id}`,
@@ -52,13 +90,13 @@ export default function Home() {
           const feedbackExists = response.data.data.length > 0;
           
           if (!feedbackExists) {
+            // Marquer comme demandé AVANT d'afficher le modal
+            await markFeedbackAsRequested(completedRide.id);
             setCompletedRideId(completedRide.id);
             setShowFeedbackModal(true);
-
           } else {
             console.log("Feedback already submitted");
           }
-
         } catch (err) {
           console.error("Erreur check feedback:", err);
         }
@@ -93,7 +131,7 @@ export default function Home() {
         onClose={() => {
           setShowFeedbackModal(false);
           setCompletedRideId(null);
-          getPassengerRides();
+        
         }}
       />
     </>
