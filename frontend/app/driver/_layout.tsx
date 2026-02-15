@@ -7,6 +7,7 @@ export default function Layout() {
       <Stack.Screen name="ActiveRideScreen" />
       <Stack.Screen name="ProfileSetupScreen" />
       <Stack.Screen name="RideRequestScreen" />
+      <Stack.Screen name="MyFeedbacksScreen" />
     </Stack>
   );
 }
