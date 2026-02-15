@@ -27,6 +27,13 @@ export default function HomeScreen() {
             variant="secondary"
             style={{ marginBottom: 12 }}
           />
+          
+          <Button 
+          title=" My Feedbacks "
+          onPress={() => router.push('/driver/MyFeedbacksScreen')}
+          variant="primary"
+          style={{ marginBottom: 12 }}
+        />
       
       </View>
     </ScrollView>
