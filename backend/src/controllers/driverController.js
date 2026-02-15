@@ -268,3 +268,323 @@ export const deleteVehicle = async (req, res) => {
     });
   }
 };
+
+//Modifier/Mettre à jour les préférences du conducteur Private (Driver only)
+export const updateDriverPreferences = async (req, res) => {
+  const driverId = req.user.driverId;
+  
+  if (!driverId) {
+    return res.status(403).json({ 
+      message: "Access restricted to drivers only." 
+    });
+  }
+
+  try {
+    const {
+      fumeur,
+      talkative,
+      radio_on,
+      smoking_allowed,
+      pets_allowed,
+      car_big,
+      works_morning,
+      works_afternoon,
+      works_evening,
+      works_night,
+    } = req.body;
+
+    const updateData = {};
+    if (fumeur !== undefined) updateData.fumeur = fumeur;
+    if (talkative !== undefined) updateData.talkative = talkative;
+    if (radio_on !== undefined) updateData.radio_on = radio_on;
+    if (smoking_allowed !== undefined) updateData.smoking_allowed = smoking_allowed;
+    if (pets_allowed !== undefined) updateData.pets_allowed = pets_allowed;
+    if (car_big !== undefined) updateData.car_big = car_big;
+    if (works_morning !== undefined) updateData.works_morning = works_morning;
+    if (works_afternoon !== undefined) updateData.works_afternoon = works_afternoon;
+    if (works_evening !== undefined) updateData.works_evening = works_evening;
+    if (works_night !== undefined) updateData.works_night = works_night;
+
+    const updatedDriver = await prisma.driver.update({
+      where: { id: driverId },
+      data: updateData,
+    });
+
+    const { password, ...driverData } = updatedDriver;
+
+    res.status(200).json({
+      message: "Driver preferences updated successfully.",
+      data: driverData,
+    });
+  } catch (err) {
+    console.error("Error updating driver preferences:", err);
+    res.status(500).json({
+      message: "Failed to update driver preferences.",
+      error: err.message,
+    });
+  }
+};
+
+//Récupérer les préférences du conducteur authentifié (Driver only)
+export const getDriverPreferences = async (req, res) => {
+  const driverId = req.user.driverId;
+
+  if (!driverId) {
+    return res.status(403).json({ 
+      message: "Access restricted to drivers only." 
+    });
+  }
+
+  try {
+    const driver = await prisma.driver.findUnique({
+      where: { id: driverId },
+      select: {
+        id: true,
+        fumeur: true,
+        talkative: true,
+        radio_on: true,
+        smoking_allowed: true,
+        pets_allowed: true,
+        car_big: true,
+        works_morning: true,
+        works_afternoon: true,
+        works_evening: true,
+        works_night: true,
+      },
+    });
+
+    if (!driver) {
+      return res.status(404).json({ 
+        message: "Driver not found." 
+      });
+    }
+
+    res.status(200).json({
+      message: "Driver preferences retrieved successfully.",
+      data: driver,
+    });
+  } catch (err) {
+    console.error("Error retrieving driver preferences:", err);
+    res.status(500).json({
+      message: "Failed to retrieve driver preferences.",
+      error: err.message,
+    });
+  }
+};
+
+//Récupérer le profil complet d'un conducteur Public (peut être consulté par n'importe qui)
+export const getDriverProfile = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+
+    const driver = await prisma.driver.findUnique({
+      where: { id: parseInt(id) },
+      include: {
+
+        vehicules: {
+          select: {
+            id: true,
+            marque: true,
+            modele: true,
+            annee: true,
+            nbPlaces: true,
+            plaque: true,
+            couleur: true,
+            createdAt: true,
+          },
+        },
+        // Trajets complétés avec évaluations (limités à 5)
+        trajets: {
+          where: { 
+            status: 'COMPLETED',
+            evaluation: {
+              isNot: null  // Seulement les trajets qui ont une évaluation
+            }
+          },
+          include: {
+            evaluation: {
+              select: {
+                rating: true,
+                comment: true,
+                createdAt: true,
+              },
+            },
+          },
+          orderBy: {
+            completedAt: 'desc',
+          },
+          take: 5, 
+        },
+      },
+    });
+
+    if (!driver) {
+      return res.status(404).json({ 
+        message: "Driver not found." 
+      });
+    }
+
+    const stats = {
+      avgRating: parseFloat((driver.avgRating || 0).toFixed(1)),
+      ratingsCount: driver.ratingsCount || 0,
+      completedRides: driver.trajets.length,
+    };
+
+    const recentFeedbacks = driver.trajets
+      .filter(t => t.evaluation)
+      .map(t => ({
+        rating: t.evaluation.rating,
+        comment: t.evaluation.comment,
+        date: t.evaluation.createdAt,
+      }));
+
+    const preferences = {
+      fumeur: driver.fumeur,
+      talkative: driver.talkative,
+      radio_on: driver.radio_on,
+      smoking_allowed: driver.smoking_allowed,
+      pets_allowed: driver.pets_allowed,
+      car_big: driver.car_big,
+      works_morning: driver.works_morning,
+      works_afternoon: driver.works_afternoon,
+      works_evening: driver.works_evening,
+      works_night: driver.works_night,
+    };
+
+    const { 
+      password, 
+      hasAcceptedPhotoStorage, 
+      trajets, 
+      ...driverData 
+    } = driver;
+
+    res.status(200).json({
+      message: "Driver profile retrieved successfully.",
+      data: {
+        ...driverData,
+        vehicules: driver.vehicules,
+        preferences,
+        stats,
+        recentFeedbacks, 
+        feedbackNote: "For all feedbacks, use GET /api/feedback/public/" + id
+      },
+    });
+  } catch (err) {
+    console.error("Error retrieving driver profile:", err);
+    res.status(500).json({
+      message: "Failed to retrieve driver profile.",
+      error: err.message,
+    });
+  }
+};
+
+//Récupérer le profil du conducteur authentifié Private (Driver only)
+export const getMyDriverProfile = async (req, res) => {
+  const driverId = req.user.driverId;
+
+  if (!driverId) {
+    return res.status(403).json({ 
+      message: "Access restricted to drivers only." 
+    });
+  }
+
+  try {
+    const driver = await prisma.driver.findUnique({
+      where: { id: driverId },
+      include: {
+        vehicules: {
+          select: {
+            id: true,
+            marque: true,
+            modele: true,
+            annee: true,
+            nbPlaces: true,
+            plaque: true,
+            couleur: true,
+            createdAt: true,
+          },
+        },
+        trajets: {
+          where: { 
+            status: 'COMPLETED',
+            evaluation: {
+              isNot: null
+            }
+          },
+          include: {
+            evaluation: {
+              select: {
+                rating: true,
+                comment: true,
+                createdAt: true,
+              },
+            },
+          },
+          orderBy: {
+            completedAt: 'desc',
+          },
+          take: 10, 
+        },
+      },
+    });
+
+    if (!driver) {
+      return res.status(404).json({ 
+        message: "Driver not found." 
+      });
+    }
+
+    const stats = {
+      avgRating: parseFloat((driver.avgRating || 0).toFixed(1)),
+      ratingsCount: driver.ratingsCount || 0,
+      completedRides: driver.trajets.length,
+    };
+
+    const recentFeedbacks = driver.trajets
+      .filter(t => t.evaluation)
+      .map(t => ({
+        rating: t.evaluation.rating,
+        comment: t.evaluation.comment,
+        date: t.evaluation.createdAt,
+      }));
+
+    const preferences = {
+      fumeur: driver.fumeur,
+      talkative: driver.talkative,
+      radio_on: driver.radio_on,
+      smoking_allowed: driver.smoking_allowed,
+      pets_allowed: driver.pets_allowed,
+      car_big: driver.car_big,
+      works_morning: driver.works_morning,
+      works_afternoon: driver.works_afternoon,
+      works_evening: driver.works_evening,
+      works_night: driver.works_night,
+    };
+
+    const { 
+      password, 
+      hasAcceptedPhotoStorage, 
+      trajets, 
+      ...driverData 
+    } = driver;
+
+    res.status(200).json({
+      message: "Your driver profile retrieved successfully.",
+      data: {
+        ...driverData,
+        vehicules: driver.vehicules,
+        preferences,
+        stats,
+        recentFeedbacks, 
+        feedbackNote: "For all feedbacks, use GET /api/feedback/driver"
+      },
+    });
+  } catch (err) {
+    console.error("Error retrieving driver profile:", err);
+    res.status(500).json({
+      message: "Failed to retrieve driver profile.",
+      error: err.message,
+    });
+  }
+};
