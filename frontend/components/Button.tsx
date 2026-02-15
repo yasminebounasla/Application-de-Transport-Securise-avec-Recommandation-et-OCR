@@ -34,6 +34,7 @@ export default function Button({
           {title}
         </Text>
       )}
+      
     </Pressable>
   );
 }

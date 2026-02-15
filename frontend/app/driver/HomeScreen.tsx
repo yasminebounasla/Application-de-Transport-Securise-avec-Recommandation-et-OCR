@@ -14,6 +14,19 @@ export default function HomeScreen() {
           variant="primary"
           style={{ marginBottom: 12 }}
         />
+        <Button 
+            title="ProfileSetup"
+            onPress={() => router.push('/driver/ProfileSetupScreen')}
+            variant="secondary"
+            style={{ marginBottom: 12 }}
+          />
+
+          <Button 
+            title="Profile"
+            onPress={() => router.push('/shared/ProfileScreen')}
+            variant="secondary"
+            style={{ marginBottom: 12 }}
+          />
       
       </View>
     </ScrollView>
