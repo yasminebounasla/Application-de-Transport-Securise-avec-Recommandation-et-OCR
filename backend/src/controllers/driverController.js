@@ -321,11 +321,9 @@ export const getDriverProfile = async (req, res) => {
   const { id } = req.params;
 
   try {
-
     const driver = await prisma.driver.findUnique({
       where: { id: parseInt(id) },
       include: {
-
         vehicules: {
           select: {
             id: true,
@@ -338,27 +336,17 @@ export const getDriverProfile = async (req, res) => {
             createdAt: true,
           },
         },
-        // Trajets complétés avec évaluations (limités à 5)
         trajets: {
           where: { 
-            status: 'COMPLETED',
-            evaluation: {
-              isNot: null  // Seulement les trajets qui ont une évaluation
-            }
+            status: 'COMPLETED'
           },
           include: {
-            evaluation: {
-              select: {
-                rating: true,
-                comment: true,
-                createdAt: true,
-              },
-            },
+            evaluation: true  
           },
           orderBy: {
             completedAt: 'desc',
           },
-          take: 5, 
+          take: 5,
         },
       },
     });
@@ -376,7 +364,7 @@ export const getDriverProfile = async (req, res) => {
     };
 
     const recentFeedbacks = driver.trajets
-      .filter(t => t.evaluation)
+      .filter(t => t.evaluation)  
       .map(t => ({
         rating: t.evaluation.rating,
         comment: t.evaluation.comment,
@@ -410,7 +398,7 @@ export const getDriverProfile = async (req, res) => {
         vehicules: driver.vehicules,
         preferences,
         stats,
-        recentFeedbacks, 
+        recentFeedbacks,
         feedbackNote: "For all feedbacks, use GET /api/feedback/public/" + id
       },
     });
@@ -451,24 +439,15 @@ export const getMyDriverProfile = async (req, res) => {
         },
         trajets: {
           where: { 
-            status: 'COMPLETED',
-            evaluation: {
-              isNot: null
-            }
+            status: 'COMPLETED'
           },
           include: {
-            evaluation: {
-              select: {
-                rating: true,
-                comment: true,
-                createdAt: true,
-              },
-            },
+            evaluation: true 
           },
           orderBy: {
             completedAt: 'desc',
           },
-          take: 10, 
+          take: 10,
         },
       },
     });
@@ -486,7 +465,7 @@ export const getMyDriverProfile = async (req, res) => {
     };
 
     const recentFeedbacks = driver.trajets
-      .filter(t => t.evaluation)
+      .filter(t => t.evaluation)  
       .map(t => ({
         rating: t.evaluation.rating,
         comment: t.evaluation.comment,
@@ -514,14 +493,14 @@ export const getMyDriverProfile = async (req, res) => {
     } = driver;
 
     res.status(200).json({
-      message: "Your driver profile retrieved successfully.",
-      data: {
+     message: "Your driver profile retrieved successfully.",
+     data: {
         ...driverData,
         vehicules: driver.vehicules,
         preferences,
         stats,
-        recentFeedbacks, 
-        feedbackNote: "For all feedbacks, use GET /api/feedback/driver"
+        recentFeedbacks: [],
+        feedbackNote: "For all feedbacks, use GET /api/feedback/my-feedbacks"  
       },
     });
   } catch (err) {
