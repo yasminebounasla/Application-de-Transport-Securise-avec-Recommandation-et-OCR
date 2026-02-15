@@ -532,3 +532,49 @@ export const getMyDriverProfile = async (req, res) => {
     });
   }
 };
+
+export const updateDriverProfile = async (req, res) => {
+  const driverId = req.user.driverId;
+
+  if (!driverId) {
+    return res.status(403).json({ 
+      message: "Access restricted to drivers only." 
+    });
+  }
+
+  try {
+    const { nom, prenom, numTel, age, sexe } = req.body;
+
+    const updateData = {};
+    if (nom !== undefined) updateData.nom = nom;
+    if (prenom !== undefined) updateData.prenom = prenom;
+    if (numTel !== undefined) updateData.numTel = numTel;
+    if (age !== undefined) updateData.age = parseInt(age);
+    if (sexe !== undefined) {
+      if (sexe !== 'M' && sexe !== 'F') {
+        return res.status(400).json({ 
+          message: "Gender (sexe) must be 'M' or 'F'." 
+        });
+      }
+      updateData.sexe = sexe;
+    }
+
+    const updatedDriver = await prisma.driver.update({
+      where: { id: driverId },
+      data: updateData,
+    });
+
+    const { password, ...driverData } = updatedDriver;
+
+    res.status(200).json({
+      message: "Driver profile updated successfully.",
+      data: driverData,
+    });
+  } catch (err) {
+    console.error("Error updating driver profile:", err);
+    res.status(500).json({
+      message: "Failed to update driver profile.",
+      error: err.message,
+    });
+  }
+};
