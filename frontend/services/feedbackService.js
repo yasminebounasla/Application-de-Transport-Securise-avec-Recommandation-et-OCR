@@ -9,7 +9,7 @@ export const submitFeedback = async (feedback) => {
     const token = await AsyncStorage.getItem('token');
 
     const response = await axios.post(
-      `${API_URL}/feedback`,
+      `${API_URL}/feedback/submit`,
       {
         trajetId: feedback.trajetId,
         rating: feedback.rating,
