@@ -37,10 +37,10 @@ export const addDriverPreferences = async (req, res) => {
         works_night,
       },
     });
-
+    const { password, ...driverData } = updatedDriver;
     res.status(200).json({
       message: "Driver preferences updated successfully.",
-      data: updatedDriver,
+      data: driverData,
     });
   } catch (err) {
     res.status(500).json({
@@ -264,62 +264,6 @@ export const deleteVehicle = async (req, res) => {
     console.error("Error deleting vehicle:", err);
     res.status(500).json({
       message: "Failed to delete vehicle.",
-      error: err.message,
-    });
-  }
-};
-
-//Modifier/Mettre à jour les préférences du conducteur Private (Driver only)
-export const updateDriverPreferences = async (req, res) => {
-  const driverId = req.user.driverId;
-  
-  if (!driverId) {
-    return res.status(403).json({ 
-      message: "Access restricted to drivers only." 
-    });
-  }
-
-  try {
-    const {
-      fumeur,
-      talkative,
-      radio_on,
-      smoking_allowed,
-      pets_allowed,
-      car_big,
-      works_morning,
-      works_afternoon,
-      works_evening,
-      works_night,
-    } = req.body;
-
-    const updateData = {};
-    if (fumeur !== undefined) updateData.fumeur = fumeur;
-    if (talkative !== undefined) updateData.talkative = talkative;
-    if (radio_on !== undefined) updateData.radio_on = radio_on;
-    if (smoking_allowed !== undefined) updateData.smoking_allowed = smoking_allowed;
-    if (pets_allowed !== undefined) updateData.pets_allowed = pets_allowed;
-    if (car_big !== undefined) updateData.car_big = car_big;
-    if (works_morning !== undefined) updateData.works_morning = works_morning;
-    if (works_afternoon !== undefined) updateData.works_afternoon = works_afternoon;
-    if (works_evening !== undefined) updateData.works_evening = works_evening;
-    if (works_night !== undefined) updateData.works_night = works_night;
-
-    const updatedDriver = await prisma.driver.update({
-      where: { id: driverId },
-      data: updateData,
-    });
-
-    const { password, ...driverData } = updatedDriver;
-
-    res.status(200).json({
-      message: "Driver preferences updated successfully.",
-      data: driverData,
-    });
-  } catch (err) {
-    console.error("Error updating driver preferences:", err);
-    res.status(500).json({
-      message: "Failed to update driver preferences.",
       error: err.message,
     });
   }
