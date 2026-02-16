@@ -18,9 +18,9 @@ import {
   validateColor,
   validateAllVehicleFields,
   getModelsForBrand,
+  formatLicensePlateInput,
 } from '../../utils/validationVehicule';
 
-// PreferenceItem component moved outside
 const PreferenceItem = ({ label, value, onToggle }) => (
   <TouchableOpacity
     onPress={onToggle}
@@ -126,11 +126,9 @@ export default function ProfileSetupScreen() {
     }
   };
 
-  // Handle model input change with autocomplete
   const handleModelChange = (text) => {
     setVehicleData({ ...vehicleData, modele: text });
-    
-    // Get available models for the selected brand
+   
     const availableModels = getModelsForBrand(vehicleData.marque);
     
     if (text.trim().length > 0 && availableModels.length > 0) {
@@ -142,19 +140,16 @@ export default function ProfileSetupScreen() {
       setModelSuggestions([]);
     }
 
-    // Validate model on change
     const modelError = validateModel(text, vehicleData.marque);
     setErrors({ ...errors, modele: modelError });
   };
 
-  // Select model from suggestions
   const selectModel = (model) => {
     setVehicleData({ ...vehicleData, modele: model });
     setModelSuggestions([]);
     setErrors({ ...errors, modele: '' });
   };
 
-  // Handle color input change with autocomplete
   const handleColorChange = (text) => {
     setVehicleData({ ...vehicleData, couleur: text });
     
@@ -167,17 +162,34 @@ export default function ProfileSetupScreen() {
       setColorSuggestions([]);
     }
 
-    // Validate color on change
     const colorError = validateColor(text);
     setErrors({ ...errors, couleur: colorError });
   };
 
-  // Select color from suggestions
   const selectColor = (color) => {
     setVehicleData({ ...vehicleData, couleur: color });
     setColorSuggestions([]);
     setErrors({ ...errors, couleur: '' });
   };
+
+const handleLicensePlateChange = (text) => {
+
+  if (text.length > 12) {
+    return; 
+  }
+  
+  const formatted = formatLicensePlateInput(text, ' ');
+  setVehicleData({ ...vehicleData, plaque: formatted });
+  
+  const digitsOnly = formatted.replace(/\D/g, '');
+  if (digitsOnly.length === 10 || digitsOnly.length === 0) {
+    const plateError = validateLicensePlate(formatted);
+    setErrors({ ...errors, plaque: plateError });
+  } else {
+
+    setErrors({ ...errors, plaque: '' });
+  }
+};
 
   // Validate vehicle form using the imported validation function
   const validateVehicleForm = () => {
@@ -188,7 +200,6 @@ export default function ProfileSetupScreen() {
     return Object.values(newErrors).every(error => error === '');
   };
 
-  // Handle Next Step
   const handleNextStep = async () => {
     if (!validateVehicleForm()) {
       return;
@@ -217,7 +228,6 @@ export default function ProfileSetupScreen() {
     }
   };
 
-  // Handle Complete Setup
   const handleCompleteSetup = async () => {
     setLoading(true);
     try {
@@ -243,7 +253,6 @@ export default function ProfileSetupScreen() {
     }
   };
 
-  // Render Step Indicator
   const renderStepIndicator = () => (
     <View className="flex-row items-center justify-center mb-8">
       <View className="items-center">
@@ -374,16 +383,13 @@ export default function ProfileSetupScreen() {
         </View>
       </View>
 
-      {/* LICENSE PLATE FIELD */}
+      {/* LICENSE PLATE FIELD WITH AUTO-FORMATTING */}
       <Input
-        label="License Plate"
+        label="License Plate *"
         value={vehicleData.plaque}
-        onChangeText={(text) => {
-          setVehicleData({ ...vehicleData, plaque: text });
-          const plateError = validateLicensePlate(text);
-          setErrors({ ...errors, plaque: plateError });
-        }}
-        placeholder="1234-ABC-56"
+        onChangeText={handleLicensePlateChange}
+        placeholder="12345 126 16"
+        keyboardType="numeric"
         error={errors.plaque}
         style={{ marginBottom: 16 }}
       />

@@ -59,6 +59,14 @@ export const VALID_COLORS = [
   'Maroon', 'Navy', 'Cyan', 'Turquoise', 'Charcoal', 'Burgundy',
 ];
 
+export const ALGERIA_WILAYA_CODES = [
+  '01', '02', '03', '04', '05', '06', '07', '08', '09', '10',
+  '11', '12', '13', '14', '15', '16', '17', '18', '19', '20',
+  '21', '22', '23', '24', '25', '26', '27', '28', '29', '30',
+  '31', '32', '33', '34', '35', '36', '37', '38', '39', '40',
+  '41', '42', '43', '44', '45', '46', '47', '48', '49', '50',
+  '51', '52', '53', '54', '55', '56', '57', '58'
+];
 
 export const validateBrand = (brand) => {
   if (!brand || brand.trim() === '') {
@@ -83,7 +91,7 @@ export const validateBrand = (brand) => {
 
 //Valider le modèle du véhicule (dépend de la marque)
 export const validateModel = (model, brand) => {
-
+  // Model is optional
   if (!model || model.trim() === '') {
     return '';
   }
@@ -95,7 +103,8 @@ export const validateModel = (model, brand) => {
   if (!/^[a-zA-Z0-9\s-]+$/.test(model)) {
     return 'Model must contain only letters and numbers';
   }
- 
+  
+  // Si la marque est fournie et valide, vérifier que le modèle existe pour cette marque
   if (brand && brand.trim() !== '') {
     const normalizedBrand = brand.trim();
     const brandModels = CAR_BRANDS_WITH_MODELS[normalizedBrand];
@@ -138,7 +147,7 @@ export const validateYear = (year) => {
 
 //Valider le nombre de places
 export const validateSeats = (seats) => {
-  // Seats is optional
+
   if (!seats || seats.trim() === '') {
     return '';
   }
@@ -156,33 +165,71 @@ export const validateSeats = (seats) => {
   return '';
 };
 
-//Valider la plaque d'immatriculation
+/**
+ * Valider la plaque d'immatriculation algérienne
+ * Format strict: XXXXX YZZ WW (ou XXXXX-YZZ-WW)
+ * - XXXXX: Numéro de série (5 chiffres obligatoires avec zéros de tête)
+ * - YZZ: Type de véhicule (1 chiffre) + Année (2 chiffres)
+ * - WW: Code wilaya (2 chiffres: 01-58)
+ */
 export const validateLicensePlate = (plate) => {
-
+  // License plate is optional
   if (!plate || plate.trim() === '') {
     return '';
   }
   
   const cleanPlate = plate.trim();
   
-  if (cleanPlate.length < 3) {
-    return 'License plate too short (min 3 characters)';
+  const plateWithoutSeparators = cleanPlate.replace(/[\s-]/g, '');
+
+  if (!/^\d+$/.test(plateWithoutSeparators)) {
+    return 'License plate must contain only numbers';
   }
   
-  if (cleanPlate.length > 15) {
-    return 'License plate too long (max 15 characters)';
+  // La longueur doit être EXACTEMENT 10 chiffres (format complet obligatoire)
+  // 5 (série) + 3 (type+année) + 2 (wilaya) = 10 chiffres
+  if (plateWithoutSeparators.length !== 10) {
+    return 'Format: XXXXX YZZ WW (10 digits required)';
+  }
+ 
+  const serialNumber = plateWithoutSeparators.slice(0, 5);    
+  const typeAndYear = plateWithoutSeparators.slice(5, 8);     
+  const wilayaCode = plateWithoutSeparators.slice(8, 10);    
+  
+  // Valider le code wilaya (doit être entre 01 et 58)
+  const wilayaNum = parseInt(wilayaCode);
+  if (wilayaNum < 1 || wilayaNum > 58 || !ALGERIA_WILAYA_CODES.includes(wilayaCode)) {
+    return 'Invalid wilaya code (must be 01-58)';
   }
   
-  if (!/^[a-zA-Z0-9\s-]+$/.test(cleanPlate)) {
-    return 'Invalid characters in license plate';
+  // Valider le type de véhicule (premier chiffre doit être entre 1 et 9)
+  const vehicleType = parseInt(typeAndYear[0]);
+  if (vehicleType < 1 || vehicleType > 9) {
+    return 'Invalid vehicle type (must be 1-9)';
+  }
+  
+  // Valider l'année (2 derniers chiffres: 00-99)
+  const year = parseInt(typeAndYear.slice(1));
+  if (year < 0 || year > 99) {
+    return 'Invalid year';
+  }
+  
+  // Valider le format avec séparateurs si présents
+  // Accepter soit tirets soit espaces, mais de manière cohérente
+  if (cleanPlate.includes('-') || cleanPlate.includes(' ')) {
+    const separator = cleanPlate.includes('-') ? '-' : ' ';
+    const expectedFormat = `${serialNumber}${separator}${typeAndYear}${separator}${wilayaCode}`;
+    
+    if (cleanPlate !== expectedFormat) {
+      return `Format: XXXXX${separator}YZZ${separator}WW (e.g., 02639${separator}126${separator}09)`;
+    }
   }
   
   return '';
 };
 
-//Valider la couleur du véhicule
 export const validateColor = (color) => {
-
+  // Color is optional
   if (!color || color.trim() === '') {
     return '';
   }
@@ -207,7 +254,6 @@ export const validateColor = (color) => {
   return '';
 };
 
-//Obtenir les modèles disponibles pour une marque donnée
 export const getModelsForBrand = (brand) => {
   if (!brand || brand.trim() === '') {
     return [];
@@ -216,7 +262,6 @@ export const getModelsForBrand = (brand) => {
   return CAR_BRANDS_WITH_MODELS[brand.trim()] || [];
 };
 
-//Valider tous les champs du véhicule en une seule fois
 export const validateAllVehicleFields = (vehicleData) => {
   return {
     marque: validateBrand(vehicleData.marque),
@@ -226,4 +271,46 @@ export const validateAllVehicleFields = (vehicleData) => {
     plaque: validateLicensePlate(vehicleData.plaque),
     couleur: validateColor(vehicleData.couleur),
   };
+};
+
+export const formatLicensePlateInput = (input, separator = ' ') => {
+  if (!input) return '';
+  
+  
+  const digitsOnly = input.replace(/\D/g, '');
+  
+  const limited = digitsOnly.slice(0, 10);
+  
+  let formatted = '';
+  
+  if (limited.length <= 5) {
+    // Première partie: numéro de série (0-5 chiffres)
+    formatted = limited;
+  } else if (limited.length <= 8) {
+    // Deuxième partie: type + année (6-8 chiffres)
+    // Ajouter automatiquement l'espace après 5 chiffres
+    formatted = limited.slice(0, 5) + separator + limited.slice(5);
+  } else {
+    // Troisième partie: wilaya (9-10 chiffres)
+    // Ajouter automatiquement l'espace après 8 chiffres
+    formatted = limited.slice(0, 5) + separator + limited.slice(5, 8) + separator + limited.slice(8);
+  }
+  
+  return formatted;
+};
+
+export const formatAlgerianPlate = (plate) => {
+  if (!plate) return '';
+  
+  const clean = plate.replace(/[\s-]/g, '');
+  
+  if (!/^\d{10}$/.test(clean)) {
+    return plate;
+  }
+ 
+  const serial = clean.slice(0, 5);
+  const typeYear = clean.slice(5, 8);
+  const wilaya = clean.slice(8, 10);
+  
+  return `${serial} ${typeYear} ${wilaya}`;
 };
