@@ -90,7 +90,7 @@ export const validateBrand = (brand) => {
 };
 
 export const validateModel = (model, brand) => {
-  // Model is optional
+
   if (!model || model.trim() === '') {
     return '';
   }
@@ -102,7 +102,8 @@ export const validateModel = (model, brand) => {
   if (!/^[a-zA-Z0-9\s-]+$/.test(model)) {
     return 'Model must contain only letters and numbers';
   }
-
+  
+  // Si la marque est fournie et valide, vérifier que le modèle existe pour cette marque
   if (brand && brand.trim() !== '') {
     const normalizedBrand = brand.trim();
     const brandModels = CAR_BRANDS_WITH_MODELS[normalizedBrand];
@@ -123,7 +124,7 @@ export const validateModel = (model, brand) => {
 };
 
 export const validateYear = (year) => {
-  // Year is optional
+
   if (!year || year.trim() === '') {
     return '';
   }
@@ -165,12 +166,12 @@ export const validateSeats = (seats) => {
  * Valider la plaque d'immatriculation algérienne pour application de covoiturage
  * Format strict: XXXXX 1ZZ WW
  * - XXXXX: Numéro de série (5 chiffres obligatoires avec zéros de tête)
- * - 1: Type de véhicule FIXE à 1 (transport de passagers)
+ * - 1: Type de véhicule (DOIT être 1 pour transport de passagers)
  * - ZZ: Année du véhicule (2 chiffres)
  * - WW: Code wilaya (2 chiffres: 01-58)
  */
 export const validateLicensePlate = (plate, vehicleYear = null) => {
-  // License plate is optional
+
   if (!plate || plate.trim() === '') {
     return '';
   }
@@ -178,18 +179,18 @@ export const validateLicensePlate = (plate, vehicleYear = null) => {
   const cleanPlate = plate.trim();
   
   const plateWithoutSeparators = cleanPlate.replace(/[\s-]/g, '');
-  
+ 
   if (!/^\d+$/.test(plateWithoutSeparators)) {
     return 'License plate must contain only numbers';
   }
-  
+
   if (plateWithoutSeparators.length !== 10) {
     return 'Format: XXXXX 1ZZ WW (10 digits required)';
   }
-
-  const serialNumber = plateWithoutSeparators.slice(0, 5);    
+  
+  const serialNumber = plateWithoutSeparators.slice(0, 5);   
   const typeAndYear = plateWithoutSeparators.slice(5, 8);    
-  const wilayaCode = plateWithoutSeparators.slice(8, 10);    
+  const wilayaCode = plateWithoutSeparators.slice(8, 10);   
   
   // Valider le code wilaya (doit être entre 01 et 58)
   const wilayaNum = parseInt(wilayaCode);
@@ -200,7 +201,7 @@ export const validateLicensePlate = (plate, vehicleYear = null) => {
   // Valider le type de véhicule (DOIT ÊTRE 1 pour transport de passagers)
   const vehicleType = parseInt(typeAndYear[0]);
   if (vehicleType !== 1) {
-    return 'Vehicle type must be 1 (passenger transport only)';
+    return 'Only passenger transport vehicles allowed (type must be 1)';
   }
   
   // Extraire l'année de la plaque (2 derniers chiffres de typeAndYear)
@@ -215,10 +216,10 @@ export const validateLicensePlate = (plate, vehicleYear = null) => {
     const vehicleYearShort = fullVehicleYear % 100; 
     
     if (plateYear !== vehicleYearShort) {
-      return `Year mismatch: plate shows ${plateYear}, but vehicle year is ${vehicleYearShort}`;
+      return `Year mismatch: plate shows '${plateYear}' but vehicle year is '${vehicleYearShort}'`;
     }
   }
-  
+
   if (cleanPlate.includes('-') || cleanPlate.includes(' ')) {
     const separator = cleanPlate.includes('-') ? '-' : ' ';
     const expectedFormat = `${serialNumber}${separator}${typeAndYear}${separator}${wilayaCode}`;
@@ -280,29 +281,20 @@ export const formatLicensePlateInput = (input, separator = ' ') => {
   if (!input) return '';
   
   const digitsOnly = input.replace(/\D/g, '');
-
+  
   const limited = digitsOnly.slice(0, 10);
   
   let formatted = '';
   
   if (limited.length <= 5) {
-  
-    formatted = limited;
-  } else if (limited.length === 6) {
-  
-    const sixthDigit = '1'; 
-    formatted = limited.slice(0, 5) + separator + sixthDigit;
-  } else if (limited.length <= 8) {
-   
-    const serialPart = limited.slice(0, 5);
-    const yearPart = limited.slice(6, 8); 
-    formatted = serialPart + separator + '1' + yearPart;
-  } else {
 
-    const serialPart = limited.slice(0, 5);
-    const yearPart = limited.slice(6, 8); 
-    const wilayaPart = limited.slice(8);
-    formatted = serialPart + separator + '1' + yearPart + separator + wilayaPart;
+    formatted = limited;
+  } else if (limited.length <= 8) {
+
+    formatted = limited.slice(0, 5) + separator + limited.slice(5);
+  } else {
+ 
+    formatted = limited.slice(0, 5) + separator + limited.slice(5, 8) + separator + limited.slice(8);
   }
   
   return formatted;
@@ -312,17 +304,18 @@ export const formatAlgerianPlate = (plate) => {
   if (!plate) return '';
   
   const clean = plate.replace(/[\s-]/g, '');
-  
+
   if (!/^\d{10}$/.test(clean)) {
     return plate;
   }
- 
+  
   const serial = clean.slice(0, 5);
   const typeYear = clean.slice(5, 8);
   const wilaya = clean.slice(8, 10);
   
   return `${serial} ${typeYear} ${wilaya}`;
 };
+
 
 export const extractYearFromPlate = (plate) => {
   if (!plate) return null;
@@ -333,7 +326,7 @@ export const extractYearFromPlate = (plate) => {
   const yearShort = parseInt(clean.slice(6, 8));
   const currentYear = new Date().getFullYear();
   const currentCentury = Math.floor(currentYear / 100) * 100;
-
+  
   const fullYear = currentCentury + yearShort;
   
   if (fullYear > currentYear + 1) {
