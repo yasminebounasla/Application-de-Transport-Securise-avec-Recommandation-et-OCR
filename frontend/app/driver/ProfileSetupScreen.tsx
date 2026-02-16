@@ -6,6 +6,20 @@ import Input from '../../components/Input';
 import Button from '../../components/Button';
 import api from '../../services/api';
 
+import {
+  VALID_CAR_BRANDS,
+  VALID_COLORS,
+  CAR_BRANDS_WITH_MODELS,
+  validateBrand,
+  validateModel,
+  validateYear,
+  validateSeats,
+  validateLicensePlate,
+  validateColor,
+  validateAllVehicleFields,
+  getModelsForBrand,
+} from '../../utils/validationVehicule';
+
 // PreferenceItem component moved outside
 const PreferenceItem = ({ label, value, onToggle }) => (
   <TouchableOpacity
@@ -58,7 +72,7 @@ export default function ProfileSetupScreen() {
     works_night: false,
   });
 
-  // Errors state - ALL FIELDS
+  // Errors state
   const [errors, setErrors] = useState({
     marque: '',
     modele: '',
@@ -68,6 +82,11 @@ export default function ProfileSetupScreen() {
     couleur: '',
   });
 
+  // Suggestions for autocomplete
+  const [brandSuggestions, setBrandSuggestions] = useState([]);
+  const [modelSuggestions, setModelSuggestions] = useState([]);
+  const [colorSuggestions, setColorSuggestions] = useState([]);
+
   // Toggle preference
   const togglePreference = (key) => {
     setPreferences(prev => ({
@@ -76,87 +95,102 @@ export default function ProfileSetupScreen() {
     }));
   };
 
-  // Validate Step 1 (Vehicle) - COMPLETE VERSION
-  const validateVehicle = () => {
-    const newErrors = {
-      marque: '',
-      modele: '',
-      annee: '',
-      nbPlaces: '',
-      plaque: '',
-      couleur: '',
-    };
+  // Handle brand input change with autocomplete
+  const handleBrandChange = (text) => {
+    setVehicleData({ ...vehicleData, marque: text });
     
-    // Brand validation - REQUIRED, min 2 chars, letters only
-    if (!vehicleData.marque || vehicleData.marque.trim() === '') {
-      newErrors.marque = 'Brand is required';
-    } else if (vehicleData.marque.trim().length < 2) {
-      newErrors.marque = 'Brand must be at least 2 characters';
-    } else if (!/^[a-zA-Z\s-]+$/.test(vehicleData.marque)) {
-      newErrors.marque = 'Brand must contain only letters';
-    }
-    
-    // Model validation - Optional, but if provided, min 1 char, alphanumeric
-    if (vehicleData.modele && vehicleData.modele.trim() !== '') {
-      if (vehicleData.modele.trim().length < 1) {
-        newErrors.modele = 'Model must be at least 1 character';
-      } else if (!/^[a-zA-Z0-9\s-]+$/.test(vehicleData.modele)) {
-        newErrors.modele = 'Model must contain only letters and numbers';
-      }
-    }
-    
-    // Year validation - Optional, but if provided, must be valid
-    if (vehicleData.annee && vehicleData.annee.trim() !== '') {
-      const yearNum = Number(vehicleData.annee);
-      const currentYear = new Date().getFullYear();
-      if (isNaN(yearNum)) {
-        newErrors.annee = 'Year must be a number';
-      } else if (yearNum < 1900 || yearNum > currentYear + 1) {
-        newErrors.annee = `Year must be between 1900 and ${currentYear + 1}`;
-      }
-    }
-    
-    // Seats validation - Optional, but if provided, must be valid
-    if (vehicleData.nbPlaces && vehicleData.nbPlaces.trim() !== '') {
-      const seatsNum = Number(vehicleData.nbPlaces);
-      if (isNaN(seatsNum)) {
-        newErrors.nbPlaces = 'Seats must be a number';
-      } else if (seatsNum < 1 || seatsNum > 9) {
-        newErrors.nbPlaces = 'Seats must be between 1 and 9';
-      }
+    if (text.trim().length > 0) {
+      const filtered = VALID_CAR_BRANDS.filter(brand =>
+        brand.toLowerCase().includes(text.toLowerCase())
+      ).slice(0, 5);
+      setBrandSuggestions(filtered);
+    } else {
+      setBrandSuggestions([]);
     }
 
-    // License Plate validation - Optional, but if provided, check format
-    if (vehicleData.plaque && vehicleData.plaque.trim() !== '') {
-      const cleanPlate = vehicleData.plaque.trim();
-      if (cleanPlate.length < 3) {
-        newErrors.plaque = 'License plate too short';
-      } else if (cleanPlate.length > 15) {
-        newErrors.plaque = 'License plate too long';
-      } else if (!/^[a-zA-Z0-9\s-]+$/.test(cleanPlate)) {
-        newErrors.plaque = 'Invalid characters in license plate';
-      }
+    // Validate brand on change
+    const brandError = validateBrand(text);
+    setErrors({ ...errors, marque: brandError });
+  };
+
+  // Select brand from suggestions
+  const selectBrand = (brand) => {
+    setVehicleData({ ...vehicleData, marque: brand });
+    setBrandSuggestions([]);
+    setErrors({ ...errors, marque: '' });
+    
+    // Update model suggestions when brand is selected
+    const models = getModelsForBrand(brand);
+    if (models.length > 0) {
+      setModelSuggestions(models);
+    }
+  };
+
+  // Handle model input change with autocomplete
+  const handleModelChange = (text) => {
+    setVehicleData({ ...vehicleData, modele: text });
+    
+    // Get available models for the selected brand
+    const availableModels = getModelsForBrand(vehicleData.marque);
+    
+    if (text.trim().length > 0 && availableModels.length > 0) {
+      const filtered = availableModels.filter(model =>
+        model.toLowerCase().includes(text.toLowerCase())
+      ).slice(0, 5);
+      setModelSuggestions(filtered);
+    } else {
+      setModelSuggestions([]);
     }
 
-    // Color validation - Optional, but if provided, letters only
-    if (vehicleData.couleur && vehicleData.couleur.trim() !== '') {
-      if (vehicleData.couleur.trim().length < 3) {
-        newErrors.couleur = 'Color must be at least 3 characters';
-      } else if (!/^[a-zA-Z\s-]+$/.test(vehicleData.couleur)) {
-        newErrors.couleur = 'Color must contain only letters';
-      }
+    // Validate model on change
+    const modelError = validateModel(text, vehicleData.marque);
+    setErrors({ ...errors, modele: modelError });
+  };
+
+  // Select model from suggestions
+  const selectModel = (model) => {
+    setVehicleData({ ...vehicleData, modele: model });
+    setModelSuggestions([]);
+    setErrors({ ...errors, modele: '' });
+  };
+
+  // Handle color input change with autocomplete
+  const handleColorChange = (text) => {
+    setVehicleData({ ...vehicleData, couleur: text });
+    
+    if (text.trim().length > 0) {
+      const filtered = VALID_COLORS.filter(color =>
+        color.toLowerCase().includes(text.toLowerCase())
+      ).slice(0, 5);
+      setColorSuggestions(filtered);
+    } else {
+      setColorSuggestions([]);
     }
 
+    // Validate color on change
+    const colorError = validateColor(text);
+    setErrors({ ...errors, couleur: colorError });
+  };
+
+  // Select color from suggestions
+  const selectColor = (color) => {
+    setVehicleData({ ...vehicleData, couleur: color });
+    setColorSuggestions([]);
+    setErrors({ ...errors, couleur: '' });
+  };
+
+  // Validate vehicle form using the imported validation function
+  const validateVehicleForm = () => {
+    const newErrors = validateAllVehicleFields(vehicleData);
     setErrors(newErrors);
     
-    // Return true if no errors
-    return !newErrors.marque && !newErrors.modele && !newErrors.annee && 
-           !newErrors.nbPlaces && !newErrors.plaque && !newErrors.couleur;
+    // Return true if no errors (all values are empty strings)
+    return Object.values(newErrors).every(error => error === '');
   };
 
   // Handle Next Step
   const handleNextStep = async () => {
-    if (!validateVehicle()) {
+    if (!validateVehicleForm()) {
       return;
     }
 
@@ -256,30 +290,69 @@ export default function ProfileSetupScreen() {
         Tell us about the car you'll be driving
       </Text>
 
-      <Input
-        label="Brand *"
-        value={vehicleData.marque}
-        onChangeText={(text) => setVehicleData({ ...vehicleData, marque: text })}
-        placeholder="e.g. Peugeot"
-        error={errors.marque}
-        style={{ marginBottom: 16 }}
-      />
+      {/* BRAND FIELD WITH AUTOCOMPLETE */}
+      <View style={{ marginBottom: 16 }}>
+        <Input
+          label="Brand *"
+          value={vehicleData.marque}
+          onChangeText={handleBrandChange}
+          placeholder="e.g. Peugeot, Toyota, Mercedes"
+          error={errors.marque}
+        />
+        
+        {brandSuggestions.length > 0 && (
+          <View className="bg-white border border-gray-300 rounded-lg mt-1 shadow-sm">
+            {brandSuggestions.map((brand, index) => (
+              <TouchableOpacity
+                key={index}
+                onPress={() => selectBrand(brand)}
+                className="px-4 py-3 border-b border-gray-100"
+                activeOpacity={0.7}
+              >
+                <Text className="text-base text-black">{brand}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+      </View>
 
-      <Input
-        label="Model"
-        value={vehicleData.modele}
-        onChangeText={(text) => setVehicleData({ ...vehicleData, modele: text })}
-        placeholder="e.g. 308"
-        error={errors.modele}
-        style={{ marginBottom: 16 }}
-      />
+      {/* MODEL FIELD WITH AUTOCOMPLETE */}
+      <View style={{ marginBottom: 16 }}>
+        <Input
+          label="Model"
+          value={vehicleData.modele}
+          onChangeText={handleModelChange}
+          placeholder="e.g. 308, Corolla, C-Class"
+          error={errors.modele}
+        />
+        
+        {modelSuggestions.length > 0 && (
+          <View className="bg-white border border-gray-300 rounded-lg mt-1 shadow-sm">
+            {modelSuggestions.map((model, index) => (
+              <TouchableOpacity
+                key={index}
+                onPress={() => selectModel(model)}
+                className="px-4 py-3 border-b border-gray-100"
+                activeOpacity={0.7}
+              >
+                <Text className="text-base text-black">{model}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+      </View>
 
+      {/* YEAR AND SEATS FIELDS */}
       <View className="flex-row gap-3 mb-4">
         <View className="flex-1">
           <Input
             label="Year"
             value={vehicleData.annee}
-            onChangeText={(text) => setVehicleData({ ...vehicleData, annee: text })}
+            onChangeText={(text) => {
+              setVehicleData({ ...vehicleData, annee: text });
+              const yearError = validateYear(text);
+              setErrors({ ...errors, annee: yearError });
+            }}
             placeholder="2020"
             keyboardType="numeric"
             error={errors.annee}
@@ -289,7 +362,11 @@ export default function ProfileSetupScreen() {
           <Input
             label="Seats"
             value={vehicleData.nbPlaces}
-            onChangeText={(text) => setVehicleData({ ...vehicleData, nbPlaces: text })}
+            onChangeText={(text) => {
+              setVehicleData({ ...vehicleData, nbPlaces: text });
+              const seatsError = validateSeats(text);
+              setErrors({ ...errors, nbPlaces: seatsError });
+            }}
             placeholder="5"
             keyboardType="numeric"
             error={errors.nbPlaces}
@@ -297,23 +374,45 @@ export default function ProfileSetupScreen() {
         </View>
       </View>
 
+      {/* LICENSE PLATE FIELD */}
       <Input
         label="License Plate"
         value={vehicleData.plaque}
-        onChangeText={(text) => setVehicleData({ ...vehicleData, plaque: text })}
+        onChangeText={(text) => {
+          setVehicleData({ ...vehicleData, plaque: text });
+          const plateError = validateLicensePlate(text);
+          setErrors({ ...errors, plaque: plateError });
+        }}
         placeholder="1234-ABC-56"
         error={errors.plaque}
         style={{ marginBottom: 16 }}
       />
 
-      <Input
-        label="Color"
-        value={vehicleData.couleur}
-        onChangeText={(text) => setVehicleData({ ...vehicleData, couleur: text })}
-        placeholder="Black"
-        error={errors.couleur}
-        style={{ marginBottom: 24 }}
-      />
+      {/* COLOR FIELD WITH AUTOCOMPLETE */}
+      <View style={{ marginBottom: 24 }}>
+        <Input
+          label="Color"
+          value={vehicleData.couleur}
+          onChangeText={handleColorChange}
+          placeholder="e.g. Black, White, Red"
+          error={errors.couleur}
+        />
+        
+        {colorSuggestions.length > 0 && (
+          <View className="bg-white border border-gray-300 rounded-lg mt-1 shadow-sm">
+            {colorSuggestions.map((color, index) => (
+              <TouchableOpacity
+                key={index}
+                onPress={() => selectColor(color)}
+                className="px-4 py-3 border-b border-gray-100"
+                activeOpacity={0.7}
+              >
+                <Text className="text-base text-black">{color}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        )}
+      </View>
 
       <Button
         title="Next Step"
