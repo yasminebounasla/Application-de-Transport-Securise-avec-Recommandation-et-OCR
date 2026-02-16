@@ -3,7 +3,6 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { prisma } from "../config/prisma.js";
 
-const jwtSecret = process.env.JWT_SECRET;
 
 export const registerDriver = async (req, res) => {
     const {email, password,confirmPassword, nom, prenom, age, numTel, sexe} = req.body;
@@ -50,9 +49,8 @@ export const registerDriver = async (req, res) => {
                 prenom: prenom.trim(),
                 age,
                 numTel,
-                sexe: sexe.trim()[0].toUpperCase(),  // "M" ou "F"
+                sexe: sexe.trim()[0].toUpperCase(),  
                 fumeur: false,             // par défaut false
-                carteIdNum: null,                     // pas encore fourni
                 isVerified: false
             }
             });
@@ -60,13 +58,9 @@ export const registerDriver = async (req, res) => {
 
 
         const token = jwt.sign(
-            {
-                driverId: newDriver.id,  
-                email: newDriver.email,
-                name: `${newDriver.nom} ${newDriver.prenom}`
-            },
-            jwtSecret,
-            { expiresIn: "7d" }
+            { id: newDriver.id, email: newDriver.email },
+            process.env.JWT_SECRET,
+            { expiresIn: "1h" }
         );
 
         newDriver.password = undefined;
@@ -77,6 +71,9 @@ export const registerDriver = async (req, res) => {
         });
 
     } catch(err) {
+            console.error('❌ [REGISTRATION ERROR]', err);           // ✅ ADD HERE
+    console.error('Error message:', err.message);            // ✅ ADD HERE
+    console.error('Stack trace:', err.stack);     
         res.status(500).json({
             message: "Failed to register Driver.",
             error: err.message
@@ -107,14 +104,11 @@ export const loginDriver = async (req, res) => {
         }
 
         const token = jwt.sign(
-            {
-                driverId: driver.id,  
-                email: driver.email,
-                name: `${driver.nom} ${driver.prenom}`
-            },
-            jwtSecret,
-            { expiresIn: "7d" }
+            { id: driver.id, email: driver.email },
+            process.env.JWT_SECRET,
+            { expiresIn: "1h" }
         );
+
         driver.password = undefined;
 
         res.status(200).json({
@@ -154,29 +148,16 @@ export const getAllDrivers = async (req, res) => {
                 isVerified: true
             }
         });
-        
-        //  Retourne directement l'array des conducteurs sans envelopper dans un objet "data"
-        res.status(200).json(drivers);
-        
+        res.status(200).json({
+            message: "Drivers retrieved successfully.",
+            data: drivers
+        });
     } catch (err) {
+        console.error('❌ [REGISTRATION ERROR]', err);  // ✅ Add this line
+    console.error('Error message:', err.message);    // ✅ Add this line
+    console.error('Stack trace:', err.stack);        // ✅ Add this line
         res.status(500).json({
             message: "Failed to retrieve drivers.",
-            error: err.message
-        });
-    }
-};
-
-export const deleteAllDrivers = async (req, res) => { 
-    try {
-        const result = await prisma.driver.deleteMany({});
-        
-        res.status(200).json({
-            message: "All drivers deleted successfully.",
-            deletedCount: result.count
-        });
-    } catch (err) {
-        res.status(500).json({
-            message: "Failed to delete drivers.",
             error: err.message
         });
     }

@@ -1,45 +1,24 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+notepad .gitignore
+```
 
-# dependencies
-node_modules/
+**Add at the bottom:**
+```
+# Python
+__pycache__/
+*.pyc
+*.pyo
+venv/
+env/
+.Python
 
+# Environment variables
 .env
+*.env
 
-# Expo
-.expo/
-dist/
-web-build/
-expo-env.d.ts
+# Data and uploads
+face-recognition-service/data/
+ocr-service/data/
+backend/uploads/
 
-# Native
-.kotlin/
-*.orig.*
-*.jks
-*.p8
-*.p12
-*.key
-*.mobileprovision
-
-# Metro
-.metro-health-check*
-
-# debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
-
-# macOS
-.DS_Store
-*.pem
-
-# local env files
-.env*.local
-
-# typescript
-*.tsbuildinfo
-
-app-example
-
-# generated native folders
-/ios
-/android
+# Logs
+*.log

@@ -24,7 +24,7 @@ class Settings(BaseSettings):
     # ========================================================================
     # SEUILS DE VALIDATION
     # ========================================================================
-    THRESHOLDS: Dict[str, Dict[str, float]] = {
+    THRESHOLDS: Dict[str, Dict[str, any]] = {
         "normal": {
             "value": 1.00,  # Distance euclidienne max pour validation
             "label": "NORMAL (KYC)"
@@ -65,7 +65,7 @@ class Settings(BaseSettings):
     # API CONFIGURATION
     # ========================================================================
     API_HOST: str = "0.0.0.0"
-    API_PORT: int = 8001
+    API_PORT: int = 8002
     API_TITLE: str = "Face Recognition Service"
     API_VERSION: str = "1.0.0"
     API_DESCRIPTION: str = """

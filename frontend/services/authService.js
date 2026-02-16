@@ -1,6 +1,7 @@
 import api from './api';
 
 export const registerDriver = async (driverData) => {
+    
     try {
         // Transform field names to match backend
         const backendData = {
@@ -11,7 +12,7 @@ export const registerDriver = async (driverData) => {
             nom: driverData.familyName,     // frontend -> backend
             age: parseInt(driverData.age),
             numTel: driverData.phoneNumber,
-            sexe: driverData.sexe
+sexe: driverData.sexe === "Male" ? "M" : "F",
         };
         
         const response = await api.post('/auth/driver/register', backendData);
