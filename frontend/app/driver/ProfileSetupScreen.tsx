@@ -174,19 +174,14 @@ export default function ProfileSetupScreen() {
 
 const handleLicensePlateChange = (text) => {
 
-  if (text.length > 12) {
-    return; 
-  }
-  
   const formatted = formatLicensePlateInput(text, ' ');
   setVehicleData({ ...vehicleData, plaque: formatted });
   
   const digitsOnly = formatted.replace(/\D/g, '');
   if (digitsOnly.length === 10 || digitsOnly.length === 0) {
-    const plateError = validateLicensePlate(formatted);
+    const plateError = validateLicensePlate(formatted, vehicleData.annee);
     setErrors({ ...errors, plaque: plateError });
   } else {
-
     setErrors({ ...errors, plaque: '' });
   }
 };

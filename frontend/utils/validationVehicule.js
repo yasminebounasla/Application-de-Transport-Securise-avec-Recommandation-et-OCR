@@ -89,7 +89,6 @@ export const validateBrand = (brand) => {
   return '';
 };
 
-//Valider le modèle du véhicule (dépend de la marque)
 export const validateModel = (model, brand) => {
   // Model is optional
   if (!model || model.trim() === '') {
@@ -103,8 +102,7 @@ export const validateModel = (model, brand) => {
   if (!/^[a-zA-Z0-9\s-]+$/.test(model)) {
     return 'Model must contain only letters and numbers';
   }
-  
-  // Si la marque est fournie et valide, vérifier que le modèle existe pour cette marque
+
   if (brand && brand.trim() !== '') {
     const normalizedBrand = brand.trim();
     const brandModels = CAR_BRANDS_WITH_MODELS[normalizedBrand];
@@ -124,9 +122,8 @@ export const validateModel = (model, brand) => {
   return '';
 };
 
-//Valider l'année du véhicule
 export const validateYear = (year) => {
-
+  // Year is optional
   if (!year || year.trim() === '') {
     return '';
   }
@@ -145,7 +142,6 @@ export const validateYear = (year) => {
   return '';
 };
 
-//Valider le nombre de places
 export const validateSeats = (seats) => {
 
   if (!seats || seats.trim() === '') {
@@ -166,13 +162,14 @@ export const validateSeats = (seats) => {
 };
 
 /**
- * Valider la plaque d'immatriculation algérienne
- * Format strict: XXXXX YZZ WW (ou XXXXX-YZZ-WW)
+ * Valider la plaque d'immatriculation algérienne pour application de covoiturage
+ * Format strict: XXXXX 1ZZ WW
  * - XXXXX: Numéro de série (5 chiffres obligatoires avec zéros de tête)
- * - YZZ: Type de véhicule (1 chiffre) + Année (2 chiffres)
+ * - 1: Type de véhicule FIXE à 1 (transport de passagers)
+ * - ZZ: Année du véhicule (2 chiffres)
  * - WW: Code wilaya (2 chiffres: 01-58)
  */
-export const validateLicensePlate = (plate) => {
+export const validateLicensePlate = (plate, vehicleYear = null) => {
   // License plate is optional
   if (!plate || plate.trim() === '') {
     return '';
@@ -181,19 +178,17 @@ export const validateLicensePlate = (plate) => {
   const cleanPlate = plate.trim();
   
   const plateWithoutSeparators = cleanPlate.replace(/[\s-]/g, '');
-
+  
   if (!/^\d+$/.test(plateWithoutSeparators)) {
     return 'License plate must contain only numbers';
   }
   
-  // La longueur doit être EXACTEMENT 10 chiffres (format complet obligatoire)
-  // 5 (série) + 3 (type+année) + 2 (wilaya) = 10 chiffres
   if (plateWithoutSeparators.length !== 10) {
-    return 'Format: XXXXX YZZ WW (10 digits required)';
+    return 'Format: XXXXX 1ZZ WW (10 digits required)';
   }
- 
+
   const serialNumber = plateWithoutSeparators.slice(0, 5);    
-  const typeAndYear = plateWithoutSeparators.slice(5, 8);     
+  const typeAndYear = plateWithoutSeparators.slice(5, 8);    
   const wilayaCode = plateWithoutSeparators.slice(8, 10);    
   
   // Valider le code wilaya (doit être entre 01 et 58)
@@ -202,26 +197,34 @@ export const validateLicensePlate = (plate) => {
     return 'Invalid wilaya code (must be 01-58)';
   }
   
-  // Valider le type de véhicule (premier chiffre doit être entre 1 et 9)
+  // Valider le type de véhicule (DOIT ÊTRE 1 pour transport de passagers)
   const vehicleType = parseInt(typeAndYear[0]);
-  if (vehicleType < 1 || vehicleType > 9) {
-    return 'Invalid vehicle type (must be 1-9)';
+  if (vehicleType !== 1) {
+    return 'Vehicle type must be 1 (passenger transport only)';
   }
   
-  // Valider l'année (2 derniers chiffres: 00-99)
-  const year = parseInt(typeAndYear.slice(1));
-  if (year < 0 || year > 99) {
-    return 'Invalid year';
+  // Extraire l'année de la plaque (2 derniers chiffres de typeAndYear)
+  const plateYear = parseInt(typeAndYear.slice(1));
+  if (plateYear < 0 || plateYear > 99) {
+    return 'Invalid year in plate';
   }
   
-  // Valider le format avec séparateurs si présents
-  // Accepter soit tirets soit espaces, mais de manière cohérente
+  // Validation croisée avec l'année du véhicule si fournie
+  if (vehicleYear && vehicleYear.trim() !== '') {
+    const fullVehicleYear = parseInt(vehicleYear);
+    const vehicleYearShort = fullVehicleYear % 100; 
+    
+    if (plateYear !== vehicleYearShort) {
+      return `Year mismatch: plate shows ${plateYear}, but vehicle year is ${vehicleYearShort}`;
+    }
+  }
+  
   if (cleanPlate.includes('-') || cleanPlate.includes(' ')) {
     const separator = cleanPlate.includes('-') ? '-' : ' ';
     const expectedFormat = `${serialNumber}${separator}${typeAndYear}${separator}${wilayaCode}`;
     
     if (cleanPlate !== expectedFormat) {
-      return `Format: XXXXX${separator}YZZ${separator}WW (e.g., 02639${separator}126${separator}09)`;
+      return `Format: XXXXX${separator}1ZZ${separator}WW (e.g., 02639${separator}126${separator}09)`;
     }
   }
   
@@ -268,7 +271,7 @@ export const validateAllVehicleFields = (vehicleData) => {
     modele: validateModel(vehicleData.modele, vehicleData.marque),
     annee: validateYear(vehicleData.annee),
     nbPlaces: validateSeats(vehicleData.nbPlaces),
-    plaque: validateLicensePlate(vehicleData.plaque),
+    plaque: validateLicensePlate(vehicleData.plaque, vehicleData.annee),
     couleur: validateColor(vehicleData.couleur),
   };
 };
@@ -276,24 +279,30 @@ export const validateAllVehicleFields = (vehicleData) => {
 export const formatLicensePlateInput = (input, separator = ' ') => {
   if (!input) return '';
   
-  
   const digitsOnly = input.replace(/\D/g, '');
-  
+
   const limited = digitsOnly.slice(0, 10);
   
   let formatted = '';
   
   if (limited.length <= 5) {
-    // Première partie: numéro de série (0-5 chiffres)
+  
     formatted = limited;
+  } else if (limited.length === 6) {
+  
+    const sixthDigit = '1'; 
+    formatted = limited.slice(0, 5) + separator + sixthDigit;
   } else if (limited.length <= 8) {
-    // Deuxième partie: type + année (6-8 chiffres)
-    // Ajouter automatiquement l'espace après 5 chiffres
-    formatted = limited.slice(0, 5) + separator + limited.slice(5);
+   
+    const serialPart = limited.slice(0, 5);
+    const yearPart = limited.slice(6, 8); 
+    formatted = serialPart + separator + '1' + yearPart;
   } else {
-    // Troisième partie: wilaya (9-10 chiffres)
-    // Ajouter automatiquement l'espace après 8 chiffres
-    formatted = limited.slice(0, 5) + separator + limited.slice(5, 8) + separator + limited.slice(8);
+
+    const serialPart = limited.slice(0, 5);
+    const yearPart = limited.slice(6, 8); 
+    const wilayaPart = limited.slice(8);
+    formatted = serialPart + separator + '1' + yearPart + separator + wilayaPart;
   }
   
   return formatted;
@@ -313,4 +322,23 @@ export const formatAlgerianPlate = (plate) => {
   const wilaya = clean.slice(8, 10);
   
   return `${serial} ${typeYear} ${wilaya}`;
+};
+
+export const extractYearFromPlate = (plate) => {
+  if (!plate) return null;
+  
+  const clean = plate.replace(/[\s-]/g, '');
+  if (clean.length !== 10) return null;
+  
+  const yearShort = parseInt(clean.slice(6, 8));
+  const currentYear = new Date().getFullYear();
+  const currentCentury = Math.floor(currentYear / 100) * 100;
+
+  const fullYear = currentCentury + yearShort;
+  
+  if (fullYear > currentYear + 1) {
+    return fullYear - 100;
+  }
+  
+  return fullYear;
 };
