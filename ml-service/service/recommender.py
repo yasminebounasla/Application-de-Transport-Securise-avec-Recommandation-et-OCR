@@ -157,8 +157,15 @@ async def get_recommendations(passenger_id: str, preferences: Dict = {}, top_n: 
         lightfm_score = lightfm_scores.get(driver_id, 0.0)
         pref_score = calculate_match_score(driver, preferences) if preferences else 0
 
-        # Score final : 70% LightFM + 30% preferences (normalisé sur 13) pour donner plus de poids au modèle
-        driver['final_score'] = (0.7 * lightfm_score) + (0.3 * pref_score / 13)
+        # APRÈS — cold start ou nouveau passager : plus de poids aux prefs
+        # Warm start (passager connu) : plus de poids au modèle
+        is_warm = bool(lightfm_scores)  # True si le passager est connu du modèle
+
+        if is_warm:
+            driver['final_score'] = (0.7 * lightfm_score) + (0.3 * pref_score / 13)
+        else:
+            # Cold start : on se repose entièrement sur les préférences
+            driver['final_score'] = pref_score / 13
 
     # Trier par score
     all_drivers.sort(key=lambda d: d.get('final_score', 0), reverse=True)
