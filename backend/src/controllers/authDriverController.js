@@ -4,6 +4,7 @@ import jwt from "jsonwebtoken";
 import { prisma } from "../config/prisma.js";
 
 
+
 export const registerDriver = async (req, res) => {
     const {email, password,confirmPassword, nom, prenom, age, numTel, sexe} = req.body;
 
