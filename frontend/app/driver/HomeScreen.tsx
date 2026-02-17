@@ -1,46 +1,3 @@
-<<<<<<< HEAD
-import { View, ScrollView } from 'react-native';
-import { router } from 'expo-router';
-import Button from '../../components/Button';
-
-export default function HomeScreen() {
-  return (
-    
-    <ScrollView className="flex-1 bg-white">
-      <View className="flex-1 bg-white p-5">
-
-        <Button 
-          title=" Ride Requests "
-          onPress={() => router.push('/driver/RideRequestsScreen')}
-          variant="primary"
-          style={{ marginBottom: 12 }}
-        />
-        <Button 
-            title="ProfileSetup"
-            onPress={() => router.push('/driver/ProfileSetupScreen')}
-            variant="secondary"
-            style={{ marginBottom: 12 }}
-          />
-
-          <Button 
-            title="Profile"
-            onPress={() => router.push('/shared/ProfileScreen')}
-            variant="secondary"
-            style={{ marginBottom: 12 }}
-          />
-          
-          <Button 
-          title=" My Feedbacks "
-          onPress={() => router.push('/driver/MyFeedbacksScreen')}
-          variant="primary"
-          style={{ marginBottom: 12 }}
-        />
-      
-      </View>
-    </ScrollView>
-  );
-}
-=======
 import { View, ScrollView, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { router } from 'expo-router';
 import { useEffect, useMemo } from 'react';
@@ -90,7 +47,7 @@ export default function HomeScreen() {
         ) : activeRide ? (
           <TouchableOpacity style={styles.card} onPress={() => router.push('/driver/ActiveRideScreen' as any)}>
             <Text style={styles.cardTitle}>
-              {activeRide.startAddress || 'Depart'} -> {activeRide.endAddress || 'Destination'}
+              {activeRide.startAddress || 'Depart'} -{'>'} {activeRide.endAddress || 'Destination'}
             </Text>
             <Text style={styles.cardSubtitle}>Statut: {activeRide.status}</Text>
           </TouchableOpacity>
@@ -220,4 +177,3 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
 });
->>>>>>> b53e904 (Driver & Passenger HomeScreens + Navigation tabs (not fully complete))

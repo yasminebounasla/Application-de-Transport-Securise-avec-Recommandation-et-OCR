@@ -45,7 +45,7 @@ export default function DriverHomeScreen({ navigation }) {
           <ActivityIndicator color="#111" />
         ) : activeRide ? (
           <TouchableOpacity style={styles.card} onPress={() => navigation?.navigate('Active')}>
-            <Text style={styles.cardTitle}>{activeRide.startAddress || 'Depart'} -> {activeRide.endAddress || 'Destination'}</Text>
+            <Text style={styles.cardTitle}>{activeRide.startAddress || 'Depart'} -{'>'} {activeRide.endAddress || 'Destination'}</Text>
             <Text style={styles.cardSubtitle}>Statut: {activeRide.status}</Text>
           </TouchableOpacity>
         ) : (
