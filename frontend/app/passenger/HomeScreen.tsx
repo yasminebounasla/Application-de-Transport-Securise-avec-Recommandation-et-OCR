@@ -20,7 +20,6 @@ export default function Home() {
     getPassengerRides();
   }, []);
 
-<<<<<<< HEAD
   // Vérifier si le feedback a déjà été demandé pour ce trajet (localement)
   const isFeedbackRequested = async (rideId: number): Promise<boolean> => {
     try {
@@ -52,10 +51,6 @@ export default function Home() {
 
   useEffect(() => {
     const handleRides = async () => {
-=======
-  useEffect(() => {
-    const handleRides = async () => {
->>>>>>> b53e904 (Driver & Passenger HomeScreens + Navigation tabs (not fully complete))
       if (passengerRides.length === 0) return;
 
       // Ride completed

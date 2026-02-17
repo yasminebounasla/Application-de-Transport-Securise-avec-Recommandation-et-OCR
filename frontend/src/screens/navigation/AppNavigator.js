@@ -6,17 +6,17 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../../../context/AuthContext';
 
 // Passenger screens
-import PassengerHome from '../../../app/passenger/HomeScreen';
-import SearchRideScreen from '../../../app/passenger/SearchRideScreen';
-import RecommendedDriversScreen from '../../../app/passenger/RecommendedDriversScreen';
-import HistoryScreen from '../../../app/passenger/HistoryScreen';
-import PassengerFeedback from '../../../app/passenger/FeedbackScreen';
+import PassengerHome from '../../passenger/HomeScreen';
+import SearchRideScreen from '../../passenger/SearchRideScreen';
+import RecommendedDriversScreen from '../../passenger/RecommendedDriversScreen';
+import HistoryScreen from '../../passenger/HistoryScreen';
+import PassengerFeedback from '../../passenger/FeedbackScreen';
 
 // Driver screens
-import DriverHome from '../../../app/driver/HomeScreen';
-import RideRequestsScreen from '../../../app/driver/RideRequestsScreen';
-import ActiveRideScreen from '../../../app/driver/ActiveRideScreen';
-import ProfileSetupScreen from '../../../app/driver/ProfileSetupScreen';
+import DriverHome from '../../driver/HomeScreen';
+import RideRequestsScreen from '../../driver/RideRequestsScreen';
+import ActiveRideScreen from '../../driver/ActiveRideScreen';
+import ProfileSetupScreen from '../../driver/ProfileSetupScreen';
 
 const Tab = createBottomTabNavigator();
 const Drawer = createDrawerNavigator();

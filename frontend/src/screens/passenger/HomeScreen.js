@@ -50,7 +50,7 @@ export default function PassengerHomeScreen({ navigation }) {
         ) : (
           activeTrips.slice(0, 3).map((trip) => (
             <View key={trip.id} style={styles.card}>
-              <Text style={styles.cardTitle}>{trip.startAddress || 'Depart'} -> {trip.endAddress || 'Destination'}</Text>
+              <Text style={styles.cardTitle}>{trip.startAddress || 'Depart'}{' -> '}{trip.endAddress || 'Destination'}</Text>
               <Text style={styles.cardSubtitle}>Statut: {trip.status}</Text>
             </View>
           ))

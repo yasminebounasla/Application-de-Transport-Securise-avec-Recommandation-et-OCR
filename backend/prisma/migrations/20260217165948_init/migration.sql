@@ -1,6 +1,3 @@
--- CreateEnum
-CREATE TYPE "TrajetStatus" AS ENUM ('PENDING', 'ACCEPTED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED');
-
 -- CreateTable
 CREATE TABLE "Passenger" (
     "id" SERIAL NOT NULL,
@@ -92,7 +89,7 @@ CREATE TABLE "License" (
     "ninEncrypted" VARCHAR(500) NOT NULL,
     "permisImage" BYTEA NOT NULL,
     "issueDate" TIMESTAMP(3),
-    "expiryDate" TIMESTAMP(3) NOT NULL,
+    "expiryDate" TIMESTAMP(3),
     "ocrConfidence" INTEGER,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
@@ -105,19 +102,12 @@ CREATE TABLE "Trajet" (
     "id" SERIAL NOT NULL,
     "driverId" INTEGER NOT NULL,
     "passagerId" INTEGER,
-    "startLat" DOUBLE PRECISION NOT NULL,
-    "startLng" DOUBLE PRECISION NOT NULL,
-    "startAddress" TEXT NOT NULL,
-    "endLat" DOUBLE PRECISION NOT NULL,
-    "endLng" DOUBLE PRECISION NOT NULL,
-    "endAddress" TEXT NOT NULL,
+    "depart" TEXT NOT NULL,
+    "destination" TEXT NOT NULL,
     "dateDepart" TIMESTAMP(3) NOT NULL,
     "heureDepart" TEXT,
     "placesDispo" INTEGER NOT NULL,
     "prix" DOUBLE PRECISION NOT NULL,
-    "status" "TrajetStatus" NOT NULL DEFAULT 'PENDING',
-    "rating" DOUBLE PRECISION,
-    "completedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -144,9 +134,6 @@ CREATE INDEX "Trajet_driverId_idx" ON "Trajet"("driverId");
 
 -- CreateIndex
 CREATE INDEX "Trajet_passagerId_idx" ON "Trajet"("passagerId");
-
--- CreateIndex
-CREATE INDEX "Trajet_status_idx" ON "Trajet"("status");
 
 -- AddForeignKey
 ALTER TABLE "Vehicule" ADD CONSTRAINT "Vehicule_driverId_fkey" FOREIGN KEY ("driverId") REFERENCES "Driver"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
