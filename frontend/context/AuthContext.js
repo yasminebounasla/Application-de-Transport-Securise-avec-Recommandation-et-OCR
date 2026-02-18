@@ -143,8 +143,6 @@ export const AuthProvider = ({ children }) => {
 
   const registerAsDriver = async (driverData) => {
     setLoading(true);
-    console.log("📡 Tentative d'inscription sur : ", "Vérifie ton authService.js");
-    console.log("📦 Données envoyées :", JSON.stringify(driverData));
     try {
       const response = await registerDriver(driverData);
       const responseData = response.data.data || response.data;

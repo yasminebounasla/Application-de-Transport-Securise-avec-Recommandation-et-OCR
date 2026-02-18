@@ -493,14 +493,14 @@ export const getMyDriverProfile = async (req, res) => {
     } = driver;
 
     res.status(200).json({
-     message: "Your driver profile retrieved successfully.",
-     data: {
+      message: "Your driver profile retrieved successfully.",
+      data: {
         ...driverData,
         vehicules: driver.vehicules,
         preferences,
         stats,
-        recentFeedbacks: [],
-        feedbackNote: "For all feedbacks, use GET /api/feedback/my-feedbacks"  
+        recentFeedbacks,
+        feedbackNote: "For all feedbacks, use GET /api/feedback/driver"
       },
     });
   } catch (err) {
