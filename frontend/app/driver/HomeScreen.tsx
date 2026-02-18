@@ -34,6 +34,7 @@ export default function HomeScreen() {
           variant="primary"
           style={{ marginBottom: 12 }}
         />
+        
       
       </View>
     </ScrollView>

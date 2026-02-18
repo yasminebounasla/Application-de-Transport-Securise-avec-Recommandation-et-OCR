@@ -7,7 +7,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialIcons } from '@expo/vector-icons';
 
-const API_URL = "http://192.168.1.69:5000/api";
+const API_URL = "http://192.168.1.129:3000/api";
 const FEEDBACK_REQUESTED_KEY = 'feedback_requested_rides';
 
 export default function Home() {
@@ -136,7 +136,7 @@ export default function Home() {
             activeTrips.slice(0, 3).map((trip: any) => (
               <View key={trip.id} style={styles.card}>
                 <Text style={styles.cardTitle}>
-                  {trip.startAddress || 'Depart'} -> {trip.endAddress || 'Destination'}
+                  {trip.startAddress || 'Depart'} -{'>'} {trip.endAddress || 'Destination'}
                 </Text>
                 <Text style={styles.cardSubtitle}>Statut: {trip.status}</Text>
               </View>
