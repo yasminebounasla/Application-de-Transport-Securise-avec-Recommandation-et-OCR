@@ -298,7 +298,7 @@ function PassengerStats({ profile }) {
 
   return (
     <View className="bg-white p-4 m-4 rounded-xl border border-gray-200">
-      <Text className="text-lg font-bold text-black mb-4">📊 Statistics</Text>
+      <Text className="text-lg font-bold text-black mb-4">Statistics</Text>
       
       <View className="flex-row justify-around">
         <View className="items-center flex-1">
