@@ -13,11 +13,10 @@ export const authenticate = (req, res, next) => {
   try {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    // on stocke l'ID correspondant selon le type
     req.user = {
-      driverId: decoded.driverId || null,
-      passengerId: decoded.passengerId || null,
-      name: decoded.name || null
+     driverId: decoded.driverId || decoded.id || null,
+     passengerId: decoded.passengerId || null,
+     name: decoded.name || null
     };
 
     next();

@@ -25,5 +25,20 @@ api.interceptors.request.use(
     return Promise.reject(error);
   }
 );
+api.interceptors.request.use(
+  async (config) => {
+    const token = await AsyncStorage.getItem('token');
+    
+    // 🔍 DIAGNOSTIC
+    console.log('🔑 Token:', token ? token.substring(0, 30) + '...' : 'ABSENT ❌');
+    console.log('📤 URL appelée:', config.url);
+
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
 
 export default api;
