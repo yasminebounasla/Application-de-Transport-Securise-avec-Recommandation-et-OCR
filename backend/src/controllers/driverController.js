@@ -398,8 +398,8 @@ export const getDriverProfile = async (req, res) => {
         vehicules: driver.vehicules,
         preferences,
         stats,
-        recentFeedbacks,
-        feedbackNote: "For all feedbacks, use GET /api/feedback/public/" + id
+        recentFeedbacks: [],
+        feedbackNote: "For all feedbacks, use GET /api/feedback/my-feedbacks"  
       },
     });
   } catch (err) {
