@@ -42,15 +42,13 @@ function CollapsibleSection({ title, icon, children }) {
 
 // ==================== MAIN SCREEN ====================
 export default function ProfileScreen() {
-  const [user, setUser] = useState(null);
-  const [profile, setProfile] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser]             = useState(null);
+  const [profile, setProfile]       = useState(null);
+  const [loading, setLoading]       = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [userRole, setUserRole] = useState(null);
+  const [userRole, setUserRole]     = useState(null);
 
-  useEffect(() => {
-    loadProfile();
-  }, []);
+  useEffect(() => { loadProfile(); }, []);
 
   const loadProfile = async () => {
     try {
@@ -59,12 +57,8 @@ export default function ProfileScreen() {
         const userData = JSON.parse(userStr);
         setUser(userData);
         setUserRole(userData.role);
-
-        if (userData.role === 'driver') {
-          await loadDriverProfile();
-        } else if (userData.role === 'passenger') {
-          await loadPassengerProfile();
-        }
+        if (userData.role === 'driver')         await loadDriverProfile();
+        else if (userData.role === 'passenger') await loadPassengerProfile();
       }
     } catch (error) {
       console.error('Erreur chargement profil:', error);
@@ -78,37 +72,28 @@ export default function ProfileScreen() {
     try {
       const response = await api.get('/drivers/me');
       const data = response.data.data;
-
-      // /drivers/me already returns vehicules + preferences nested
       setProfile({
         ...data,
-        allVehicles: data.vehicules || [],
-        // preferences are nested under data.preferences
-        fumeur: data.preferences?.fumeur,
-        talkative: data.preferences?.talkative,
-        radio_on: data.preferences?.radio_on,
+        allVehicles:     data.vehicules || [],
+        fumeur:          data.preferences?.fumeur,
+        talkative:       data.preferences?.talkative,
+        radio_on:        data.preferences?.radio_on,
         smoking_allowed: data.preferences?.smoking_allowed,
-        pets_allowed: data.preferences?.pets_allowed,
-        car_big: data.preferences?.car_big,
-        works_morning: data.preferences?.works_morning,
+        pets_allowed:    data.preferences?.pets_allowed,
+        car_big:         data.preferences?.car_big,
+        works_morning:   data.preferences?.works_morning,
         works_afternoon: data.preferences?.works_afternoon,
-        works_evening: data.preferences?.works_evening,
-        works_night: data.preferences?.works_night,
+        works_evening:   data.preferences?.works_evening,
+        works_night:     data.preferences?.works_night,
       });
-    } catch (error) {
-      console.error('Erreur driver profile:', error);
-      throw error;
-    }
+    } catch (error) { console.error('Erreur driver profile:', error); throw error; }
   };
 
   const loadPassengerProfile = async () => {
     try {
       const response = await api.get('/passengers/me');
       setProfile(response.data.data);
-    } catch (error) {
-      console.error('Erreur passenger profile:', error);
-      throw error;
-    }
+    } catch (error) { console.error('Erreur passenger profile:', error); throw error; }
   };
 
   const handleRefresh = async () => {
@@ -121,12 +106,8 @@ export default function ProfileScreen() {
     Alert.alert('Logout', 'Are you sure you want to logout?', [
       { text: 'Cancel', style: 'cancel' },
       {
-        text: 'Logout',
-        style: 'destructive',
-        onPress: async () => {
-          await AsyncStorage.clear();
-          router.replace('/');
-        },
+        text: 'Logout', style: 'destructive',
+        onPress: async () => { await AsyncStorage.clear(); router.replace('/'); },
       },
     ]);
   };
@@ -164,10 +145,9 @@ export default function ProfileScreen() {
         className="flex-1 bg-gray-50"
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
       >
-        {/* Header - horizontal layout */}
+        {/* ── HEADER ── */}
         <View className="bg-white p-5 border-b border-gray-200">
           <View className="flex-row items-center">
-            {/* Avatar - tappable to edit */}
             <TouchableOpacity
               onPress={() => Alert.alert('Coming Soon', 'Edit profile feature will be available soon')}
               activeOpacity={0.8}
@@ -180,22 +160,11 @@ export default function ProfileScreen() {
               </View>
             </TouchableOpacity>
 
-            {/* Info */}
             <View className="ml-4 flex-1">
-              {/* Name + Rating */}
-              <View className="flex-row items-center flex-wrap">
-                <Text className="text-xl font-bold text-black mr-2">
-                  {profile.prenom} {profile.nom}
-                </Text>
-                {userRole === 'driver' && (
-                  <View className="flex-row items-center bg-gray-100 px-2 py-1 rounded-full">
-                    <Ionicons name="star" size={13} color="#FFA500" />
-                    <Text className="text-sm font-bold text-gray-800 ml-1">
-                      {(profile.stats?.avgRating || 0).toFixed(1)}
-                    </Text>
-                  </View>
-                )}
-              </View>
+              {/* Name only — rating badge removed */}
+              <Text className="text-xl font-bold text-black">
+                {profile.prenom} {profile.nom}
+              </Text>
 
               <View className="flex-row items-center mt-1">
                 <Ionicons name="call-outline" size={14} color="#666" />
@@ -207,12 +176,7 @@ export default function ProfileScreen() {
                 <Text className="text-gray-600 ml-1 text-sm" numberOfLines={1}>{profile.email}</Text>
               </View>
 
-              {profile.age && (
-                <View className="flex-row items-center mt-1">
-                  <Ionicons name="calendar-outline" size={14} color="#666" />
-                  <Text className="text-gray-600 ml-1 text-sm">{profile.age} years old</Text>
-                </View>
-              )}
+              {/* Age removed */}
 
               <View className="mt-2 self-start px-3 py-1 bg-gray-100 rounded-full">
                 <Text className="text-xs font-semibold text-gray-700 uppercase">
@@ -223,22 +187,22 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Stats */}
+        {/* ── STATS ── */}
         {userRole === 'driver' ? (
           <DriverStats profile={profile} />
         ) : (
           <PassengerStats profile={profile} />
         )}
 
-        {/* Vehicle Section - Driver only, always shown, collapsible */}
+        {/* ── VEHICLE ── */}
         {userRole === 'driver' && (
-          <CollapsibleSection title="My Vehicle" icon="🚗">
+          <CollapsibleSection title="My Vehicle" icon="">
             <VehicleContent vehicles={profile.allVehicles} />
           </CollapsibleSection>
         )}
 
-        {/* Preferences Section - collapsible */}
-        <CollapsibleSection title="Preferences" icon="⚙️">
+        {/* ── PREFERENCES ── */}
+        <CollapsibleSection title="Preferences" icon="">
           {userRole === 'driver' ? (
             <DriverPreferencesContent profile={profile} />
           ) : (
@@ -246,7 +210,7 @@ export default function ProfileScreen() {
           )}
         </CollapsibleSection>
 
-        {/* Actions */}
+        {/* ── ACTIONS ── */}
         <View className="p-4 space-y-3">
           {userRole === 'driver' && (
             <TouchableOpacity
@@ -292,40 +256,39 @@ export default function ProfileScreen() {
 
 // ==================== DRIVER STATS ====================
 function DriverStats({ profile }) {
-  const stats = profile.stats || {};
-  const rating = stats.averageRating || 0;
-  const totalRides = stats.totalRides || 0;
-  const completedRides = stats.completedRides || 0;
-  const totalReviews = stats.totalReviews || 0;
+  const stats        = profile.stats || {};
+  const rating       = stats.averageRating || 0;
+  const totalReviews = stats.totalReviews  || 0;
 
   return (
     <View className="bg-white p-4 m-4 rounded-xl border border-gray-200">
-      <Text className="text-lg font-bold text-black mb-4">Statistics</Text>
       <View className="flex-row justify-between">
+
+        {/* Statistic — black star */}
         <View className="items-center flex-1">
           <View className="flex-row items-center">
-            <Ionicons name="star" size={24} color="#FFA500" />
+            <Ionicons name="star" size={24} color="#000" />
             <Text className="text-2xl font-bold ml-2">{rating.toFixed(1)}</Text>
           </View>
-          <Text className="text-gray-600 text-sm mt-1">Rating</Text>
+          <Text className="text-gray-600 text-sm mt-1">Statistic</Text>
           <Text className="text-gray-500 text-xs">({totalReviews} reviews)</Text>
         </View>
+
         <View className="w-px bg-gray-200" />
-        <View className="items-center flex-1">
+
+        {/* My Reviews */}
+        <TouchableOpacity
+          className="items-center flex-1"
+          onPress={() => router.push('/driver/MyFeedbacksScreen')}
+          activeOpacity={0.7}
+        >
           <View className="flex-row items-center">
-            <Ionicons name="car" size={24} color="#000" />
-            <Text className="text-2xl font-bold ml-2">{totalRides}</Text>
+            <Ionicons name="star-outline" size={24} color="#000" />
+            <Text className="text-2xl font-bold ml-2">{totalReviews}</Text>
           </View>
-          <Text className="text-gray-600 text-sm mt-1">Total Rides</Text>
-        </View>
-        <View className="w-px bg-gray-200" />
-        <View className="items-center flex-1">
-          <View className="flex-row items-center">
-            <Ionicons name="checkmark-circle" size={24} color="#10B981" />
-            <Text className="text-2xl font-bold ml-2">{completedRides}</Text>
-          </View>
-          <Text className="text-gray-600 text-sm mt-1">Completed</Text>
-        </View>
+          <Text className="text-gray-600 text-sm mt-1">My Reviews</Text>
+        </TouchableOpacity>
+
       </View>
     </View>
   );
@@ -333,13 +296,12 @@ function DriverStats({ profile }) {
 
 // ==================== PASSENGER STATS ====================
 function PassengerStats({ profile }) {
-  const stats = profile.stats || {};
-  const totalRides = stats.totalRides || 0;
+  const stats          = profile.stats || {};
+  const totalRides     = stats.totalRides     || 0;
   const completedRides = stats.completedRides || 0;
 
   return (
     <View className="bg-white p-4 m-4 rounded-xl border border-gray-200">
-      <Text className="text-lg font-bold text-black mb-4">Statistics</Text>
       <View className="flex-row justify-around">
         <View className="items-center flex-1">
           <View className="flex-row items-center">
@@ -349,13 +311,16 @@ function PassengerStats({ profile }) {
           <Text className="text-gray-600 text-sm mt-1">Rides Taken</Text>
         </View>
         <View className="w-px bg-gray-200" />
-        <View className="items-center flex-1">
-          <View className="flex-row items-center">
-            <Ionicons name="checkmark-circle" size={24} color="#10B981" />
-            <Text className="text-2xl font-bold ml-2">{completedRides}</Text>
-          </View>
-          <Text className="text-gray-600 text-sm mt-1">Completed</Text>
-        </View>
+
+        {/* My Address → SavedPlacesScreen */}
+        <TouchableOpacity
+          className="items-center flex-1"
+          onPress={() => router.push('/passenger/SavedPlacesScreen')}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="location-outline" size={24} color="#000" />
+          <Text className="text-gray-600 text-sm mt-1">My Address</Text>
+        </TouchableOpacity>
       </View>
     </View>
   );
@@ -371,14 +336,11 @@ function VehicleContent({ vehicles }) {
       </View>
     );
   }
-
   return (
     <>
       {vehicles.map((vehicle, index) => (
         <View key={vehicle.id || index} className="bg-gray-50 p-4 rounded-lg mb-3">
-          <Text className="text-xl font-bold text-black">
-            {vehicle.marque} {vehicle.modele}
-          </Text>
+          <Text className="text-xl font-bold text-black">{vehicle.marque} {vehicle.modele}</Text>
           <View className="flex-row flex-wrap mt-3 gap-2">
             {vehicle.annee && (
               <View className="bg-white px-3 py-2 rounded-full border border-gray-200">
@@ -410,30 +372,24 @@ function VehicleContent({ vehicles }) {
 // ==================== DRIVER PREFERENCES ====================
 function DriverPreferencesContent({ profile }) {
   const preferences = [
-    { icon: 'ban', label: 'Smoker', value: profile.fumeur },
-    { icon: 'chatbubbles', label: 'Talkative', value: profile.talkative },
-    { icon: 'musical-notes', label: 'Radio On', value: profile.radio_on },
-    { icon: 'ban', label: 'Smoking Allowed', value: profile.smoking_allowed },
-    { icon: 'paw', label: 'Pets Allowed', value: profile.pets_allowed },
-    { icon: 'car-sport', label: 'Large Car', value: profile.car_big },
+    { icon: 'ban',           label: 'Smoker',         value: profile.fumeur },
+    { icon: 'chatbubbles',   label: 'Talkative',       value: profile.talkative },
+    { icon: 'musical-notes', label: 'Radio On',        value: profile.radio_on },
+    { icon: 'ban',           label: 'Smoking Allowed', value: profile.smoking_allowed },
+    { icon: 'paw',           label: 'Pets Allowed',    value: profile.pets_allowed },
+    { icon: 'car-sport',     label: 'Large Car',       value: profile.car_big },
   ];
-
   const workingHours = [
-    { icon: 'sunny', label: 'Morning (6am-12pm)', value: profile.works_morning },
-    { icon: 'partly-sunny', label: 'Afternoon (12pm-6pm)', value: profile.works_afternoon },
-    { icon: 'moon', label: 'Evening (6pm-10pm)', value: profile.works_evening },
-    { icon: 'moon-outline', label: 'Night (10pm-6am)', value: profile.works_night },
+    { icon: 'sunny',         label: 'Morning (6am-12pm)',   value: profile.works_morning },
+    { icon: 'partly-sunny',  label: 'Afternoon (12pm-6pm)', value: profile.works_afternoon },
+    { icon: 'moon',          label: 'Evening (6pm-10pm)',   value: profile.works_evening },
+    { icon: 'moon-outline',  label: 'Night (10pm-6am)',     value: profile.works_night },
   ];
-
   return (
     <>
-      {preferences.map((pref, index) => (
-        <PreferenceRow key={index} {...pref} />
-      ))}
+      {preferences.map((pref, i) => <PreferenceRow key={i} {...pref} />)}
       <Text className="text-base font-semibold text-gray-700 mt-4 mb-1">Working Hours</Text>
-      {workingHours.map((hour, index) => (
-        <PreferenceRow key={index} {...hour} />
-      ))}
+      {workingHours.map((hour, i) => <PreferenceRow key={i} {...hour} />)}
     </>
   );
 }
@@ -441,20 +397,13 @@ function DriverPreferencesContent({ profile }) {
 // ==================== PASSENGER PREFERENCES ====================
 function PassengerPreferencesContent({ profile }) {
   const preferences = [
-    { icon: 'volume-mute', label: 'Quiet Ride', value: profile.quiet_ride },
-    { icon: 'musical-notes', label: 'Radio OK', value: profile.radio_ok },
-    { icon: 'ban', label: 'No Smoking', value: !profile.smoking_ok },
-    { icon: 'paw', label: 'Pets OK', value: profile.pets_ok },
-    { icon: 'briefcase', label: 'Large Luggage', value: profile.luggage_large },
+    { icon: 'volume-mute',   label: 'Quiet Ride',   value: profile.quiet_ride },
+    { icon: 'musical-notes', label: 'Radio OK',      value: profile.radio_ok },
+    { icon: 'ban',           label: 'No Smoking',    value: !profile.smoking_ok },
+    { icon: 'paw',           label: 'Pets OK',       value: profile.pets_ok },
+    { icon: 'briefcase',     label: 'Large Luggage', value: profile.luggage_large },
   ];
-
-  return (
-    <>
-      {preferences.map((pref, index) => (
-        <PreferenceRow key={index} {...pref} />
-      ))}
-    </>
-  );
+  return <>{preferences.map((pref, i) => <PreferenceRow key={i} {...pref} />)}</>;
 }
 
 // ==================== PREFERENCE ROW ====================
