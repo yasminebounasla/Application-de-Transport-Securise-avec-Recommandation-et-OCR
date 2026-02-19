@@ -7,7 +7,11 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialIcons } from '@expo/vector-icons';
 
+<<<<<<< HEAD
 const API_URL = "http://192.168.1.129:3000/api";
+=======
+const API_URL = "http://192.168.1.69:5000/api";
+>>>>>>> 2c41bee (fix service problems)
 const FEEDBACK_REQUESTED_KEY = 'feedback_requested_rides';
 
 export default function Home() {
@@ -16,6 +20,10 @@ export default function Home() {
   const [showFeedbackModal, setShowFeedbackModal] = useState<boolean>(false);
   const [completedRideId, setCompletedRideId] = useState<number | null>(null);
 
+<<<<<<< HEAD
+=======
+  // Récupérer les trajets du passager
+>>>>>>> 2c41bee (fix service problems)
   useEffect(() => {
     getPassengerRides();
   }, []);
@@ -49,17 +57,25 @@ export default function Home() {
     }
   };
 
+<<<<<<< HEAD
+=======
+  // Vérifier et afficher le modal si un trajet complété n'a pas encore de feedback
+>>>>>>> 2c41bee (fix service problems)
   useEffect(() => {
     const handleRides = async () => {
       if (passengerRides.length === 0) return;
 
+<<<<<<< HEAD
       // Ride completed
+=======
+>>>>>>> 2c41bee (fix service problems)
       const completedRide = passengerRides.find(
         (ride: any) => ride.status === 'COMPLETED'
       );
       
       if (completedRide) {
         try {
+<<<<<<< HEAD
           // Vérifier d'abord si on a déjà demandé le feedback localement
           const alreadyRequested = await isFeedbackRequested(completedRide.id);
           if (alreadyRequested) {
@@ -68,6 +84,11 @@ export default function Home() {
           }
 
           // Vérifier si un feedback existe dans le backend
+=======
+          const alreadyRequested = await isFeedbackRequested(completedRide.id);
+          if (alreadyRequested) return;
+
+>>>>>>> 2c41bee (fix service problems)
           const token = await AsyncStorage.getItem('token');
           const response = await axios.get(
             `${API_URL}/feedback/trajet/${completedRide.id}`,
@@ -77,12 +98,18 @@ export default function Home() {
           const feedbackExists = response.data.data.length > 0;
           
           if (!feedbackExists) {
+<<<<<<< HEAD
             // Marquer comme demandé AVANT d'afficher le modal
             await markFeedbackAsRequested(completedRide.id);
             setCompletedRideId(completedRide.id);
             setShowFeedbackModal(true);
           } else {
             console.log("Feedback already submitted");
+=======
+            await markFeedbackAsRequested(completedRide.id);
+            setCompletedRideId(completedRide.id);
+            setShowFeedbackModal(true);
+>>>>>>> 2c41bee (fix service problems)
           }
         } catch (err) {
           console.error("Erreur check feedback:", err);
@@ -93,12 +120,14 @@ export default function Home() {
     handleRides();
   }, [passengerRides]);
 
+  // Filtrer les trajets actifs
   const activeTrips = useMemo(() => {
     return (passengerRides || []).filter(
       (ride: any) => ride.status === 'ACCEPTED' || ride.status === 'IN_PROGRESS',
     );
   }, [passengerRides]);
 
+  // Actions rapides
   const quickActions = [
     {
       label: 'Demander un trajet',
@@ -106,7 +135,7 @@ export default function Home() {
       onPress: () => router.push('/passenger/DemandeTrajetScreen' as any),
     },
     {
-      label: 'Chauffeurs recommandes',
+      label: 'Chauffeurs recommandés',
       icon: 'groups',
       onPress: () => router.push('/passenger/RecommendedDriversScreen' as any),
     },
@@ -136,7 +165,11 @@ export default function Home() {
             activeTrips.slice(0, 3).map((trip: any) => (
               <View key={trip.id} style={styles.card}>
                 <Text style={styles.cardTitle}>
+<<<<<<< HEAD
                   {trip.startAddress || 'Depart'} -{'>'} {trip.endAddress || 'Destination'}
+=======
+                  {trip.startAddress || 'Départ'} -> {trip.endAddress || 'Destination'}
+>>>>>>> 2c41bee (fix service problems)
                 </Text>
                 <Text style={styles.cardSubtitle}>Statut: {trip.status}</Text>
               </View>
@@ -175,7 +208,10 @@ export default function Home() {
         onClose={() => {
           setShowFeedbackModal(false);
           setCompletedRideId(null);
+<<<<<<< HEAD
         
+=======
+>>>>>>> 2c41bee (fix service problems)
         }}
       />
     </>
@@ -183,14 +219,8 @@ export default function Home() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f7f7f8',
-  },
-  content: {
-    padding: 16,
-    paddingBottom: 24,
-  },
+  container: { flex: 1, backgroundColor: '#f7f7f8' },
+  content: { padding: 16, paddingBottom: 24 },
   searchButton: {
     backgroundColor: '#111',
     borderRadius: 14,
@@ -201,24 +231,10 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 18,
   },
-  searchButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  section: {
-    marginBottom: 18,
-  },
-  sectionTitle: {
-    fontSize: 19,
-    fontWeight: '700',
-    color: '#111',
-    marginBottom: 10,
-  },
-  emptyText: {
-    color: '#666',
-    fontSize: 14,
-  },
+  searchButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  section: { marginBottom: 18 },
+  sectionTitle: { fontSize: 19, fontWeight: '700', color: '#111', marginBottom: 10 },
+  emptyText: { color: '#666', fontSize: 14 },
   card: {
     backgroundColor: '#fff',
     borderRadius: 12,
@@ -227,21 +243,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ececec',
   },
-  cardTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#111',
-  },
-  cardSubtitle: {
-    marginTop: 4,
-    color: '#666',
-    fontSize: 13,
-  },
-  grid: {
-    flexDirection: 'row',
-    gap: 10,
-    flexWrap: 'wrap',
-  },
+  cardTitle: { fontSize: 14, fontWeight: '600', color: '#111' },
+  cardSubtitle: { marginTop: 4, color: '#666', fontSize: 13 },
+  grid: { flexDirection: 'row', gap: 10, flexWrap: 'wrap' },
   quickCard: {
     width: '31%',
     minWidth: 92,
@@ -253,6 +257,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ececec',
   },
+<<<<<<< HEAD
   quickText: {
     marginTop: 8,
     fontSize: 12,
@@ -276,4 +281,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
   },
+=======
+  quickText: { marginTop: 8, fontSize: 12, textAlign: 'center', color: '#111', fontWeight: '600' },
+>>>>>>> 2c41bee (fix service problems)
 });

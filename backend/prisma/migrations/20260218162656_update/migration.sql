@@ -1,0 +1,7 @@
+-- AlterTable
+ALTER TABLE "Trajet" ADD COLUMN     "endAddress" TEXT,
+ADD COLUMN     "endLat" DOUBLE PRECISION,
+ADD COLUMN     "endLng" DOUBLE PRECISION,
+ADD COLUMN     "startAddress" TEXT,
+ADD COLUMN     "startLat" DOUBLE PRECISION,
+ADD COLUMN     "startLng" DOUBLE PRECISION;
