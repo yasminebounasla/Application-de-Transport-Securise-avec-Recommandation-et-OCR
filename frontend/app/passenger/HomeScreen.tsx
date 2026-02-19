@@ -93,12 +93,14 @@ export default function Home() {
     handleRides();
   }, [passengerRides]);
 
+  // Filtrer les trajets actifs
   const activeTrips = useMemo(() => {
     return (passengerRides || []).filter(
       (ride: any) => ride.status === 'ACCEPTED' || ride.status === 'IN_PROGRESS',
     );
   }, [passengerRides]);
 
+  // Actions rapides
   const quickActions = [
     {
       label: 'Demander un trajet',
@@ -106,7 +108,7 @@ export default function Home() {
       onPress: () => router.push('/passenger/DemandeTrajetScreen' as any),
     },
     {
-      label: 'Chauffeurs recommandes',
+      label: 'Chauffeurs recommandés',
       icon: 'groups',
       onPress: () => router.push('/passenger/RecommendedDriversScreen' as any),
     },
@@ -183,14 +185,8 @@ export default function Home() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#f7f7f8',
-  },
-  content: {
-    padding: 16,
-    paddingBottom: 24,
-  },
+  container: { flex: 1, backgroundColor: '#f7f7f8' },
+  content: { padding: 16, paddingBottom: 24 },
   searchButton: {
     backgroundColor: '#111',
     borderRadius: 14,
@@ -201,24 +197,10 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 18,
   },
-  searchButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  section: {
-    marginBottom: 18,
-  },
-  sectionTitle: {
-    fontSize: 19,
-    fontWeight: '700',
-    color: '#111',
-    marginBottom: 10,
-  },
-  emptyText: {
-    color: '#666',
-    fontSize: 14,
-  },
+  searchButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  section: { marginBottom: 18 },
+  sectionTitle: { fontSize: 19, fontWeight: '700', color: '#111', marginBottom: 10 },
+  emptyText: { color: '#666', fontSize: 14 },
   card: {
     backgroundColor: '#fff',
     borderRadius: 12,
@@ -227,21 +209,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ececec',
   },
-  cardTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#111',
-  },
-  cardSubtitle: {
-    marginTop: 4,
-    color: '#666',
-    fontSize: 13,
-  },
-  grid: {
-    flexDirection: 'row',
-    gap: 10,
-    flexWrap: 'wrap',
-  },
+  cardTitle: { fontSize: 14, fontWeight: '600', color: '#111' },
+  cardSubtitle: { marginTop: 4, color: '#666', fontSize: 13 },
+  grid: { flexDirection: 'row', gap: 10, flexWrap: 'wrap' },
   quickCard: {
     width: '31%',
     minWidth: 92,

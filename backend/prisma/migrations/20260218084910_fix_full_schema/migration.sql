@@ -1,3 +1,6 @@
+-- CreateEnum
+CREATE TYPE "TrajetStatus" AS ENUM ('PENDING', 'ACCEPTED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED_BY_PASSENGER', 'CANCELLED_BY_DRIVER');
+
 -- CreateTable
 CREATE TABLE "Passenger" (
     "id" SERIAL NOT NULL,
@@ -9,12 +12,6 @@ CREATE TABLE "Passenger" (
     "age" INTEGER NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
-    "quiet_ride" BOOLEAN,
-    "radio_ok" BOOLEAN,
-    "smoking_ok" BOOLEAN,
-    "pets_ok" BOOLEAN,
-    "luggage_large" BOOLEAN,
-    "female_driver_pref" BOOLEAN,
 
     CONSTRAINT "Passenger_pkey" PRIMARY KEY ("id")
 );
@@ -31,17 +28,17 @@ CREATE TABLE "Driver" (
     "isVerified" BOOLEAN NOT NULL DEFAULT false,
     "age" INTEGER NOT NULL,
     "hasAcceptedPhotoStorage" BOOLEAN NOT NULL DEFAULT false,
-    "fumeur" BOOLEAN,
-    "talkative" BOOLEAN,
-    "radio_on" BOOLEAN,
-    "smoking_allowed" BOOLEAN,
-    "pets_allowed" BOOLEAN,
-    "car_big" BOOLEAN,
-    "works_morning" BOOLEAN,
-    "works_afternoon" BOOLEAN,
-    "works_evening" BOOLEAN,
-    "works_night" BOOLEAN,
-    "note" DOUBLE PRECISION,
+    "talkative" BOOLEAN NOT NULL DEFAULT false,
+    "radio_on" BOOLEAN NOT NULL DEFAULT false,
+    "smoking_allowed" BOOLEAN NOT NULL DEFAULT false,
+    "pets_allowed" BOOLEAN NOT NULL DEFAULT false,
+    "car_big" BOOLEAN NOT NULL DEFAULT false,
+    "works_morning" BOOLEAN NOT NULL DEFAULT false,
+    "works_afternoon" BOOLEAN NOT NULL DEFAULT false,
+    "works_evening" BOOLEAN NOT NULL DEFAULT false,
+    "works_night" BOOLEAN NOT NULL DEFAULT false,
+    "avgRating" DOUBLE PRECISION DEFAULT 0,
+    "ratingsCount" INTEGER DEFAULT 0,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -108,10 +105,28 @@ CREATE TABLE "Trajet" (
     "heureDepart" TEXT,
     "placesDispo" INTEGER NOT NULL,
     "prix" DOUBLE PRECISION NOT NULL,
+    "status" "TrajetStatus" NOT NULL DEFAULT 'PENDING',
+    "quiet_ride" TEXT NOT NULL DEFAULT 'no',
+    "radio_ok" TEXT NOT NULL DEFAULT 'no',
+    "smoking_ok" TEXT NOT NULL DEFAULT 'no',
+    "pets_ok" TEXT NOT NULL DEFAULT 'no',
+    "luggage_large" TEXT NOT NULL DEFAULT 'no',
+    "female_driver_pref" TEXT NOT NULL DEFAULT 'no',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Trajet_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Evaluation" (
+    "id" SERIAL NOT NULL,
+    "trajetId" INTEGER NOT NULL,
+    "rating" DOUBLE PRECISION NOT NULL,
+    "comment" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Evaluation_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -135,6 +150,9 @@ CREATE INDEX "Trajet_driverId_idx" ON "Trajet"("driverId");
 -- CreateIndex
 CREATE INDEX "Trajet_passagerId_idx" ON "Trajet"("passagerId");
 
+-- CreateIndex
+CREATE UNIQUE INDEX "Evaluation_trajetId_key" ON "Evaluation"("trajetId");
+
 -- AddForeignKey
 ALTER TABLE "Vehicule" ADD CONSTRAINT "Vehicule_driverId_fkey" FOREIGN KEY ("driverId") REFERENCES "Driver"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
@@ -149,3 +167,6 @@ ALTER TABLE "Trajet" ADD CONSTRAINT "Trajet_driverId_fkey" FOREIGN KEY ("driverI
 
 -- AddForeignKey
 ALTER TABLE "Trajet" ADD CONSTRAINT "Trajet_passagerId_fkey" FOREIGN KEY ("passagerId") REFERENCES "Passenger"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Evaluation" ADD CONSTRAINT "Evaluation_trajetId_fkey" FOREIGN KEY ("trajetId") REFERENCES "Trajet"("id") ON DELETE CASCADE ON UPDATE CASCADE;

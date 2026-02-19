@@ -1,9 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -13,10 +7,8 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-
-// Passager
 model Passenger {
-  id        Int @id @default(autoincrement())  
+  id        Int      @id @default(autoincrement())
   email     String   @unique
   password  String
   nom       String
@@ -26,69 +18,54 @@ model Passenger {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // préférences pour recommandation
-  quiet_ride         Boolean?
-  radio_ok           Boolean?
-  smoking_ok         Boolean?
-  pets_ok            Boolean?
-  luggage_large      Boolean?
-  female_driver_pref Boolean?
-
-  trajets   Trajet[] @relation("TrajetsPassager")
+  trajets Trajet[]
 }
 
-// Conducteur
 model Driver {
-  id        Int @id @default(autoincrement())  
-  email      String   @unique
-  password   String
-  nom        String
-  prenom     String
-  numTel     String
-  sexe       String // "M" ou "F"
-  isVerified Boolean @default(false) // OCR validé
-  age        Int
-
- //  CONSENTEMENT (Checkbox "J'accepte...")
+  id                      Int     @id @default(autoincrement())
+  email                   String  @unique
+  password                String
+  nom                     String
+  prenom                  String
+  numTel                  String
+  sexe                    String
+  isVerified              Boolean @default(false)
+  age                     Int
   hasAcceptedPhotoStorage Boolean @default(false)
 
-  // critères pour recommandation
-  fumeur           Boolean?
-  talkative        Boolean?
-  radio_on         Boolean?
-  smoking_allowed  Boolean?
-  pets_allowed     Boolean?
-  car_big          Boolean?
-  works_morning    Boolean?
-  works_afternoon  Boolean?
-  works_evening    Boolean?
-  works_night      Boolean?
+  talkative       Boolean @default(false)
+  radio_on        Boolean @default(false)
+  smoking_allowed Boolean @default(false)
+  pets_allowed    Boolean @default(false)
+  car_big         Boolean @default(false)
+  works_morning   Boolean @default(false)
+  works_afternoon Boolean @default(false)
+  works_evening   Boolean @default(false)
+  works_night     Boolean @default(false)
 
-  ratingsCount    Int?     @default(0)  //number of evaluations received
-  avgRating       Float?   @default(0.0) //average rating (calculated from evaluations)
+  avgRating    Float? @default(0)
+  ratingsCount Int?   @default(0)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-
-  verification     Verification?
-  license          License?
-  vehicules        Vehicule[]
-  trajets          Trajet[]      @relation("TrajetsConducteur")
+  verification Verification?
+  license      License?
+  vehicules    Vehicule[]
+  trajets      Trajet[]
 }
 
-// Vehicule
 model Vehicule {
-  id        Int @id @default(autoincrement())
-  driverId  Int
-  marque    String
-  modele    String?
-  annee     Int?
-  nbPlaces  Int?
-  plaque    String?
-  couleur   String?
+  id       Int     @id @default(autoincrement())
+  driverId Int
+  marque   String
+  modele   String?
+  annee    Int?
+  nbPlaces Int?
+  plaque   String?
+  couleur  String?
 
-  driver    Driver @relation(fields: [driverId], references: [id])
+  driver Driver @relation(fields: [driverId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -96,51 +73,37 @@ model Vehicule {
   @@index([driverId])
 }
 
-// --- SERVICE DE VÉRIFICATION & SÉCURITÉ ---
-
 model Verification {
   id              Int      @id @default(autoincrement())
   driverId        Int      @unique
-  driver          Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
-  
-  // Stockage image
-  selfieImage     Bytes    
-  
-  // Résultats de Reconnaicens
-  similarityScore Float    
-  verdict         String   // "MATCH" ou "NO_MATCH"
-  threshold       Float    // seuil
-  margin          Float    
-  confidence      String   
-  
-  // Qualité technique
-  licenseQuality  Int?     // Score de netteté permis 
-  selfieQuality   Int?     // Score de netteté selfie 
-  
+  selfieImage     Bytes
+  similarityScore Float
+  verdict         String
+  threshold       Float
+  margin          Float
+  confidence      String
+  licenseQuality  Int?
+  selfieQuality   Int?
   isApproved      Boolean  @default(false)
   createdAt       DateTime @default(now())
-}
-//permis
-model License {
-  id            Int      @id @default(autoincrement())
-  driverId      Int      @unique
-  driver        Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
-  
-  // Données sensibles (Chiffrées au niveau applicatif avant stockage)
-  ninEncrypted  String   @db.VarChar(500) // Numéro d'identité national chiffré
-  permisImage   Bytes    // Image du permis
-  
-  // Dates du document
-  issueDate     DateTime? //date de creation de permis
-  expiryDate    DateTime?  //date de exprimation de permis
-  
-  // Métadonnées
-  ocrConfidence Int?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+
+  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
 }
 
-// Enum pour le statut
+model License {
+  id            Int       @id @default(autoincrement())
+  driverId      Int       @unique
+  ninEncrypted  String    @db.VarChar(500)
+  permisImage   Bytes
+  issueDate     DateTime?
+  expiryDate    DateTime?
+  ocrConfidence Int?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+}
+
 enum TrajetStatus {
   PENDING
   ACCEPTED
@@ -150,51 +113,54 @@ enum TrajetStatus {
   CANCELLED_BY_DRIVER
 }
 
-// Trajet (combiné avec Ride + champs ML)
 model Trajet {
-  id Int @id @default(autoincrement())
+  id          Int          @id @default(autoincrement())
+  driverId    Int?
+  passagerId  Int?
 
-  driverId Int?
-  driver   Driver? @relation("TrajetsConducteur", fields: [driverId], references: [id])
+  // Adresses texte (pour affichage)
+  depart      String
+  destination String
 
-  passagerId Int?
-  passenger  Passenger? @relation("TrajetsPassager", fields: [passagerId], references: [id], onDelete: SetNull)
+  // Coordonnées GPS (pour la carte)
+  startLat    Float?
+  startLng    Float?
+  startAddress String?
+  endLat      Float?
+  endLng      Float?
+  endAddress  String?
 
-  startLat     Float
-  startLng     Float
-  startAddress String
-
-  endLat     Float
-  endLng     Float
-  endAddress String
-  
   dateDepart  DateTime
   heureDepart String?
-
   placesDispo Int
   prix        Float
+  status      TrajetStatus @default(PENDING)
 
-  status TrajetStatus @default(PENDING)
-  completedAt DateTime?
+  // Préférences du passager pour CE trajet (user features LightFM)
+  quiet_ride         String @default("no")
+  radio_ok           String @default("no")
+  smoking_ok         String @default("no")
+  pets_ok            String @default("no")
+  luggage_large      String @default("no")
+  female_driver_pref String @default("no")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  rating      Float? @default(0.0) // finale note (average of evaluations)
-  evaluation  Evaluation?
+  driver     Driver?      @relation(fields: [driverId], references: [id])
+  passenger  Passenger?  @relation(fields: [passagerId], references: [id])
+  evaluation Evaluation?
 
   @@index([driverId])
   @@index([passagerId])
-  @@index([status])
 }
 
 model Evaluation {
-  id         Int      @id @default(autoincrement())
-  trajetId   Int      @unique
-  trajet     Trajet   @relation(fields: [trajetId], references: [id], onDelete: Cascade)
+  id        Int      @id @default(autoincrement())
+  trajetId  Int      @unique
+  rating    Float
+  comment   String?
+  createdAt DateTime @default(now())
 
-  rating     Float
-  comment    String?   //feedback textuel optionnel
-
-  createdAt  DateTime @default(now())
+  trajet Trajet @relation(fields: [trajetId], references: [id], onDelete: Cascade)
 }
