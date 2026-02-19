@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -13,31 +13,30 @@ import {
   FlatList,
   Animated,
 } from 'react-native';
-import { Stack, router } from 'expo-router';
+import { Stack, router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ─────────────────────────────────────────────
 // CONSTANTS
 // ─────────────────────────────────────────────
-const STORAGE_KEY = 'saved_addresses';
+export const STORAGE_KEY = 'saved_addresses'; // exported so MapScreen can use it
 
 const ADDRESS_TYPES = [
-  { key: 'home',  label: 'Home',  icon: 'home-outline',     filledIcon: 'home' },
-  { key: 'work',  label: 'Work',  icon: 'briefcase-outline', filledIcon: 'briefcase' },
-  { key: 'other', label: 'Other', icon: 'location-outline',  filledIcon: 'location' },
+  { key: 'home',  label: 'Home',  icon: 'home-outline',      filledIcon: 'home' },
+  { key: 'work',  label: 'Work',  icon: 'briefcase-outline',  filledIcon: 'briefcase' },
+  { key: 'other', label: 'Other', icon: 'location-outline',   filledIcon: 'location' },
 ];
 
 // ─────────────────────────────────────────────
-// MOCK GEOCODER  (replace with real API / expo-location)
+// GEOCODER  — remplace par ton API réelle
 // ─────────────────────────────────────────────
 async function searchPlaces(query) {
-  // Simulates an API call – swap with your real geocoding service
   await new Promise(r => setTimeout(r, 600));
   if (!query.trim()) return [];
   return [
-    { id: '1', name: query,            address: `${query}, Alger, Algérie` },
-    { id: '2', name: `${query} Center`, address: `${query} Center, Bir Mourad Raïs, Alger` },
+    { id: '1', name: query,             address: `${query}, Alger, Algérie` },
+    { id: '2', name: `${query} Centre`, address: `${query} Centre, Bir Mourad Raïs, Alger` },
     { id: '3', name: `${query} Nord`,   address: `${query} Nord, Bab Ezzouar, Alger` },
     { id: '4', name: `Rue ${query}`,    address: `Rue ${query}, Hussein Dey, Alger` },
   ];
@@ -48,30 +47,37 @@ async function searchPlaces(query) {
 // ─────────────────────────────────────────────
 export default function SavedPlacesScreen() {
   const [addresses, setAddresses]   = useState({ home: null, work: null, other: null });
-  const [customPlaces, setCustom]   = useState([]);   // extra "Add a new address" entries
+  const [customPlaces, setCustom]   = useState([]);
   const [loading, setLoading]       = useState(true);
   const [modalVisible, setModal]    = useState(false);
   const [editTarget, setEditTarget] = useState(null); // { key, label, icon }
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  // ── Load from storage ──────────────────────
-  useEffect(() => {
-    (async () => {
-      try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        if (raw) {
-          const saved = JSON.parse(raw);
-          setAddresses(saved.addresses || { home: null, work: null, other: null });
-          setCustom(saved.custom || []);
-        }
-      } catch (e) {
-        console.error(e);
-      } finally {
-        setLoading(false);
-        Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start();
+  // ── Load (also re-load when coming back from MapScreen) ──
+  const loadAddresses = async () => {
+    try {
+      const raw = await AsyncStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw);
+        setAddresses(saved.addresses || { home: null, work: null, other: null });
+        setCustom(saved.custom || []);
       }
-    })();
-  }, []);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoading(false);
+      Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start();
+    }
+  };
+
+  useEffect(() => { loadAddresses(); }, []);
+
+  // Re-load every time screen comes into focus (after returning from MapScreen)
+  useFocusEffect(
+    useCallback(() => {
+      loadAddresses();
+    }, [])
+  );
 
   // ── Persist ────────────────────────────────
   const persist = async (newAddresses, newCustom) => {
@@ -96,17 +102,14 @@ export default function SavedPlacesScreen() {
     setModal(false);
   };
 
-  // ── Delete address ─────────────────────────
+  // ── Delete ─────────────────────────────────
   const deleteAddress = (key) => {
     Alert.alert('Remove address', 'Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Remove', style: 'destructive',
         onPress: () => {
-          if (key === 'custom_all') {
-            setCustom([]);
-            persist(addresses, []);
-          } else if (key.startsWith('custom_')) {
+          if (key.startsWith('custom_')) {
             const id = key.replace('custom_', '');
             const updated = customPlaces.filter(p => p.id !== id);
             setCustom(updated);
@@ -125,6 +128,22 @@ export default function SavedPlacesScreen() {
   const openModal = (target) => {
     setEditTarget(target);
     setModal(true);
+  };
+
+  // ── Navigate to MapScreen for map-based pick ──
+  // Called from inside AddressModal when user taps "Set location on map"
+  const handleSetOnMap = (target) => {
+    setModal(false); // close modal first
+    setTimeout(() => {
+      router.push({
+        pathname: '/shared/MapScreen',
+        params: {
+          selectionType: 'saved_address', // new mode for MapScreen
+          targetKey: target.key,          // e.g. 'home', 'work', 'other', 'new'
+          targetLabel: target.label,      // e.g. 'Home'
+        },
+      });
+    }, 300); // small delay so modal closes before navigation
   };
 
   if (loading) {
@@ -150,9 +169,8 @@ export default function SavedPlacesScreen() {
         style={{ flex: 1, backgroundColor: '#fff', opacity: fadeAnim }}
         contentContainerStyle={{ paddingBottom: 40 }}
       >
-        {/* ── ILLUSTRATION + HEADER ── */}
+        {/* ── ILLUSTRATION ── */}
         <View style={{ alignItems: 'center', paddingTop: 32, paddingBottom: 20 }}>
-          {/* Simple SVG-like map illustration using Views */}
           <MapIllustration />
           <Text style={{ fontSize: 22, fontWeight: '800', color: '#111', marginTop: 16 }}>
             Saved addresses
@@ -162,7 +180,6 @@ export default function SavedPlacesScreen() {
           </Text>
         </View>
 
-        {/* ── DIVIDER ── */}
         <View style={{ height: 1, backgroundColor: '#F0F0F0', marginHorizontal: 20, marginBottom: 8 }} />
 
         {/* ── HOME / WORK / OTHER ── */}
@@ -194,17 +211,13 @@ export default function SavedPlacesScreen() {
         {/* ── ADD NEW ── */}
         <TouchableOpacity
           onPress={() => openModal({ key: 'new', label: 'New place', icon: 'add-circle-outline' })}
-          style={{
-            flexDirection: 'row', alignItems: 'center',
-            paddingHorizontal: 24, paddingVertical: 18,
-          }}
+          style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 18 }}
           activeOpacity={0.7}
         >
           <View style={{
             width: 40, height: 40, borderRadius: 20,
             backgroundColor: '#F5F5F5',
-            alignItems: 'center', justifyContent: 'center',
-            marginRight: 16,
+            alignItems: 'center', justifyContent: 'center', marginRight: 16,
           }}>
             <Ionicons name="add" size={22} color="#111" />
           </View>
@@ -222,9 +235,10 @@ export default function SavedPlacesScreen() {
           if (editTarget.key === 'new') {
             saveCustomAddress(place);
           } else {
-            saveAddress(editTarget.key.replace('custom_', ''), place);
+            saveAddress(editTarget.key, place);
           }
         }}
+        onSetOnMap={() => handleSetOnMap(editTarget)}
       />
     </>
   );
@@ -244,17 +258,14 @@ function AddressRow({ icon, label, value, placeholder, onPress, onDelete }) {
         borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
       }}
     >
-      {/* Icon circle */}
       <View style={{
         width: 40, height: 40, borderRadius: 20,
         backgroundColor: value ? '#111' : '#F5F5F5',
-        alignItems: 'center', justifyContent: 'center',
-        marginRight: 16,
+        alignItems: 'center', justifyContent: 'center', marginRight: 16,
       }}>
         <Ionicons name={icon} size={19} color={value ? '#fff' : '#555'} />
       </View>
 
-      {/* Text */}
       <View style={{ flex: 1 }}>
         <Text style={{ fontSize: 15, fontWeight: '700', color: '#111' }}>{label}</Text>
         {value ? (
@@ -264,7 +275,6 @@ function AddressRow({ icon, label, value, placeholder, onPress, onDelete }) {
         )}
       </View>
 
-      {/* Delete / chevron */}
       {onDelete ? (
         <TouchableOpacity onPress={onDelete} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
           <Ionicons name="ellipsis-vertical" size={18} color="#BBB" />
@@ -279,11 +289,11 @@ function AddressRow({ icon, label, value, placeholder, onPress, onDelete }) {
 // ─────────────────────────────────────────────
 // ADDRESS MODAL  (search + set on map)
 // ─────────────────────────────────────────────
-function AddressModal({ visible, target, onClose, onSave }) {
-  const [query, setQuery]       = useState('');
-  const [results, setResults]   = useState([]);
-  const [searching, setSearch]  = useState(false);
-  const debounceRef             = useRef(null);
+function AddressModal({ visible, target, onClose, onSave, onSetOnMap }) {
+  const [query, setQuery]      = useState('');
+  const [results, setResults]  = useState([]);
+  const [searching, setSearch] = useState(false);
+  const debounceRef            = useRef(null);
 
   useEffect(() => {
     if (!visible) { setQuery(''); setResults([]); }
@@ -305,17 +315,12 @@ function AddressModal({ visible, target, onClose, onSave }) {
     onSave({ name: target?.label || place.name, address: place.address });
   };
 
-  const handleSetOnMap = () => {
-    onClose();
-    Alert.alert('Coming Soon', 'Map picker will be available soon.');
-  };
-
   return (
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <View style={{ flex: 1, backgroundColor: '#fff' }}>
 
-          {/* ── HEADER ── */}
+          {/* HEADER */}
           <View style={{
             flexDirection: 'row', alignItems: 'center',
             paddingHorizontal: 16, paddingTop: 18, paddingBottom: 12,
@@ -329,7 +334,7 @@ function AddressModal({ visible, target, onClose, onSave }) {
             </Text>
           </View>
 
-          {/* ── SEARCH BAR ── */}
+          {/* SEARCH BAR */}
           <View style={{
             flexDirection: 'row', alignItems: 'center',
             margin: 16, backgroundColor: '#F5F5F5',
@@ -353,12 +358,14 @@ function AddressModal({ visible, target, onClose, onSave }) {
             )}
           </View>
 
-          {/* ── RESULTS ── */}
+          {/* RESULTS */}
           <FlatList
             data={results}
             keyExtractor={item => item.id}
             keyboardShouldPersistTaps="handled"
-            ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: '#F5F5F5', marginLeft: 60 }} />}
+            ItemSeparatorComponent={() => (
+              <View style={{ height: 1, backgroundColor: '#F5F5F5', marginLeft: 60 }} />
+            )}
             ListEmptyComponent={
               !searching && query.length > 0 ? (
                 <View style={{ alignItems: 'center', paddingTop: 40 }}>
@@ -371,30 +378,28 @@ function AddressModal({ visible, target, onClose, onSave }) {
               <TouchableOpacity
                 onPress={() => handleSelect(item)}
                 activeOpacity={0.7}
-                style={{
-                  flexDirection: 'row', alignItems: 'center',
-                  paddingHorizontal: 20, paddingVertical: 14,
-                }}
+                style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14 }}
               >
                 <View style={{
                   width: 36, height: 36, borderRadius: 18,
                   backgroundColor: '#F0F0F0',
-                  alignItems: 'center', justifyContent: 'center',
-                  marginRight: 14,
+                  alignItems: 'center', justifyContent: 'center', marginRight: 14,
                 }}>
                   <Ionicons name="location-outline" size={17} color="#555" />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontSize: 14, fontWeight: '600', color: '#111' }}>{item.name}</Text>
-                  <Text style={{ fontSize: 12, color: '#999', marginTop: 2 }} numberOfLines={1}>{item.address}</Text>
+                  <Text style={{ fontSize: 12, color: '#999', marginTop: 2 }} numberOfLines={1}>
+                    {item.address}
+                  </Text>
                 </View>
               </TouchableOpacity>
             )}
           />
 
-          {/* ── SET ON MAP ── */}
+          {/* SET ON MAP BUTTON */}
           <TouchableOpacity
-            onPress={handleSetOnMap}
+            onPress={onSetOnMap}
             activeOpacity={0.7}
             style={{
               flexDirection: 'row', alignItems: 'center',
@@ -405,8 +410,7 @@ function AddressModal({ visible, target, onClose, onSave }) {
             <View style={{
               width: 36, height: 36, borderRadius: 18,
               backgroundColor: '#111',
-              alignItems: 'center', justifyContent: 'center',
-              marginRight: 14,
+              alignItems: 'center', justifyContent: 'center', marginRight: 14,
             }}>
               <Ionicons name="map-outline" size={17} color="#fff" />
             </View>
@@ -420,43 +424,35 @@ function AddressModal({ visible, target, onClose, onSave }) {
 }
 
 // ─────────────────────────────────────────────
-// MAP ILLUSTRATION  (pure View-based)
+// MAP ILLUSTRATION
 // ─────────────────────────────────────────────
 function MapIllustration() {
   return (
     <View style={{ width: 140, height: 120, alignItems: 'center', justifyContent: 'center' }}>
-      {/* Map base */}
       <View style={{
-        width: 120, height: 80,
-        backgroundColor: '#EDE9FE',
-        borderRadius: 12,
+        width: 120, height: 80, backgroundColor: '#EDE9FE', borderRadius: 12,
         transform: [{ rotateX: '20deg' }, { rotateZ: '-5deg' }],
         shadowColor: '#7C3AED', shadowOpacity: 0.15, shadowRadius: 12, elevation: 4,
-        alignItems: 'center', justifyContent: 'center',
-        position: 'relative',
+        alignItems: 'center', justifyContent: 'center', position: 'relative',
       }}>
-        {/* Grid lines */}
         <View style={{ position: 'absolute', top: '33%', left: 0, right: 0, height: 1, backgroundColor: '#C4B5FD' }} />
         <View style={{ position: 'absolute', top: '66%', left: 0, right: 0, height: 1, backgroundColor: '#C4B5FD' }} />
         <View style={{ position: 'absolute', left: '33%', top: 0, bottom: 0, width: 1, backgroundColor: '#C4B5FD' }} />
         <View style={{ position: 'absolute', left: '66%', top: 0, bottom: 0, width: 1, backgroundColor: '#C4B5FD' }} />
       </View>
-      {/* Pin */}
       <View style={{
         position: 'absolute', top: 10,
-        width: 36, height: 36, borderRadius: 18,
-        backgroundColor: '#164dcd',
+        width: 36, height: 36, borderRadius: 18, backgroundColor: '#7C3AED',
         alignItems: 'center', justifyContent: 'center',
-        shadowColor: '#164dcd', shadowOpacity: 0.4, shadowRadius: 8, elevation: 6,
+        shadowColor: '#7C3AED', shadowOpacity: 0.4, shadowRadius: 8, elevation: 6,
       }}>
         <Ionicons name="location" size={20} color="#fff" />
       </View>
-      {/* Dots */}
       {[
-        { top: 20, left: 10, color: '#F97316', size: 10 },
-        { top: 55, left: 15, color: '#F97316', size: 8 },
-        { top: 35, right: 12, color: '#5b88c6', size: 10 },
-        { top: 65, right: 20, color: '#5b88c6', size: 7 },
+        { top: 20, left: 10,  color: '#F97316', size: 10 },
+        { top: 55, left: 15,  color: '#F97316', size: 8 },
+        { top: 35, right: 12, color: '#A78BFA', size: 10 },
+        { top: 65, right: 20, color: '#A78BFA', size: 7 },
       ].map((dot, i) => (
         <View key={i} style={{
           position: 'absolute',

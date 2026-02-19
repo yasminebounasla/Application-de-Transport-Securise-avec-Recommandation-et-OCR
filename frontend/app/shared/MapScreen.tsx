@@ -15,6 +15,10 @@ import { formatDuration, formatDistance } from "../../utils/formatUtils";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from '@expo/vector-icons';
 import api from "../../services/api";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+
+const SAVED_ADDRESSES_KEY = 'saved_addresses';
 
 function LocationNotSupported({ onTryAnother }) {
   return (
@@ -56,7 +60,11 @@ export default function MapScreen() {
     startLng,
     endLat,
     endLng,
+    targetKey:   _targetKey,  
+    targetLabel: _targetLabel,
   } = useLocalSearchParams();
+  const targetKey   = (Array.isArray(_targetKey)   ? _targetKey[0]   : _targetKey)   as string;
+  const targetLabel = (Array.isArray(_targetLabel)  ? _targetLabel[0] : _targetLabel) as string;
 
   const {
     currentLocation,
@@ -71,6 +79,7 @@ export default function MapScreen() {
   );
   const [selectedAddress, setSelectedAddress] = useState("");
   const [loadingAddress, setLoadingAddress] = useState(false);
+  const [savingAddress, setSavingAddress]     = useState(false); 
 
   const [routeCoordinates, setRouteCoordinates] = useState([]);
   const [loadingRoute, setLoadingRoute] = useState(false);
@@ -219,6 +228,46 @@ export default function MapScreen() {
     router.back();
   };
 
+  // ── Confirm for saved_address mode ─────────
+  const handleConfirmSavedAddress = async () => {
+    if (!selectedLocation || !selectedAddress) return;
+    setSavingAddress(true);
+    try {
+      const raw = await AsyncStorage.getItem(SAVED_ADDRESSES_KEY);
+      const existing = raw ? JSON.parse(raw) : { addresses: { home: null, work: null, other: null }, custom: [] };
+
+      const place = { address: selectedAddress, lat: selectedLocation.latitude, lng: selectedLocation.longitude };
+
+      if (targetKey === 'new') {
+        // Add as custom place
+        const newEntry = { ...place, name: 'Saved place', id: Date.now().toString() };
+        existing.custom = [...(existing.custom || []), newEntry];
+      } else if (targetKey?.startsWith('custom_')) {
+        // Update existing custom
+        const id = targetKey.replace('custom_', '');
+        existing.custom = (existing.custom || []).map(p =>
+          p.id === id ? { ...p, ...place } : p
+        );
+      } else {
+        // home / work / other
+        existing.addresses = {
+          ...existing.addresses,
+          [targetKey]: { name: targetLabel, address: selectedAddress, lat: selectedLocation.latitude, lng: selectedLocation.longitude },
+        };
+      }
+
+    await AsyncStorage.setItem(SAVED_ADDRESSES_KEY, JSON.stringify(existing));
+      router.back(); // SavedPlacesScreen reloads via useFocusEffect
+    } catch (e) {
+      console.error("❌ Error saving address:", e);
+      Alert.alert("Error", "Failed to save address. Please try again.");
+    } finally {
+      setSavingAddress(false);
+    }
+  };
+
+  
+
   const handleCancelRide = () => {
     if (!rideId) {
       router.push("/passenger/SearchRideScreen");
@@ -272,7 +321,75 @@ export default function MapScreen() {
   };
 
   if (!currentLocation) return null;
+   // ════════════════════════════════════════════
+  // MODE: saved_address  (new mode)
+  // ════════════════════════════════════════════
+  if (selectionType === "saved_address") {
+    return (
+      <View style={styles.container}>
+        <MapView
+          ref={mapRef}
+          style={StyleSheet.absoluteFillObject}
+          initialRegion={getInitialRegion()}
+          showsUserLocation
+          onPress={handleMapPress}
+        >
+          {selectedLocation?.latitude && selectedLocation?.longitude && (
+            <Marker
+              coordinate={selectedLocation}
+              draggable
+              onDragEnd={handleMarkerDragEnd}
+            />
+          )}
+        </MapView>
 
+        {/* Top label showing what we're setting */}
+        <View style={styles.topLabelContainer}>
+          <View style={styles.topLabelCard}>
+            <Ionicons name="location" size={16} color="#111" />
+            <Text style={styles.topLabelText}>
+              Setting location for: <Text style={{ fontWeight: '800' }}>{targetLabel || 'Address'}</Text>
+            </Text>
+          </View>
+        </View>
+
+        {/* Bottom sheet */}
+        <View style={styles.bottomSheetFixed}>
+          <View style={styles.dragHandle} />
+          <Text style={styles.title}>
+            {targetLabel ? `Set ${targetLabel} location` : 'Set location'}
+          </Text>
+
+          {loadingAddress ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color="#666" />
+              <Text style={styles.loadingText}>Loading address...</Text>
+            </View>
+          ) : (
+            <Text style={styles.address} numberOfLines={2}>
+              {selectedAddress || 'Tap or drag pin on map'}
+            </Text>
+          )}
+
+          <TouchableOpacity
+            style={[
+              styles.confirmBtn,
+              (!selectedLocation || loadingAddress || savingAddress) && styles.confirmBtnDisabled,
+            ]}
+            onPress={handleConfirmSavedAddress}
+            disabled={!selectedLocation || loadingAddress || savingAddress}
+            activeOpacity={0.8}
+          >
+            {savingAddress ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.confirmText}>Save address</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
   if (selectionType === "route") {
     return (
       <View style={styles.container}>
@@ -491,6 +608,18 @@ const errorStyles = StyleSheet.create({
 });
 
 const styles = StyleSheet.create({
+  // Top label for saved_address mode
+  topLabelContainer: {
+    position: "absolute", top: 50, left: 20, right: 20, zIndex: 10,
+  },
+  topLabelCard: {
+    backgroundColor: "#FFF",
+    borderRadius: 14, paddingHorizontal: 16, paddingVertical: 12,
+    flexDirection: "row", alignItems: "center", gap: 8,
+    shadowColor: "#000", shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12, shadowRadius: 8, elevation: 5,
+  },
+  topLabelText: { fontSize: 14, color: "#444", flex: 1 },
   container: { flex: 1, backgroundColor: "#FFF" },
   map: { flex: 1 },
   topAddresses: {
