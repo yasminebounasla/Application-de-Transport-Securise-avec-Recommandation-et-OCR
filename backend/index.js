@@ -91,7 +91,7 @@ const startServer = async () => {
       🚀 SERVER IS LIVE
       -----------------------------------------
       Local:   http://localhost:${PORT}
-      Network: http://192.168.1.73:${PORT}
+      Network: http://192.168.1.69:${PORT}
       -----------------------------------------
       If the phone fails, check Firewall/IP again.
       `);

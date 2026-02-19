@@ -27,7 +27,6 @@ export const createRide = async (req, res) => {
   }
 
   try {
-
     const passengerExists = await prisma.passenger.findUnique({
       where: { id: passengerId }
     });
@@ -43,6 +42,10 @@ export const createRide = async (req, res) => {
         passenger: {
           connect: { id: passengerId }
         },
+        // ✅ Champs obligatoires ajoutés
+        depart: startAddress,
+        destination: endAddress,
+        // Coordonnées GPS
         startLat: parseFloat(startLat),
         startLng: parseFloat(startLng),
         startAddress,
@@ -63,10 +66,6 @@ export const createRide = async (req, res) => {
             prenom: true,
             numTel: true,
             email: true,
-            quiet_ride: true,
-            smoking_ok: true,
-            pets_ok: true,
-            luggage_large: true,
           },
         },
       },
@@ -108,7 +107,7 @@ export const getPassengerRides = async (req, res) => {
             nom: true,
             prenom: true,
             numTel: true,
-            avgRating : true,
+            avgRating: true,
             sexe: true,
           },
         },
@@ -143,7 +142,6 @@ export const getDriverRequests = async (req, res) => {
   }
 
   try {
-
     const driverExists = await prisma.driver.findUnique({
       where: { id: driverId }
     });
@@ -166,10 +164,6 @@ export const getDriverRequests = async (req, res) => {
             prenom: true,
             numTel: true,
             age: true,
-            quiet_ride: true,
-            smoking_ok: true,
-            pets_ok: true,
-            luggage_large: true,
           },
         },
       },
@@ -402,8 +396,8 @@ export const completeRide = async (req, res) => {
       where: { id: parseInt(id) },
       data: { 
         status: 'COMPLETED',
-        completedAt: new Date(),
         updatedAt: new Date()
+        // ✅ completedAt supprimé car pas dans le schema
       },
       include: {
         passenger: {
