@@ -25,9 +25,11 @@ function SectionTitle({ children }) {
 
 import type { KeyboardTypeOptions } from 'react-native';
 
+type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
+
 function InputField({ label, icon, value, onChangeText, keyboardType = 'default', placeholder, editable = true }: {
   label: string;
-  icon: string;
+  icon: IoniconsName;
   value: string;
   onChangeText?: (text: string) => void;
   keyboardType?: KeyboardTypeOptions;
@@ -38,7 +40,7 @@ function InputField({ label, icon, value, onChangeText, keyboardType = 'default'
     <View style={styles.fieldWrapper}>
       <Text style={styles.fieldLabel}>{label}</Text>
       <View style={[styles.inputRow, !editable && styles.inputDisabled]}>
-        <Ionicons size={18} color="#888" style={{ marginRight: 10 }} />
+        <Ionicons name={icon} size={18} color="#888" style={{ marginRight: 10 }} />
         <TextInput
           style={styles.input}
           value={value}
@@ -53,7 +55,12 @@ function InputField({ label, icon, value, onChangeText, keyboardType = 'default'
   );
 }
 
-function ToggleField({ label, icon, value, onValueChange }) {
+function ToggleField({ label, icon, value, onValueChange }: {
+  label: string;
+  icon: IoniconsName;
+  value: boolean;
+  onValueChange: (v: boolean) => void;
+}) {
   return (
     <View style={styles.toggleRow}>
       <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
@@ -173,7 +180,7 @@ export default function EditProfileScreen() {
 
     setSaving(true);
     try {
-      const endpoint = isDriver ? '/drivers/me' : '/passengers/me';
+      const endpoint = isDriver ? '/drivers/profile' : '/passengers/profile';
 
       const payload: any = {
         nom:    nom.trim(),
@@ -231,18 +238,23 @@ export default function EditProfileScreen() {
 
   return (
     <>
-      <Stack.Screen
-        options={{
-          title: 'Edit Profile',
-          headerBackTitle: 'Back',
-          headerStyle: { backgroundColor: '#fff' },
-          headerShadowVisible: false,
-        }}
-      />
+      <Stack.Screen options={{ headerShown: false }} />
       <KeyboardAvoidingView
         style={{ flex: 1, backgroundColor: '#F9FAFB' }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
+        {/* Custom header */}
+        <View style={{
+          flexDirection: 'row', alignItems: 'center',
+          backgroundColor: '#fff', paddingTop: Platform.OS === 'ios' ? 54 : 16,
+          paddingBottom: 14, paddingHorizontal: 16,
+          borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
+        }}>
+          <TouchableOpacity onPress={() => router.back()} style={{ padding: 4, marginRight: 12 }}>
+            <Ionicons name="arrow-back" size={24} color="#111" />
+          </TouchableOpacity>
+          <Text style={{ fontSize: 18, fontWeight: '700', color: '#111' }}>Edit Profile</Text>
+        </View>
         <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
 
           {/* ── AVATAR SECTION ── */}
@@ -350,9 +362,6 @@ export default function EditProfileScreen() {
   );
 }
 
-// ─────────────────────────────────────────────
-// STYLES
-// ─────────────────────────────────────────────
 const styles = StyleSheet.create({
   avatarSection: {
     alignItems: 'center',
