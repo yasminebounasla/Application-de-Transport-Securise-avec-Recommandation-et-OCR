@@ -430,29 +430,29 @@ function MapIllustration() {
   return (
     <View style={{ width: 140, height: 120, alignItems: 'center', justifyContent: 'center' }}>
       <View style={{
-        width: 120, height: 80, backgroundColor: '#EDE9FE', borderRadius: 12,
+        width: 120, height: 80, backgroundColor: '#ceddff', borderRadius: 12,
         transform: [{ rotateX: '20deg' }, { rotateZ: '-5deg' }],
-        shadowColor: '#7C3AED', shadowOpacity: 0.15, shadowRadius: 12, elevation: 4,
+        shadowColor: '#164dcd', shadowOpacity: 0.15, shadowRadius: 12, elevation: 4,
         alignItems: 'center', justifyContent: 'center', position: 'relative',
       }}>
-        <View style={{ position: 'absolute', top: '33%', left: 0, right: 0, height: 1, backgroundColor: '#C4B5FD' }} />
-        <View style={{ position: 'absolute', top: '66%', left: 0, right: 0, height: 1, backgroundColor: '#C4B5FD' }} />
-        <View style={{ position: 'absolute', left: '33%', top: 0, bottom: 0, width: 1, backgroundColor: '#C4B5FD' }} />
-        <View style={{ position: 'absolute', left: '66%', top: 0, bottom: 0, width: 1, backgroundColor: '#C4B5FD' }} />
+        <View style={{ position: 'absolute', top: '33%', left: 0, right: 0, height: 1, backgroundColor: '#88acfe' }} />
+        <View style={{ position: 'absolute', top: '66%', left: 0, right: 0, height: 1, backgroundColor: '#88acfe' }} />
+        <View style={{ position: 'absolute', left: '33%', top: 0, bottom: 0, width: 1, backgroundColor: '#88acfe' }} />
+        <View style={{ position: 'absolute', left: '66%', top: 0, bottom: 0, width: 1, backgroundColor: '#88acfe' }} />
       </View>
       <View style={{
         position: 'absolute', top: 10,
-        width: 36, height: 36, borderRadius: 18, backgroundColor: '#7C3AED',
+        width: 36, height: 36, borderRadius: 18, backgroundColor: '#164dcd',
         alignItems: 'center', justifyContent: 'center',
-        shadowColor: '#7C3AED', shadowOpacity: 0.4, shadowRadius: 8, elevation: 6,
+        shadowColor: '#164dcd', shadowOpacity: 0.4, shadowRadius: 8, elevation: 6,
       }}>
         <Ionicons name="location" size={20} color="#fff" />
       </View>
       {[
-        { top: 20, left: 10,  color: '#F97316', size: 10 },
-        { top: 55, left: 15,  color: '#F97316', size: 8 },
-        { top: 35, right: 12, color: '#A78BFA', size: 10 },
-        { top: 65, right: 20, color: '#A78BFA', size: 7 },
+        { top: 20, left: 10,  color: '#5479d5', size: 10 },
+        { top: 55, left: 15,  color: '#5479d5', size: 8 },
+        { top: 35, right: 12, color: '#5b88c6', size: 10 },
+        { top: 65, right: 20, color: '#5b88c6', size: 7 },
       ].map((dot, i) => (
         <View key={i} style={{
           position: 'absolute',
