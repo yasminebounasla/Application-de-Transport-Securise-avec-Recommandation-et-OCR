@@ -23,6 +23,88 @@ import { validateLocationsInAlgeria } from "../../utils/Geovalidation";
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 
+const SAVED_ADDRESSES_KEY = 'saved_addresses';
+
+type SavedAddress = { name: string; address: string; lat?: number; lng?: number } | null;
+type SavedAddresses = { home: SavedAddress; work: SavedAddress; other: SavedAddress };
+type CustomPlace = { id: string; name: string; address: string; lat?: number; lng?: number };
+
+function SavedChip({
+  icon,
+  label,
+  onPress,
+}: {
+  icon: string;
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <TouchableOpacity style={styles.chip} onPress={onPress} activeOpacity={0.7}>
+      <Ionicons name={icon as any} size={14} color="#111" style={{ marginRight: 5 }} />
+      <Text style={styles.chipText} numberOfLines={1}>{label}</Text>
+    </TouchableOpacity>
+  );
+}
+
+function SavedPlacesSection({
+  savedAddresses,
+  customPlaces,
+  onSelect,
+}: {
+  savedAddresses: SavedAddresses;
+  customPlaces: CustomPlace[];
+  onSelect: (place: { address: string; lat?: number; lng?: number }) => void;
+}) {
+  const fixed = [
+    { key: 'home',  icon: 'home',      label: 'Home',  data: savedAddresses.home },
+    { key: 'work',  icon: 'briefcase', label: 'Work',  data: savedAddresses.work },
+    { key: 'other', icon: 'location',  label: 'Other', data: savedAddresses.other },
+  ].filter(p => p.data !== null);
+
+  const all = [
+    ...fixed.map(p => ({ id: p.key, icon: p.icon, label: p.label, address: p.data!.address, lat: p.data!.lat, lng: p.data!.lng })),
+    ...customPlaces.map(p => ({ id: p.id, icon: 'bookmark-outline', label: p.name, address: p.address, lat: p.lat, lng: p.lng })),
+  ];
+
+  if (all.length === 0) return null;
+
+  return (
+    <View style={styles.savedSection}>
+      <Text style={styles.savedSectionTitle}>Saved places</Text>
+      {/* Quick chips row */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipsRow} contentContainerStyle={{ paddingRight: 8 }}>
+        {all.map(p => (
+          <SavedChip
+            key={p.id}
+            icon={p.icon}
+            label={p.label}
+            onPress={() => onSelect({ address: p.address, lat: p.lat, lng: p.lng })}
+          />
+        ))}
+      </ScrollView>
+      {/* Full list rows */}
+      {all.map(p => (
+        <TouchableOpacity
+          key={p.id}
+          style={styles.savedRow}
+          onPress={() => onSelect({ address: p.address, lat: p.lat, lng: p.lng })}
+          activeOpacity={0.7}
+        >
+          <View style={styles.savedRowIcon}>
+            <Ionicons name={p.icon as any} size={16} color="#fff" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.savedRowLabel}>{p.label}</Text>
+            <Text style={styles.savedRowAddress} numberOfLines={1}>{p.address}</Text>
+          </View>
+          <Ionicons name="arrow-forward-outline" size={15} color="#CCC" />
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
+
+
 export default function SearchRideScreen() {
   const router = useRouter();
   const { currentLocation, startLocation, setStartLocation, endLocation, setEndLocation } = useContext(LocationContext);
@@ -33,29 +115,33 @@ export default function SearchRideScreen() {
   const [loadingStart, setLoadingStart] = useState(false);
   const [loadingEnd, setLoadingEnd] = useState(false);
 
-  const [focusedField, setFocusedField] = useState(null);
-  const startInputRef = useRef(null);
-  const endInputRef = useRef(null);
+  const [focusedField, setFocusedField] = useState<'start' | 'destination' | null>(null);
+  const startInputRef = useRef<TextInput>(null);
+  const endInputRef = useRef<TextInput>(null);
 
   const isSelectingSuggestion = useRef(false);
   const isNavigatingToMap = useRef(false);
-  const blurTimeoutRef = useRef(null);
+  const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const lastStartCoords = useRef(null);
-  const lastEndCoords = useRef(null);
+  const lastStartCoords = useRef<string | null>(null);
+  const lastEndCoords = useRef<string | null>(null);
 
   const [startQuery, setStartQuery] = useState("");
   const [endQuery, setEndQuery] = useState("");
-  const [startSuggestions, setStartSuggestions] = useState([]);
-  const [endSuggestions, setEndSuggestions] = useState([]);
+  const [startSuggestions, setStartSuggestions] = useState<any[]>([]);
+  const [endSuggestions, setEndSuggestions] = useState<any[]>([]);
   const [loadingStartSuggestions, setLoadingStartSuggestions] = useState(false);
   const [loadingEndSuggestions, setLoadingEndSuggestions] = useState(false);
+
+  // ── Saved Addresses state ──────────────────
+  const [savedAddresses, setSavedAddresses] = useState<SavedAddresses>({ home: null, work: null, other: null });
+  const [customPlaces, setCustomPlaces] = useState<CustomPlace[]>([]);
 
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const [dateDepart, setDateDepart] = useState(null);
-  const [heureDepart, setHeureDepart] = useState(null);
+  const [dateDepart, setDateDepart] = useState<Date | null>(null);
+  const [heureDepart, setHeureDepart] = useState<string | null>(null);
 
   const [smoking_ok, setSmokingOk] = useState(false);
   const [pets_ok, setPetsOk] = useState(false);
@@ -63,6 +149,23 @@ export default function SearchRideScreen() {
   const [quiet_ride, setQuietRide] = useState(false);
   const [radio_ok, setRadioOk] = useState(false);
   const [female_driver_pref, setFemaleDriverPref] = useState(false);
+
+  // ── Load saved addresses from AsyncStorage ──
+  useEffect(() => {
+    const loadSavedAddresses = async () => {
+      try {
+        const raw = await AsyncStorage.getItem(SAVED_ADDRESSES_KEY);
+        if (raw) {
+          const saved = JSON.parse(raw);
+          setSavedAddresses(saved.addresses || { home: null, work: null, other: null });
+          setCustomPlaces(saved.custom || []);
+        }
+      } catch (e) {
+        console.error('Failed to load saved addresses:', e);
+      }
+    };
+    loadSavedAddresses();
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -78,28 +181,21 @@ export default function SearchRideScreen() {
         lastStartCoords.current = null;
         return;
       }
-
       const coordsKey = `${startLocation.latitude.toFixed(4)},${startLocation.longitude.toFixed(4)}`;
-      
-      if (lastStartCoords.current === coordsKey) {
-        return;
-      }
-
+      if (lastStartCoords.current === coordsKey) return;
       lastStartCoords.current = coordsKey;
       setLoadingStart(true);
-      
       try {
         await new Promise(resolve => setTimeout(resolve, 150));
         const address = await reverseGeocode(startLocation);
         setStartAddress(address);
         setStartQuery("");
-      } catch (error) {
+      } catch {
         setStartAddress("Error loading address");
       } finally {
         setLoadingStart(false);
       }
     };
-    
     loadStartAddress();
   }, [startLocation?.latitude, startLocation?.longitude]);
 
@@ -111,37 +207,27 @@ export default function SearchRideScreen() {
         lastEndCoords.current = null;
         return;
       }
-
       const coordsKey = `${endLocation.latitude.toFixed(4)},${endLocation.longitude.toFixed(4)}`;
-      
-      if (lastEndCoords.current === coordsKey) {
-        return;
-      }
-
+      if (lastEndCoords.current === coordsKey) return;
       lastEndCoords.current = coordsKey;
       setLoadingEnd(true);
-      
       try {
         await new Promise(resolve => setTimeout(resolve, 500));
         const address = await reverseGeocode(endLocation);
         setEndAddress(address);
         setEndQuery("");
-      } catch (error) {
+      } catch {
         setEndAddress("Error loading address");
       } finally {
         setLoadingEnd(false);
       }
     };
-    
     loadEndAddress();
   }, [endLocation?.latitude, endLocation?.longitude]);
 
   useEffect(() => {
     const fetchSuggestions = async () => {
-      if (startQuery.length < 2) { 
-        setStartSuggestions([]); 
-        return; 
-      }
+      if (startQuery.length < 2) { setStartSuggestions([]); return; }
       setLoadingStartSuggestions(true);
       try {
         const results = await searchPlaces(startQuery, currentLocation);
@@ -158,10 +244,7 @@ export default function SearchRideScreen() {
 
   useEffect(() => {
     const fetchSuggestions = async () => {
-      if (endQuery.length < 2) { 
-        setEndSuggestions([]); 
-        return; 
-      }
+      if (endQuery.length < 2) { setEndSuggestions([]); return; }
       setLoadingEndSuggestions(true);
       try {
         const results = await searchPlaces(endQuery, currentLocation);
@@ -201,7 +284,7 @@ export default function SearchRideScreen() {
     setStartAddress("");
     setStartQuery("");
     setStartSuggestions([]);
-    lastStartCoords.current = null; 
+    lastStartCoords.current = null;
     setFocusedField('start');
     startInputRef.current?.focus();
   };
@@ -211,7 +294,7 @@ export default function SearchRideScreen() {
     setEndAddress("");
     setEndQuery("");
     setEndSuggestions([]);
-    lastEndCoords.current = null; 
+    lastEndCoords.current = null;
     setFocusedField('destination');
     endInputRef.current?.focus();
   };
@@ -246,7 +329,7 @@ export default function SearchRideScreen() {
     }, 50);
   };
 
-  const handleSelectStartSuggestion = (place) => {
+  const handleSelectStartSuggestion = (place: any) => {
     isSelectingSuggestion.current = false;
     if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
     setStartLocation({ latitude: place.latitude, longitude: place.longitude });
@@ -255,7 +338,7 @@ export default function SearchRideScreen() {
     Keyboard.dismiss();
   };
 
-  const handleSelectEndSuggestion = (place) => {
+  const handleSelectEndSuggestion = (place: any) => {
     isSelectingSuggestion.current = false;
     if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
     setEndLocation({ latitude: place.latitude, longitude: place.longitude });
@@ -264,9 +347,38 @@ export default function SearchRideScreen() {
     Keyboard.dismiss();
   };
 
+  // ── Handle selecting a saved address as START ──
+  const handleSelectSavedForStart = (place: { address: string; lat?: number; lng?: number }) => {
+    isSelectingSuggestion.current = false;
+    if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
+    if (place.lat && place.lng) {
+      setStartLocation({ latitude: place.lat, longitude: place.lng });
+    } else {
+      // No coords stored yet — just set address text so user sees it
+      setStartAddress(place.address);
+    }
+    setStartSuggestions([]);
+    setFocusedField(null);
+    Keyboard.dismiss();
+  };
+
+  // ── Handle selecting a saved address as END ──
+  const handleSelectSavedForEnd = (place: { address: string; lat?: number; lng?: number }) => {
+    isSelectingSuggestion.current = false;
+    if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
+    if (place.lat && place.lng) {
+      setEndLocation({ latitude: place.lat, longitude: place.lng });
+    } else {
+      setEndAddress(place.address);
+    }
+    setEndSuggestions([]);
+    setFocusedField(null);
+    Keyboard.dismiss();
+  };
+
   const handleOpenDatePicker = () => setShowDatePicker(true);
 
-  const handleDateChange = (event, date) => {
+  const handleDateChange = (event: any, date?: Date) => {
     if (Platform.OS === 'android') setShowDatePicker(false);
     if (date) {
       setSelectedDate(date);
@@ -274,7 +386,7 @@ export default function SearchRideScreen() {
     }
   };
 
-  const handleTimeChange = (event, time) => {
+  const handleTimeChange = (event: any, time?: Date) => {
     setShowTimePicker(false);
     if (time) {
       const combinedDateTime = new Date(selectedDate);
@@ -291,11 +403,8 @@ export default function SearchRideScreen() {
   const formatDisplayDate = () => {
     if (!dateDepart) return "Select date & time";
     return dateDepart.toLocaleDateString('en-US', {
-      weekday: 'short', 
-      month: 'short', 
-      day: 'numeric',
-      hour: '2-digit', 
-      minute: '2-digit'
+      weekday: 'short', month: 'short', day: 'numeric',
+      hour: '2-digit', minute: '2-digit',
     });
   };
 
@@ -304,26 +413,22 @@ export default function SearchRideScreen() {
       Alert.alert('Error', 'Please fill all fields');
       return;
     }
-
-   const validation = validateLocationsInAlgeria(startLocation, endLocation);
-  
-   if (!validation.valid) {
-     console.log('❌ Validation failed:', validation.message);
-    
+    const validation = validateLocationsInAlgeria(startLocation, endLocation);
+    if (!validation.valid) {
       router.push({
-       pathname: "/shared/MapScreen",
-       params: {
-         selectionType: "route",
-         rideId: "",
-         startAddress: startAddress || "Departure point",
-         endAddress: endAddress || "Destination",
-         startLat: startLocation.latitude.toString(),
-         startLng: startLocation.longitude.toString(),
-         endLat: endLocation.latitude.toString(),
-         endLng: endLocation.longitude.toString(),
+        pathname: "/shared/MapScreen",
+        params: {
+          selectionType: "route",
+          rideId: "",
+          startAddress: startAddress || "Departure point",
+          endAddress: endAddress || "Destination",
+          startLat: startLocation.latitude.toString(),
+          startLng: startLocation.longitude.toString(),
+          endLat: endLocation.latitude.toString(),
+          endLng: endLocation.longitude.toString(),
         }
       });
-     return;
+      return;
     }
     try {
       const rideData = {
@@ -335,11 +440,7 @@ export default function SearchRideScreen() {
         endAddress: endAddress || "Destination",
         departureTime: dateDepart.toISOString(),
       };
-
-      console.log('📤 Creating ride:', rideData);
       const newRide = await createRide(rideData);
-      console.log('✅ Ride created:', newRide);
-
       const preferences = {
         quiet_ride: quiet_ride ? 'yes' : 'no',
         radio_ok: radio_ok ? 'yes' : 'no',
@@ -348,7 +449,6 @@ export default function SearchRideScreen() {
         luggage_large: luggage_large ? 'yes' : 'no',
         female_driver_pref: female_driver_pref ? 'yes' : 'no',
       };
-
       await AsyncStorage.setItem('tripRequest', JSON.stringify({
         rideId: newRide.id,
         passengerId: newRide.passengerId || 1,
@@ -356,9 +456,6 @@ export default function SearchRideScreen() {
         startAddress: startAddress || "Departure point",
         endAddress: endAddress || "Destination",
       }));
-
-      console.log('✅ tripRequest saved to AsyncStorage');
-
       router.push({
         pathname: "/shared/MapScreen",
         params: {
@@ -368,9 +465,7 @@ export default function SearchRideScreen() {
           endAddress: endAddress || "Destination",
         }
       });
-
-    } catch (error) {
-      console.error('❌ Error creating ride:', error);
+    } catch (error: any) {
       let errorMessage = 'Unable to create your request. Please try again.';
       if (error.response?.data?.message) errorMessage = error.response.data.message;
       else if (error.message) errorMessage = error.message;
@@ -378,14 +473,18 @@ export default function SearchRideScreen() {
     }
   };
 
-  const isFormValid = () => {
-    return startLocation && endLocation && dateDepart && !loadingStart && !loadingEnd && !rideLoading;
-  };
+  const isFormValid = () => startLocation && endLocation && dateDepart && !loadingStart && !loadingEnd && !rideLoading;
+
+  // ── Whether to show saved places (only when query is empty) ──
+  const hasSavedPlaces = savedAddresses.home || savedAddresses.work || savedAddresses.other || customPlaces.length > 0;
+  const showSavedForStart = focusedField === 'start' && startQuery.length === 0 && hasSavedPlaces;
+  const showSavedForEnd   = focusedField === 'destination' && endQuery.length === 0 && hasSavedPlaces;
 
   return (
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
       <Text style={styles.title}>Book a Ride</Text>
 
+      {/* ── FROM FIELD ── */}
       <View style={styles.fieldContainer}>
         <View style={styles.inputContainer}>
           {loadingStart ? (
@@ -417,6 +516,22 @@ export default function SearchRideScreen() {
 
         {focusedField === 'start' && (
           <View style={styles.optionsContainer}>
+
+            {/* ── SAVED PLACES (shown only when search is empty) ── */}
+            {showSavedForStart && (
+              <SavedPlacesSection
+                savedAddresses={savedAddresses}
+                customPlaces={customPlaces}
+                onSelect={handleSelectSavedForStart}
+              />
+            )}
+
+            {/* ── DIVIDER between saved & options if saved visible ── */}
+            {showSavedForStart && (
+              <View style={{ height: 1, backgroundColor: '#F0F0F0', marginVertical: 6 }} />
+            )}
+
+            {/* ── FIXED OPTIONS ── */}
             <TouchableOpacity style={styles.optionButton} onPress={handleCurrentPosition} activeOpacity={0.7}>
               <Ionicons name="location" size={20} color="#000" style={styles.optionIcon} />
               <Text style={styles.optionText}>Current position</Text>
@@ -425,6 +540,8 @@ export default function SearchRideScreen() {
               <Ionicons name="map-outline" size={20} color="#000" style={styles.optionIcon} />
               <Text style={styles.optionText}>Set on map</Text>
             </TouchableOpacity>
+
+            {/* ── AUTOCOMPLETE RESULTS ── */}
             {loadingStartSuggestions && <ActivityIndicator style={{ marginTop: 10 }} />}
             {startSuggestions.length > 0 && (
               <View style={styles.suggestionsContainer}>
@@ -442,6 +559,7 @@ export default function SearchRideScreen() {
         )}
       </View>
 
+      {/* ── WHERE TO FIELD ── */}
       <View style={styles.fieldContainer}>
         <View style={styles.inputContainer}>
           {loadingEnd ? (
@@ -473,10 +591,27 @@ export default function SearchRideScreen() {
 
         {focusedField === 'destination' && (
           <View style={styles.optionsContainer}>
+
+            {/* ── SAVED PLACES ── */}
+            {showSavedForEnd && (
+              <SavedPlacesSection
+                savedAddresses={savedAddresses}
+                customPlaces={customPlaces}
+                onSelect={handleSelectSavedForEnd}
+              />
+            )}
+
+            {showSavedForEnd && (
+              <View style={{ height: 1, backgroundColor: '#F0F0F0', marginVertical: 6 }} />
+            )}
+
+            {/* ── FIXED OPTIONS ── */}
             <TouchableOpacity style={styles.optionButton} onPressIn={handleSetOnMapEnd} activeOpacity={0.7}>
               <Ionicons name="map-outline" size={20} color="#000" style={styles.optionIcon} />
               <Text style={styles.optionText}>Set on map</Text>
             </TouchableOpacity>
+
+            {/* ── AUTOCOMPLETE RESULTS ── */}
             {loadingEndSuggestions && <ActivityIndicator style={{ marginTop: 10 }} />}
             {endSuggestions.length > 0 && (
               <View style={styles.suggestionsContainer}>
@@ -494,6 +629,7 @@ export default function SearchRideScreen() {
         )}
       </View>
 
+      {/* ── DATE & TIME ── */}
       <TouchableOpacity style={styles.dateTimeButton} onPress={handleOpenDatePicker} activeOpacity={0.7}>
         <Ionicons name="calendar-outline" size={24} color="#6B46C1" />
         <Text style={[styles.dateTimeText, dateDepart && styles.dateTimeTextSelected]}>
@@ -501,13 +637,14 @@ export default function SearchRideScreen() {
         </Text>
       </TouchableOpacity>
 
+      {/* ── PREFERENCES ── */}
       <Text style={styles.sectionTitle}>Your Preferences</Text>
       {[
-        { label: 'Quiet ride', value: quiet_ride, setter: setQuietRide },
-        { label: 'Radio OK', value: radio_ok, setter: setRadioOk },
-        { label: 'Smoking allowed', value: smoking_ok, setter: setSmokingOk },
-        { label: 'Pets allowed', value: pets_ok, setter: setPetsOk },
-        { label: 'Large luggage', value: luggage_large, setter: setLuggageLarge },
+        { label: 'Quiet ride',            value: quiet_ride,        setter: setQuietRide },
+        { label: 'Radio OK',              value: radio_ok,          setter: setRadioOk },
+        { label: 'Smoking allowed',       value: smoking_ok,        setter: setSmokingOk },
+        { label: 'Pets allowed',          value: pets_ok,           setter: setPetsOk },
+        { label: 'Large luggage',         value: luggage_large,     setter: setLuggageLarge },
         { label: 'Female driver preferred', value: female_driver_pref, setter: setFemaleDriverPref },
       ].map(({ label, value, setter }) => (
         <View key={label} style={styles.preferenceRow}>
@@ -518,6 +655,7 @@ export default function SearchRideScreen() {
         </View>
       ))}
 
+      {/* ── DATE / TIME PICKERS ── */}
       {Platform.OS === 'ios' && showDatePicker && (
         <Modal transparent animationType="slide" visible={showDatePicker}>
           <View style={styles.modalOverlay}>
@@ -555,6 +693,7 @@ export default function SearchRideScreen() {
         <DateTimePicker value={selectedDate} mode="time" display="default" onChange={handleTimeChange} />
       )}
 
+      {/* ── SUBMIT ── */}
       <TouchableOpacity
         style={[styles.rideRequestButton, !isFormValid() && styles.disabled]}
         disabled={!isFormValid()}
@@ -687,4 +826,30 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   disabled: { backgroundColor: "#CCC", opacity: 0.6 },
+  // ── Saved places ──
+  savedSection:      { marginBottom: 4 },
+  savedSectionTitle: { fontSize: 11, fontWeight: '700', color: '#999', textTransform: 'uppercase', letterSpacing: 0.6, marginBottom: 8, paddingHorizontal: 4 },
+
+  chipsRow: { marginBottom: 10 },
+  chip: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#F0F0F0', borderRadius: 20,
+    paddingHorizontal: 12, paddingVertical: 7,
+    marginRight: 8, borderWidth: 1, borderColor: '#E5E7EB',
+  },
+  chipText: { fontSize: 13, fontWeight: '600', color: '#111', maxWidth: 90 },
+
+  savedRow: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#FFF', borderRadius: 10,
+    paddingHorizontal: 12, paddingVertical: 11,
+    marginBottom: 6,
+  },
+  savedRowIcon: {
+    width: 34, height: 34, borderRadius: 17,
+    backgroundColor: '#111',
+    alignItems: 'center', justifyContent: 'center', marginRight: 12,
+  },
+  savedRowLabel:   { fontSize: 14, fontWeight: '700', color: '#111' },
+  savedRowAddress: { fontSize: 12, color: '#888', marginTop: 1 },
 });
