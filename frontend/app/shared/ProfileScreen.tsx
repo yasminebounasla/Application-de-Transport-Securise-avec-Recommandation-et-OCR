@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,7 @@ import {
   RefreshControl,
   Image,
 } from 'react-native';
-import { Stack, router } from 'expo-router';
+import { Stack, router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../../services/api';
@@ -21,7 +21,13 @@ export default function ProfileScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [userRole, setUserRole]     = useState(null);
 
-  useEffect(() => { loadProfile(); }, []);
+  // ✅ FIX: useFocusEffect re-fetches every time the screen comes into focus
+  // This ensures preferences are updated after returning from EditProfileScreen
+  useFocusEffect(
+    useCallback(() => {
+      loadProfile();
+    }, [])
+  );
 
   const loadProfile = async () => {
     try {
@@ -44,27 +50,39 @@ export default function ProfileScreen() {
     try {
       const response = await api.get('/drivers/me');
       const data = response.data.data;
+
+      // ✅ FIX: Support both flat and nested preferences from API
+      // If your /drivers/me returns preferences nested under data.preferences,
+      // we read from there. If flat on data, we fall back to data directly.
+      const prefs = data.preferences ?? data;
+
       setProfile({
         ...data,
         allVehicles:     data.vehicules || [],
-        talkative:       data.preferences?.talkative       ?? data.talkative,
-        radio_on:        data.preferences?.radio_on        ?? data.radio_on,
-        smoking_allowed: data.preferences?.smoking_allowed ?? data.smoking_allowed,
-        pets_allowed:    data.preferences?.pets_allowed    ?? data.pets_allowed,
-        car_big:         data.preferences?.car_big         ?? data.car_big,
-        works_morning:   data.preferences?.works_morning   ?? data.works_morning,
-        works_afternoon: data.preferences?.works_afternoon ?? data.works_afternoon,
-        works_evening:   data.preferences?.works_evening   ?? data.works_evening,
-        works_night:     data.preferences?.works_night     ?? data.works_night,
+        talkative:       prefs.talkative,
+        radio_on:        prefs.radio_on,
+        smoking_allowed: prefs.smoking_allowed,
+        pets_allowed:    prefs.pets_allowed,
+        car_big:         prefs.car_big,
+        works_morning:   prefs.works_morning,
+        works_afternoon: prefs.works_afternoon,
+        works_evening:   prefs.works_evening,
+        works_night:     prefs.works_night,
       });
-    } catch (error) { console.error('Erreur driver profile:', error); throw error; }
+    } catch (error) {
+      console.error('Erreur driver profile:', error);
+      throw error;
+    }
   };
 
   const loadPassengerProfile = async () => {
     try {
       const response = await api.get('/passengers/me');
       setProfile(response.data.data);
-    } catch (error) { console.error('Erreur passenger profile:', error); throw error; }
+    } catch (error) {
+      console.error('Erreur passenger profile:', error);
+      throw error;
+    }
   };
 
   const handleRefresh = async () => {
@@ -78,7 +96,10 @@ export default function ProfileScreen() {
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Logout', style: 'destructive',
-        onPress: async () => { await AsyncStorage.clear(); router.replace('/'); },
+        onPress: async () => {
+          await AsyncStorage.clear();
+          router.replace('/');
+        },
       },
     ]);
   };
@@ -120,10 +141,15 @@ export default function ProfileScreen() {
             {/* Avatar — tap → edit */}
             <TouchableOpacity onPress={goToEdit} activeOpacity={0.8}>
               {profile.photoUrl ? (
-                <Image source={{ uri: profile.photoUrl }}
-                  style={{ width: 80, height: 80, borderRadius: 40 }} />
+                <Image
+                  source={{ uri: profile.photoUrl }}
+                  style={{ width: 80, height: 80, borderRadius: 40 }}
+                />
               ) : (
-                <View style={{ width: 80, height: 80, borderRadius: 40, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+                <View style={{
+                  width: 80, height: 80, borderRadius: 40, backgroundColor: '#000',
+                  alignItems: 'center', justifyContent: 'center',
+                }}>
                   <Ionicons name="person" size={40} color="#FFF" />
                 </View>
               )}
@@ -147,7 +173,10 @@ export default function ProfileScreen() {
                   <TouchableOpacity
                     onPress={() => router.push('/driver/MyFeedbacksScreen')}
                     activeOpacity={0.7}
-                    style={{ flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#F3F4F6', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20 }}
+                    style={{
+                      flexDirection: 'row', alignItems: 'center', gap: 3,
+                      backgroundColor: '#F3F4F6', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20,
+                    }}
                   >
                     <Ionicons name="star" size={13} color="#111" />
                     <Text style={{ fontSize: 13, fontWeight: '700', color: '#111' }}>
@@ -155,10 +184,13 @@ export default function ProfileScreen() {
                     </Text>
                   </TouchableOpacity>
                 )}
-                {/* ✅ Settings icon in circle — inline with name */}
+                {/* Settings icon */}
                 <TouchableOpacity
                   onPress={() => Alert.alert('Coming Soon', 'Settings will be available soon')}
-                  style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' }}
+                  style={{
+                    width: 34, height: 34, borderRadius: 17, backgroundColor: '#F3F4F6',
+                    alignItems: 'center', justifyContent: 'center',
+                  }}
                   activeOpacity={0.7}
                 >
                   <Ionicons name="settings-outline" size={18} color="#111" />
@@ -174,7 +206,10 @@ export default function ProfileScreen() {
                 <Text style={{ fontSize: 13, color: '#777' }} numberOfLines={1}>{profile.email}</Text>
               </View>
 
-              <View style={{ marginTop: 8, alignSelf: 'flex-start', backgroundColor: '#111', paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20 }}>
+              <View style={{
+                marginTop: 8, alignSelf: 'flex-start', backgroundColor: '#111',
+                paddingHorizontal: 10, paddingVertical: 3, borderRadius: 20,
+              }}>
                 <Text style={{ fontSize: 11, fontWeight: '700', color: '#fff', textTransform: 'uppercase', letterSpacing: 0.5 }}>
                   {userRole === 'driver' ? 'Driver' : 'Passenger'}
                 </Text>
@@ -190,8 +225,11 @@ export default function ProfileScreen() {
           <PassengerStats profile={profile} />
         )}
 
-        {/* ── PREFERENCES — always visible, no collapse ── */}
-        <View style={{ backgroundColor: '#fff', marginHorizontal: 16, marginVertical: 8, borderRadius: 16, borderWidth: 1, borderColor: '#F0F0F0', overflow: 'hidden' }}>
+        {/* ── PREFERENCES ── */}
+        <View style={{
+          backgroundColor: '#fff', marginHorizontal: 16, marginVertical: 8,
+          borderRadius: 16, borderWidth: 1, borderColor: '#F0F0F0', overflow: 'hidden',
+        }}>
           <View style={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 }}>
             <Text style={{ fontSize: 16, fontWeight: '800', color: '#111' }}>Preferences</Text>
           </View>
@@ -203,8 +241,6 @@ export default function ProfileScreen() {
             )}
           </View>
         </View>
-
-
 
         <View style={{ height: 32 }} />
       </ScrollView>
@@ -219,7 +255,10 @@ function DriverStats({ profile }) {
   const completedRides = stats.completedRides || 0;
 
   return (
-    <View style={{ backgroundColor: '#fff', padding: 16, margin: 16, borderRadius: 16, borderWidth: 1, borderColor: '#F0F0F0' }}>
+    <View style={{
+      backgroundColor: '#fff', padding: 16, margin: 16,
+      borderRadius: 16, borderWidth: 1, borderColor: '#F0F0F0',
+    }}>
       <View style={{ flexDirection: 'row', justifyContent: 'space-around' }}>
         <View style={{ alignItems: 'center', flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -246,7 +285,10 @@ function PassengerStats({ profile }) {
   const totalRides = profile.stats?.totalRides || 0;
 
   return (
-    <View style={{ backgroundColor: '#fff', padding: 16, margin: 16, borderRadius: 16, borderWidth: 1, borderColor: '#F0F0F0' }}>
+    <View style={{
+      backgroundColor: '#fff', padding: 16, margin: 16,
+      borderRadius: 16, borderWidth: 1, borderColor: '#F0F0F0',
+    }}>
       <View style={{ flexDirection: 'row' }}>
         <View style={{ alignItems: 'center', flex: 1 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -284,10 +326,14 @@ function DriverPreferencesContent({ profile }) {
     { icon: 'moon-outline',         label: 'Evening (6pm–10pm)',   value: profile.works_evening },
     { icon: 'cloudy-night-outline', label: 'Night (10pm–6am)',     value: profile.works_night },
   ];
+
   return (
     <>
       {preferences.map((pref, i) => <PreferenceRow key={i} {...pref} />)}
-      <Text style={{ fontSize: 12, fontWeight: '700', color: '#999', marginTop: 14, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+      <Text style={{
+        fontSize: 12, fontWeight: '700', color: '#999',
+        marginTop: 14, marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5,
+      }}>
         Working Hours
       </Text>
       {workingHours.map((hour, i) => <PreferenceRow key={i} {...hour} />)}
@@ -310,12 +356,18 @@ function PassengerPreferencesContent({ profile }) {
 // ==================== PREFERENCE ROW ====================
 function PreferenceRow({ icon, label, value }) {
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: '#F5F5F5' }}>
+    <View style={{
+      flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+      paddingVertical: 11, borderBottomWidth: 1, borderBottomColor: '#F5F5F5',
+    }}>
       <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
         <Ionicons name={icon} size={18} color="#666" />
         <Text style={{ marginLeft: 10, fontSize: 14, color: '#374151' }}>{label}</Text>
       </View>
-      <View style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, backgroundColor: value ? '#D1FAE5' : '#F3F4F6' }}>
+      <View style={{
+        paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20,
+        backgroundColor: value ? '#D1FAE5' : '#F3F4F6',
+      }}>
         <Text style={{ fontSize: 11, fontWeight: '700', color: value ? '#065F46' : '#6B7280' }}>
           {value ? 'YES' : 'NO'}
         </Text>

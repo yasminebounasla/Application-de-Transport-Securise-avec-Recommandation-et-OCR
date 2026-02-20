@@ -22,7 +22,7 @@ import type { KeyboardTypeOptions } from 'react-native';
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 
 // ─────────────────────────────────────────────
-// AUTO-DISMISS TOAST — no OK button needed
+// AUTO-DISMISS TOAST
 // ─────────────────────────────────────────────
 function Toast({ visible }: { visible: boolean }) {
   const opacity = useRef(new Animated.Value(0)).current;
@@ -89,14 +89,18 @@ function ToggleField({ label, icon, value, onValueChange }: {
         <Ionicons name={icon} size={18} color="#555" style={{ marginRight: 10 }} />
         <Text style={styles.toggleLabel}>{label}</Text>
       </View>
-      <Switch value={!!value} onValueChange={onValueChange}
-        trackColor={{ false: '#E5E7EB', true: '#111' }} thumbColor="#fff" />
+      <Switch
+        value={!!value}
+        onValueChange={onValueChange}
+        trackColor={{ false: '#E5E7EB', true: '#111' }}
+        thumbColor="#fff"
+      />
     </View>
   );
 }
 
 // ─────────────────────────────────────────────
-// GENDER — 'M' or 'F' only (Prisma expects this)
+// GENDER SELECTOR
 // ─────────────────────────────────────────────
 function GenderSelector({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   return (
@@ -136,7 +140,7 @@ export default function EditProfileScreen() {
   const [email, setEmail]   = useState('');
   const [numTel, setNumTel] = useState('');
   const [age, setAge]       = useState('');
-  const [sexe, setSexe]     = useState('M'); // ✅ always 'M' or 'F'
+  const [sexe, setSexe]     = useState('M');
 
   const [talkative, setTalkative]             = useState(false);
   const [radio_on, setRadioOn]               = useState(false);
@@ -161,12 +165,12 @@ export default function EditProfileScreen() {
       setNumTel(d.numTel || '');
       setAge(d.age ? String(d.age) : '');
 
-      // ✅ Normalize whatever comes from API → 'M' or 'F'
       const raw = (d.sexe || '').toString().trim().toUpperCase();
       setSexe(raw === 'F' || raw === 'FEMALE' ? 'F' : 'M');
 
       if (isDriver) {
-        const p = d.preferences ?? d; // support both nested & flat
+        // ✅ FIX: Support both nested preferences object and flat fields on driver
+        const p = d.preferences ?? d;
         setTalkative(!!p.talkative);
         setRadioOn(!!p.radio_on);
         setSmokingAllowed(!!p.smoking_allowed);
@@ -185,11 +189,26 @@ export default function EditProfileScreen() {
     }
   };
 
+  // ✅ FIX: updateUser is now a proper top-level function that is actually called
+  const updateUserInStorage = async (nom: string, prenom: string) => {
+    try {
+      const userStr = await AsyncStorage.getItem('user');
+      if (userStr) {
+        const u = JSON.parse(userStr);
+        await AsyncStorage.setItem('user', JSON.stringify({ ...u, nom, prenom }));
+        console.log('AsyncStorage user updated successfully!');
+      }
+    } catch (error) {
+      console.error('Failed to update AsyncStorage user:', error);
+    }
+  };
+
   const handleSave = async () => {
     if (!nom.trim() || !prenom.trim() || !numTel.trim()) {
       Alert.alert('Validation', 'Please fill in all required fields.');
       return;
     }
+
     setSaving(true);
     try {
       // 1. Save personal info
@@ -200,10 +219,11 @@ export default function EditProfileScreen() {
         age:    parseInt(age) || 0,
         sexe,
       };
+
       const profileEndpoint = isDriver ? '/drivers/profile' : '/passengers/profile';
       await api.put(profileEndpoint, profilePayload);
 
-      // 2. Save driver preferences via dedicated route
+      // 2. Save driver preferences
       if (isDriver) {
         await api.put('/drivers/preferences', {
           talkative,
@@ -218,28 +238,10 @@ export default function EditProfileScreen() {
         });
       }
 
-        
-        const updateUser = async (payload) => { 
-            try {
-             const userStr = await AsyncStorage.getItem('user');
-    
-                if (userStr) {
-                 const u = JSON.parse(userStr);
-      
-                   await AsyncStorage.setItem('user', JSON.stringify({
-                       ...u, 
-                       nom: payload.nom, 
-                       prenom: payload.prenom,
-                    }));
-      
-                 console.log("User updated successfully!");
-                }
-            } catch (error) {
-               console.error("Failed to update storage", error);
-            }
-        };
+      // ✅ FIX: Actually call the storage update (was defined but never called before)
+      await updateUserInStorage(nom.trim(), prenom.trim());
 
-      // ✅ Auto-dismiss toast — no OK button, auto back after 2.2s
+      // Show toast then go back
       setShowToast(true);
       setTimeout(() => {
         setShowToast(false);
@@ -270,7 +272,7 @@ export default function EditProfileScreen() {
         style={{ flex: 1, backgroundColor: '#F9FAFB' }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
-        {/* Custom header — replaces the native bar */}
+        {/* Custom header */}
         <View style={styles.topBar}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
             <Ionicons name="arrow-back" size={22} color="#111" />
@@ -346,12 +348,10 @@ export default function EditProfileScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* ✅ Auto-dismiss toast — no OK button */}
       <Toast visible={showToast} />
     </>
   );
 }
-
 
 const styles = StyleSheet.create({
   topBar: {
