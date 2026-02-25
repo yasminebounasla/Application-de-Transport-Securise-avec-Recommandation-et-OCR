@@ -89,7 +89,7 @@ export default function RecommendedDriversScreen() {
             
             await AsyncStorage.removeItem('tripRequest');
             
-           // router.replace('/passenger/HomeScreen');
+            router.replace('/(passengerTabs)/PassengerHomeScreen');
           }
         }
       ]
