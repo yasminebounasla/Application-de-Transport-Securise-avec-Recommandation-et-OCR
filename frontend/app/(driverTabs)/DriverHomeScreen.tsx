@@ -20,13 +20,6 @@ export default function HomeScreen() {
             variant="secondary"
             style={{ marginBottom: 12 }}
           />
-
-          <Button 
-            title="Profile"
-            onPress={() => router.push('../shared/ProfileScreen')}
-            variant="secondary"
-            style={{ marginBottom: 12 }}
-          />
           
           <Button 
           title=" My Feedbacks "
