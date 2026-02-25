@@ -33,7 +33,7 @@ const app = express();
 // --- Middleware ---
 app.use(
   cors({
-    origin: "*", 
+    origin: process.env.FRONTEND_URL, 
     credentials: true,
   })
 );
@@ -100,7 +100,7 @@ const startServer = async () => {
       🚀 SERVER IS LIVE
       -----------------------------------------
       Local:   http://localhost:${PORT}
-      Network: http://192.168.1.129:${PORT}
+      Network: ${process.env.FRONTEND_URL}
       -----------------------------------------
       If the phone fails, check Firewall/IP again.
       `);
