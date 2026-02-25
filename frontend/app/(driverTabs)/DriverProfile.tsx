@@ -57,11 +57,7 @@ export default function DriverProfileScreen() {
     setRefreshing(false);
   };
 
-  const goToEdit = () => router.push({
-    pathname: '/shared/EditprofileScreen',
-    params: { role: 'driver' },
-  });
-
+  const goToEdit = () => router.push('/driver/Editprofilescreen');
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
