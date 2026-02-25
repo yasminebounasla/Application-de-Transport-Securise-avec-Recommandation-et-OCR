@@ -50,14 +50,14 @@ export default function RideCard({ ride, onAccept, onReject, onPress, showAction
         <View style={styles.locationRow}>
           <View style={styles.dotStart} />
           <Text style={styles.locationText} numberOfLines={1}>
-            {ride.startAddress || 'Unknown location'}
+            {ride.startAddress || ride.depart || 'Unknown location'}
           </Text>
         </View>
         
         <View style={styles.locationRow}>
           <View style={styles.dotEnd} />
           <Text style={styles.locationText} numberOfLines={1}>
-            {ride.endAddress || 'Unknown destination'}
+            {ride.endAddress || ride.destination || 'Unknown destination'}
           </Text>
         </View>
       </View>
