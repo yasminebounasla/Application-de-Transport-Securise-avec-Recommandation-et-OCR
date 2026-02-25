@@ -146,6 +146,7 @@ model Trajet {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  completedAt DateTime?
 
   driver     Driver?      @relation(fields: [driverId], references: [id])
   passenger  Passenger?  @relation(fields: [passagerId], references: [id])
