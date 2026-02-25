@@ -28,7 +28,7 @@ export default function LoginPassengerScreen() {
                 [
                     {
                         text: 'OK',
-                        onPress: () => router.replace('./../../../passenger/HomeScreen'),
+                        onPress: () => router.replace('./../../../(passengerTabs)/PassengerHomeScreen'),
                     }
                 ]
             );

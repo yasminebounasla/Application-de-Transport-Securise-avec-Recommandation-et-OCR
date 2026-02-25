@@ -28,3 +28,5 @@ backend/uploads/
 
 expo-env.d.ts
 # @end expo-cli
+
+frontend/.expo/

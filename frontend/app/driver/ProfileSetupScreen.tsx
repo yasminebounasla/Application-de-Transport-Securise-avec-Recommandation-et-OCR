@@ -234,7 +234,7 @@ const handleLicensePlateChange = (text) => {
         [
           {
             text: 'OK',
-            onPress: () => router.replace('/driver/HomeScreen'),
+           // onPress: () => router.replace('/driver/HomeScreen'),
           }
         ]
       );
