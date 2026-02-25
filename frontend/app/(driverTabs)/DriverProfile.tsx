@@ -58,7 +58,7 @@ export default function DriverProfileScreen() {
   };
 
   const goToEdit = () => router.push({
-    pathname: '/shared/EditprofileScreen',
+    pathname: '../shared/EditprofileScreen',
     params: { role: 'driver' },
   });
 
@@ -133,7 +133,7 @@ export default function DriverProfileScreen() {
 
         {/* ⭐ Rating */}
         <TouchableOpacity
-          onPress={() => router.push('/driver/MyFeedbacksScreen')}
+          onPress={() => router.push('../driver/MyFeedbacksScreen')}
           activeOpacity={0.7}
           style={{
             flexDirection: 'row', alignItems: 'center', gap: 4,

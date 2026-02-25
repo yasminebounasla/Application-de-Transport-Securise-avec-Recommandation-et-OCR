@@ -12,7 +12,7 @@ export default function TabsLayout() {
         elevation: 0,
         shadowOpacity: 0
       },
-      tabBarActiveTintColor: "#6200ee",
+      tabBarActiveTintColor: "#000000",
       tabBarInactiveTintColor: "#666666"
     }}>
 
@@ -45,15 +45,15 @@ export default function TabsLayout() {
       />
 
       <Tabs.Screen  
-  name="DriverProfile" 
-  options={{
-    title: "Profile",
-    headerShown: false, 
-    tabBarIcon: ({ color, size }) => (
-      <MaterialCommunityIcons name="account" size={size} color={color} />
-    ),
-  }}
-/>
+        name="DriverProfile" 
+        options={{
+            title: "Profile",
+            headerShown: false, 
+            tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="account" size={size} color={color} />
+            ),
+        }}
+        />
 
     </Tabs>
 )}
