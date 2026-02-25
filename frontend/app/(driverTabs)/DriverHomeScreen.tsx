@@ -1,4 +1,4 @@
-import { View, ScrollView } from 'react-native';
+import { Text, View, ScrollView } from 'react-native';
 import { router } from 'expo-router';
 import Button from '../../components/Button';
 
@@ -34,6 +34,10 @@ export default function HomeScreen() {
           variant="primary"
           style={{ marginBottom: 12 }}
         />
+
+        <Text>
+          on fait un boutton de notification au header de le home screen 
+        </Text>
         
       
       </View>
