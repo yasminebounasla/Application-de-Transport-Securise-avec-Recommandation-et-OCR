@@ -45,18 +45,15 @@ export default function TabsLayout() {
       />
 
       <Tabs.Screen  
-        name="PassengerProfile" 
-        options={{
-          title : "Profile",
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons
-              name="account"
-              size={size}
-              color={color}
-            />
-          ),
-        }}
-      />
+  name="PassengerProfile" 
+  options={{
+    title: "Profile",
+    headerShown: false,  
+    tabBarIcon: ({ color, size }) => (
+      <MaterialCommunityIcons name="account" size={size} color={color} />
+    ),
+  }}
+/>
 
 
     </Tabs>

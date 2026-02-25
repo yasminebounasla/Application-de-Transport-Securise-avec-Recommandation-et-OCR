@@ -157,18 +157,7 @@ export default function Home() {
             ))}
           </View>
         </View>
-        {/* Section Profile */}
-<View style={styles.section}>
-  <Text style={styles.sectionTitle}>Mon Profil</Text>
-  <TouchableOpacity
-    style={styles.profileButton}
-    onPress={() => router.push('../shared/ProfileScreen' as any)}
-    activeOpacity={0.7}
-  >
-    <MaterialIcons name="person" size={20} color="#111" />
-    <Text style={styles.profileButtonText}>Voir mon profil</Text>
-  </TouchableOpacity>
-</View>
+  
       </ScrollView>
 
       <FeedbackModal
@@ -228,22 +217,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     textAlign: 'center',
     color: '#111',
-    fontWeight: '600',
-  },
-    profileButton: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    height: 50,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 8,
-    borderWidth: 1,
-    borderColor: '#ececec',
-  },
-  profileButtonText: {
-    color: '#111',
-    fontSize: 15,
     fontWeight: '600',
   },
 });
