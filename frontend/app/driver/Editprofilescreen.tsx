@@ -91,7 +91,7 @@ function GenderSelector({ value, onChange }: { value: string; onChange: (v: stri
 }
 
 // ── MAIN ──
-export default function DriverEditProfileScreen() {
+export default function EditProfileScreen() {
   const [activeTab, setActiveTab] = useState<Tab>('personal');
   const [loading, setLoading]     = useState(true);
   const [saving, setSaving]       = useState(false);

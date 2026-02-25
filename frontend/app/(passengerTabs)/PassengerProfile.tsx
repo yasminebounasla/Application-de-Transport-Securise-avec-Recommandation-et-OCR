@@ -42,10 +42,7 @@ export default function PassengerProfileScreen() {
     setRefreshing(false);
   };
 
-  const goToEdit = () => router.push({
-    pathname: '/shared/EditprofileScreen',
-    params: { role: 'passenger' },
-  });
+  const goToEdit = () => router.push('/passenger/EditProfileScreen');
 
   if (loading) {
     return (

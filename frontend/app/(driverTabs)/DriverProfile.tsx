@@ -57,7 +57,7 @@ export default function DriverProfileScreen() {
     setRefreshing(false);
   };
 
-  const goToEdit = () => router.push('/driver/Editprofilescreen');
+  const goToEdit = () => router.push('/driver/EditProfileScreen');
   if (loading) {
     return (
       <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
