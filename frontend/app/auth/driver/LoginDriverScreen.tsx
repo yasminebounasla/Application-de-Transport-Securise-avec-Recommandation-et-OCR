@@ -28,7 +28,7 @@ export default function LoginDriverScreen() {
                 [
                     {
                         text: 'OK',
-                        onPress: () => router.replace('./../../../driver/HomeScreen'),
+                        onPress: () => router.replace('./../../../(driverTabs)/DriverHomeScreen'),
                     }
                 ]
             );
