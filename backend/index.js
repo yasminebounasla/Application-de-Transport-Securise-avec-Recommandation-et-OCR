@@ -1,32 +1,36 @@
-import soketio from 'socket.io';
-import dotenv from 'dotenv';
-dotenv.config();  // ✅ MUST BE FIRST, before ANY other imports
+import './env.js';  // ✅ MUST BE FIRST, before ANY other imports
 
-// Now add console checks
-console.log('🔍 ENV CHECK:');
-console.log('JWT_SECRET:', process.env.JWT_SECRET ? 'LOADED ✅' : 'MISSING ❌');
-console.log('ENCRYPTION_KEY:', process.env.ENCRYPTION_KEY ? 'LOADED ✅' : 'MISSING ❌');
+import { createServer } from 'http';
+import { Server } from 'socket.io'; 
 import express from 'express';
 import cors from 'cors';
 import { prisma } from "./src/config/prisma.js"; 
+
+// Routes
 import authRoutes from './src/routes/authRoutes.js';
 import driverRoutes from './src/routes/driverRoutes.js';
 import passengerRoutes from './src/routes/passengerRoutes.js';
 import recommendationRoutes from './src/routes/recommendationRoutes.js';
 import rideRoutes from './src/routes/rideRoutes.js'; 
-import ridesDemRoutes from './src/routes/ridesDemRoutes.js'
-import { notFound, errorHandler } from "./src/middleware/errorHandler.js";
+import ridesDemRoutes from './src/routes/ridesDemRoutes.js';
 import exportRoute from './src/routes/exportRoute.js';
 import feedbackRoutes from './src/routes/feedbackRoutes.js';
-
 import verificationRoutes from './src/routes/verificationRoutes.js';
 
-dotenv.config();
+// Middleware
+import { notFound, errorHandler } from "./src/middleware/errorHandler.js";
+
+
+// Console check des variables d'environnement
+console.log('🔍 ENV CHECK:');
+console.log('JWT_SECRET:', process.env.JWT_SECRET ? 'LOADED ✅' : 'MISSING ❌');
+console.log('ENCRYPTION_KEY:', process.env.ENCRYPTION_KEY ? 'LOADED ✅' : 'MISSING ❌');
+
 
 const PORT = process.env.PORT || 4040;
 const app = express();
 
-// Middleware
+// --- Middleware ---
 app.use(
   cors({
     origin: "*", 
@@ -36,15 +40,17 @@ app.use(
 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
-// Dans ton backend/index.js, juste après app.use(cors(...))
+
+// Logger pour toutes les requêtes
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] 📢 ${req.method} ${req.url}`);
   console.log(`📦 Payload Size: ${req.headers['content-length'] || 'unknown'} bytes`);
   next();
 });
-// Sample route
+
+// --- Routes ---
 app.get('/', (req, res) => {
-  res.json({ message: "the server is running!" });
+  res.json({ message: "The server is running!" });
 });
 
 app.use("/api/auth", authRoutes);
@@ -55,38 +61,41 @@ app.use("/api/drivers", driverRoutes);
 app.use("/api/passengers", passengerRoutes);
 app.use("/api/export", exportRoute);
 app.use("/api/feedback", feedbackRoutes);
-
-app.use("/api/verification", verificationRoutes); 
-
-
+app.use("/api/verification", verificationRoutes);
 
 // Error Handling Middleware
 app.use(notFound);
 app.use(errorHandler);
 
-
-// const startServer = async () => {
-//   try {
-//     await prisma.$connect();
-//     console.log("✅ Database connected");
-    
-//     app.listen(PORT, () => {
-//       console.log(`🚀 Server running at http://localhost:${PORT}`);
-//     });
-//   } catch (error) {
-//     console.error("❌ Failed to connect to the database");
-//     console.error(error);
-//     process.exit(1);
-//   }
-// };
-// --- UPDATED LISTEN BLOCK ---
+// --- Start Server avec Socket.IO ---
 const startServer = async () => {
   try {
     await prisma.$connect();
     console.log("✅ Database connected");
-    
-    // Listening on '0.0.0.0' allows external devices (phones) to connect
-    app.listen(PORT, '0.0.0.0', () => {
+
+    // Crée le serveur HTTP à partir de Express
+    const httpServer = createServer(app);
+
+    // --- Socket.IO setup ---
+    const io = new Server(httpServer, {
+      cors: { origin: "*" }, // ou ton front si tu veux restreindre
+    });
+
+    io.on("connection", (socket) => {
+      console.log("🔌 Client connecté :", socket.id);
+
+      // Exemple : émission et réception de notification
+      socket.on("sendNotification", (data) => {
+        io.emit("receiveNotification", data);
+      });
+
+      socket.on("disconnect", () => {
+        console.log("❌ Client déconnecté :", socket.id);
+      });
+    });
+
+    // Lancer le serveur
+    httpServer.listen(PORT, '0.0.0.0', () => {
       console.log(`
       🚀 SERVER IS LIVE
       -----------------------------------------
@@ -96,9 +105,11 @@ const startServer = async () => {
       If the phone fails, check Firewall/IP again.
       `);
     });
+
   } catch (error) {
     console.error("❌ Database connection failed", error);
     process.exit(1);
   }
 };
+
 startServer();
