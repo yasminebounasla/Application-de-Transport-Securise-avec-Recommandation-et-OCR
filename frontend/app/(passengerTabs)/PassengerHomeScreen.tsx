@@ -105,17 +105,17 @@ export default function Home() {
     {
       label: 'Demander un trajet',
       icon: 'add-road',
-      onPress: () => router.push('/passenger/DemandeTrajetScreen' as any),
+      onPress: () => router.push('../passenger/DemandeTrajetScreen'),
     },
     {
       label: 'Chauffeurs recommandés',
       icon: 'groups',
-      onPress: () => router.push('/passenger/RecommendedDriversScreen' as any),
+      onPress: () => router.push('../passenger/RecommendedDriversScreen'),
     },
     {
       label: 'Historique',
       icon: 'history',
-      onPress: () => router.push('/passenger/HistoryScreen' as any),
+      onPress: () => router.push('../passenger/HistoryScreen'),
     },
   ];
 
@@ -124,7 +124,7 @@ export default function Home() {
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
         <TouchableOpacity
           style={styles.searchButton}
-          onPress={() => router.push('/passenger/SearchRideScreen' as any)}
+          onPress={() => router.push('../passenger/SearchRideScreen' as any)}
         >
           <MaterialIcons name="search" size={22} color="#fff" />
           <Text style={styles.searchButtonText}>Rechercher un trajet</Text>
@@ -162,7 +162,7 @@ export default function Home() {
   <Text style={styles.sectionTitle}>Mon Profil</Text>
   <TouchableOpacity
     style={styles.profileButton}
-    onPress={() => router.push('/shared/ProfileScreen' as any)}
+    onPress={() => router.push('../shared/ProfileScreen' as any)}
     activeOpacity={0.7}
   >
     <MaterialIcons name="person" size={20} color="#111" />

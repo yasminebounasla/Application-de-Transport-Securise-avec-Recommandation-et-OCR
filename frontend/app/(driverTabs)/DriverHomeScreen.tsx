@@ -10,27 +10,27 @@ export default function HomeScreen() {
 
         <Button 
           title=" Ride Requests "
-          onPress={() => router.push('/driver/RideRequestsScreen')}
+          onPress={() => router.push('../driver/RideRequestsScreen')}
           variant="primary"
           style={{ marginBottom: 12 }}
         />
         <Button 
             title="ProfileSetup"
-            onPress={() => router.push('/driver/ProfileSetupScreen')}
+            onPress={() => router.push('../driver/ProfileSetupScreen')}
             variant="secondary"
             style={{ marginBottom: 12 }}
           />
 
           <Button 
             title="Profile"
-            onPress={() => router.push('/shared/ProfileScreen')}
+            onPress={() => router.push('../shared/ProfileScreen')}
             variant="secondary"
             style={{ marginBottom: 12 }}
           />
           
           <Button 
           title=" My Feedbacks "
-          onPress={() => router.push('/driver/MyFeedbacksScreen')}
+          onPress={() => router.push('../driver/MyFeedbacksScreen')}
           variant="primary"
           style={{ marginBottom: 12 }}
         />
