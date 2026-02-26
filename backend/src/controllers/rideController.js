@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { getIO } from '../socket/socket';
+import { getIO } from '../socket/socket.js';
 
 const prisma = new PrismaClient();
 
@@ -483,7 +483,7 @@ export const cancelRide = async (req, res) => {
 
     // Notifier driver si le trajet avait été accepté
     const io = getIO();
-    
+
     if (updatedRide.driver) {
       io.to(updatedRide.driver.id).emit('rideCancelledByPassenger', {
         rideId: updatedRide.id,

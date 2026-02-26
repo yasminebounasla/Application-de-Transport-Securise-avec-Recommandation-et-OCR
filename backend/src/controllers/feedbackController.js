@@ -1,5 +1,5 @@
 import { prisma } from "../config/prisma.js";
-import { getIO } from "../config/socket.js";
+import { getIO } from "../socket/socket.js";
 
 // Soumettre un feedback
 export const submitFeedback = async (req, res) => {
