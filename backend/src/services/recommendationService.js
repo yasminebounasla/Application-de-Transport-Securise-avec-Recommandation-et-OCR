@@ -3,6 +3,7 @@ import axios from "axios";
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || "http://localhost:8000";
 
 export const getRecommendations = async (passenger_id, preferences) => {
+   console.log("ML_SERVICE_URL:", ML_SERVICE_URL);
   try {
     
     //connexion au service de recommandation ML
