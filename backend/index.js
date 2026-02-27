@@ -8,8 +8,11 @@ import app from "./app.js";
 console.log('🔍 ENV CHECK:');
 console.log('JWT_SECRET:', process.env.JWT_SECRET ? 'LOADED ✅' : 'MISSING ❌');
 console.log('ENCRYPTION_KEY:', process.env.ENCRYPTION_KEY ? 'LOADED ✅' : 'MISSING ❌');
+<<<<<<< HEAD
 
 import os from 'os';
+=======
+>>>>>>> 17a41a3c1a5e8ae1f360fa8e2049fe9ed18a439e
 
 const PORT = process.env.PORT || 4040;
 
@@ -23,6 +26,7 @@ const startServer = async () => {
     // Initialise Socket.IO proprement
     initSocket(httpServer);
 
+<<<<<<< HEAD
     // Discover local IPv4 addresses for clearer instructions
     const nets = os.networkInterfaces();
     const addresses = [];
@@ -45,6 +49,15 @@ const startServer = async () => {
       }
       console.log('-----------------------------------------');
       console.log('If the phone fails to connect, check Windows Firewall and ensure this port is allowed.');
+=======
+    httpServer.listen(PORT, "0.0.0.0", () => {
+      console.log(`
+      🚀 SERVER IS LIVE
+      -----------------------------------------
+      Local:   http://localhost:${PORT}
+      -----------------------------------------
+      `);
+>>>>>>> 17a41a3c1a5e8ae1f360fa8e2049fe9ed18a439e
     });
 
   } catch (error) {
