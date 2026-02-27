@@ -1,12 +1,16 @@
+import './env.js';  // MUST BE FIRST
 
-import dotenv from 'dotenv';
-dotenv.config();  // ✅ MUST BE FIRST, before ANY other imports
+import { createServer } from 'http';
+import { prisma } from "./src/config/prisma.js";
+import { initSocket } from "./src/socket/socket.js";
+import app from "./app.js";
 
-// Now add console checks
 console.log('🔍 ENV CHECK:');
 console.log('JWT_SECRET:', process.env.JWT_SECRET ? 'LOADED ✅' : 'MISSING ❌');
 console.log('ENCRYPTION_KEY:', process.env.ENCRYPTION_KEY ? 'LOADED ✅' : 'MISSING ❌');
+<<<<<<< HEAD
 import express from 'express';
+import os from 'os';
 import cors from 'cors';
 import { prisma } from "./src/config/prisma.js"; 
 import authRoutes from './src/routes/authRoutes.js';
@@ -22,83 +26,61 @@ import feedbackRoutes from './src/routes/feedbackRoutes.js';
 import verificationRoutes from './src/routes/verificationRoutes.js';
 
 dotenv.config();
+=======
+>>>>>>> 65c1b12aa6e20dbfbacfa899a22b76db9a325340
 
 const PORT = process.env.PORT || 4040;
-const app = express();
 
-// Middleware
-app.use(
-  cors({
-    origin: "*", 
-    credentials: true,
-  })
-);
-
-app.use(express.json({ limit: '50mb' }));
-app.use(express.urlencoded({ limit: '50mb', extended: true }));
-// Dans ton backend/index.js, juste après app.use(cors(...))
-app.use((req, res, next) => {
-  console.log(`[${new Date().toISOString()}] 📢 ${req.method} ${req.url}`);
-  console.log(`📦 Payload Size: ${req.headers['content-length'] || 'unknown'} bytes`);
-  next();
-});
-// Sample route
-app.get('/', (req, res) => {
-  res.json({ message: "the server is running!" });
-});
-
-app.use("/api/auth", authRoutes);
-app.use("/api/driver", recommendationRoutes);
-app.use("/api/ride", rideRoutes);
-app.use("/api/ridesDem", ridesDemRoutes);
-app.use("/api/drivers", driverRoutes);
-app.use("/api/passengers", passengerRoutes);
-app.use("/api/export", exportRoute);
-app.use("/api/feedback", feedbackRoutes);
-
-app.use("/api/verification", verificationRoutes); 
-
-
-
-// Error Handling Middleware
-app.use(notFound);
-app.use(errorHandler);
-
-
-// const startServer = async () => {
-//   try {
-//     await prisma.$connect();
-//     console.log("✅ Database connected");
-    
-//     app.listen(PORT, () => {
-//       console.log(`🚀 Server running at http://localhost:${PORT}`);
-//     });
-//   } catch (error) {
-//     console.error("❌ Failed to connect to the database");
-//     console.error(error);
-//     process.exit(1);
-//   }
-// };
-// --- UPDATED LISTEN BLOCK ---
 const startServer = async () => {
   try {
     await prisma.$connect();
     console.log("✅ Database connected");
+<<<<<<< HEAD
     
     // Listening on '0.0.0.0' allows external devices (phones) to connect
     app.listen(PORT, '0.0.0.0', () => {
+      // discover local IPv4 addresses for clearer instructions
+      const nets = os.networkInterfaces();
+      const addresses = [];
+      for (const name of Object.keys(nets)) {
+        for (const net of nets[name]) {
+          if (net.family === 'IPv4' && !net.internal) {
+            addresses.push(net.address);
+          }
+        }
+      }
+
+      console.log('\n🚀 SERVER IS LIVE');
+      console.log('-----------------------------------------');
+      console.log(`Local:   http://localhost:${PORT}`);
+      if (addresses.length) {
+        addresses.forEach((a) => console.log(`Network: http://${a}:${PORT}`));
+      } else {
+        console.log(`Network: (no non-internal IPv4 found)`);
+      }
+      console.log('-----------------------------------------');
+      console.log('If the phone fails to connect, check Windows Firewall and ensure this port is allowed.');
+=======
+
+    const httpServer = createServer(app);
+
+    // Initialise Socket.IO proprement
+    initSocket(httpServer);
+
+    httpServer.listen(PORT, "0.0.0.0", () => {
       console.log(`
       🚀 SERVER IS LIVE
       -----------------------------------------
       Local:   http://localhost:${PORT}
-      Network: http://192.168.1.129:${PORT}
       -----------------------------------------
-      If the phone fails, check Firewall/IP again.
       `);
+>>>>>>> 65c1b12aa6e20dbfbacfa899a22b76db9a325340
     });
+
   } catch (error) {
     console.error("❌ Database connection failed", error);
     process.exit(1);
   }
 };
+
 startServer();

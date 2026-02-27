@@ -15,10 +15,8 @@ import { formatDuration, formatDistance } from "../../utils/formatUtils";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from '@expo/vector-icons';
 import api from "../../services/api";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { calculatePrice }   from "../../utils/priceCalculator";
 
-
-const SAVED_ADDRESSES_KEY = 'saved_addresses';
 
 function LocationNotSupported({ onTryAnother }) {
   return (
@@ -84,8 +82,11 @@ export default function MapScreen() {
   const [routeCoordinates, setRouteCoordinates] = useState([]);
   const [loadingRoute, setLoadingRoute] = useState(false);
   const [isValidRoute, setIsValidRoute] = useState(true);
-  const [routeDistance, setRouteDistance] = useState(null);
-  const [routeDuration, setRouteDuration] = useState(null);
+  const [routeDistance, setRouteDistance] = useState<number | null>(null);
+  const [routeDuration, setRouteDuration] = useState<number | null>(null);
+
+  // ── Prix estimé ─────────────────────────────
+  const [estimatedPrice, setEstimatedPrice] = useState<number | null>(null);
 
   const [showLocationError, setShowLocationError] = useState(false);
 
@@ -110,7 +111,6 @@ export default function MapScreen() {
       if (startLatNum && startLngNum && endLatNum && endLngNum) {
         const start = { latitude: startLatNum, longitude: startLngNum };
         const end = { latitude: endLatNum, longitude: endLngNum };
-        
         setStartLocation(start);
         setEndLocation(end);
       }
@@ -144,6 +144,7 @@ export default function MapScreen() {
       setRouteCoordinates([]);
       setRouteDistance(null);
       setRouteDuration(null);
+      setEstimatedPrice(null);
       setShowLocationError(true);
       centerMapOnMarkers();
       return;
@@ -168,8 +169,16 @@ export default function MapScreen() {
           longitude: lng,
         }));
         setRouteCoordinates(coords);
-        setRouteDistance(parseFloat(data.distanceKm));
-        setRouteDuration(parseInt(data.durationMin, 10));
+
+        const distKm  = parseFloat(data.distanceKm);
+        const durMin  = parseInt(data.durationMin, 10);
+
+        setRouteDistance(distKm);
+        setRouteDuration(durMin);
+
+        // ── Calcul du prix juste après avoir obtenu distance + durée ──
+        const { price } = calculatePrice(distKm, durMin);
+        setEstimatedPrice(price);
 
         if (mapRef.current && coords.length > 0) {
           mapRef.current.fitToCoordinates(coords, {
@@ -228,36 +237,27 @@ export default function MapScreen() {
     router.back();
   };
 
-  // ── Confirm for saved_address mode ─────────
   const handleConfirmSavedAddress = async () => {
     if (!selectedLocation || !selectedAddress) return;
     setSavingAddress(true);
     try {
-      const raw = await AsyncStorage.getItem(SAVED_ADDRESSES_KEY);
-      const existing = raw ? JSON.parse(raw) : { addresses: { home: null, work: null, other: null }, custom: [] };
+      const label   = targetLabel || 'Saved place';
+      const lat     = selectedLocation.latitude;
+      const lng     = selectedLocation.longitude;
+      const address = selectedAddress;
 
-      const place = { address: selectedAddress, lat: selectedLocation.latitude, lng: selectedLocation.longitude };
+      const listRes = await api.get('/passengers/saved-places');
+      const existing = (listRes.data.data || []).find(
+        (p) => p.label.toLowerCase() === label.toLowerCase()
+      );
 
-      if (targetKey === 'new') {
-        // Add as custom place
-        const newEntry = { ...place, name: 'Saved place', id: Date.now().toString() };
-        existing.custom = [...(existing.custom || []), newEntry];
-      } else if (targetKey?.startsWith('custom_')) {
-        // Update existing custom
-        const id = targetKey.replace('custom_', '');
-        existing.custom = (existing.custom || []).map(p =>
-          p.id === id ? { ...p, ...place } : p
-        );
+      if (existing) {
+        await api.put(`/passengers/saved-places/${existing.id}`, { label, address, lat, lng });
       } else {
-        // home / work / other
-        existing.addresses = {
-          ...existing.addresses,
-          [targetKey]: { name: targetLabel, address: selectedAddress, lat: selectedLocation.latitude, lng: selectedLocation.longitude },
-        };
+        await api.post('/passengers/saved-places', { label, address, lat, lng });
       }
 
-    await AsyncStorage.setItem(SAVED_ADDRESSES_KEY, JSON.stringify(existing));
-      router.back(); // SavedPlacesScreen reloads via useFocusEffect
+      router.back();
     } catch (e) {
       console.error("❌ Error saving address:", e);
       Alert.alert("Error", "Failed to save address. Please try again.");
@@ -265,8 +265,6 @@ export default function MapScreen() {
       setSavingAddress(false);
     }
   };
-
-  
 
   const handleCancelRide = () => {
     if (!rideId) {
@@ -284,7 +282,6 @@ export default function MapScreen() {
           style: "destructive",
           onPress: async () => {
             try {
-              console.log('🔄 Cancelling ride ID:', rideId);
               const response = await api.put(`/ridesDem/${rideId}/cancel`);
               console.log(`✅ Ride ${rideId} cancelled`, response.data);
             } catch (error) {
@@ -321,9 +318,8 @@ export default function MapScreen() {
   };
 
   if (!currentLocation) return null;
-   // ════════════════════════════════════════════
-  // MODE: saved_address  (new mode)
-  // ════════════════════════════════════════════
+
+  // ── MODE: saved_address ──────────────────────
   if (selectionType === "saved_address") {
     return (
       <View style={styles.container}>
@@ -343,17 +339,6 @@ export default function MapScreen() {
           )}
         </MapView>
 
-        {/* Top label showing what we're setting */}
-        <View style={styles.topLabelContainer}>
-          <View style={styles.topLabelCard}>
-            <Ionicons name="location" size={16} color="#111" />
-            <Text style={styles.topLabelText}>
-              Setting location for: <Text style={{ fontWeight: '800' }}>{targetLabel || 'Address'}</Text>
-            </Text>
-          </View>
-        </View>
-
-        {/* Bottom sheet */}
         <View style={styles.bottomSheetFixed}>
           <View style={styles.dragHandle} />
           <Text style={styles.title}>
@@ -390,6 +375,8 @@ export default function MapScreen() {
       </View>
     );
   }
+
+  // ── MODE: route ──────────────────────────────
   if (selectionType === "route") {
     return (
       <View style={styles.container}>
@@ -398,17 +385,18 @@ export default function MapScreen() {
           style={styles.map}
           initialRegion={getInitialRegion()}
           showsUserLocation
+          showsMyLocationButton={false}
         >
           {startLocation?.latitude && startLocation?.longitude && (
             <Marker coordinate={startLocation} pinColor="green" />
           )}
           {endLocation?.latitude && endLocation?.longitude && (
-            <Marker coordinate={endLocation} pinColor="red" />
+            <Marker coordinate={endLocation} pinColor="blue" />
           )}
           {isValidRoute && routeCoordinates.length > 0 && (
             <Polyline
               coordinates={routeCoordinates}
-              strokeColor="#caab2c"
+              strokeColor="#385c8e"
               strokeWidth={2.5}
             />
           )}
@@ -445,6 +433,24 @@ export default function MapScreen() {
               </View>
             ) : (
               <>
+                {/* ── Prix + infos itinéraire ── */}
+                {routeDistance !== null && routeDuration !== null && estimatedPrice !== null && (
+                  <View style={styles.routeInfoRow}>
+                    {/* Distance · Durée */}
+                    <View style={styles.routeMeta}>
+                      <Ionicons name="navigate-outline" size={14} color="#888" />
+                      <Text style={styles.routeMetaText}>
+                        {formatDistance(routeDistance)} · {formatDuration(routeDuration)}
+                      </Text>
+                    </View>
+                    {/* Prix estimé */}
+                    <View style={styles.priceChip}>
+                      <Text style={styles.priceLabel}>Estimated</Text>
+                      <Text style={styles.priceValue}>{estimatedPrice.toLocaleString()} DA</Text>
+                    </View>
+                  </View>
+                )}
+
                 <TouchableOpacity
                   style={styles.recommendedSection}
                   onPress={() =>
@@ -457,11 +463,6 @@ export default function MapScreen() {
                 >
                   <View style={styles.recommendedContent}>
                     <Text style={styles.recommendedTitle}>Recommended Drivers</Text>
-                    {routeDistance && routeDuration && (
-                      <Text style={styles.distanceText}>
-                        {formatDistance(routeDistance)} • {formatDuration(routeDuration)}
-                      </Text>
-                    )}
                   </View>
                   <Ionicons name="chevron-forward" size={24} color="#666" />
                 </TouchableOpacity>
@@ -482,6 +483,7 @@ export default function MapScreen() {
     );
   }
 
+  // ── MODE: start / destination ────────────────
   return (
     <View style={styles.container}>
       <MapView
@@ -525,7 +527,6 @@ export default function MapScreen() {
     </View>
   );
 }
-
 const errorStyles = StyleSheet.create({
   overlay: {
     position: "absolute",
@@ -624,7 +625,7 @@ const styles = StyleSheet.create({
   map: { flex: 1 },
   topAddresses: {
     position: "absolute",
-    top: 50,
+    top: 10,
     left: 20,
     right: 20,
     zIndex: 10,
@@ -655,7 +656,7 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: "#E53E3E",
+    backgroundColor: "#3B82F6",
   },
   addressText: {
     fontSize: 15,
@@ -778,5 +779,29 @@ const styles = StyleSheet.create({
     color: "#FFF",
     fontWeight: "600",
     fontSize: 16,
+  },
+  // ── Route info row: distance·durée  +  prix ──
+  routeInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+    paddingHorizontal: 2,
+  },
+  routeMeta: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+  },
+  routeMetaText: {
+    fontSize: 13, color: '#666', fontWeight: '500',
+  },
+  priceChip: {
+    alignItems: 'flex-end',
+  },
+  priceLabel: {
+    fontSize: 10, color: '#999', fontWeight: '600',
+    textTransform: 'uppercase', letterSpacing: 0.5,
+  },
+  priceValue: {
+    fontSize: 20, fontWeight: '800', color: '#111',
   },
 });

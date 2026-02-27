@@ -1,4 +1,5 @@
 import { prisma } from "../config/prisma.js";
+import { getIO } from "../socket/socket.js";
 
 // Soumettre un feedback
 export const submitFeedback = async (req, res) => {
@@ -57,6 +58,14 @@ export const submitFeedback = async (req, res) => {
                 }
             });
         }
+
+        const io = getIO();
+        io.to(trajet.driverId).emit('newFeedback', {
+            trajetId: trajet.id,
+            rating,
+            comment,
+            passengerName: `${trajet.passenger.prenom} ${trajet.passenger.nom}`
+        });
 
         return res.status(201).json({
             message: "Feedback submitted successfully.",

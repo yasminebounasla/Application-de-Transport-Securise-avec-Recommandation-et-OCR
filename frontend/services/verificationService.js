@@ -4,7 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 
 // URL du backend - Change avec TON IP
-const API_URL = 'http://192.168.1.69:5000/api';
+const API_URL = process.env.EXPO_PUBLIC_API_URL ;
 
 /**
  * Récupère le token JWT depuis AsyncStorage

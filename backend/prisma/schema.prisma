@@ -19,6 +19,7 @@ model Passenger {
   updatedAt DateTime @updatedAt
 
   trajets Trajet[]
+  savedPlaces SavedPlace[]
 }
 
 model Driver {
@@ -146,6 +147,7 @@ model Trajet {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  completedAt DateTime?
 
   driver     Driver?      @relation(fields: [driverId], references: [id])
   passenger  Passenger?  @relation(fields: [passagerId], references: [id])
@@ -163,4 +165,21 @@ model Evaluation {
   createdAt DateTime @default(now())
 
   trajet Trajet @relation(fields: [trajetId], references: [id], onDelete: Cascade)
+}
+
+
+
+model SavedPlace {
+  id          Int      @id @default(autoincrement())
+  passengerId Int
+  label       String
+  address     String
+  lat         Float
+  lng         Float
+  createdAt   DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  passenger Passenger @relation(fields: [passengerId], references: [id], onDelete: Cascade)
+
+  @@index([passengerId])
 }
