@@ -1,4 +1,5 @@
 import { Server } from "socket.io";
+import { registerTrackingHandlers } from "./tracking.js";
 
 let io; // variable globale pour utilisér l'instance de Socket.IO dans d'autres modules
 
@@ -20,8 +21,12 @@ export const initSocket = (httpServer) => {
             console.log(`✅ User ${userId} joined room`);
         });
 
+        // attach tracking-specific listeners (ride subscription and
+        // location broadcasts)
+        registerTrackingHandlers(socket);
+
         socket.on("disconnect", () => {
-        console.log("❌ Client déconnecté :", socket.id);
+            console.log("❌ Client déconnecté :", socket.id);
         });
     });
 
