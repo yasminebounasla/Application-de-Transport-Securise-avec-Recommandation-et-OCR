@@ -1,5 +1,6 @@
 import { prisma } from '../config/prisma.js';
-import { encrypt, encryptBuffer, decryptBuffer } from '../config/encryption.js';import * as ocrService from '../services/ocrService.js';
+import { encrypt, encryptBuffer, decryptBuffer } from '../config/encryption.js';
+import * as ocrService from '../services/ocrService.js';
 import * as faceService from '../services/faceService.js';
 
 /**
