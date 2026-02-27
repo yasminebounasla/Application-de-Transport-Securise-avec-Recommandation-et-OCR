@@ -1,6 +1,4 @@
 trajet_id,passenger_id,quiet_ride,radio_ok,smoking_ok,pets_ok,luggage_large,female_driver_pref
-<<<<<<< HEAD
-=======
 T1,P1,yes,no,no,no,yes,no
 T2,P1,yes,no,no,no,no,no
 T3,P1,yes,no,no,no,yes,no
@@ -767,4 +765,3 @@ T904,P80,yes,yes,no,no,no,yes
 T905,P80,yes,no,no,no,no,yes
 T910,P1,no,no,no,no,no,no
 T911,P1,no,no,no,no,no,no
->>>>>>> 17a41a3c1a5e8ae1f360fa8e2049fe9ed18a439e
