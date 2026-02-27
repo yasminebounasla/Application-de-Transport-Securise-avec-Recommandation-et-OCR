@@ -11,6 +11,7 @@ import ridesDemRoutes from './src/routes/ridesDemRoutes.js';
 import exportRoute from './src/routes/exportRoute.js';
 import feedbackRoutes from './src/routes/feedbackRoutes.js';
 import verificationRoutes from './src/routes/verificationRoutes.js';
+import savedPlacesRoutes from './src/routes/savedPlacesRoutes.js';
 
 // Middleware
 import { notFound, errorHandler } from "./src/middleware/errorHandler.js";
@@ -44,10 +45,12 @@ app.use("/api/driver", recommendationRoutes);
 app.use("/api/ride", rideRoutes);
 app.use("/api/ridesDem", ridesDemRoutes);
 app.use("/api/drivers", driverRoutes);
+app.use("/api/passengers/saved-places", savedPlacesRoutes);
 app.use("/api/passengers", passengerRoutes);
 app.use("/api/export", exportRoute);
 app.use("/api/feedback", feedbackRoutes);
 app.use("/api/verification", verificationRoutes);
+
 
 // --- Error Handling ---
 app.use(notFound);
