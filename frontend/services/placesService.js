@@ -1,4 +1,4 @@
-const LOCATIONIQ_API_KEY = 'pk.18d0f1cca3e1780f246f04c6c53d8d1c';
+const LOCATIONIQ_API_KEY = process.env.LOCATIONIQ_API_KEY;
 const LOCATIONIQ_BASE_URL = 'https://us1.locationiq.com/v1';
 
 let lastRequestTime = 0;
