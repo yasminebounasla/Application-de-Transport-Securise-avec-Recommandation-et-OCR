@@ -15,10 +15,6 @@ import { formatDuration, formatDistance } from "../../utils/formatUtils";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from '@expo/vector-icons';
 import api from "../../services/api";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-
-
-const SAVED_ADDRESSES_KEY = 'saved_addresses';
 
 function LocationNotSupported({ onTryAnother }) {
   return (
@@ -230,42 +226,34 @@ export default function MapScreen() {
 
   // ── Confirm for saved_address mode ─────────
   const handleConfirmSavedAddress = async () => {
-    if (!selectedLocation || !selectedAddress) return;
-    setSavingAddress(true);
+   if (!selectedLocation || !selectedAddress) return;
+   setSavingAddress(true);
     try {
-      const raw = await AsyncStorage.getItem(SAVED_ADDRESSES_KEY);
-      const existing = raw ? JSON.parse(raw) : { addresses: { home: null, work: null, other: null }, custom: [] };
+      const label = targetLabel || 'Saved place';
+      const lat   = selectedLocation.latitude;
+      const lng   = selectedLocation.longitude;
+      const address = selectedAddress;
 
-      const place = { address: selectedAddress, lat: selectedLocation.latitude, lng: selectedLocation.longitude };
+      // Cherche si un place avec ce label existe déjà
+      const listRes = await api.get('/passengers/saved-places');
+      const existing = (listRes.data.data || []).find(
+       (p) => p.label.toLowerCase() === label.toLowerCase()
+      );
 
-      if (targetKey === 'new') {
-        // Add as custom place
-        const newEntry = { ...place, name: 'Saved place', id: Date.now().toString() };
-        existing.custom = [...(existing.custom || []), newEntry];
-      } else if (targetKey?.startsWith('custom_')) {
-        // Update existing custom
-        const id = targetKey.replace('custom_', '');
-        existing.custom = (existing.custom || []).map(p =>
-          p.id === id ? { ...p, ...place } : p
-        );
+      if (existing) {
+        await api.put(`/passengers/saved-places/${existing.id}`, { label, address, lat, lng });
       } else {
-        // home / work / other
-        existing.addresses = {
-          ...existing.addresses,
-          [targetKey]: { name: targetLabel, address: selectedAddress, lat: selectedLocation.latitude, lng: selectedLocation.longitude },
-        };
+       await api.post('/passengers/saved-places', { label, address, lat, lng });
       }
 
-    await AsyncStorage.setItem(SAVED_ADDRESSES_KEY, JSON.stringify(existing));
-      router.back(); // SavedPlacesScreen reloads via useFocusEffect
+     router.back();
     } catch (e) {
-      console.error("❌ Error saving address:", e);
-      Alert.alert("Error", "Failed to save address. Please try again.");
+     console.error("❌ Error saving address:", e);
+     Alert.alert("Error", "Failed to save address. Please try again.");
     } finally {
-      setSavingAddress(false);
+     setSavingAddress(false);
     }
   };
-
   
 
   const handleCancelRide = () => {
@@ -342,16 +330,6 @@ export default function MapScreen() {
             />
           )}
         </MapView>
-
-        {/* Top label showing what we're setting */}
-        <View style={styles.topLabelContainer}>
-          <View style={styles.topLabelCard}>
-            <Ionicons name="location" size={16} color="#111" />
-            <Text style={styles.topLabelText}>
-              Setting location for: <Text style={{ fontWeight: '800' }}>{targetLabel || 'Address'}</Text>
-            </Text>
-          </View>
-        </View>
 
         {/* Bottom sheet */}
         <View style={styles.bottomSheetFixed}>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -15,12 +15,7 @@ import {
 } from 'react-native';
 import { Stack, router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-// ─────────────────────────────────────────────
-// CONSTANTS
-// ─────────────────────────────────────────────
-export const STORAGE_KEY = 'saved_addresses'; // exported so MapScreen can use it
+import api from '../../services/api'; 
 
 const ADDRESS_TYPES = [
   { key: 'home',  label: 'Home',  icon: 'home-outline',      filledIcon: 'home' },
@@ -35,10 +30,10 @@ async function searchPlaces(query) {
   await new Promise(r => setTimeout(r, 600));
   if (!query.trim()) return [];
   return [
-    { id: '1', name: query,             address: `${query}, Alger, Algérie` },
-    { id: '2', name: `${query} Centre`, address: `${query} Centre, Bir Mourad Raïs, Alger` },
-    { id: '3', name: `${query} Nord`,   address: `${query} Nord, Bab Ezzouar, Alger` },
-    { id: '4', name: `Rue ${query}`,    address: `Rue ${query}, Hussein Dey, Alger` },
+    { id: '1', name: query,             address: `${query}, Alger, Algérie`,                lat: 36.7538, lng: 3.0588 },
+    { id: '2', name: `${query} Centre`, address: `${query} Centre, Bir Mourad Raïs, Alger`, lat: 36.7400, lng: 3.0600 },
+    { id: '3', name: `${query} Nord`,   address: `${query} Nord, Bab Ezzouar, Alger`,        lat: 36.7200, lng: 3.1800 },
+    { id: '4', name: `Rue ${query}`,    address: `Rue ${query}, Hussein Dey, Alger`,         lat: 36.7372, lng: 3.1008 },
   ];
 }
 
@@ -46,104 +41,103 @@ async function searchPlaces(query) {
 // MAIN SCREEN
 // ─────────────────────────────────────────────
 export default function SavedPlacesScreen() {
-  const [addresses, setAddresses]   = useState({ home: null, work: null, other: null });
-  const [customPlaces, setCustom]   = useState([]);
+  const [places, setPlaces]         = useState([]);
   const [loading, setLoading]       = useState(true);
   const [modalVisible, setModal]    = useState(false);
-  const [editTarget, setEditTarget] = useState(null); // { key, label, icon }
+  const [editTarget, setEditTarget] = useState(null);
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
-  // ── Load (also re-load when coming back from MapScreen) ──
-  const loadAddresses = async () => {
+  // ── Load from API ──────────────────────────
+  const loadPlaces = async () => {
     try {
-      const raw = await AsyncStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const saved = JSON.parse(raw);
-        setAddresses(saved.addresses || { home: null, work: null, other: null });
-        setCustom(saved.custom || []);
-      }
+      const res = await api.get('/passengers/saved-places');
+      setPlaces(res.data.data || []);
     } catch (e) {
-      console.error(e);
+      console.error('loadPlaces:', e.message);
+      Alert.alert('Error', 'Failed to load saved places.');
     } finally {
       setLoading(false);
       Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start();
     }
   };
 
-  useEffect(() => { loadAddresses(); }, []);
+  useFocusEffect(useCallback(() => { loadPlaces(); }, []));
 
-  // Re-load every time screen comes into focus (after returning from MapScreen)
-  useFocusEffect(
-    useCallback(() => {
-      loadAddresses();
-    }, [])
-  );
+  // ── Helper: find place by label ────────────
+  const findByLabel = (label) =>
+    places.find(p => p.label.toLowerCase() === label.toLowerCase()) || null;
 
-  // ── Persist ────────────────────────────────
-  const persist = async (newAddresses, newCustom) => {
+  // ── ADD ───────────────────────────────────
+  const addPlace = async ({ label, address, lat, lng }) => {
     try {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ addresses: newAddresses, custom: newCustom }));
-    } catch (e) { console.error(e); }
+      const res = await api.post('/passengers/saved-places', { label, address, lat, lng });
+      setPlaces(prev => [res.data.data, ...prev]);
+    } catch (e) {
+      Alert.alert('Error', e.response?.data?.message || e.message);
+    }
   };
 
-  // ── Save address (home/work/other) ─────────
-  const saveAddress = (key, place) => {
-    const updated = { ...addresses, [key]: place };
-    setAddresses(updated);
-    persist(updated, customPlaces);
-    setModal(false);
+  // ── UPDATE ────────────────────────────────
+  const updatePlace = async (id, payload) => {
+    try {
+      const res = await api.put(`/passengers/saved-places/${id}`, payload);
+      setPlaces(prev => prev.map(p => (p.id === id ? res.data.data : p)));
+    } catch (e) {
+      Alert.alert('Error', e.response?.data?.message || e.message);
+    }
   };
 
-  // ── Save custom address ────────────────────
-  const saveCustomAddress = (place) => {
-    const updated = [...customPlaces, { ...place, id: Date.now().toString() }];
-    setCustom(updated);
-    persist(addresses, updated);
-    setModal(false);
-  };
-
-  // ── Delete ─────────────────────────────────
-  const deleteAddress = (key) => {
+  // ── DELETE ────────────────────────────────
+  const deletePlace = (id) => {
     Alert.alert('Remove address', 'Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
       {
         text: 'Remove', style: 'destructive',
-        onPress: () => {
-          if (key.startsWith('custom_')) {
-            const id = key.replace('custom_', '');
-            const updated = customPlaces.filter(p => p.id !== id);
-            setCustom(updated);
-            persist(addresses, updated);
-          } else {
-            const updated = { ...addresses, [key]: null };
-            setAddresses(updated);
-            persist(updated, customPlaces);
+        onPress: async () => {
+          try {
+            await api.delete(`/passengers/saved-places/${id}`);
+            setPlaces(prev => prev.filter(p => p.id !== id));
+          } catch (e) {
+            Alert.alert('Error', e.response?.data?.message || e.message);
           }
         },
       },
     ]);
   };
 
-  // ── Open modal ─────────────────────────────
+  // ── Save from modal ───────────────────────
+  const handleSave = async ({ label, address, lat, lng }) => {
+    if (!editTarget) return;
+    setModal(false);
+
+    const existing = findByLabel(editTarget.label);
+
+    if (existing) {
+      await updatePlace(existing.id, { label: editTarget.label, address, lat, lng });
+    } else {
+      await addPlace({ label: editTarget.label, address, lat, lng });
+    }
+  };
+
+  // ── Open modal ────────────────────────────
   const openModal = (target) => {
     setEditTarget(target);
     setModal(true);
   };
 
-  // ── Navigate to MapScreen for map-based pick ──
-  // Called from inside AddressModal when user taps "Set location on map"
+  // ── Navigate to MapScreen ─────────────────
   const handleSetOnMap = (target) => {
-    setModal(false); // close modal first
+    setModal(false);
     setTimeout(() => {
       router.push({
         pathname: '/shared/MapScreen',
         params: {
-          selectionType: 'saved_address', // new mode for MapScreen
-          targetKey: target.key,          // e.g. 'home', 'work', 'other', 'new'
-          targetLabel: target.label,      // e.g. 'Home'
+          selectionType: 'saved_address',
+          targetKey: target.key,
+          targetLabel: target.label,
         },
       });
-    }, 300); // small delay so modal closes before navigation
+    }, 300);
   };
 
   if (loading) {
@@ -153,6 +147,10 @@ export default function SavedPlacesScreen() {
       </View>
     );
   }
+
+  const customPlaces = places.filter(
+    p => !ADDRESS_TYPES.some(t => t.label.toLowerCase() === p.label.toLowerCase())
+  );
 
   return (
     <>
@@ -183,28 +181,31 @@ export default function SavedPlacesScreen() {
         <View style={{ height: 1, backgroundColor: '#F0F0F0', marginHorizontal: 20, marginBottom: 8 }} />
 
         {/* ── HOME / WORK / OTHER ── */}
-        {ADDRESS_TYPES.map(type => (
-          <AddressRow
-            key={type.key}
-            icon={addresses[type.key] ? type.filledIcon : type.icon}
-            label={type.label}
-            value={addresses[type.key]?.address || null}
-            placeholder="Tap to set the address"
-            onPress={() => openModal({ key: type.key, label: type.label, icon: type.filledIcon })}
-            onDelete={addresses[type.key] ? () => deleteAddress(type.key) : null}
-          />
-        ))}
+        {ADDRESS_TYPES.map(type => {
+          const saved = findByLabel(type.label);
+          return (
+            <AddressRow
+              key={type.key}
+              icon={saved ? type.filledIcon : type.icon}
+              label={type.label}
+              value={saved?.address || null}
+              placeholder="Tap to set the address"
+              onPress={() => openModal({ key: type.key, label: type.label, icon: type.filledIcon })}
+              onDelete={saved ? () => deletePlace(saved.id) : null}
+            />
+          );
+        })}
 
         {/* ── CUSTOM PLACES ── */}
         {customPlaces.map(place => (
           <AddressRow
             key={place.id}
             icon="bookmark-outline"
-            label={place.name}
+            label={place.label}
             value={place.address}
             placeholder=""
-            onPress={() => openModal({ key: `custom_${place.id}`, label: place.name, icon: 'bookmark' })}
-            onDelete={() => deleteAddress(`custom_${place.id}`)}
+            onPress={() => openModal({ key: 'custom', label: place.label, icon: 'bookmark', id: place.id })}
+            onDelete={() => deletePlace(place.id)}
           />
         ))}
 
@@ -230,14 +231,7 @@ export default function SavedPlacesScreen() {
         visible={modalVisible}
         target={editTarget}
         onClose={() => setModal(false)}
-        onSave={(place) => {
-          if (!editTarget) return;
-          if (editTarget.key === 'new') {
-            saveCustomAddress(place);
-          } else {
-            saveAddress(editTarget.key, place);
-          }
-        }}
+        onSave={handleSave}
         onSetOnMap={() => handleSetOnMap(editTarget)}
       />
     </>
@@ -287,7 +281,7 @@ function AddressRow({ icon, label, value, placeholder, onPress, onDelete }) {
 }
 
 // ─────────────────────────────────────────────
-// ADDRESS MODAL  (search + set on map)
+// ADDRESS MODAL
 // ─────────────────────────────────────────────
 function AddressModal({ visible, target, onClose, onSave, onSetOnMap }) {
   const [query, setQuery]      = useState('');
@@ -295,7 +289,7 @@ function AddressModal({ visible, target, onClose, onSave, onSetOnMap }) {
   const [searching, setSearch] = useState(false);
   const debounceRef            = useRef(null);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (!visible) { setQuery(''); setResults([]); }
   }, [visible]);
 
@@ -312,7 +306,12 @@ function AddressModal({ visible, target, onClose, onSave, onSetOnMap }) {
   };
 
   const handleSelect = (place) => {
-    onSave({ name: target?.label || place.name, address: place.address });
+    onSave({
+      label: target?.label || place.name,
+      address: place.address,
+      lat: place.lat,
+      lng: place.lng,
+    });
   };
 
   return (
