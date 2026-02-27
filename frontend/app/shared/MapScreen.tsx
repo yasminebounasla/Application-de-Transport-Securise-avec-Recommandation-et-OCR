@@ -391,12 +391,12 @@ export default function MapScreen() {
             <Marker coordinate={startLocation} pinColor="green" />
           )}
           {endLocation?.latitude && endLocation?.longitude && (
-            <Marker coordinate={endLocation} pinColor="red" />
+            <Marker coordinate={endLocation} pinColor="blue" />
           )}
           {isValidRoute && routeCoordinates.length > 0 && (
             <Polyline
               coordinates={routeCoordinates}
-              strokeColor="#caab2c"
+              strokeColor="#385c8e"
               strokeWidth={2.5}
             />
           )}
@@ -656,7 +656,7 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: "#E53E3E",
+    backgroundColor: "#3B82F6",
   },
   addressText: {
     fontSize: 15,
