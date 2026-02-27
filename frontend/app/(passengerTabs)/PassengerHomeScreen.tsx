@@ -1,18 +1,20 @@
-import { View, ScrollView, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import FeedbackModal from '../../components/FeedbackModal';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useContext } from 'react';
 import { useRide } from '../../context/RideContext';
-import axios from 'axios';
+import api from '../../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { MaterialIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
+import MapView, { Marker } from 'react-native-maps';
+import { LocationContext } from '../../context/LocationContext';
 
-const API_URL = "http://192.168.1.129:3000/api";
 const FEEDBACK_REQUESTED_KEY = 'feedback_requested_rides';
 
 export default function Home() {
   const { getPassengerRides, passengerRides } = useRide();
-  
+  const { currentLocation } = useContext(LocationContext);
+
   const [showFeedbackModal, setShowFeedbackModal] = useState<boolean>(false);
   const [completedRideId, setCompletedRideId] = useState<number | null>(null);
 
@@ -20,12 +22,10 @@ export default function Home() {
     getPassengerRides();
   }, []);
 
-  // Vérifier si le feedback a déjà été demandé pour ce trajet (localement)
   const isFeedbackRequested = async (rideId: number): Promise<boolean> => {
     try {
       const requestedRides = await AsyncStorage.getItem(FEEDBACK_REQUESTED_KEY);
       if (!requestedRides) return false;
-      
       const ridesArray = JSON.parse(requestedRides);
       return ridesArray.includes(rideId);
     } catch (error) {
@@ -34,12 +34,10 @@ export default function Home() {
     }
   };
 
-  // Marquer le feedback comme demandé pour ce trajet
   const markFeedbackAsRequested = async (rideId: number) => {
     try {
       const requestedRides = await AsyncStorage.getItem(FEEDBACK_REQUESTED_KEY);
       const ridesArray = requestedRides ? JSON.parse(requestedRides) : [];
-      
       if (!ridesArray.includes(rideId)) {
         ridesArray.push(rideId);
         await AsyncStorage.setItem(FEEDBACK_REQUESTED_KEY, JSON.stringify(ridesArray));
@@ -52,113 +50,94 @@ export default function Home() {
   useEffect(() => {
     const handleRides = async () => {
       if (passengerRides.length === 0) return;
-
-      // Ride completed
-      const completedRide = passengerRides.find(
-        (ride: any) => ride.status === 'COMPLETED'
-      );
-      
+      const completedRide = passengerRides.find((ride: any) => ride.status === 'COMPLETED');
       if (completedRide) {
         try {
-          // Vérifier d'abord si on a déjà demandé le feedback localement
           const alreadyRequested = await isFeedbackRequested(completedRide.id);
-          if (alreadyRequested) {
-            console.log("Feedback déjà demandé pour ce trajet");
-            return;
-          }
+          if (alreadyRequested) return;
 
-          // Vérifier si un feedback existe dans le backend
-          const token = await AsyncStorage.getItem('token');
-          const response = await axios.get(
-            `${API_URL}/feedback/trajet/${completedRide.id}`,
-            { headers: { Authorization: token ? `Bearer ${token}` : undefined } }
-          );
-          
+          const response = await api.get(`/feedback/trajet/${completedRide.id}`);
           const feedbackExists = response.data.data.length > 0;
-          
+
           if (!feedbackExists) {
-            // Marquer comme demandé AVANT d'afficher le modal
             await markFeedbackAsRequested(completedRide.id);
             setCompletedRideId(completedRide.id);
             setShowFeedbackModal(true);
-          } else {
-            console.log("Feedback already submitted");
           }
         } catch (err) {
           console.error("Erreur check feedback:", err);
         }
       }
     };
-
     handleRides();
   }, [passengerRides]);
 
-  // Filtrer les trajets actifs
   const activeTrips = useMemo(() => {
     return (passengerRides || []).filter(
       (ride: any) => ride.status === 'ACCEPTED' || ride.status === 'IN_PROGRESS',
     );
   }, [passengerRides]);
 
-  // Actions rapides
-  const quickActions = [
-    {
-      label: 'Demander un trajet',
-      icon: 'add-road',
-      onPress: () => router.push('../passenger/DemandeTrajetScreen'),
-    },
-    {
-      label: 'Chauffeurs recommandés',
-      icon: 'groups',
-      onPress: () => router.push('../passenger/RecommendedDriversScreen'),
-    },
-    {
-      label: 'Historique',
-      icon: 'history',
-      onPress: () => router.push('../passenger/HistoryScreen'),
-    },
-  ];
+  const initialRegion = {
+    latitude: currentLocation?.latitude ?? 36.7538,
+    longitude: currentLocation?.longitude ?? 3.0588,
+    latitudeDelta: 0.01,
+    longitudeDelta: 0.01,
+  };
 
   return (
     <>
-      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-        <TouchableOpacity
-          style={styles.searchButton}
-          onPress={() => router.push('../passenger/SearchRideScreen' as any)}
-        >
-          <MaterialIcons name="search" size={22} color="#fff" />
-          <Text style={styles.searchButtonText}>Rechercher un trajet</Text>
-        </TouchableOpacity>
+      <View style={styles.container}>
+        {/* ── FULL SCREEN MAP ── */}
+        <MapView
+          style={StyleSheet.absoluteFillObject}
+          initialRegion={initialRegion}
+          showsUserLocation
+          showsMyLocationButton={false}
+        />
 
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Trajets en cours</Text>
-          {activeTrips.length === 0 ? (
-            <Text style={styles.emptyText}>Aucun trajet en cours.</Text>
-          ) : (
-            activeTrips.slice(0, 3).map((trip: any) => (
-              <View key={trip.id} style={styles.card}>
-                <Text style={styles.cardTitle}>
-                  {trip.startAddress || 'Depart'} -{'>'} {trip.endAddress || 'Destination'}
-                </Text>
-                <Text style={styles.cardSubtitle}>Statut: {trip.status}</Text>
+        {/* ── ACTIVE TRIPS OVERLAY (top) ── */}
+        {activeTrips.length > 0 && (
+          <View style={styles.activeTripsContainer}>
+            {activeTrips.slice(0, 2).map((trip: any) => (
+              <View key={trip.id} style={styles.tripCard}>
+                <View style={styles.tripDots}>
+                  <View style={styles.dotGreen} />
+                  <View style={styles.tripLine} />
+                  <View style={styles.dotRed} />
+                </View>
+                <View style={styles.tripInfo}>
+                  <Text style={styles.tripText} numberOfLines={1}>
+                    {trip.startAddress || 'Départ'}
+                  </Text>
+                  <Text style={styles.tripText} numberOfLines={1}>
+                    {trip.endAddress || 'Destination'}
+                  </Text>
+                </View>
+                <View style={[styles.statusBadge,
+                  trip.status === 'IN_PROGRESS' ? styles.badgeActive : styles.badgeAccepted
+                ]}>
+                  <Text style={styles.statusText}>
+                    {trip.status === 'IN_PROGRESS' ? 'En cours' : 'Accepté'}
+                  </Text>
+                </View>
               </View>
-            ))
-          )}
-        </View>
-
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Navigation rapide</Text>
-          <View style={styles.grid}>
-            {quickActions.map((action) => (
-              <TouchableOpacity key={action.label} style={styles.quickCard} onPress={action.onPress}>
-                <MaterialIcons name={action.icon as any} size={24} color="#111" />
-                <Text style={styles.quickText}>{action.label}</Text>
-              </TouchableOpacity>
             ))}
           </View>
-        </View>
-  
-      </ScrollView>
+        )}
+
+        {/* ── WHERE TO BAR (bottom) ── */}
+        <TouchableOpacity
+          style={styles.whereToBar}
+          onPress={() => router.push('../passenger/SearchRideScreen' as any)}
+          activeOpacity={0.9}
+        >
+          <View style={styles.whereToInner}>
+            <Ionicons name="search-outline" size={20} color="#888" />
+            <Text style={styles.whereToText}>Where to?</Text>
+          </View>
+        </TouchableOpacity>
+      </View>
 
       <FeedbackModal
         visible={showFeedbackModal}
@@ -166,7 +145,6 @@ export default function Home() {
         onClose={() => {
           setShowFeedbackModal(false);
           setCompletedRideId(null);
-        
         }}
       />
     </>
@@ -174,49 +152,113 @@ export default function Home() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f7f7f8' },
-  content: { padding: 16, paddingBottom: 24 },
-  searchButton: {
-    backgroundColor: '#111',
-    borderRadius: 14,
-    height: 54,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
+  container: {
+    flex: 1,
+  },
+
+  // ── Active trips ──
+  activeTripsContainer: {
+    position: 'absolute',
+    top: 60,
+    left: 16,
+    right: 16,
     gap: 8,
-    marginBottom: 18,
   },
-  searchButtonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  section: { marginBottom: 18 },
-  sectionTitle: { fontSize: 19, fontWeight: '700', color: '#111', marginBottom: 10 },
-  emptyText: { color: '#666', fontSize: 14 },
-  card: {
+  tripCard: {
     backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#ececec',
-  },
-  cardTitle: { fontSize: 14, fontWeight: '600', color: '#111' },
-  cardSubtitle: { marginTop: 4, color: '#666', fontSize: 13 },
-  grid: { flexDirection: 'row', gap: 10, flexWrap: 'wrap' },
-  quickCard: {
-    width: '31%',
-    minWidth: 92,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 10,
+    borderRadius: 16,
+    padding: 14,
+    flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ececec',
+    gap: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 5,
   },
-  quickText: {
-    marginTop: 8,
-    fontSize: 12,
-    textAlign: 'center',
+  tripDots: {
+    alignItems: 'center',
+    gap: 2,
+  },
+  dotGreen: {
+    width: 10, height: 10, borderRadius: 5,
+    backgroundColor: '#22C55E',
+  },
+  tripLine: {
+    width: 2, height: 16,
+    backgroundColor: '#ddd',
+  },
+  dotRed: {
+    width: 10, height: 10, borderRadius: 5,
+    backgroundColor: '#E53E3E',
+  },
+  tripInfo: { flex: 1, gap: 4 },
+  tripText: { fontSize: 13, fontWeight: '600', color: '#111' },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  badgeActive: { backgroundColor: '#DCFCE7' },
+  badgeAccepted: { backgroundColor: '#FEF9C3' },
+  statusText: { fontSize: 11, fontWeight: '700', color: '#111' },
+
+  // ── Quick actions ──
+  quickActionsRow: {
+    position: 'absolute',
+    bottom: 110,
+    left: 16,
+    right: 16,
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'center',
+  },
+  quickActionBtn: {
+    backgroundColor: '#fff',
+    borderRadius: 50,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  quickActionText: {
+    fontSize: 13,
+    fontWeight: '700',
     color: '#111',
-    fontWeight: '600',
+  },
+
+  // ── Where to bar ──
+  whereToBar: {
+    position: 'absolute',
+    bottom: 36,
+    left: 16,
+    right: 16,
+    backgroundColor: '#fff',
+    borderRadius: 50,
+    height: 56,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+  },
+  whereToInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  whereToText: {
+    fontSize: 16,
+    color: '#888',
+    fontWeight: '500',
   },
 });

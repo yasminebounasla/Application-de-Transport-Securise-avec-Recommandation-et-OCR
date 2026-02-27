@@ -15,6 +15,9 @@ import { formatDuration, formatDistance } from "../../utils/formatUtils";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from '@expo/vector-icons';
 import api from "../../services/api";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+
 
 function LocationNotSupported({ onTryAnother }) {
   return (
@@ -376,6 +379,7 @@ export default function MapScreen() {
           style={styles.map}
           initialRegion={getInitialRegion()}
           showsUserLocation
+          showsMyLocationButton={false}
         >
           {startLocation?.latitude && startLocation?.longitude && (
             <Marker coordinate={startLocation} pinColor="green" />
@@ -602,7 +606,7 @@ const styles = StyleSheet.create({
   map: { flex: 1 },
   topAddresses: {
     position: "absolute",
-    top: 50,
+    top: 10,
     left: 20,
     right: 20,
     zIndex: 10,
