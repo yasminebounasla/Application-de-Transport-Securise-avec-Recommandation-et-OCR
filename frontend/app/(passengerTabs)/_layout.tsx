@@ -67,7 +67,7 @@ export default function TabsLayout() {
           header: () => <SimpleHeader title="Mes Trajets" />,
           tabBarIcon: ({ color, size, focused }) => (
             <MaterialCommunityIcons 
-              name={focused ? "map-marker" : "map-marker-outline"} 
+              name={focused ? "car" : "car-outline"} 
               size={size + 2} 
               color={color} 
             />
