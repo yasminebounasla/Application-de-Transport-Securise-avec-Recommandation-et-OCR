@@ -88,6 +88,16 @@ export default function Home() {
   return (
     <>
       <View style={styles.container}>
+
+        {/* Notification button */}
+        <TouchableOpacity
+          style={styles.notificationButton}
+          onPress={() => router.push('/passenger/NotificationsScreen' as any)}
+        >
+          <Ionicons name="notifications-outline" size={22} color="#000" />
+        </TouchableOpacity>
+
+
         {/* ── FULL SCREEN MAP ── */}
         <MapView
           style={StyleSheet.absoluteFillObject}
@@ -154,6 +164,24 @@ export default function Home() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+
+  notificationButton: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    zIndex: 1000,    
+    elevation: 10
   },
 
   // ── Active trips ──
