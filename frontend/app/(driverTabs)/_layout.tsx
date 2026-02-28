@@ -35,6 +35,7 @@ export default function TabsLayout() {
         height: 60 + insets.bottom,
         paddingBottom: insets.bottom,
         paddingTop: 5,
+        position: "absolute"
       },
       tabBarActiveTintColor: "#111111",
       tabBarInactiveTintColor: "#bbbbbb",

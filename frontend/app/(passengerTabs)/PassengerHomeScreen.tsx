@@ -93,7 +93,7 @@ export default function Home() {
         {/* Notification button */}
         <TouchableOpacity
           style={styles.notificationButton}
-          onPress={() => router.push('/passenger/NotificationsScreen' as any)}
+          onPress={() => router.push('../shared/NotificationsScreen' as any)}
         >
           <Feather name="bell" size={22} color="#000" />
           
