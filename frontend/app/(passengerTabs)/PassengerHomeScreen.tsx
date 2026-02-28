@@ -8,6 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import MapView, { Marker } from 'react-native-maps';
 import { LocationContext } from '../../context/LocationContext';
+import { Feather } from '@expo/vector-icons';
 
 const FEEDBACK_REQUESTED_KEY = 'feedback_requested_rides';
 
@@ -94,7 +95,7 @@ export default function Home() {
           style={styles.notificationButton}
           onPress={() => router.push('/passenger/NotificationsScreen' as any)}
         >
-          <Ionicons name="notifications-outline" size={22} color="#000" />
+          <Feather name="bell" size={24} color="#000" strokeWidth={2.5} />
         </TouchableOpacity>
 
 

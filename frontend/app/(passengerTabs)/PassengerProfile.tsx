@@ -9,7 +9,7 @@ import {
   RefreshControl,
   Image,
 } from 'react-native';
-import { router, useFocusEffect } from 'expo-router';
+import { router, Stack, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../services/api';
 
@@ -42,7 +42,7 @@ export default function PassengerProfileScreen() {
     setRefreshing(false);
   };
 
-  const goToEdit = () => router.push('/passenger/EditProfileScreen');
+  const goToEdit = () => router.push('../passenger/EditProfileScreen');
 
   if (loading) {
     return (
@@ -67,6 +67,7 @@ export default function PassengerProfileScreen() {
       contentContainerStyle={{ paddingBottom: 40 }}
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
     >
+
       {/* ── AVATAR + NOM (centré) ── */}
       <View style={{
         backgroundColor: '#fff', alignItems: 'center',
