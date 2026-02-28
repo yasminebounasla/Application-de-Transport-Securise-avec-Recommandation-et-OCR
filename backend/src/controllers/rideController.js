@@ -74,6 +74,13 @@ export const createRide = async (req, res) => {
       },
     }); 
 
+    const io = getIO();
+
+    io.to(`passenger_${newRide.passagerId}`).emit("rideCreated", {
+      rideId: newRide.id,
+      status: newRide.status,
+    });
+
     return res.status(201).json({
       success: true,
       message: 'Demande de trajet créée avec succès',
@@ -231,7 +238,7 @@ export const acceptRide = async (req, res) => {
     // Notifier passager
     const io = getIO();
 
-    io.to(updatedRide.passenger.id).emit('rideAccepted', {
+    io.to(`passenger_${updatedRide.passenger.id}`).emit('rideAccepted', {
       rideId: updatedRide.id,
       status: updatedRide.status,
       driver: updatedRide.driver,
@@ -295,7 +302,7 @@ export const rejectRide = async (req, res) => {
     // Notifier passager
     const io = getIO();
 
-    io.to(updatedRide.passenger.id).emit('rideRejectedByDriver', {
+    io.to(`passenger_${updatedRide.passenger.id}`).emit('rideRejectedByDriver', {
       rideId: updatedRide.id,
       status: updatedRide.status,
       driver: updatedRide.driver
@@ -485,7 +492,7 @@ export const cancelRide = async (req, res) => {
     const io = getIO();
 
     if (updatedRide.driver) {
-      io.to(updatedRide.driver.id).emit('rideCancelledByPassenger', {
+      io.to(`driver_${updatedRide.driver.id}`).emit('rideCancelledByPassenger', {
         rideId: updatedRide.id,
         status: updatedRide.status,
         passenger: updatedRide.passenger

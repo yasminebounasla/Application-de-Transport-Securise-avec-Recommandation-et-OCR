@@ -1,37 +1,47 @@
 import { Server } from "socket.io";
 
-let io; // variable globale pour utilisér l'instance de Socket.IO dans d'autres modules
+let io;
 
 export const initSocket = (httpServer) => {
+  io = new Server(httpServer, {
+    cors: { origin: process.env.FRONTEND_URL || "*", credentials: true },
+  });
 
-    //créer une instance de socket.io
-    io = new Server(httpServer, {
-        cors: { origin: process.env.FRONTEND_URL }, 
+  io.on("connection", (socket) => {
+    console.log("🔌 Client connecté :", socket.id);
+
+    // ----- Notifications passager -----
+    socket.on("registerUser", (userId) => {
+      socket.join(`passenger_${userId}`);
+      console.log(`✅ Passenger ${userId} joined room`);
     });
 
-    io.on("connection", (socket) => {
-        console.log("🔌 Client connecté :", socket.id);
-
-        // écoute de l'événement d'inscription de l'utilisateur
-        socket.on("registerUser", (userId) => {
-
-            //récupéré le id de l'utilisateur et le stocké dans la session du socket
-            socket.join(userId);
-            console.log(`✅ User ${userId} joined room`);
-        });
-
-        socket.on("disconnect", () => {
-        console.log("❌ Client déconnecté :", socket.id);
-        });
+    // ✅ Room pour le driver
+    socket.on("registerDriver", (driverId) => {
+    socket.join(`driver_${driverId}`);
+    console.log(`✅ Driver ${driverId} joined room`);
     });
 
-    return io;
+    // ----- Tracking conducteur -----
+    socket.on("subscribeToRide", (rideId) => {
+      socket.join(`ride_${rideId}`);
+      console.log(`📍 Socket ${socket.id} subscribed to ride ${rideId}`);
+    });
+
+    socket.on("driverLocationUpdate", ({ rideId, location }) => {
+      socket.to(`ride_${rideId}`).emit("driverLocationUpdate", { rideId, location });
+      console.log(`🚘 Location update for ride ${rideId}:`, location);
+    });
+
+    socket.on("disconnect", () => {
+      console.log("❌ Client déconnecté :", socket.id);
+    });
+  });
+
+  return io;
 };
 
-// fonction pour récupérer l'instance de io dans les autres modules
 export const getIO = () => {
-    if (!io) {
-        throw new Error("Socket.io not initialized!");
-    }
-    return io;
+  if (!io) throw new Error("Socket.io not initialized!");
+  return io;
 };

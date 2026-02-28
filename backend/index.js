@@ -2,7 +2,7 @@ import './env.js';  // MUST BE FIRST
 
 import { createServer } from 'http';
 import { prisma } from "./src/config/prisma.js";
-import { initSocket } from "./src/socket/tracking.js";
+import { initSocket } from "./src/socket/socket.js";
 import app from "./app.js";
 
 console.log('🔍 ENV CHECK:');

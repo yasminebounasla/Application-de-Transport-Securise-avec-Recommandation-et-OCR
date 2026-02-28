@@ -96,6 +96,7 @@ export default function Home() {
           onPress={() => router.push('/passenger/NotificationsScreen' as any)}
         >
           <Feather name="bell" size={22} color="#000" />
+          
         </TouchableOpacity>
 
 
