@@ -95,7 +95,7 @@ export default function Home() {
           style={styles.notificationButton}
           onPress={() => router.push('/passenger/NotificationsScreen' as any)}
         >
-          <Feather name="bell" size={24} color="#000" strokeWidth={2.5} />
+          <Feather name="bell" size={22} color="#000" />
         </TouchableOpacity>
 
 
@@ -169,18 +169,18 @@ const styles = StyleSheet.create({
 
   notificationButton: {
     position: 'absolute',
-    top: 20,
-    right: 20,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    top: 16,
+    right: 16,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     backgroundColor: '#fff',
     justifyContent: 'center',
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
     zIndex: 1000,    
     elevation: 10
   },
