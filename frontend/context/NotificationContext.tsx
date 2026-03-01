@@ -6,13 +6,13 @@ import { useAuth } from './AuthContext';
 type Notification = {
   title: string;
   message: string;
-  timestamp: number; // ✅ pour trier par date
+  timestamp: number;
 };
 
 type NotificationContextType = {
   notifications: Notification[];
   socket: Socket | null;
-  clearNotifications: () => void; // ✅ pour vider si besoin
+  clearNotifications: () => void;
 };
 
 const NotificationContext = createContext<NotificationContextType>({
@@ -28,15 +28,12 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const { user } = useAuth();
 
-  // Charger les notifs sauvegardées au démarrage
+  // ✅ Charger les notifs sauvegardées au démarrage
   useEffect(() => {
     const loadNotifications = async () => {
       try {
         const stored = await AsyncStorage.getItem(STORAGE_KEY);
-        if (stored) {
-          setNotifications(JSON.parse(stored));
-          console.log('📥 Notifications chargées depuis le stockage');
-        }
+        if (stored) setNotifications(JSON.parse(stored));
       } catch (error) {
         console.error('Erreur chargement notifications:', error);
       }
@@ -44,14 +41,8 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
     loadNotifications();
   }, []);
 
-  // Sauvegarder dans AsyncStorage à chaque nouvelle notif
   const addNotif = async (title: string, message: string) => {
-    const newNotif: Notification = {
-      title,
-      message,
-      timestamp: Date.now(),
-    };
-
+    const newNotif: Notification = { title, message, timestamp: Date.now() };
     setNotifications(prev => {
       const updated = [newNotif, ...prev];
       AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated)).catch(console.error);
@@ -59,7 +50,6 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
     });
   };
 
-  // Vider toutes les notifications
   const clearNotifications = async () => {
     setNotifications([]);
     await AsyncStorage.removeItem(STORAGE_KEY);
@@ -81,44 +71,54 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
       if (user.role === 'passenger') {
         newSocket.emit('registerUser', user.id);
         console.log('📢 Registered as passenger:', user.id);
+
+        // Events UNIQUEMENT pour le passager
+        newSocket.on('rideCreated', (data: any) => {
+          addNotif(
+            '🚗 Demande envoyée',
+            "Votre demande de trajet a été soumise. En attente d'un conducteur."
+          );
+        });
+
+        newSocket.on('rideAccepted', (data: any) => {
+          addNotif(
+            '✅ Trajet confirmé',
+            `${data.driver.prenom} ${data.driver.nom ?? ''} a accepté votre trajet. Préparez-vous !`
+          );
+        });
+
+        newSocket.on('rideRejectedByDriver', (data: any) => {
+          addNotif(
+            '❌ Demande non acceptée',
+            'Votre demande n\'a pas pu être prise en charge. Veuillez en soumettre une nouvelle.'
+          );
+        });
+
       } else if (user.role === 'driver') {
         newSocket.emit('registerDriver', user.id);
         console.log('📢 Registered as driver:', user.id);
+
+        // Events UNIQUEMENT pour le driver
+        newSocket.on('rideCancelledByPassenger', (data: any) => {
+          addNotif(
+            '⚠️ Trajet annulé',
+            `${data.passenger.prenom} ${data.passenger.nom ?? ''} a annulé sa demande de trajet.`
+          );
+        });
+
+        newSocket.on('newFeedback', (data: any) => {
+          const stars = '⭐'.repeat(data.rating);
+          const message = data.comment
+            ? `${data.passengerName} a évalué votre trajet : ${stars}\n"${data.comment}"`
+            : `${data.passengerName} a évalué votre trajet : ${stars}`;
+          
+          addNotif('Nouvel avis reçu', message);
+        });
       }
     });
 
     newSocket.on('connect_error', (err) => {
       console.log('❌ Erreur connexion socket:', err.message);
-    });
-
-    // Events PASSAGER 
-    newSocket.on('rideCreated', (data: any) => {
-      addNotif(
-        '🚗 Demande envoyée',
-        'Votre demande de trajet a été soumise avec succès. En attente de confirmation d\'un conducteur.'
-      );
-    });
-
-    newSocket.on('rideAccepted', (data: any) => {
-      addNotif(
-        '✅ Trajet confirmé',
-        `Votre trajet a été accepté par ${data.driver.prenom} ${data.driver.nom ?? ''}. Préparez-vous, il arrive bientôt.`
-      );
-    });
-
-    newSocket.on('rideRejectedByDriver', (data: any) => {
-      addNotif(
-        '❌ Demande non acceptée',
-        'Votre demande de trajet n\'a pas pu être prise en charge. Veuillez soumettre une nouvelle demande.'
-      );
-    });
-
-    // Events DRIVER 
-    newSocket.on('rideCancelledByPassenger', (data: any) => {
-      addNotif(
-        '⚠️ Trajet annulé',
-        `Le passager ${data.passenger.prenom} ${data.passenger.nom ?? ''} a annulé sa demande de trajet.`
-      );
     });
 
     newSocket.on('disconnect', () => {
