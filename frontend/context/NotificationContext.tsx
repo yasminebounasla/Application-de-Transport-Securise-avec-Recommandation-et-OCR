@@ -21,38 +21,44 @@ const NotificationContext = createContext<NotificationContextType>({
   clearNotifications: () => {},
 });
 
-const STORAGE_KEY = 'app_notifications';
-
 export const NotificationProvider = ({ children }: { children: ReactNode }) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [socket, setSocket] = useState<Socket | null>(null);
   const { user } = useAuth();
 
-  // ✅ Charger les notifs sauvegardées au démarrage
+  // ✅ Clé unique par user — plus de partage entre users
+  const storageKey = user?.id ? `app_notifications_${user.id}` : null;
+
+  // ✅ Charger les notifs au démarrage — seulement si user connecté
   useEffect(() => {
+    if (!storageKey) return;
+
     const loadNotifications = async () => {
       try {
-        const stored = await AsyncStorage.getItem(STORAGE_KEY);
+        const stored = await AsyncStorage.getItem(storageKey);
         if (stored) setNotifications(JSON.parse(stored));
+        else setNotifications([]); // ✅ reset si nouveau user
       } catch (error) {
         console.error('Erreur chargement notifications:', error);
       }
     };
     loadNotifications();
-  }, []);
+  }, [storageKey]); // ✅ se relance si user change
 
   const addNotif = async (title: string, message: string) => {
+    if (!storageKey) return;
     const newNotif: Notification = { title, message, timestamp: Date.now() };
     setNotifications(prev => {
       const updated = [newNotif, ...prev];
-      AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updated)).catch(console.error);
+      AsyncStorage.setItem(storageKey, JSON.stringify(updated)).catch(console.error);
       return updated;
     });
   };
 
   const clearNotifications = async () => {
+    if (!storageKey) return;
     setNotifications([]);
-    await AsyncStorage.removeItem(STORAGE_KEY);
+    await AsyncStorage.removeItem(storageKey);
   };
 
   useEffect(() => {
@@ -72,7 +78,6 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
         newSocket.emit('registerUser', user.id);
         console.log('📢 Registered as passenger:', user.id);
 
-        // Events UNIQUEMENT pour le passager
         newSocket.on('rideCreated', (data: any) => {
           addNotif(
             '🚗 Demande envoyée',
@@ -90,7 +95,7 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
         newSocket.on('rideRejectedByDriver', (data: any) => {
           addNotif(
             '❌ Demande non acceptée',
-            'Votre demande n\'a pas pu être prise en charge. Veuillez en soumettre une nouvelle.'
+            "Votre demande n'a pas pu être prise en charge. Veuillez en soumettre une nouvelle."
           );
         });
 
@@ -98,7 +103,6 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
         newSocket.emit('registerDriver', user.id);
         console.log('📢 Registered as driver:', user.id);
 
-        // Events UNIQUEMENT pour le driver
         newSocket.on('rideCancelledByPassenger', (data: any) => {
           addNotif(
             '⚠️ Trajet annulé',
@@ -111,8 +115,7 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
           const message = data.comment
             ? `${data.passengerName} a évalué votre trajet : ${stars}\n"${data.comment}"`
             : `${data.passengerName} a évalué votre trajet : ${stars}`;
-          
-          addNotif('Nouvel avis reçu', message);
+          addNotif('⭐ Nouvel avis reçu', message);
         });
       }
     });

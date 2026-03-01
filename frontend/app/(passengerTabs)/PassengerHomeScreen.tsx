@@ -6,7 +6,7 @@ import { useRide } from '../../context/RideContext';
 import api from '../../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
-import MapView, { Marker } from 'react-native-maps';
+import MapView from 'react-native-maps';
 import { LocationContext } from '../../context/LocationContext';
 import { Feather } from '@expo/vector-icons';
 
@@ -56,10 +56,8 @@ export default function Home() {
         try {
           const alreadyRequested = await isFeedbackRequested(completedRide.id);
           if (alreadyRequested) return;
-
           const response = await api.get(`/feedback/trajet/${completedRide.id}`);
           const feedbackExists = response.data.data.length > 0;
-
           if (!feedbackExists) {
             await markFeedbackAsRequested(completedRide.id);
             setCompletedRideId(completedRide.id);
@@ -88,69 +86,66 @@ export default function Home() {
 
   return (
     <>
-      <View style={styles.container}>
+      {/* ✅ Map EN PREMIER = toujours en dessous */}
+      <MapView
+        style={StyleSheet.absoluteFillObject}
+        initialRegion={initialRegion}
+        showsUserLocation
+        showsMyLocationButton={false}
+      />
 
-        {/* Notification button */}
-        <TouchableOpacity
-          style={styles.notificationButton}
-          onPress={() => router.push('../shared/NotificationsScreen' as any)}
-        >
-          <Feather name="bell" size={22} color="#000" />
-          
-        </TouchableOpacity>
+      {/* ✅ Notification button */}
+      <TouchableOpacity
+        style={styles.notificationButton}
+        onPress={() => router.push('../shared/NotificationsScreen' as any)}
+      >
+        <Feather name="bell" size={22} color="#000" />
+      </TouchableOpacity>
 
-
-        {/* ── FULL SCREEN MAP ── */}
-        <MapView
-          style={StyleSheet.absoluteFillObject}
-          initialRegion={initialRegion}
-          showsUserLocation
-          showsMyLocationButton={false}
-        />
-
-        {/* ── ACTIVE TRIPS OVERLAY (top) ── */}
-        {activeTrips.length > 0 && (
-          <View style={styles.activeTripsContainer}>
-            {activeTrips.slice(0, 2).map((trip: any) => (
-              <View key={trip.id} style={styles.tripCard}>
-                <View style={styles.tripDots}>
-                  <View style={styles.dotGreen} />
-                  <View style={styles.tripLine} />
-                  <View style={styles.dotRed} />
-                </View>
-                <View style={styles.tripInfo}>
-                  <Text style={styles.tripText} numberOfLines={1}>
-                    {trip.startAddress || 'Départ'}
-                  </Text>
-                  <Text style={styles.tripText} numberOfLines={1}>
-                    {trip.endAddress || 'Destination'}
-                  </Text>
-                </View>
-                <View style={[styles.statusBadge,
-                  trip.status === 'IN_PROGRESS' ? styles.badgeActive : styles.badgeAccepted
-                ]}>
-                  <Text style={styles.statusText}>
-                    {trip.status === 'IN_PROGRESS' ? 'En cours' : 'Accepté'}
-                  </Text>
-                </View>
+      {/* ✅ Active trips */}
+      {activeTrips.length > 0 && (
+        <View style={styles.activeTripsContainer}>
+          {activeTrips.slice(0, 2).map((trip: any) => (
+            <View key={trip.id} style={styles.tripCard}>
+              <View style={styles.tripDots}>
+                <View style={styles.dotGreen} />
+                <View style={styles.tripLine} />
+                <View style={styles.dotRed} />
               </View>
-            ))}
-          </View>
-        )}
+              <View style={styles.tripInfo}>
+                <Text style={styles.tripText} numberOfLines={1}>
+                  {trip.startAddress || 'Départ'}
+                </Text>
+                <Text style={styles.tripText} numberOfLines={1}>
+                  {trip.endAddress || 'Destination'}
+                </Text>
+              </View>
+              <View style={[
+                styles.statusBadge,
+                trip.status === 'IN_PROGRESS' ? styles.badgeActive : styles.badgeAccepted
+              ]}>
+                <Text style={styles.statusText}>
+                  {trip.status === 'IN_PROGRESS' ? 'En cours' : 'Accepté'}
+                </Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
 
-        {/* ── WHERE TO BAR (bottom) ── */}
-        <TouchableOpacity
-          style={styles.whereToBar}
-          onPress={() => router.push('../passenger/SearchRideScreen' as any)}
-          activeOpacity={0.9}
-        >
-          <View style={styles.whereToInner}>
-            <Ionicons name="search-outline" size={20} color="#888" />
-            <Text style={styles.whereToText}>Where to?</Text>
-          </View>
-        </TouchableOpacity>
-      </View>
+      {/* ✅ Where to bar */}
+      <TouchableOpacity
+        style={styles.whereToBar}
+        onPress={() => router.push('../passenger/SearchRideScreen' as any)}
+        activeOpacity={0.9}
+      >
+        <View style={styles.whereToInner}>
+          <Ionicons name="search-outline" size={20} color="#888" />
+          <Text style={styles.whereToText}>Where to?</Text>
+        </View>
+      </TouchableOpacity>
 
+      {/* ✅ Feedback modal */}
       <FeedbackModal
         visible={showFeedbackModal}
         trajetId={completedRideId}
@@ -164,10 +159,6 @@ export default function Home() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-
   notificationButton: {
     position: 'absolute',
     top: 16,
@@ -182,14 +173,11 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.12,
     shadowRadius: 8,
-    zIndex: 1000,    
-    elevation: 10
+    elevation: 10,
   },
-
-  // ── Active trips ──
   activeTripsContainer: {
     position: 'absolute',
-    top: 60,
+    top: 70,
     left: 16,
     right: 16,
     gap: 8,
@@ -233,41 +221,9 @@ const styles = StyleSheet.create({
   badgeActive: { backgroundColor: '#DCFCE7' },
   badgeAccepted: { backgroundColor: '#FEF9C3' },
   statusText: { fontSize: 11, fontWeight: '700', color: '#111' },
-
-  // ── Quick actions ──
-  quickActionsRow: {
-    position: 'absolute',
-    bottom: 110,
-    left: 16,
-    right: 16,
-    flexDirection: 'row',
-    gap: 10,
-    justifyContent: 'center',
-  },
-  quickActionBtn: {
-    backgroundColor: '#fff',
-    borderRadius: 50,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 6,
-    elevation: 4,
-  },
-  quickActionText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#111',
-  },
-
-  // ── Where to bar ──
   whereToBar: {
     position: 'absolute',
-    bottom: 36,
+    bottom: 150,
     left: 16,
     right: 16,
     backgroundColor: '#fff',
