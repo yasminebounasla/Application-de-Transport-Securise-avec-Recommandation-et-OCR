@@ -1,14 +1,9 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  StatusBar,
-  Image,
+  View, Text, ScrollView, TouchableOpacity,
+  StyleSheet, StatusBar, Image,
 } from 'react-native';
-import { Stack } from 'expo-router';
+import { Stack, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useNotifications } from '../../context/NotificationContext';
 
@@ -50,7 +45,6 @@ const getAvatarColor = (name: string) =>
 
 function NotifAvatar({ notif, cat }: { notif: Notification; cat: ReturnType<typeof CATEGORY> }) {
   const initials = `${notif.prenom?.[0] ?? ''}${notif.nom?.[0] ?? ''}`.toUpperCase();
-
   return (
     <View style={styles.avatarWrapper}>
       {notif.photoUrl ? (
@@ -72,7 +66,37 @@ function NotifAvatar({ notif, cat }: { notif: Notification; cat: ReturnType<type
 }
 
 export default function NotificationsScreen() {
-  const { notifications, clearNotifications } = useNotifications();
+  const { notifications, unreadCount, clearNotifications, markAllAsRead } = useNotifications();
+  const [newCount] = useState(unreadCount);
+
+  const newNotifs = notifications.slice(0, newCount);
+  const oldNotifs = notifications.slice(newCount);
+
+  // ✅ Juste reset le badge quand on ouvre, sans supprimer les notifs
+  useFocusEffect(
+    React.useCallback(() => {
+      markAllAsRead();
+    }, [])
+  );
+
+  const renderNotif = (notif: Notification, i: number, isNew: boolean) => {
+    const cat = CATEGORY(notif.title);
+    return (
+      <View key={i} style={[styles.row, isNew && styles.rowNew]}>
+        {isNew && <View style={styles.newDot} />}
+        <NotifAvatar notif={notif} cat={cat} />
+        <View style={styles.content}>
+          <View style={styles.topRow}>
+            <Text style={styles.title}>{notif.title}</Text>
+            <Text style={styles.time}>
+              {notif.timestamp ? getRelativeTime(notif.timestamp) : ''}
+            </Text>
+          </View>
+          <Text style={styles.msg} numberOfLines={2}>{notif.message}</Text>
+        </View>
+      </View>
+    );
+  };
 
   return (
     <>
@@ -80,7 +104,6 @@ export default function NotificationsScreen() {
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
       <View style={styles.container}>
 
-        {/* Header */}
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Notifications</Text>
           {notifications.length > 0 && (
@@ -90,7 +113,6 @@ export default function NotificationsScreen() {
           )}
         </View>
 
-        {/* Empty state */}
         {notifications.length === 0 ? (
           <View style={styles.empty}>
             <View style={styles.emptyIconWrap}>
@@ -101,23 +123,25 @@ export default function NotificationsScreen() {
           </View>
         ) : (
           <ScrollView showsVerticalScrollIndicator={false}>
-            {notifications.map((notif: Notification, i: number) => {
-              const cat = CATEGORY(notif.title);
-              return (
-                <View key={i} style={styles.row}>
-                  <NotifAvatar notif={notif} cat={cat} />
-                  <View style={styles.content}>
-                    <View style={styles.topRow}>
-                      <Text style={styles.title}>{notif.title}</Text>
-                      <Text style={styles.time}>
-                        {notif.timestamp ? getRelativeTime(notif.timestamp) : ''}
-                      </Text>
-                    </View>
-                    <Text style={styles.msg} numberOfLines={2}>{notif.message}</Text>
-                  </View>
+            {newNotifs.length > 0 && (
+              <>
+                <View style={styles.sectionHeader}>
+                  <View style={styles.sectionRedDot} />
+                  <Text style={styles.sectionTitle}>Nouvelles</Text>
+                  <View style={styles.sectionLine} />
                 </View>
-              );
-            })}
+                {newNotifs.map((notif, i) => renderNotif(notif, i, true))}
+              </>
+            )}
+            {oldNotifs.length > 0 && (
+              <>
+                <View style={styles.sectionHeader}>
+                  <Text style={styles.sectionTitleOld}>Précédentes</Text>
+                  <View style={styles.sectionLineGray} />
+                </View>
+                {oldNotifs.map((notif, i) => renderNotif(notif, newNotifs.length + i, false))}
+              </>
+            )}
             <View style={{ height: 40 }} />
           </ScrollView>
         )}
@@ -129,77 +153,48 @@ export default function NotificationsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#fff' },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 18,
-    paddingTop: 58,
-    paddingBottom: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F2F2F2',
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 18, paddingTop: 58, paddingBottom: 14,
+    borderBottomWidth: 1, borderBottomColor: '#F2F2F2',
   },
-  headerTitle: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#111',
-    letterSpacing: -0.4,
-  },
+  headerTitle: { fontSize: 22, fontWeight: '800', color: '#111', letterSpacing: -0.4 },
   clearBtn: { fontSize: 13, color: '#BBB', fontWeight: '500' },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 18,
-    paddingVertical: 13,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F7F7F7',
+  sectionHeader: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 18, paddingTop: 16, paddingBottom: 6, gap: 8,
   },
+  sectionRedDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#EF4444' },
+  sectionTitle: { fontSize: 12, fontWeight: '700', color: '#EF4444', textTransform: 'uppercase', letterSpacing: 0.8 },
+  sectionTitleOld: { fontSize: 12, fontWeight: '700', color: '#AAA', textTransform: 'uppercase', letterSpacing: 0.8 },
+  sectionLine: { flex: 1, height: 1, backgroundColor: '#FECACA' },
+  sectionLineGray: { flex: 1, height: 1, backgroundColor: '#F0F0F0' },
+  row: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 18, paddingVertical: 13,
+    borderBottomWidth: 1, borderBottomColor: '#F7F7F7',
+  },
+  rowNew: { backgroundColor: '#FFF8F8' },
+  newDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#EF4444', marginRight: 8 },
   avatarWrapper: { position: 'relative', marginRight: 13 },
   avatar: { width: 48, height: 48, borderRadius: 24 },
   avatarFallback: { justifyContent: 'center', alignItems: 'center' },
   initials: { color: '#fff', fontSize: 16, fontWeight: '700' },
   badge: {
-    position: 'absolute',
-    bottom: 0,
-    right: -1,
-    width: 17,
-    height: 17,
-    borderRadius: 9,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#fff',
+    position: 'absolute', bottom: 0, right: -1,
+    width: 17, height: 17, borderRadius: 9,
+    justifyContent: 'center', alignItems: 'center',
+    borderWidth: 2, borderColor: '#fff',
   },
   content: { flex: 1 },
-  topRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 3,
-  },
+  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 },
   title: { fontSize: 14, fontWeight: '700', color: '#111', flex: 1 },
   time: { fontSize: 12, color: '#BBB', marginLeft: 8 },
   msg: { fontSize: 13, color: '#666', lineHeight: 18 },
-  empty: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 10,
-    paddingBottom: 80,
-  },
+  empty: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10, paddingBottom: 80 },
   emptyIconWrap: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#F7F7F7',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 6,
+    width: 80, height: 80, borderRadius: 40, backgroundColor: '#F7F7F7',
+    justifyContent: 'center', alignItems: 'center', marginBottom: 6,
   },
   emptyTitle: { fontSize: 17, fontWeight: '700', color: '#222' },
-  emptySub: {
-    fontSize: 13,
-    color: '#BBB',
-    textAlign: 'center',
-    paddingHorizontal: 50,
-  },
+  emptySub: { fontSize: 13, color: '#BBB', textAlign: 'center', paddingHorizontal: 50 },
 });

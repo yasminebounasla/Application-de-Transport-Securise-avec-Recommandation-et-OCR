@@ -1,23 +1,27 @@
+import React, { useEffect, useMemo, useState, useContext } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import FeedbackModal from '../../components/FeedbackModal';
-import { useEffect, useMemo, useState, useContext } from 'react';
 import { useRide } from '../../context/RideContext';
-import api from '../../services/api';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Ionicons } from '@expo/vector-icons';
-import MapView from 'react-native-maps';
 import { LocationContext } from '../../context/LocationContext';
-import { Feather } from '@expo/vector-icons';
+import { useNotifications } from '../../context/NotificationContext';
+import MapView from 'react-native-maps';
+import { Ionicons, Feather } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import api from '../../services/api';
 
 const FEEDBACK_REQUESTED_KEY = 'feedback_requested_rides';
 
 export default function Home() {
   const { getPassengerRides, passengerRides } = useRide();
   const { currentLocation } = useContext(LocationContext);
+  const { notifications, unreadCount } = useNotifications();
 
   const [showFeedbackModal, setShowFeedbackModal] = useState<boolean>(false);
   const [completedRideId, setCompletedRideId] = useState<number | null>(null);
+
+
+  const unreadNotifications = unreadCount; // ← plus notifications.length
 
   useEffect(() => {
     getPassengerRides();
@@ -86,7 +90,6 @@ export default function Home() {
 
   return (
     <>
-      {/* ✅ Map EN PREMIER = toujours en dessous */}
       <MapView
         style={StyleSheet.absoluteFillObject}
         initialRegion={initialRegion}
@@ -94,15 +97,19 @@ export default function Home() {
         showsMyLocationButton={false}
       />
 
-      {/* ✅ Notification button */}
+      {/* ✅ Plus de clearNotifications() ici */}
       <TouchableOpacity
         style={styles.notificationButton}
         onPress={() => router.push('../shared/NotificationsScreen' as any)}
       >
         <Feather name="bell" size={22} color="#000" />
+        {unreadNotifications > 0 && (
+          <View style={styles.badge}>
+            <Text style={styles.badgeText}>{unreadNotifications}</Text>
+          </View>
+        )}
       </TouchableOpacity>
 
-      {/* ✅ Active trips */}
       {activeTrips.length > 0 && (
         <View style={styles.activeTripsContainer}>
           {activeTrips.slice(0, 2).map((trip: any) => (
@@ -133,7 +140,6 @@ export default function Home() {
         </View>
       )}
 
-      {/* ✅ Where to bar */}
       <TouchableOpacity
         style={styles.whereToBar}
         onPress={() => router.push('../passenger/SearchRideScreen' as any)}
@@ -145,7 +151,6 @@ export default function Home() {
         </View>
       </TouchableOpacity>
 
-      {/* ✅ Feedback modal */}
       <FeedbackModal
         visible={showFeedbackModal}
         trajetId={completedRideId}
@@ -175,6 +180,22 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 10,
   },
+  badge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: 'red',
+    borderRadius: 8,
+    width: 16,
+    height: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  badgeText: {
+    color: 'white',
+    fontSize: 10,
+    fontWeight: '700',
+  },
   activeTripsContainer: {
     position: 'absolute',
     top: 70,
@@ -195,29 +216,13 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 5,
   },
-  tripDots: {
-    alignItems: 'center',
-    gap: 2,
-  },
-  dotGreen: {
-    width: 10, height: 10, borderRadius: 5,
-    backgroundColor: '#22C55E',
-  },
-  tripLine: {
-    width: 2, height: 16,
-    backgroundColor: '#ddd',
-  },
-  dotRed: {
-    width: 10, height: 10, borderRadius: 5,
-    backgroundColor: '#E53E3E',
-  },
+  tripDots: { alignItems: 'center', gap: 2 },
+  dotGreen: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#22C55E' },
+  tripLine: { width: 2, height: 16, backgroundColor: '#ddd' },
+  dotRed: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#E53E3E' },
   tripInfo: { flex: 1, gap: 4 },
   tripText: { fontSize: 13, fontWeight: '600', color: '#111' },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-  },
+  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
   badgeActive: { backgroundColor: '#DCFCE7' },
   badgeAccepted: { backgroundColor: '#FEF9C3' },
   statusText: { fontSize: 11, fontWeight: '700', color: '#111' },
@@ -237,14 +242,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: 20,
   },
-  whereToInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  whereToText: {
-    fontSize: 16,
-    color: '#888',
-    fontWeight: '500',
-  },
+  whereToInner: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  whereToText: { fontSize: 16, color: '#888', fontWeight: '500' },
 });
