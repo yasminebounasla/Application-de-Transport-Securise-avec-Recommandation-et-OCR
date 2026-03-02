@@ -4,6 +4,7 @@ import {
   TouchableOpacity, Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 
 export type ToastData = {
   title: string;
@@ -80,7 +81,14 @@ export default function NotifToast({ toast, onHide }: Props) {
 
   return (
     <Animated.View style={[styles.container, { transform: [{ translateY }], opacity }]}>
-      <TouchableOpacity activeOpacity={0.95} onPress={hide} style={styles.inner}>
+      <TouchableOpacity 
+         activeOpacity={0.95} 
+         onPress={() => {
+            hide();
+            router.push('../shared/NotificationsScreen' as any);
+          }}
+          style={styles.inner}
+        >
         <View style={[styles.iconWrap, { backgroundColor: color + '22' }]}>
           <Ionicons name={icon} size={22} color={color} />
         </View>
