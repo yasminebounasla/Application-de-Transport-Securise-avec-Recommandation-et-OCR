@@ -11,6 +11,7 @@ type Notification = {
   photoUrl?: string;
   prenom?: string;
   nom?: string;
+  rideId?: number;
 };
 
 type NotificationContextType = {
@@ -33,12 +34,12 @@ const NotificationContext = createContext<NotificationContextType>({
   hideToast: () => {},
 });
 
-const CATEGORY_TOAST = (title: string): { color: string; icon: keyof typeof import('@expo/vector-icons').Ionicons.glyphMap } => {
+const CATEGORY_TOAST = (title: string): { color: string; icon: any } => {
   if (title.includes('confirmé') || title.includes('accepté'))
     return { color: '#22C55E', icon: 'checkmark-circle' };
-  if (title.includes('refus') || title.includes('annulé'))
+  if (title.includes('refus') || title.includes('annulé') || title.includes('expirée'))
     return { color: '#EF4444', icon: 'close-circle' };
-  if (title.includes('envoyée') || title.includes('créé'))
+  if (title.includes('envoyée') || title.includes('créé') || title.includes('demande'))
     return { color: '#3B82F6', icon: 'car' };
   if (title.includes('avis'))
     return { color: '#F59E0B', icon: 'star' };
@@ -56,6 +57,7 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
   const storageKeyRef = useRef(storageKey);
   useEffect(() => { storageKeyRef.current = storageKey; }, [storageKey]);
 
+  // ✅ Charger notifs au démarrage
   useEffect(() => {
     if (!storageKey) return;
     const load = async () => {
@@ -72,26 +74,55 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
     load();
   }, [storageKey]);
 
+  // ✅ Ajouter une notif
   const addNotif = useRef(async (title: string, message: string, extra?: Partial<Notification>) => {
     const key = storageKeyRef.current;
     if (!key) return;
-
     const newNotif: Notification = { title, message, timestamp: Date.now(), ...extra };
-
     setNotifications(prev => {
       const updated = [newNotif, ...prev];
       AsyncStorage.setItem(key, JSON.stringify(updated)).catch(console.error);
       return updated;
     });
-
     setUnreadCount(prev => {
       const next = prev + 1;
       AsyncStorage.setItem(`${key}_unread`, String(next)).catch(console.error);
       return next;
     });
-
     const { color, icon } = CATEGORY_TOAST(title);
     setCurrentToast({ title, message, color, icon });
+  });
+
+  // ✅ Remplacer une notif rideRequest par rideTakenByOther
+  const replaceRideNotif = useRef(async (rideId: number) => {
+    const key = storageKeyRef.current;
+    if (!key) return;
+
+    setNotifications(prev => {
+      // Cherche la notif rideRequest avec ce rideId
+      const index = prev.findIndex(n => n.rideId === rideId && n.title.includes('demande'));
+      if (index === -1) return prev; // pas trouvée, rien à faire
+
+      // Remplace par la notif "expirée"
+      const updated = [...prev];
+      updated[index] = {
+        ...updated[index],
+        title: '⚡ Demande expirée',
+        message: 'Un autre conducteur a été choisi pour ce trajet.',
+        timestamp: Date.now(),
+      };
+
+      AsyncStorage.setItem(key, JSON.stringify(updated)).catch(console.error);
+      return updated;
+    });
+
+    // ✅ Affiche aussi un toast discret
+    setCurrentToast({
+      title: '⚡ Demande expirée',
+      message: 'Un autre conducteur a été choisi pour ce trajet.',
+      color: '#F59E0B',
+      icon: 'time',
+    });
   });
 
   const clearNotifications = async () => {
@@ -127,7 +158,10 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
         newSocket.emit('registerUser', user.id);
 
         newSocket.on('rideCreated', () => {
-          addNotif.current('🚗 Demande envoyée', "Votre demande a été soumise. En attente d'un conducteur.");
+          addNotif.current(
+            '🚗 Demande envoyée',
+            "Votre demande a été soumise. En attente d'un conducteur."
+          );
         });
 
         newSocket.on('rideAccepted', (data: any) => {
@@ -139,11 +173,27 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
         });
 
         newSocket.on('rideRejectedByDriver', () => {
-          addNotif.current('❌ Demande non acceptée', "Votre demande n'a pas pu être prise en charge.");
+          addNotif.current(
+            '❌ Demande non acceptée',
+            "Votre demande n'a pas pu être prise en charge."
+          );
         });
 
       } else if (user.role === 'driver') {
         newSocket.emit('registerDriver', user.id);
+
+        newSocket.on('rideRequest', (data: any) => {
+          addNotif.current(
+            '🚗 Nouvelle demande',
+            `${data.passenger.prenom} ${data.passenger.nom} · ${data.startAddress} → ${data.endAddress}`,
+            { prenom: data.passenger.prenom, nom: data.passenger.nom, rideId: data.rideId }
+          );
+        });
+
+        // ✅ Remplace la notif rideRequest par "expirée"
+        newSocket.on('rideTakenByOther', (data: any) => {
+          replaceRideNotif.current(data.rideId);
+        });
 
         newSocket.on('rideCancelledByPassenger', (data: any) => {
           addNotif.current(

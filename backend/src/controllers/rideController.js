@@ -201,15 +201,10 @@ export const getDriverRequests = async (req, res) => {
 // Acceptation d'un trajet
 
 export const acceptRide = async (req, res) => {
-
-  console.log("REQ.USER:", req.user);
   const driverId = req.user.driverId;
 
   if (!driverId) {
-    return res.status(400).json({ 
-      success: false,
-      message: "Driver not found in request" 
-    });
+    return res.status(400).json({ success: false, message: "Driver not found in request" });
   }
 
   const { id } = req.params;
@@ -217,15 +212,20 @@ export const acceptRide = async (req, res) => {
   try {
     const ride = await prisma.trajet.findUnique({ where: { id: parseInt(id) } });
 
-    if (!ride) return res.status(404).json({ message: 'Demande de trajet introuvable' });
-    if (ride.status !== 'PENDING') return res.status(400).json({ 
-      success: false,
-      message: `Impossible d'accepter un trajet avec le status ${ride.status}` 
-    });
+    if (!ride) {
+      return res.status(404).json({ success: false, message: 'Demande introuvable' });
+    }
+
+    if (ride.status !== 'PENDING') {
+      return res.status(400).json({
+        success: false,
+        message: 'Ce trajet a déjà été pris par un autre conducteur'
+      });
+    }
 
     const updatedRide = await prisma.trajet.update({
       where: { id: parseInt(id) },
-      data: { 
+      data: {
         status: 'ACCEPTED',
         driver: { connect: { id: driverId } },
         updatedAt: new Date()
@@ -236,20 +236,29 @@ export const acceptRide = async (req, res) => {
       },
     });
 
-    // Notifier passager
     const io = getIO();
 
+    // ✅ Notifier le passager
     io.to(`passenger_${updatedRide.passenger.id}`).emit('rideAccepted', {
       rideId: updatedRide.id,
       status: updatedRide.status,
       driver: updatedRide.driver,
     });
 
-    return res.status(200).json({ success: true, message: 'Demande acceptée avec succès', data: updatedRide });
+    // ✅ Broadcast à TOUS les drivers — chaque driver vérifie s'il a cette notif et la remplace
+    io.emit('rideTakenByOther', {
+      rideId: updatedRide.id,
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: 'Trajet accepté avec succès',
+      data: updatedRide
+    });
 
   } catch (error) {
     console.error('Erreur acceptRide:', error);
-    return res.status(500).json({ message: 'Erreur lors de l\'acceptation de la demande', error: error.message });
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 
