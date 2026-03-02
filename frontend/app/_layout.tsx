@@ -7,7 +7,15 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { NotificationProvider } from '../context/NotificationContext';
 import { useAuth } from '../context/AuthContext';
 
-// ✅ Composant séparé pour attendre que l'auth soit prête
+import { useNotifications } from '../context/NotificationContext';
+import NotifToast from '../components/NotifToast';
+
+function ToastManager() {
+  const { currentToast, hideToast } = useNotifications();
+  return <NotifToast toast={currentToast} onHide={hideToast} />;
+}
+
+// Composant séparé pour attendre que l'auth soit prête
 function AppContent() {
   const { loading } = useAuth();
 
@@ -27,6 +35,7 @@ function AppContent() {
               <Stack.Screen name="(passengerTabs)" options={{ headerShown: false }} />
               <Stack.Screen name="(driverTabs)" options={{ headerShown: false }} />
             </Stack>
+            <ToastManager />
           </SafeAreaProvider>
         </RideProvider>
       </LocationProvider>

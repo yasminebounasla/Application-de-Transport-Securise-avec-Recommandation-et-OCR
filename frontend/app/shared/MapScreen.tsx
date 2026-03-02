@@ -291,7 +291,7 @@ export default function MapScreen() {
             } catch (error) {
               console.error('❌ Erreur cancel:', error.response?.data || error.message);
             } finally {
-              router.push("/passenger/SearchRideScreen");
+              router.push("/(passengerTabs)/PassengerHomeScreen");
             }
           },
         }

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useRef, ReactNod
 import { io, Socket } from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from './AuthContext';
+import { ToastData } from '../components/NotifToast';
 
 type Notification = {
   title: string;
@@ -16,29 +17,45 @@ type NotificationContextType = {
   notifications: Notification[];
   unreadCount: number;
   socket: Socket | null;
+  currentToast: ToastData | null;
   clearNotifications: () => void;
   markAllAsRead: () => void;
+  hideToast: () => void;
 };
 
 const NotificationContext = createContext<NotificationContextType>({
   notifications: [],
   unreadCount: 0,
   socket: null,
+  currentToast: null,
   clearNotifications: () => {},
   markAllAsRead: () => {},
+  hideToast: () => {},
 });
+
+const CATEGORY_TOAST = (title: string): { color: string; icon: keyof typeof import('@expo/vector-icons').Ionicons.glyphMap } => {
+  if (title.includes('confirmé') || title.includes('accepté'))
+    return { color: '#22C55E', icon: 'checkmark-circle' };
+  if (title.includes('refus') || title.includes('annulé'))
+    return { color: '#EF4444', icon: 'close-circle' };
+  if (title.includes('envoyée') || title.includes('créé'))
+    return { color: '#3B82F6', icon: 'car' };
+  if (title.includes('avis'))
+    return { color: '#F59E0B', icon: 'star' };
+  return { color: '#8B5CF6', icon: 'notifications' };
+};
 
 export const NotificationProvider = ({ children }: { children: ReactNode }) => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [socket, setSocket] = useState<Socket | null>(null);
+  const [currentToast, setCurrentToast] = useState<ToastData | null>(null);
   const { user } = useAuth();
 
   const storageKey = user?.id ? `app_notifications_${user.id}` : null;
   const storageKeyRef = useRef(storageKey);
   useEffect(() => { storageKeyRef.current = storageKey; }, [storageKey]);
 
-  // ✅ Charger notifs + unreadCount au démarrage
   useEffect(() => {
     if (!storageKey) return;
     const load = async () => {
@@ -47,8 +64,7 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
         const unread = await AsyncStorage.getItem(`${storageKey}_unread`);
         if (stored) setNotifications(JSON.parse(stored));
         else setNotifications([]);
-        if (unread) setUnreadCount(parseInt(unread));
-        else setUnreadCount(0);
+        setUnreadCount(unread ? parseInt(unread) : 0);
       } catch (e) {
         console.error('Erreur chargement notifications:', e);
       }
@@ -59,20 +75,25 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
   const addNotif = useRef(async (title: string, message: string, extra?: Partial<Notification>) => {
     const key = storageKeyRef.current;
     if (!key) return;
+
     const newNotif: Notification = { title, message, timestamp: Date.now(), ...extra };
+
     setNotifications(prev => {
       const updated = [newNotif, ...prev];
       AsyncStorage.setItem(key, JSON.stringify(updated)).catch(console.error);
       return updated;
     });
+
     setUnreadCount(prev => {
       const next = prev + 1;
       AsyncStorage.setItem(`${key}_unread`, String(next)).catch(console.error);
       return next;
     });
+
+    const { color, icon } = CATEGORY_TOAST(title);
+    setCurrentToast({ title, message, color, icon });
   });
 
-  // ✅ Efface tout
   const clearNotifications = async () => {
     if (!storageKey) return;
     setNotifications([]);
@@ -81,15 +102,16 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
     await AsyncStorage.removeItem(`${storageKey}_unread`);
   };
 
-  // ✅ Juste reset le badge (marquer comme lu) sans supprimer
   const markAllAsRead = async () => {
     if (!storageKey) return;
     setUnreadCount(0);
     await AsyncStorage.setItem(`${storageKey}_unread`, '0');
   };
 
+  const hideToast = () => setCurrentToast(null);
+
   useEffect(() => {
-    if (!user || !user.id) return;
+    if (!user?.id) return;
 
     const newSocket = io(process.env.EXPO_PUBLIC_API_URL_SANS_API!, {
       transports: ['websocket'],
@@ -105,7 +127,7 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
         newSocket.emit('registerUser', user.id);
 
         newSocket.on('rideCreated', () => {
-          addNotif.current('🚗 Demande envoyée', "Votre demande de trajet a été soumise. En attente d'un conducteur.");
+          addNotif.current('🚗 Demande envoyée', "Votre demande a été soumise. En attente d'un conducteur.");
         });
 
         newSocket.on('rideAccepted', (data: any) => {
@@ -148,7 +170,10 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
   }, [user]);
 
   return (
-    <NotificationContext.Provider value={{ notifications, unreadCount, socket, clearNotifications, markAllAsRead }}>
+    <NotificationContext.Provider value={{
+      notifications, unreadCount, socket,
+      currentToast, clearNotifications, markAllAsRead, hideToast,
+    }}>
       {children}
     </NotificationContext.Provider>
   );
