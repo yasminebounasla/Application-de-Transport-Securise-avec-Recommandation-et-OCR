@@ -8,7 +8,8 @@ import {
   rejectRide,      
   startRide,      
   completeRide,   
-  cancelRide,      
+  cancelRide,    
+  updateRidePrice,  
 } from '../controllers/rideController.js';
 import { authenticate } from '../middleware/authMiddleware.js'; 
 
@@ -23,5 +24,7 @@ router.put('/:id/accept', authenticate, acceptRide);             // Accepter
 router.put('/:id/reject', authenticate, rejectRide);             // Refuser
 router.put('/:id/start', authenticate, startRide);               // Démarrer
 router.put('/:id/complete', authenticate, completeRide);         // Terminer
+
+router.patch('/:id/price', authenticate, updateRidePrice); 
 
 export default router;

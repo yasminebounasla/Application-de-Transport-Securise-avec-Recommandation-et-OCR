@@ -126,6 +126,15 @@ export default function SearchRideScreen() {
   const [quiet_ride, setQuietRide] = useState(false);
   const [radio_ok, setRadioOk] = useState(false);
   const [female_driver_pref, setFemaleDriverPref] = useState(false);
+  const showError = (msg: string) => {
+   setErrorMsg(msg);
+    setEndLocation(null);
+    setEndAddress("");
+   setEndQuery("");
+   setTimeout(() => setErrorMsg(null), 3000);
+  };
+  
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
     const loadSavedAddresses = async () => {
@@ -305,11 +314,18 @@ export default function SearchRideScreen() {
 
   const handleRideRequest = async () => {
     if (!startLocation || !endLocation || !dateDepart) { Alert.alert('Error', 'Please fill all fields'); return; }
+
+    if (startAddress && endAddress && startAddress.trim() === endAddress.trim()) {
+      showError('Departure and destination must be different');
+      return;
+    }
+    
     const validation = validateLocationsInAlgeria(startLocation, endLocation);
     if (!validation.valid) {
       router.push({ pathname: "/shared/MapScreen", params: { selectionType: "route", rideId: "", startAddress: startAddress || "Departure point", endAddress: endAddress || "Destination", startLat: startLocation.latitude.toString(), startLng: startLocation.longitude.toString(), endLat: endLocation.latitude.toString(), endLng: endLocation.longitude.toString() } });
       return;
     }
+    
     try {
       const newRide = await createRide({
         startLat: startLocation.latitude, startLng: startLocation.longitude,
@@ -535,6 +551,13 @@ export default function SearchRideScreen() {
               </View>
             )}
 
+            {errorMsg && (
+              <View style={styles.errorBanner}>
+               <Ionicons name="alert-circle" size={18} color="#D00" />
+               <Text style={styles.errorBannerText}>{errorMsg}</Text>
+              </View>
+            )}
+
             {/* ── PREFERENCES ── */}
             <Text style={styles.sectionTitle}>Your Preferences</Text>
             <View style={styles.prefsGrid}>
@@ -745,4 +768,12 @@ const styles = StyleSheet.create({
   applyButton: { fontSize: 16, color: '#6B46C1', fontWeight: '600' },
   nextButton: { backgroundColor: '#6B46C1', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 16 },
   nextButtonText: { color: '#FFF', fontSize: 16, fontWeight: '600' },
+  errorBanner: {
+   flexDirection: 'row', alignItems: 'center', gap: 8,
+   backgroundColor: '#FFF0F0', borderRadius: 10,
+   paddingHorizontal: 14, paddingVertical: 10,
+   borderWidth: 1, borderColor: '#FFCCCC',
+   marginBottom: 10,
+  },
+  errorBannerText: { fontSize: 13, fontWeight: '600', color: '#D00' },
 });

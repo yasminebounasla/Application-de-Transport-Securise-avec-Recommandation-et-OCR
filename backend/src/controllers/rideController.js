@@ -19,6 +19,7 @@ export const createRide = async (req, res) => {
     endLng,
     endAddress,
     departureTime,
+    prix,
   } = req.body;
 
   if (!startLat || !startLng || !startAddress || 
@@ -57,7 +58,7 @@ export const createRide = async (req, res) => {
         dateDepart: new Date(departureTime),
         heureDepart: new Date(departureTime).toTimeString().slice(0, 5),
         placesDispo: 1,
-        prix: 0,
+        prix: prix ? parseFloat(prix) : 0,
         status: 'PENDING',
       },
 
@@ -504,5 +505,20 @@ export const cancelRide = async (req, res) => {
   } catch (error) {
     console.error('Erreur cancelRide:', error);
     return res.status(500).json({ message: 'Erreur lors de l\'annulation du trajet', error: error.message });
+  }
+};
+
+export const updateRidePrice = async (req, res) => {
+  const { id } = req.params;
+  const { prix } = req.body;
+
+  try {
+    const updated = await prisma.trajet.update({
+      where: { id: parseInt(id) },
+      data: { prix: parseFloat(prix) },
+    });
+    return res.status(200).json({ success: true, data: updated });
+  } catch (error) {
+    return res.status(500).json({ message: error.message });
   }
 };

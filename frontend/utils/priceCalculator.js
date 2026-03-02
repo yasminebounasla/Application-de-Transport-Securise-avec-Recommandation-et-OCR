@@ -1,10 +1,9 @@
-// utils/priceCalculator.js
 
 const TARIF = {
-  base:     150,  // DA — montant fixe de départ
-  par_km:    38,  // DA par kilomètre
-  par_min:    7,  // DA par minute
-  minimum:  250,  // DA — prix plancher
+  base:      5,  
+  par_km:    38, 
+  par_min:    7,  
+  minimum:  100,  
 };
 
 /**

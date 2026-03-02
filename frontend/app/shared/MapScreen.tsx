@@ -179,6 +179,10 @@ export default function MapScreen() {
         // ── Calcul du prix juste après avoir obtenu distance + durée ──
         const { price } = calculatePrice(distKm, durMin);
         setEstimatedPrice(price);
+        
+        if (rideId) {
+         await api.patch(`/ridesDem/${rideId}/price`, { prix: price });
+        }
 
         if (mapRef.current && coords.length > 0) {
           mapRef.current.fitToCoordinates(coords, {
