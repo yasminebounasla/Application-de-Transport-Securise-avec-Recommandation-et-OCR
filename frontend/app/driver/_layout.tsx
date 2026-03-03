@@ -8,6 +8,7 @@ export default function Layout() {
       <Stack.Screen name="ProfileSetupScreen" />
       <Stack.Screen name="RideRequestsScreen" />
       <Stack.Screen name="MyFeedbacksScreen" />
+      <Stack.Screen name="PassengerProfileScreen" options={{ headerShown: false }} />
     </Stack>
   );
 }

@@ -10,8 +10,10 @@ import {
 } from 'react-native';
 import { useRide } from '../../context/RideContext';
 import RideCard from '../../components/RideCard';
+import { router, useRouter } from 'expo-router';
 
 export default function RideRequestsScreen() {
+  const router = useRouter();
   const { driverRequests, getDriverRequests, acceptRide, rejectRide, loading } = useRide();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -126,8 +128,10 @@ export default function RideRequestsScreen() {
               showActions={true}      
               onAccept={handleAccept} 
               onReject={handleReject} 
-              onPress={null}   
-              //onComplete={handleComplete}      
+              onPress={() => router.push({ 
+                pathname: '/driver/PassengerProfileScreen',
+                params: { ride: JSON.stringify(item) } 
+              })} 
             />
           )}
           contentContainerStyle={styles.listContainer}
