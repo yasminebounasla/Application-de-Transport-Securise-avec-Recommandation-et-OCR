@@ -102,6 +102,10 @@ export default function RecommendedDriversScreen() {
       driver={item}
       isSelected={selectedDriver?.id === item.id}
       onPress={handleSelectDriver}
+      onLongPress={() => router.push({
+       pathname: '/passenger/DriverProfileScreen',
+       params: { driverId: item.id }
+      } as any)}
       style
     />
   );

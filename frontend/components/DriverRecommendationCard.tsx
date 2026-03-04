@@ -9,11 +9,13 @@ export default function DriverRecoCard({
   isSelected = false,
   onPress,
   style,
+  onLongPress, 
 }) {
 
   return (
     <Pressable
       onPress={() => onPress(driver)}
+      onLongPress={onLongPress}
       style={({ pressed }) => [
         styles.card,
         isSelected && styles.selected,

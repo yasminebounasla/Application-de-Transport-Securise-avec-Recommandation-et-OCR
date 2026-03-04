@@ -389,6 +389,8 @@ export const getDriverProfile = async (req, res) => {
       password, 
       hasAcceptedPhotoStorage, 
       trajets, 
+      email, 
+      numTel,
       ...driverData 
     } = driver;
 
