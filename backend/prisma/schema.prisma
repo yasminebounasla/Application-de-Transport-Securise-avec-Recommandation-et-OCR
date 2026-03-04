@@ -15,6 +15,7 @@ model Passenger {
   prenom    String
   numTel    String
   age       Int
+  expoPushToken String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -49,6 +50,8 @@ model Driver {
 
   avgRating    Float? @default(0)
   ratingsCount Int?   @default(0)
+  
+  expoPushToken String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
