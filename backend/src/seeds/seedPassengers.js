@@ -1,11 +1,13 @@
+// seed.passengers.js
 import { prisma } from "../config/prisma.js";
 import bcrypt from "bcrypt";
 
-const PRENOMS = ["Ines", "Aya", "Yasmine", "Nour", "Lina", "Amel", "Imane", "Sonia", "Salma", "Maya"];
-const NOMS = ["Benali", "Mansouri", "Bouzid", "Belkacem", "Haddad", "Amrani", "Slimani", "Meziane"];
+const PRENOMS = ["Ines", "Aya", "Yasmine", "Nour", "Lina", "Amel", "Imane", "Sonia", "Salma", "Maya",
+                 "Hawas", "Mohamed", "Yassine", "Karim", "Mehdi", "Hamza", "Rami", "Khaled", "Sofiane", "Amine"];
+const NOMS    = ["Benali", "Mansouri", "Bouzid", "Belkacem", "Haddad", "Amrani", "Slimani", "Meziane"];
 
 const randomChoice = (arr) => arr[Math.floor(Math.random() * arr.length)];
-const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+const randomInt    = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
 async function seedPassengers(count = 80) {
   console.log(`Création de ${count} passagers...\n`);
@@ -15,19 +17,26 @@ async function seedPassengers(count = 80) {
 
   for (let i = 1; i <= count; i++) {
     passengers.push({
-      email: `passenger${i}@mail.com`,
+      email:  `passenger${i}@mail.com`,
       password: hashedPassword,
-      nom: randomChoice(NOMS),
+      nom:    randomChoice(NOMS),
       prenom: randomChoice(PRENOMS),
       numTel: `0${randomInt(500000000, 799999999)}`,
-      age: randomInt(18, 60)
-      // ✅ Plus de colonnes de préférences inutiles
+      age:    randomInt(18, 60),
     });
   }
 
-  await prisma.passenger.createMany({ data: passengers, skipDuplicates: true });
-  console.log("Passagers créés !");
-  await prisma.$disconnect();
+  try {
+    const result = await prisma.passenger.createMany({
+      data: passengers,
+      skipDuplicates: true,
+    });
+    console.log(`✅ ${result.count} passagers créés avec succès!`);
+  } catch (error) {
+    console.error("❌ Erreur:", error.message);
+  } finally {
+    await prisma.$disconnect();
+  }
 }
 
-seedPassengers();
+seedPassengers(80);
