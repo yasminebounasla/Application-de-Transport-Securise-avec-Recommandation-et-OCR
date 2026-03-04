@@ -33,6 +33,9 @@ model Driver {
   isVerified              Boolean @default(false)
   age                     Int
   hasAcceptedPhotoStorage Boolean @default(false)
+  wilaya                  String
+  latitude                Float?
+  longitude               Float?
 
   talkative       Boolean @default(false)
   radio_on        Boolean @default(false)
