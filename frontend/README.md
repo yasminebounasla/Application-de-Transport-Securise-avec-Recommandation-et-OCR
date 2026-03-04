@@ -48,3 +48,23 @@ Join our community of developers creating universal apps.
 
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+
+## Setup Google Services (Firebase FCM)
+
+> ⚠️ Ce fichier contient des clés sensibles — ne jamais le committer sur GitHub !
+
+1. Demande le fichier `google-services.json` au responsable du projet
+2. Place-le dans `frontend/google-services.json`
+3. Vérifie que `google-services.json` est bien dans le `.gitignore`
+
+Pour obtenir le fichier :
+- Firebase Console → [TransportApp](https://console.firebase.google.com)
+- Paramètres du projet → Télécharger `google-services.json`
+
+⚠️ PROBLÈME DE VALIDATION EN DEUX ÉTAPES :
+Firebase oblige l'activation du 2FA sur ton compte Google.
+Si tu vois "Activer la validation en deux étapes" :
+→ Va sur https://myaccount.google.com/security
+→ Clique sur "Validation en deux étapes" → Activer
+→ Choisis : SMS, Google Authenticator, ou Invite Google
+→ Une fois activé, retourne sur console.firebase.google.com
