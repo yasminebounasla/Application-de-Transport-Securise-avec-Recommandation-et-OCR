@@ -140,16 +140,23 @@ export default function Home() {
         </View>
       )}
 
-      <TouchableOpacity
-        style={styles.whereToBar}
-        onPress={() => router.push('../passenger/SearchRideScreen' as any)}
-        activeOpacity={0.9}
-      >
-        <View style={styles.whereToInner}>
-          <Ionicons name="search-outline" size={20} color="#888" />
-          <Text style={styles.whereToText}>Where to?</Text>
-        </View>
-      </TouchableOpacity>
+      {/* Remplace le whereToBar TouchableOpacity par ceci */}
+<View style={styles.bottomSheet}>
+  <View style={styles.bottomSheetHandle} />
+  
+  <TouchableOpacity
+    style={styles.searchBar}
+    onPress={() => router.push('../passenger/SearchRideScreen' as any)}
+    activeOpacity={0.85}
+  >
+    <View style={styles.searchIconWrapper}>
+      <Ionicons name="search" size={18} color="#FFF" />
+    </View>
+    <Text style={styles.searchText}>Where to & for how much?</Text>
+    <Ionicons name="chevron-forward" size={18} color="#999" />
+  </TouchableOpacity>
+
+</View>
 
       <FeedbackModal
         visible={showFeedbackModal}
@@ -226,22 +233,39 @@ const styles = StyleSheet.create({
   badgeActive: { backgroundColor: '#DCFCE7' },
   badgeAccepted: { backgroundColor: '#FEF9C3' },
   statusText: { fontSize: 11, fontWeight: '700', color: '#111' },
-  whereToBar: {
-    position: 'absolute',
-    bottom: 150,
-    left: 16,
-    right: 16,
-    backgroundColor: '#fff',
-    borderRadius: 50,
-    height: 56,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-  },
-  whereToInner: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  whereToText: { fontSize: 16, color: '#888', fontWeight: '500' },
+  bottomSheet: {
+  position: 'absolute',
+  bottom: 0,
+  left: 0,
+  right: 0,
+  backgroundColor: '#FFF',
+  borderTopLeftRadius: 24,
+  borderTopRightRadius: 24,
+  paddingHorizontal: 16,
+  paddingTop: 10,
+  paddingBottom: 90, 
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: -4 },
+  shadowOpacity: 0.12,
+  shadowRadius: 16,
+  elevation: 20,
+},
+bottomSheetHandle: {
+  width: 36, height: 4, borderRadius: 2,
+  backgroundColor: '#E0E0E0',
+  alignSelf: 'center', marginBottom: 14,
+},
+searchBar: {
+  flexDirection: 'row', alignItems: 'center',
+  backgroundColor: '#F5F5F5', borderRadius: 16,
+  paddingVertical: 14, paddingHorizontal: 14,
+  marginBottom: 16, gap: 10,
+},
+searchIconWrapper: {
+  width: 32, height: 32, borderRadius: 10,
+  backgroundColor: '#000',
+  alignItems: 'center', justifyContent: 'center',
+},
+searchText: { flex: 1, fontSize: 15, color: '#333', fontWeight: '500' },
+
 });
