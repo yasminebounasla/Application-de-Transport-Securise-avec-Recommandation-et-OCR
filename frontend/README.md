@@ -61,10 +61,11 @@ Pour obtenir le fichier :
 - Firebase Console → [TransportApp](https://console.firebase.google.com)
 - Paramètres du projet → Télécharger `google-services.json`
 
-⚠️ PROBLÈME DE VALIDATION EN DEUX ÉTAPES :
-Firebase oblige l'activation du 2FA sur ton compte Google.
-Si tu vois "Activer la validation en deux étapes" :
-→ Va sur https://myaccount.google.com/security
-→ Clique sur "Validation en deux étapes" → Activer
-→ Choisis : SMS, Google Authenticator, ou Invite Google
-→ Une fois activé, retourne sur console.firebase.google.com
+> ⚠️ PROBLÈME DE VALIDATION EN DEUX ÉTAPES :
+
+- Firebase oblige l'activation du 2FA sur ton compte Google.
+- Si tu vois "Activer la validation en deux étapes" :
+1. Va sur https://myaccount.google.com/security
+2. Clique sur "Validation en deux étapes" → Activer
+3. Choisis : SMS, Google Authenticator, ou Invite Google
+4. Une fois activé, retourne sur console.firebase.google.com
