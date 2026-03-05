@@ -643,6 +643,7 @@ const styles = StyleSheet.create({
   routeDivider: { height: 1, backgroundColor: '#E5E5E5', marginLeft: 24 },
   dotGreen: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#22C55E' },
   dotBlue:  { width: 12, height: 12, borderRadius: 6, backgroundColor: '#3B82F6' },
+  
 
   // ── Input ──
   inputContainer: { flex: 1, flexDirection: 'row', alignItems: 'center' },
