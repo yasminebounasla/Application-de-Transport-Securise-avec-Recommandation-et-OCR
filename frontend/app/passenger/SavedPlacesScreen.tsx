@@ -15,27 +15,14 @@ import {
 } from 'react-native';
 import { Stack, router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import api from '../../services/api'; 
+import api from '../../services/api';
+import { searchPlaces } from '../../services/placesService';
 
 const ADDRESS_TYPES = [
   { key: 'home',  label: 'Home',  icon: 'home-outline',      filledIcon: 'home' },
   { key: 'work',  label: 'Work',  icon: 'briefcase-outline',  filledIcon: 'briefcase' },
   { key: 'other', label: 'Other', icon: 'location-outline',   filledIcon: 'location' },
 ];
-
-// ─────────────────────────────────────────────
-// GEOCODER  — remplace par ton API réelle
-// ─────────────────────────────────────────────
-async function searchPlaces(query) {
-  await new Promise(r => setTimeout(r, 600));
-  if (!query.trim()) return [];
-  return [
-    { id: '1', name: query,             address: `${query}, Alger, Algérie`,                lat: 36.7538, lng: 3.0588 },
-    { id: '2', name: `${query} Centre`, address: `${query} Centre, Bir Mourad Raïs, Alger`, lat: 36.7400, lng: 3.0600 },
-    { id: '3', name: `${query} Nord`,   address: `${query} Nord, Bab Ezzouar, Alger`,        lat: 36.7200, lng: 3.1800 },
-    { id: '4', name: `Rue ${query}`,    address: `Rue ${query}, Hussein Dey, Alger`,         lat: 36.7372, lng: 3.1008 },
-  ];
-}
 
 // ─────────────────────────────────────────────
 // MAIN SCREEN
@@ -305,12 +292,13 @@ function AddressModal({ visible, target, onClose, onSave, onSetOnMap }) {
     }, 500);
   };
 
+  // ── Uses real field names from placesService ──
   const handleSelect = (place) => {
     onSave({
-      label: target?.label || place.name,
-      address: place.address,
-      lat: place.lat,
-      lng: place.lng,
+      label:   target?.label || place.shortName,
+      address: place.displayName,
+      lat:     place.latitude,
+      lng:     place.longitude,
     });
   };
 
@@ -360,7 +348,7 @@ function AddressModal({ visible, target, onClose, onSave, onSetOnMap }) {
           {/* RESULTS */}
           <FlatList
             data={results}
-            keyExtractor={item => item.id}
+            keyExtractor={item => String(item.id)}
             keyboardShouldPersistTaps="handled"
             ItemSeparatorComponent={() => (
               <View style={{ height: 1, backgroundColor: '#F5F5F5', marginLeft: 60 }} />
@@ -387,9 +375,11 @@ function AddressModal({ visible, target, onClose, onSave, onSetOnMap }) {
                   <Ionicons name="location-outline" size={17} color="#555" />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#111' }}>{item.name}</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#111' }}>
+                    {item.shortName || item.displayName}
+                  </Text>
                   <Text style={{ fontSize: 12, color: '#999', marginTop: 2 }} numberOfLines={1}>
-                    {item.address}
+                    {item.displayName}
                   </Text>
                 </View>
               </TouchableOpacity>
