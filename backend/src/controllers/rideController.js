@@ -20,6 +20,7 @@ export const createRide = async (req, res) => {
     endAddress,
     departureTime,
     prix,
+    placesDispo,
   } = req.body;
 
   if (!startLat || !startLng || !startAddress || 
@@ -57,7 +58,7 @@ export const createRide = async (req, res) => {
         endAddress,
         dateDepart: new Date(departureTime),
         heureDepart: new Date(departureTime).toTimeString().slice(0, 5),
-        placesDispo: 1,
+        placesDispo: placesDispo ? parseInt(placesDispo) : 1,
         prix: prix ? parseFloat(prix) : 0,
         status: 'PENDING',
       },
