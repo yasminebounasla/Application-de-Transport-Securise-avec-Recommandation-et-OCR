@@ -220,12 +220,8 @@ export const getPublicDriverStats = async (req, res) => {
             select: {
                 avgRating: true,
                 ratingsCount: true,
-                user: {
-                    select: {
-                        nom: true,
-                        prenom: true
-                    }
-                }
+                nom: true,       
+                prenom: true,
             }
         });
 
@@ -238,7 +234,7 @@ export const getPublicDriverStats = async (req, res) => {
             data: {
                 averageRating: driver.avgRating || 0,
                 totalFeedbacks: driver.ratingsCount || 0,
-                driverName: `${driver.user.prenom} ${driver.user.nom}`
+                driverName: `${driver.prenom} ${driver.nom}`
             }
         });
     } catch(err) {

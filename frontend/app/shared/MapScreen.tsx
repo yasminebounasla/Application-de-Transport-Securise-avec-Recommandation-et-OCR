@@ -300,7 +300,6 @@ export default function MapScreen() {
   };
 
   const handleTryAnother = () => {
-    setShowLocationError(false);
     router.push("/passenger/SearchRideScreen");
   };
 

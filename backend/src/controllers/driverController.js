@@ -627,3 +627,29 @@ export const notifySelectedDrivers = async (req, res) => {
     return res.status(500).json({ success: false, message: error.message });
   }
 };
+
+export const savePushToken = async (req, res) => {
+  const driverId = req.user.driverId;
+
+  if (!driverId) {
+    return res.status(403).json({ message: "Access restricted to drivers only." });
+  }
+
+  try {
+    const { expoPushToken } = req.body;
+
+    if (!expoPushToken) {
+      return res.status(400).json({ message: "expoPushToken is required." });
+    }
+
+    await prisma.driver.update({
+      where: { id: driverId },
+      data: { expoPushToken },
+    });
+
+    res.status(200).json({ message: "Push token saved successfully." });
+  } catch (err) {
+    console.error("Error saving push token:", err);
+    res.status(500).json({ message: "Failed to save push token.", error: err.message });
+  }
+};

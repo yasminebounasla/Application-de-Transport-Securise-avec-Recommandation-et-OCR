@@ -265,3 +265,29 @@ export const updatePassengerProfile = async (req, res) => {
     });
   }
 };
+
+export const savePushToken = async (req, res) => {
+  const passengerId = req.user.passengerId;
+
+  if (!passengerId) {
+    return res.status(403).json({ message: "Access restricted to passengers only." });
+  }
+
+  try {
+    const { expoPushToken } = req.body;
+
+    if (!expoPushToken) {
+      return res.status(400).json({ message: "expoPushToken is required." });
+    }
+
+    await prisma.passenger.update({
+      where: { id: passengerId },
+      data: { expoPushToken },
+    });
+
+    res.status(200).json({ message: "Push token saved successfully." });
+  } catch (err) {
+    console.error("Error saving push token:", err);
+    res.status(500).json({ message: "Failed to save push token.", error: err.message });
+  }
+};
