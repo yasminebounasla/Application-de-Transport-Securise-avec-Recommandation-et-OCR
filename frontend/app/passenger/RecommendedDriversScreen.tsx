@@ -1,274 +1,257 @@
 import React, { useState, useEffect } from 'react';
 import {
-  View,
-  Text,
-  FlatList,
-  TouchableOpacity,
-  ActivityIndicator,
-  StyleSheet,
-  Alert,
-  SafeAreaView
+  View, Text, FlatList, TouchableOpacity,
+  ActivityIndicator, StyleSheet, Alert,
+  SafeAreaView, Platform
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { recommendDrivers } from '../../services/recommendationService';
 import DriverRecoCard from '../../components/DriverRecommendationCard';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function RecommendedDriversScreen() {
   const params = useLocalSearchParams();
-  
-  const [drivers, setDrivers] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [selectedDriver, setSelectedDriver] = useState(null);
 
-  useEffect(() => {
-    loadRecommendations();
-  }, []);
+  const [drivers, setDrivers]           = useState<any[]>([]);
+  const [loading, setLoading]           = useState(true);
+  const [selectedIds, setSelectedIds]   = useState<Set<number>>(new Set());
+
+  useEffect(() => { loadRecommendations(); }, []);
 
   const loadRecommendations = async () => {
     try {
       setLoading(true);
+      const raw = await AsyncStorage.getItem('tripRequest');
+      if (!raw) { Alert.alert('Error', 'Ride information is missing'); router.back(); return; }
 
-      const tripRequestData = await AsyncStorage.getItem('tripRequest');
-      
-      if (!tripRequestData) {
-        Alert.alert('Error', 'Ride information is missing');
-        router.back();
-        return;
-      }
-
-      const tripRequest = JSON.parse(tripRequestData);
-
+      const tripRequest = JSON.parse(raw);
       const response = await recommendDrivers(
         tripRequest.passengerId,
-        tripRequest.preferences
+        tripRequest.preferences,
+        tripRequest.trajet || {},
+        5
       );
 
-    
-
-      // Vérifier la structure de la réponse
-      if (response.recommendedDrivers && response.recommendedDrivers.length > 0) {
-
+      if (response.recommendedDrivers?.length > 0) {
         setDrivers(response.recommendedDrivers);
-        
       } else {
-        
         Alert.alert('Info', 'No drivers available for your preferences');
       }
-
-    } catch (error) {
-      Alert.alert(
-        'Error',
-        error.response?.data?.message || error.message || 'Recommendation service unavailable'
-      );
-
+    } catch (error: any) {
+      Alert.alert('Error', error.response?.data?.message || error.message || 'Service unavailable');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleSelectDriver = (driver) => {
-    setSelectedDriver(driver);
+  // ── Toggle sélection ──────────────────────────────────────────────────────
+  const toggleSelect = (driver: any) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(driver.id)) next.delete(driver.id);
+      else next.add(driver.id);
+      return next;
+    });
   };
 
-  const handleConfirmReservation = async () => {
-    if (!selectedDriver) {
-      Alert.alert('Warning', 'Please select a driver');
-      return;
+  // ── Select all / Deselect all ─────────────────────────────────────────────
+  const toggleSelectAll = () => {
+    if (selectedIds.size === drivers.length) {
+      setSelectedIds(new Set()); // tout désélectionner
+    } else {
+      setSelectedIds(new Set(drivers.map(d => d.id))); // tout sélectionner
     }
+  };
+
+  // ── Long press → voir profil ──────────────────────────────────────────────
+  const handleViewProfile = (driver: any) => {
+    router.push({
+      pathname: '/passenger/DriverProfileScreen',
+      params: { driverId: driver.id }
+    } as any);
+  };
+
+  // ── Confirmation ──────────────────────────────────────────────────────────
+  const handleConfirm = async () => {
+    if (selectedIds.size === 0) { Alert.alert('Warning', 'Sélectionnez au moins un conducteur'); return; }
+
+    const selected = drivers.filter(d => selectedIds.has(d.id));
+    const names    = selected.map(d => `${d.prenom} ${d.nom}`).join(', ');
 
     Alert.alert(
-      'Confirmation',
-      `Confirm reservation with ${selectedDriver.prenom} ${selectedDriver.nom} ?`,
+      'Confirmer la réservation',
+      `Notifier ${selected.length} conducteur${selected.length > 1 ? 's' : ''} :\n${names}`,
       [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Confirm',
-          onPress: async () => {
-            console.log('Reservation confirmed with driver', selectedDriver.id);
-            
-            await AsyncStorage.removeItem('tripRequest');
-            
-            router.replace('/(passengerTabs)/PassengerHomeScreen');
-          }
-        }
+        { text: 'Annuler', style: 'cancel' },
+        { text: 'Confirmer', onPress: async () => {
+          await AsyncStorage.removeItem('tripRequest');
+          router.replace('/(passengerTabs)/PassengerHomeScreen');
+        }},
       ]
     );
   };
 
-  // Render simplifié avec le nouveau composant
-  const renderDriver = ({ item }) => (
-    <DriverRecoCard
-      driver={item}
-      isSelected={selectedDriver?.id === item.id}
-      onPress={handleSelectDriver}
-      onLongPress={() => router.push({
-       pathname: '/passenger/DriverProfileScreen',
-       params: { driverId: item.id }
-      } as any)}
-      style
-    />
-  );
+  const allSelected = selectedIds.size === drivers.length && drivers.length > 0;
 
   if (loading) {
     return (
       <SafeAreaView style={styles.centered}>
-        <ActivityIndicator size="large" color="#000" />
-        <Text style={styles.loadingText}>
-          Recherche des meilleurs conducteurs...
-        </Text>
+        <ActivityIndicator size="large" color="#111" />
+        <Text style={styles.loadingText}>Recherche en cours...</Text>
       </SafeAreaView>
     );
   }
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.headerContainer}>
-        <Text style={styles.title}>Conducteurs recommandés</Text>
-        <Text style={styles.subtitle}>
-          {params.depart} → {params.destination}
-        </Text>
-        <View style={styles.countBadge}>
-          <Text style={styles.countText}>
-            {drivers.length} conducteur{drivers.length > 1 ? 's' : ''}
-          </Text>
+
+      {/* ── Header ── */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={{ padding: 4 }}>
+          <Ionicons name="arrow-back" size={22} color="#111" />
+        </TouchableOpacity>
+        <View style={{ flex: 1, marginLeft: 8 }}>
+          <Text style={styles.headerTitle}>Conducteurs recommandés</Text>
+          {(params.depart || params.destination) && (
+            <Text style={styles.headerSub} numberOfLines={1}>
+              {params.depart} → {params.destination}
+            </Text>
+          )}
+        </View>
+        <View style={styles.countPill}>
+          <Text style={styles.countPillText}>{drivers.length}</Text>
         </View>
       </View>
 
-      {/* Liste */}
+      {/* ── Barre actions ── */}
+      {drivers.length > 0 && (
+        <View style={styles.actionsBar}>
+          <Text style={styles.actionsHint}>
+            <Ionicons name="hand-left-outline" size={11} /> Tap = sélectionner  ·  
+            <Ionicons name="time-outline"      size={11} /> Maintenir = profil
+          </Text>
+          <TouchableOpacity style={styles.selectAllBtn} onPress={toggleSelectAll}>
+            <Ionicons
+              name={allSelected ? "checkbox" : "checkbox-outline"}
+              size={16}
+              color="#111"
+            />
+            <Text style={styles.selectAllText}>
+              {allSelected ? 'Tout désélectionner' : 'Tout sélectionner'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {/* ── Liste ── */}
       <FlatList
         data={drivers}
-        renderItem={renderDriver}
-        keyExtractor={(item) => item.id.toString()}
+        keyExtractor={item => item.id.toString()}
         contentContainerStyle={styles.list}
         showsVerticalScrollIndicator={false}
+        renderItem={({ item }) => (
+          <DriverRecoCard
+            driver={item}
+            isSelected={selectedIds.has(item.id)}
+            onPress={toggleSelect}
+            onLongPress={handleViewProfile}
+          />
+        )}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={styles.emptyText}></Text>
-            <Text style={styles.emptySubtext}>Aucun conducteur disponible</Text>
-            <TouchableOpacity
-              style={styles.retryButton}
-              onPress={loadRecommendations}
-            >
+            <Ionicons name="car-outline" size={52} color="#D1D5DB" />
+            <Text style={styles.emptyText}>Aucun conducteur disponible</Text>
+            <TouchableOpacity style={styles.retryBtn} onPress={loadRecommendations}>
               <Text style={styles.retryText}>Réessayer</Text>
             </TouchableOpacity>
           </View>
         }
       />
 
-      {/* Bouton de confirmation */}
-      <TouchableOpacity
-        style={[styles.confirmButton, !selectedDriver && styles.disabled]}
-        onPress={handleConfirmReservation}
-        disabled={!selectedDriver}
-      >
-        <Text style={styles.confirmText}>
-          {selectedDriver 
-            ? `Réserver avec ${selectedDriver.prenom}` 
-            : 'Sélectionnez un conducteur'}
-        </Text>
-      </TouchableOpacity>
+      {/* ── Bottom bar ── */}
+      <View style={styles.bottomBar}>
+        {selectedIds.size > 0 && (
+          <Text style={styles.selectedCount}>
+            {selectedIds.size} conducteur{selectedIds.size > 1 ? 's' : ''} sélectionné{selectedIds.size > 1 ? 's' : ''}
+          </Text>
+        )}
+        <TouchableOpacity
+          style={[styles.confirmBtn, selectedIds.size === 0 && styles.confirmBtnOff]}
+          onPress={handleConfirm}
+          disabled={selectedIds.size === 0}
+          activeOpacity={0.85}
+        >
+          <Ionicons
+            name="checkmark-circle-outline"
+            size={19}
+            color={selectedIds.size > 0 ? '#fff' : '#9CA3AF'}
+          />
+          <Text style={[styles.confirmText, selectedIds.size === 0 && styles.confirmTextOff]}>
+            {selectedIds.size > 0
+              ? `Notifier ${selectedIds.size} conducteur${selectedIds.size > 1 ? 's' : ''}`
+              : 'Sélectionnez un conducteur'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
+  container: { flex: 1, backgroundColor: '#F7F7F7' },
+  centered:  { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10 },
+  loadingText: { fontSize: 15, color: '#6B7280' },
+
+  // Header
+  header: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#fff', paddingHorizontal: 16, paddingVertical: 14,
+    borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
   },
-  centered: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#F9FAFB',
+  headerTitle: { fontSize: 16, fontWeight: '800', color: '#111' },
+  headerSub:   { fontSize: 12, color: '#9CA3AF', marginTop: 1 },
+  countPill:   {
+    backgroundColor: '#111', borderRadius: 20,
+    paddingHorizontal: 10, paddingVertical: 4,
   },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: '#6B7280',
+  countPillText: { color: '#fff', fontSize: 13, fontWeight: '700' },
+
+  // Actions bar
+  actionsBar: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 8,
+    backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
   },
-  headerContainer: {
-    padding: 20,
-    backgroundColor: 'white',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E5E7EB',
+  actionsHint: { fontSize: 10, color: '#9CA3AF', flex: 1 },
+  selectAllBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
   },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#111827',
+  selectAllText: { fontSize: 13, fontWeight: '600', color: '#111' },
+
+  list: { padding: 12, paddingBottom: 120 },
+
+  // Empty
+  empty:     { alignItems: 'center', marginTop: 80, gap: 12 },
+  emptyText: { fontSize: 15, color: '#9CA3AF', fontWeight: '600' },
+  retryBtn:  { backgroundColor: '#111', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 10 },
+  retryText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+
+  // Bottom bar
+  bottomBar: {
+    backgroundColor: '#fff', paddingHorizontal: 16,
+    paddingTop: 10, paddingBottom: Platform.OS === 'ios' ? 28 : 16,
+    borderTopWidth: 1, borderTopColor: '#F0F0F0', gap: 6,
   },
-  subtitle: {
-    fontSize: 15,
-    color: '#6B7280',
-    marginTop: 6,
+  selectedCount: {
+    fontSize: 12, color: '#6B7280', fontWeight: '600', textAlign: 'center',
   },
-  countBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#F9FAFB',
-    borderColor: '#D1D5DB',
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    marginTop: 12,
+  confirmBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: '#111', borderRadius: 50, paddingVertical: 15,
   },
-  countText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: 'black',
-  },
-  list: {
-    padding: 16,
-    paddingBottom: 100,
-  },
-  confirmButton: {
-    position: 'absolute',
-    bottom: 20,
-    left: 16,
-    right: 16,
-    backgroundColor: '#000',
-    padding: 18,
-    borderRadius: 16,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  disabled: {
-    backgroundColor: '#D1D5DB',
-  },
-  confirmText: {
-    color: 'white',
-    fontSize: 17,
-    fontWeight: 'bold',
-  },
-  empty: {
-    alignItems: 'center',
-    marginTop: 80,
-  },
-  emptyText: {
-    fontSize: 64,
-    marginBottom: 16,
-  },
-  emptySubtext: {
-    fontSize: 16,
-    color: '#9CA3AF',
-    marginBottom: 24,
-  },
-  retryButton: {
-    backgroundColor: '#000',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
-  },
-  retryText: {
-    color: 'white',
-    fontWeight: '700',
-    fontSize: 15,
-  },
+  confirmBtnOff: { backgroundColor: '#F5F5F5' },
+  confirmText:   { color: '#fff', fontSize: 15, fontWeight: '700' },
+  confirmTextOff:{ color: '#9CA3AF' },
 });
