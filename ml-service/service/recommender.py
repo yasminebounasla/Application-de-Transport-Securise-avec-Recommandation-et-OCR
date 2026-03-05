@@ -126,9 +126,10 @@ class Recommender:
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.get(
-                    f"{BACKEND_URL}/api/drivers/all",
+                    f"{BACKEND_URL}/api/auth/driver/all",
                     timeout=30.0
                 )
+                
                 if response.status_code == 200:
                     result  = response.json()
                     drivers = result.get("data", result) if isinstance(result, dict) else result
