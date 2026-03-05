@@ -291,3 +291,25 @@ export const savePushToken = async (req, res) => {
     res.status(500).json({ message: "Failed to save push token.", error: err.message });
   }
 };
+
+// passenger.controller.js
+export const getDriverInteractions = async (req, res) => {
+  const passengerId = parseInt(req.params.id);
+  
+  const trajets = await prisma.trajet.findMany({
+    where: {
+      passengerId,
+      status: "COMPLETED",
+      driverId: { not: null }
+    },
+    select: { driverId: true }
+  });
+
+  // Compter nb trajets par driver
+  const counts = {};
+  trajets.forEach(t => {
+    counts[t.driverId] = (counts[t.driverId] || 0) + 1;
+  });
+
+  return res.status(200).json({ data: counts });
+};

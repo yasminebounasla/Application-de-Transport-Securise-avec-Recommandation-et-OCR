@@ -5,7 +5,8 @@ import { addPassengerPreferences ,
   getMyPassengerProfile,
   getPassengerProfile,
   updatePassengerProfile,
-  savePushToken
+  savePushToken,
+  getDriverInteractions
 } from "../controllers/passengerController.js";
 
 const router = express.Router();
@@ -18,5 +19,7 @@ router.put("/profile", authenticate, updatePassengerProfile);
 router.get("/:id", authenticate, getPassengerProfile);
 
 router.post("/push-token", authenticate, savePushToken);
+
+router.get("/:id/driver-interactions", authenticate, getDriverInteractions)
 
 export default router;
