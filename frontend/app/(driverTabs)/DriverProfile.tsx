@@ -111,7 +111,7 @@ export default function DriverProfileScreen() {
     <>
       <ScrollView
         style={{ flex: 1, backgroundColor: '#F5F5F5' }}
-        contentContainerStyle={{ paddingBottom: 40 }}
+        contentContainerStyle={{ paddingBottom: 100 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
       >
         {/* ── AVATAR + NOM (centré) ── */}
@@ -148,7 +148,7 @@ export default function DriverProfileScreen() {
             )}
           </View>
 
-          {/* Nom + ⭐ Rating */}
+          {/* Nom */}
           <Text style={{ fontSize: 22, fontWeight: '800', color: '#111', marginTop: 14 }}>
             {profile.prenom} {profile.nom}
           </Text>
@@ -191,7 +191,7 @@ export default function DriverProfileScreen() {
           <InfoRow icon="mail-outline"        label="Email"      value={profile.email} />
           <InfoRow icon="call-outline"        label="Phone"      value={profile.numTel} />
           <InfoRow icon="calendar-outline"    label="Age"        value={profile.age?.toString()} />
-          <InfoRow icon="male-female-outline" label="Gender"     value={profile.sexe} last />
+          <InfoRow icon="male-female-outline" label="Gender" value={profile.sexe === 'M' ? 'Male' : profile.sexe === 'F' ? 'Female' : profile.sexe} last />
         </View>
 
         {/* ── VÉHICULES ── */}
