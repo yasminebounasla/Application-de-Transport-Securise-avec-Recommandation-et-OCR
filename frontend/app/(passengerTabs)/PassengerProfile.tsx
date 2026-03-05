@@ -10,16 +10,16 @@ import {
   Image,
   Modal,
 } from 'react-native';
-import { router, Stack, useFocusEffect } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../services/api';
 
 export default function PassengerProfileScreen() {
-  const [profile, setProfile]           = useState(null);
-  const [loading, setLoading]           = useState(true);
-  const [refreshing, setRefreshing]     = useState(false);
-  const [settingsVisible, setSettings]  = useState(false);
-  const [loggingOut, setLoggingOut]     = useState(false);
+  const [profile, setProfile]          = useState(null);
+  const [loading, setLoading]          = useState(true);
+  const [refreshing, setRefreshing]    = useState(false);
+  const [settingsVisible, setSettings] = useState(false);
+  const [loggingOut, setLoggingOut]    = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -117,8 +117,8 @@ export default function PassengerProfileScreen() {
             <Ionicons name="settings-outline" size={22} color="#111" />
           </TouchableOpacity>
 
-          {/* Avatar */}
-          <TouchableOpacity onPress={goToEdit} activeOpacity={0.8}>
+          {/* Avatar — plus cliquable */}
+          <View>
             {profile.photoUrl ? (
               <Image
                 source={{ uri: profile.photoUrl }}
@@ -132,14 +132,7 @@ export default function PassengerProfileScreen() {
                 <Ionicons name="person" size={50} color="#FFF" />
               </View>
             )}
-            <View style={{
-              position: 'absolute', bottom: 0, right: 0,
-              width: 28, height: 28, borderRadius: 14, backgroundColor: '#222',
-              alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff',
-            }}>
-              <Ionicons name="camera" size={14} color="#FFF" />
-            </View>
-          </TouchableOpacity>
+          </View>
 
           {/* Nom */}
           <Text style={{ fontSize: 22, fontWeight: '800', color: '#111', marginTop: 14 }}>
