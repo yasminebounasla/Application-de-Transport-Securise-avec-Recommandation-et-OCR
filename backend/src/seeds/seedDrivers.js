@@ -90,4 +90,4 @@ async function seedDrivers(count = 30) {
   }
 }
 
-seedDrivers(30);
+seedDrivers(100);

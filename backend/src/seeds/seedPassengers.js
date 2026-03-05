@@ -39,4 +39,4 @@ async function seedPassengers(count = 80) {
   }
 }
 
-seedPassengers(80);
+seedPassengers(300);
