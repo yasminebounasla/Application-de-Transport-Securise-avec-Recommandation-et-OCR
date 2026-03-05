@@ -1,5 +1,5 @@
 driver_id,talkative,radio_on,smoking_allowed,pets_allowed,car_big,driver_gender,avg_rating,works_morning,works_afternoon,works_evening,works_night,latitude,longitude
-D1,yes,no,no,no,yes,male,3.0,yes,yes,no,yes,36.485506,2.856378
+D1,yes,no,no,no,yes,male,3.0,no,no,yes,yes,36.485506,2.856378
 D2,yes,yes,no,no,no,female,2.9,yes,yes,yes,yes,36.436067,2.852151
 D3,no,no,no,no,yes,male,3.6,yes,yes,yes,no,36.231038,5.455583
 D4,no,no,yes,no,yes,female,2.9,yes,yes,no,no,36.460402,2.838117
