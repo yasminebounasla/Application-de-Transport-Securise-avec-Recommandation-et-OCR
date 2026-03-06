@@ -12,7 +12,7 @@ export const getRecommendations = async (passenger_id, preferences) => {
       {
         passenger_id: passenger_id,
         preferences: preferences || {},
-        top_n: 10
+        top_n: 5
       },
       {
         timeout: 30000,
