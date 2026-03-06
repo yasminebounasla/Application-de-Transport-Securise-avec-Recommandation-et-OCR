@@ -17,7 +17,7 @@ class Preferences(BaseModel):
 
 class RecommendationRequest(BaseModel):
     passenger_id: str          # ID du passager (pour les logs / traçabilité)
-    top_n: int = 10
+    top_n: int = 5
     preferences: Preferences   # Préférences du TRAJET EN COURS
 
 
