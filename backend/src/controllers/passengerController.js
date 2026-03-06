@@ -286,5 +286,5 @@ export const getDriverInteractions = async (req, res) => {
     counts[t.driverId] = (counts[t.driverId] || 0) + 1;
   });
 
-  return res.status(200).json({ data: counts });git 
+  return res.status(200).json({ data: counts });
 };
