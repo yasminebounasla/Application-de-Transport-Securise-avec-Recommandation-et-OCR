@@ -6,7 +6,7 @@ import { useRide } from '../../context/RideContext';
 import { LocationContext } from '../../context/LocationContext';
 import { useNotifications } from '../../context/NotificationContext';
 import MapView from 'react-native-maps';
-import { Ionicons, Feather } from '@expo/vector-icons';
+import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../../services/api';
 
@@ -109,8 +109,13 @@ export default function Home() {
                 <Text style={styles.tripText} numberOfLines={1}>{trip.startAddress || 'Départ'}</Text>
                 <Text style={styles.tripText} numberOfLines={1}>{trip.endAddress   || 'Destination'}</Text>
               </View>
-              <View style={[styles.statusBadge, trip.status === 'IN_PROGRESS' ? styles.badgeActive : styles.badgeAccepted]}>
-                <Text style={styles.statusText}>{trip.status === 'IN_PROGRESS' ? 'En cours' : 'Accepté'}</Text>
+              <View style={[
+                styles.statusBadge,
+                trip.status === 'IN_PROGRESS' ? styles.badgeActive : styles.badgeAccepted,
+              ]}>
+                <Text style={styles.statusText}>
+                  {trip.status === 'IN_PROGRESS' ? 'En cours' : 'Accepté'}
+                </Text>
               </View>
             </View>
           ))}
@@ -122,26 +127,26 @@ export default function Home() {
         <View style={styles.bottomSheetHandle} />
 
         {/* Title */}
-        <Text style={styles.sectionTitle}>Where to?</Text>
-        <Text style={styles.sectionSubtitle}>Pick your destination</Text>
+        <Text style={styles.sectionTitle}>Pick your destination</Text>
 
-        {/* Single unified search bar */}
+        {/* Dark compact card */}
         <TouchableOpacity
-          style={styles.searchBar}
+          style={styles.darkCard}
           onPress={() => router.push('../passenger/SearchRideScreen' as any)}
-          activeOpacity={0.8}
+          activeOpacity={0.88}
         >
-          {/* Left icon */}
-          <View style={styles.searchIconWrap}>
-            <Ionicons name="search" size={18} color="#FFF" />
+          <View style={styles.glowOrb} />
+
+          {/* Left: texts */}
+          <View style={{ flex: 1 }}>
+            <Text style={styles.cardTitle}>Where are you heading?</Text>
+            <Text style={styles.cardSub}>Tap to set your destination</Text>
           </View>
 
-          {/* Text */}
-          <Text style={styles.searchPlaceholder}>Search a destination...</Text>
-
-          {/* Right arrow */}
-          <View style={styles.arrowWrap}>
-            <Ionicons name="arrow-forward" size={16} color="#555" />
+          {/* Right: star badge */}
+          <View style={styles.starBadge}>
+            <Text style={styles.starIcon}>✦</Text>
+            <Text style={styles.starText}>Ready</Text>
           </View>
         </TouchableOpacity>
       </View>
@@ -195,8 +200,7 @@ const styles = StyleSheet.create({
     position: 'absolute', bottom: 0, left: 0, right: 0,
     backgroundColor: '#FFF',
     borderTopLeftRadius: 28, borderTopRightRadius: 28,
-    paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingHorizontal: 20, paddingTop: 12,
     paddingBottom: Platform.OS === 'ios' ? 100 : 90,
     shadowColor: '#000', shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.08, shadowRadius: 20, elevation: 20,
@@ -206,49 +210,44 @@ const styles = StyleSheet.create({
     backgroundColor: '#E0E0E0',
     alignSelf: 'center', marginBottom: 18,
   },
-
-  /* Title */
   sectionTitle: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: '#0A0A0A',
-    letterSpacing: -0.6,
-    marginBottom: 4,
-  },
-  sectionSubtitle: {
-    fontSize: 22,
-    color: '#0A0A0A',
-    fontWeight: '800',
-    letterSpacing: -0.6,
-    marginBottom: 16,
+    fontSize: 24, fontWeight: '800', color: '#0A0A0A',
+    letterSpacing: -0.6, marginBottom: 14,
   },
 
-  /* Search bar */
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F5F5F7',
+  /* ── Dark compact card ── */
+  darkCard: {
+    backgroundColor: '#0A0A0A',
     borderRadius: 18,
     paddingVertical: 14,
-    paddingHorizontal: 14,
+    paddingHorizontal: 16,
+    overflow: 'hidden',
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
-    borderWidth: 1.5,
-    borderColor: '#ECECEC',
   },
-  searchIconWrap: {
-    width: 34, height: 34, borderRadius: 11,
-    backgroundColor: '#0A0A0A',
-    alignItems: 'center', justifyContent: 'center',
+  glowOrb: {
+    position: 'absolute', top: -20, right: -20,
+    width: 80, height: 80, borderRadius: 40,
+    backgroundColor: 'rgba(255,255,255,0.04)',
   },
-  searchPlaceholder: {
-    flex: 1,
-    fontSize: 15,
-    color: '#AEAEAE',
-    fontWeight: '500',
+  starBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 20, paddingHorizontal: 8, paddingVertical: 4,
   },
-  arrowWrap: {
-    width: 30, height: 30, borderRadius: 15,
-    backgroundColor: '#ECECEC',
-    alignItems: 'center', justifyContent: 'center',
+  starIcon: { fontSize: 9, color: 'rgba(255,255,255,0.7)' },
+  starText: {
+    fontSize: 9, fontWeight: '700',
+    color: 'rgba(255,255,255,0.6)',
+    letterSpacing: 0.5, textTransform: 'uppercase',
+  },
+  cardTitle: {
+    fontSize: 14, fontWeight: '800',
+    color: '#FFF', letterSpacing: -0.3,
+  },
+  cardSub: {
+    fontSize: 11, color: 'rgba(255,255,255,0.35)',
+    fontWeight: '400', marginTop: 1,
   },
 });
