@@ -5,7 +5,6 @@ import { addPassengerPreferences ,
   getMyPassengerProfile,
   getPassengerProfile,
   updatePassengerProfile,
-  savePushToken,
   getDriverInteractions
 } from "../controllers/passengerController.js";
 
@@ -17,8 +16,6 @@ router.get("/preferences", authenticate, getPassengerPreferences);
 router.get("/me", authenticate, getMyPassengerProfile);
 router.put("/profile", authenticate, updatePassengerProfile);
 router.get("/:id", authenticate, getPassengerProfile);
-
-router.post("/push-token", authenticate, savePushToken);
 
 router.get("/:id/driver-interactions", authenticate, getDriverInteractions)
 
