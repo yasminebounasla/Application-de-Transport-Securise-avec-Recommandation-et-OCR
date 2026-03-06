@@ -1,15 +1,15 @@
-import React, { useEffect, useMemo, useState, useContext } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import React, { useEffect, useMemo, useState, useContext, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import FeedbackModal from '../../components/FeedbackModal';
 import { useRide } from '../../context/RideContext';
 import { LocationContext } from '../../context/LocationContext';
 import { useNotifications } from '../../context/NotificationContext';
 import MapView from 'react-native-maps';
-import { Feather } from '@expo/vector-icons';
+import { Feather, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import api from '../../services/api';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import api from '../../services/api';
 
 const FEEDBACK_REQUESTED_KEY = 'feedback_requested_rides';
 
@@ -18,6 +18,9 @@ export default function Home() {
   const { currentLocation } = useContext(LocationContext);
   const { unreadCount } = useNotifications();
   const insets = useSafeAreaInsets();
+  const TAB_BAR_HEIGHT = 60 + insets.bottom;
+
+  const mapRef = useRef<MapView>(null);
 
   const [showFeedbackModal, setShowFeedbackModal] = useState<boolean>(false);
   const [completedRideId, setCompletedRideId] = useState<number | null>(null);
@@ -75,19 +78,30 @@ export default function Home() {
     longitudeDelta: 0.01,
   };
 
-  // ✅ Hauteur tab bar (60) + safe area bottom
-  const TAB_BAR_HEIGHT = 60 + insets.bottom;
+  const goToCurrentLocation = () => {
+    if (!currentLocation) return;
+    mapRef.current?.animateToRegion({
+      latitude: currentLocation.latitude,
+      longitude: currentLocation.longitude,
+      latitudeDelta: 0.01,
+      longitudeDelta: 0.01,
+    }, 500);
+  };
+
+  // Bottom sheet height estimate to position the locate button just above it
+  const SHEET_HEIGHT = TAB_BAR_HEIGHT + 130;
 
   return (
     <>
       <MapView
+        ref={mapRef}
         style={StyleSheet.absoluteFillObject}
         initialRegion={initialRegion}
         showsUserLocation
         showsMyLocationButton={false}
       />
 
-      {/* Notification bell */}
+      {/* Notification bell — top right */}
       <TouchableOpacity
         style={styles.notificationButton}
         onPress={() => router.push('../shared/NotificationsScreen' as any)}
@@ -98,6 +112,15 @@ export default function Home() {
             <Text style={styles.badgeText}>{unreadCount}</Text>
           </View>
         )}
+      </TouchableOpacity>
+
+      {/* Locate button — floating on map, bottom-right just above the sheet */}
+      <TouchableOpacity
+        style={styles.locationButton}
+        onPress={goToCurrentLocation}
+        activeOpacity={0.8}
+      >
+        <Ionicons name="locate" size={20} color="#007AFF" />
       </TouchableOpacity>
 
       {/* Active trips */}
@@ -131,10 +154,8 @@ export default function Home() {
       <View style={[styles.bottomSheet, { paddingBottom: TAB_BAR_HEIGHT + 16 }]}>
         <View style={styles.bottomSheetHandle} />
 
-        {/* Title */}
         <Text style={styles.sectionTitle}>Pick your destination</Text>
 
-        {/* Dark compact card */}
         <TouchableOpacity
           style={styles.darkCard}
           onPress={() => router.push('../passenger/SearchRideScreen' as any)}
@@ -164,7 +185,6 @@ export default function Home() {
 }
 
 const styles = StyleSheet.create({
-  /* Notification */
   notificationButton: {
     position: 'absolute', top: 16, right: 16,
     width: 44, height: 44, borderRadius: 22,
@@ -179,7 +199,18 @@ const styles = StyleSheet.create({
   },
   badgeText: { color: '#FFF', fontSize: 10, fontWeight: '700' },
 
-  /* Active trips */
+  /* Floating locate button on map */
+  locationButton: {
+    position: 'absolute',
+    right: 16,
+    bottom: 270,
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12, shadowRadius: 8, elevation: 30,
+    zIndex: 999,
+  },
+
   activeTripsContainer: { position: 'absolute', top: 70, left: 16, right: 16, gap: 8 },
   tripCard: {
     backgroundColor: '#fff', borderRadius: 16, padding: 14,
@@ -198,7 +229,6 @@ const styles = StyleSheet.create({
   badgeAccepted: { backgroundColor: '#FEF9C3' },
   statusText: { fontSize: 11, fontWeight: '700', color: '#111' },
 
-  /* ── Bottom Sheet ── */
   bottomSheet: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
     backgroundColor: '#FFF',
@@ -217,7 +247,6 @@ const styles = StyleSheet.create({
     letterSpacing: -0.6, marginBottom: 14,
   },
 
-  /* ── Dark compact card ── */
   darkCard: {
     backgroundColor: '#0A0A0A',
     borderRadius: 18, paddingVertical: 14, paddingHorizontal: 16,
@@ -238,6 +267,6 @@ const styles = StyleSheet.create({
     fontSize: 9, fontWeight: '700', color: 'rgba(255,255,255,0.6)',
     letterSpacing: 0.5, textTransform: 'uppercase',
   },
-  cardTitle: { fontSize: 14, fontWeight: '800', color: '#FFF', letterSpacing: -0.3 },
-  cardSub:   { fontSize: 11, color: 'rgba(255,255,255,0.35)', fontWeight: '400', marginTop: 1 },
+  cardTitle: { fontSize: 17, fontWeight: '800', color: '#FFF', letterSpacing: -0.3 },
+  cardSub: { fontSize: 12, color: 'rgba(255,255,255,0.35)', fontWeight: '400', marginTop: 2 },
 });
