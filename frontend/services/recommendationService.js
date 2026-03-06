@@ -12,8 +12,8 @@ export const recommendDrivers = async (passengerId, preferences, trajet = {}, to
       {
         passenger_id: passengerId,
         preferences:  preferences,
-        trajet:       trajet,    // ✅ ajout
-        top_n:        top_n || 5,     // ✅ ajout
+        trajet:       trajet,    // ajout
+        top_n:        top_n || 5,     // ajout
       },
       {
         headers: {
