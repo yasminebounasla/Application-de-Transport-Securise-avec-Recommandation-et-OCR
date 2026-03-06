@@ -28,7 +28,7 @@ def score_distance(distance_km: float, hours_until_departure: float) -> float:
     if   hours_until_departure < 2:   reference_km = 15
     elif hours_until_departure < 24:  reference_km = 40
     elif hours_until_departure < 168: reference_km = 80
-    else:                             reference_km = 200
+    else:                             reference_km = 100
     return 1 / (1 + distance_km / reference_km)
 
 
