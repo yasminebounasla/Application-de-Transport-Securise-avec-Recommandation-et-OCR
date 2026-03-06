@@ -9,6 +9,7 @@ import MapView from 'react-native-maps';
 import { Feather } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../../services/api';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const FEEDBACK_REQUESTED_KEY = 'feedback_requested_rides';
 
@@ -16,6 +17,7 @@ export default function Home() {
   const { getPassengerRides, passengerRides } = useRide();
   const { currentLocation } = useContext(LocationContext);
   const { unreadCount } = useNotifications();
+  const insets = useSafeAreaInsets();
 
   const [showFeedbackModal, setShowFeedbackModal] = useState<boolean>(false);
   const [completedRideId, setCompletedRideId] = useState<number | null>(null);
@@ -73,6 +75,9 @@ export default function Home() {
     longitudeDelta: 0.01,
   };
 
+  // ✅ Hauteur tab bar (60) + safe area bottom
+  const TAB_BAR_HEIGHT = 60 + insets.bottom;
+
   return (
     <>
       <MapView
@@ -123,7 +128,7 @@ export default function Home() {
       )}
 
       {/* ── Bottom Sheet ── */}
-      <View style={styles.bottomSheet}>
+      <View style={[styles.bottomSheet, { paddingBottom: TAB_BAR_HEIGHT + 16 }]}>
         <View style={styles.bottomSheetHandle} />
 
         {/* Title */}
@@ -137,13 +142,11 @@ export default function Home() {
         >
           <View style={styles.glowOrb} />
 
-          {/* Left: texts */}
           <View style={{ flex: 1 }}>
             <Text style={styles.cardTitle}>Where are you heading?</Text>
             <Text style={styles.cardSub}>Tap to set your destination</Text>
           </View>
 
-          {/* Right: star badge */}
           <View style={styles.starBadge}>
             <Text style={styles.starIcon}>✦</Text>
             <Text style={styles.starText}>Ready</Text>
@@ -201,7 +204,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     borderTopLeftRadius: 28, borderTopRightRadius: 28,
     paddingHorizontal: 20, paddingTop: 12,
-    paddingBottom: Platform.OS === 'ios' ? 100 : 90,
     shadowColor: '#000', shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.08, shadowRadius: 20, elevation: 20,
   },
@@ -218,13 +220,8 @@ const styles = StyleSheet.create({
   /* ── Dark compact card ── */
   darkCard: {
     backgroundColor: '#0A0A0A',
-    borderRadius: 18,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    overflow: 'hidden',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
+    borderRadius: 18, paddingVertical: 14, paddingHorizontal: 16,
+    overflow: 'hidden', flexDirection: 'row', alignItems: 'center', gap: 12,
   },
   glowOrb: {
     position: 'absolute', top: -20, right: -20,
@@ -238,16 +235,9 @@ const styles = StyleSheet.create({
   },
   starIcon: { fontSize: 9, color: 'rgba(255,255,255,0.7)' },
   starText: {
-    fontSize: 9, fontWeight: '700',
-    color: 'rgba(255,255,255,0.6)',
+    fontSize: 9, fontWeight: '700', color: 'rgba(255,255,255,0.6)',
     letterSpacing: 0.5, textTransform: 'uppercase',
   },
-  cardTitle: {
-    fontSize: 14, fontWeight: '800',
-    color: '#FFF', letterSpacing: -0.3,
-  },
-  cardSub: {
-    fontSize: 11, color: 'rgba(255,255,255,0.35)',
-    fontWeight: '400', marginTop: 1,
-  },
+  cardTitle: { fontSize: 14, fontWeight: '800', color: '#FFF', letterSpacing: -0.3 },
+  cardSub:   { fontSize: 11, color: 'rgba(255,255,255,0.35)', fontWeight: '400', marginTop: 1 },
 });
