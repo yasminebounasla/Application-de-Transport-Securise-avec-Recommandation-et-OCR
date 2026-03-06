@@ -12,6 +12,7 @@ load_dotenv()
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:5000")
 
 # ── HAVERSINE ────────────────────────────────────────────────────────────────
+#  formule pour calculer la distance réelle entre 2 points GPS sur la Terre
 def haversine(lat1, lng1, lat2, lng2) -> float:
     R = 6371
     dLat = math.radians(lat2 - lat1)
