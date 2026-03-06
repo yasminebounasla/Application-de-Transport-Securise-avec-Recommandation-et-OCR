@@ -9,7 +9,6 @@ import { addDriverPreferences, getDriverRating ,
   getDriverProfile,
   getMyDriverProfile,
   updateDriverProfile ,
-  savePushToken 
 } from "../controllers/driverController.js";
 
 const router = express.Router();
@@ -26,7 +25,5 @@ router.delete("/vehicle/:vehicleId", authenticate, deleteVehicle);
 router.get("/me", authenticate, getMyDriverProfile);
 router.put("/profile", authenticate, updateDriverProfile);
 router.get("/:id", authenticate, getDriverProfile); 
-
-router.post("/push-token", authenticate, savePushToken);
 
 export default router;
