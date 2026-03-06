@@ -12,7 +12,7 @@ console.log('ENCRYPTION_KEY:', process.env.ENCRYPTION_KEY ? 'LOADED ✅' : 'MISS
 import os from 'os';
 
 
-const PORT = process.env.PORT || 4040;
+const PORT = process.env.PORT || 3000;
 
 const startServer = async () => {
   try {
