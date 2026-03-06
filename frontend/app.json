@@ -15,6 +15,8 @@
       }
     },
     "android": {
+      "package": "com.dz.transportapp", 
+      "googleServicesFile": "./google-services.json", 
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "usesCleartextTraffic": true,
@@ -41,7 +43,8 @@
           }
         }
       ],
-      "expo-font" 
+      "expo-font" ,
+      "expo-notifications" 
     ],
     "experiments": {
       "typedRoutes": true,
