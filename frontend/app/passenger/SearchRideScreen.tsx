@@ -558,6 +558,9 @@ export default function SearchRideScreen() {
 
   const valid = isFormValid();
 
+  // ── Helper: FROM field is empty (no address and no typed query) ──────────
+  const isFromEmpty = !startAddress && !startQuery;
+
   return (
     <>
       {/* ── Custom header ── */}
@@ -601,7 +604,8 @@ export default function SearchRideScreen() {
           >
             {/* ── FROM / TO card ── */}
             <View style={styles.routeCard}>
-              {/* FROM */}
+
+              {/* ── FROM ── */}
               <View style={styles.routeRow}>
                 <View style={styles.dotGreen} />
                 <View style={styles.inputContainer}>
@@ -630,6 +634,16 @@ export default function SearchRideScreen() {
                           <Ionicons name="close-circle" size={20} color="#999" />
                         </TouchableOpacity>
                       )}
+                      {/* ── Current position icon: only shown when FROM is empty ── */}
+                      {isFromEmpty && (
+                        <TouchableOpacity
+                          onPress={handleCurrentPosition}
+                          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                          style={{ marginLeft: 6 }}
+                        >
+                          <Ionicons name="locate" size={20} color="#007AFF" />
+                        </TouchableOpacity>
+                      )}
                     </>
                   )}
                 </View>
@@ -637,7 +651,7 @@ export default function SearchRideScreen() {
 
               <View style={styles.routeDivider} />
 
-              {/* TO */}
+              {/* ── TO ── */}
               <View style={styles.routeRow}>
                 <View style={styles.dotBlue} />
                 <View style={styles.inputContainer}>
@@ -685,12 +699,6 @@ export default function SearchRideScreen() {
                     <View style={styles.dividerLine} />
                   </>
                 )}
-                <TouchableOpacity style={styles.optionButton} onPress={handleCurrentPosition} activeOpacity={0.7}>
-                  <View style={styles.optionIconWrap}>
-                    <Ionicons name="locate" size={18} color="#fff" />
-                  </View>
-                  <Text style={styles.optionText}>Current position</Text>
-                </TouchableOpacity>
                 <TouchableOpacity
                   style={styles.optionButton}
                   onPressIn={() => { isSelectingSuggestion.current = true; }}
@@ -768,7 +776,7 @@ export default function SearchRideScreen() {
               </View>
             )}
 
-            {/* ── PASSENGERS bar — carte séparée, avant les préférences ── */}
+            {/* ── PASSENGERS bar ── */}
             <TouchableOpacity
               style={styles.passengerBar}
               onPress={() => setShowPassengerModal(true)}
