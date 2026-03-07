@@ -138,7 +138,7 @@ export default function MapScreen() {
   };
 
   const validateAndFetchRoute = async () => {
-    const validation = validateLocationsInAlgeria(startLocation, endLocation);
+    const validation = await validateLocationsInAlgeria(startLocation, endLocation);
     if (!validation.valid) {
       setIsValidRoute(false);
       setRouteCoordinates([]);

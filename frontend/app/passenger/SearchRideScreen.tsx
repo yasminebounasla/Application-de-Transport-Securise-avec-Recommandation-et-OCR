@@ -477,7 +477,7 @@ export default function SearchRideScreen() {
       Alert.alert("Error", "Please fill all fields");
       return;
     }
-    const validation = validateLocationsInAlgeria(startLocation, endLocation);
+    const validation = await validateLocationsInAlgeria(startLocation, endLocation);
     if (!validation.valid) {
       router.push({
         pathname: "/shared/MapScreen",
