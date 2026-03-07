@@ -1,40 +1,51 @@
 import { Stack } from 'expo-router';
-import { AuthProvider } from '../context/AuthContext';
+import { router } from 'expo-router';
+import { AuthProvider, useAuth } from '../context/AuthContext';
 import { LocationProvider } from '../context/LocationContext';
 import { RideProvider } from '../context/RideContext';
 import '../global.css';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { NotificationProvider } from '../context/NotificationContext';
-import { useAuth } from '../context/AuthContext';
-
-import { useNotifications } from '../context/NotificationContext';
+import { NotificationProvider, useNotifications } from '../context/NotificationContext';
 import NotifToast from '../components/NotifToast';
+import { TouchableOpacity, View } from 'react-native';
 
-
+// ✅ FIX : toast cliquable → navigate vers NotificationsScreen
 function ToastManager() {
   const { currentToast, hideToast } = useNotifications();
-  return <NotifToast toast={currentToast} onHide={hideToast} />;
+
+  const handlePress = () => {
+    hideToast();
+    router.push('/shared/NotificationsScreen' as any);
+  };
+
+  return (
+    <View
+      style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 9999 }}
+      pointerEvents={currentToast ? 'box-none' : 'none'}
+    >
+      <TouchableOpacity onPress={handlePress} activeOpacity={0.95}>
+        <NotifToast toast={currentToast} onHide={hideToast} />
+      </TouchableOpacity>
+    </View>
+  );
 }
 
-// Composant séparé pour attendre que l'auth soit prête
 function AppContent() {
   const { loading } = useAuth();
-
-  if (loading) return null; // attend que le user soit chargé
-
+  if (loading) return null;
   return (
     <NotificationProvider>
       <LocationProvider>
         <RideProvider>
           <SafeAreaProvider>
             <Stack>
-              <Stack.Screen name="index" options={{ title: 'Home' }} />
-              <Stack.Screen name="auth" options={{ headerShown: false }} />
-              <Stack.Screen name="driver" options={{ headerShown: false }} />
-              <Stack.Screen name="passenger" options={{ headerShown: false }} />
+              <Stack.Screen name="index"            options={{ title: 'Home' }} />
+              <Stack.Screen name="auth"             options={{ headerShown: false }} />
+              <Stack.Screen name="driver"           options={{ headerShown: false }} />
+              <Stack.Screen name="passenger"        options={{ headerShown: false }} />
               <Stack.Screen name="shared/MapScreen" options={{ title: 'Map' }} />
-              <Stack.Screen name="(passengerTabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="(driverTabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="(passengerTabs)"  options={{ headerShown: false }} />
+              <Stack.Screen name="(driverTabs)"     options={{ headerShown: false }} />
             </Stack>
             <ToastManager />
           </SafeAreaProvider>

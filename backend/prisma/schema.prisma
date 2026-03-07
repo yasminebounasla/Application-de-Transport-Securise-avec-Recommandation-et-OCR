@@ -20,6 +20,7 @@ model Passenger {
 
   trajets Trajet[]
   savedPlaces SavedPlace[]
+  notifications Notification[]
 }
 
 model Driver {
@@ -57,6 +58,7 @@ model Driver {
   license      License?
   vehicules    Vehicule[]
   trajets      Trajet[]
+  notifications Notification[]
 }
 
 model Vehicule {
@@ -185,4 +187,40 @@ model SavedPlace {
   passenger Passenger @relation(fields: [passengerId], references: [id], onDelete: Cascade)
 
   @@index([passengerId])
+}
+
+enum NotificationRecipient {
+  DRIVER
+  PASSENGER
+}
+
+enum NotificationType {
+  RIDE_REQUEST
+  RIDE_ACCEPTED
+  RIDE_REJECTED
+  RIDE_CANCELLED
+  RIDE_STARTED
+  RIDE_COMPLETED
+  NEW_FEEDBACK
+  RIDE_TAKEN
+}
+
+model Notification {
+  id            Int                   @id @default(autoincrement())
+  driverId      Int?
+  passengerId   Int?
+  recipientType NotificationRecipient
+  type          NotificationType
+  title         String
+  message       String
+  data          Json?
+  isRead        Boolean               @default(false)
+  createdAt     DateTime              @default(now())
+
+  driver    Driver?    @relation(fields: [driverId],    references: [id], onDelete: Cascade)
+  passenger Passenger? @relation(fields: [passengerId], references: [id], onDelete: Cascade)
+
+  @@index([driverId,    isRead])
+  @@index([passengerId, isRead])
+  @@index([createdAt])
 }

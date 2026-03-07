@@ -12,6 +12,7 @@ import exportRoute from './src/routes/exportRoute.js';
 import feedbackRoutes from './src/routes/feedbackRoutes.js';
 import verificationRoutes from './src/routes/verificationRoutes.js';
 import savedPlacesRoutes from './src/routes/savedPlacesRoutes.js';
+import notificationRoutes from './src/routes/NotifcationRoutes.js';
 
 // Middleware
 import { notFound, errorHandler } from "./src/middleware/errorHandler.js";
@@ -50,6 +51,7 @@ app.use("/api/passengers", passengerRoutes);
 app.use("/api/export", exportRoute);
 app.use("/api/feedback", feedbackRoutes);
 app.use("/api/verification", verificationRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 
 // --- Error Handling ---

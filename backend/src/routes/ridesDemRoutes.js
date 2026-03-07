@@ -9,7 +9,8 @@ import {
   startRide,      
   completeRide,   
   cancelRide,    
-  updateRidePrice,  
+  updateRidePrice, 
+  sendRideRequests 
 } from '../controllers/rideController.js';
 import { authenticate } from '../middleware/authMiddleware.js'; 
 
@@ -26,5 +27,7 @@ router.put('/:id/start', authenticate, startRide);               // Démarrer
 router.put('/:id/complete', authenticate, completeRide);         // Terminer
 
 router.patch('/:id/price', authenticate, updateRidePrice); 
+
+router.post('/send-requests', authenticate, sendRideRequests);
 
 export default router;

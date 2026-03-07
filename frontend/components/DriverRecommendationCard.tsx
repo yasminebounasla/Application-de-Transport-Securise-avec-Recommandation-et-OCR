@@ -2,7 +2,6 @@ import React, { useRef } from "react";
 import { Pressable, View, Text, StyleSheet, Animated } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
-
 function Stars({ rating }) {
   const safe  = Math.min(5, Math.max(0, rating ?? 0));
   const full  = Math.floor(safe);
@@ -24,6 +23,18 @@ function Avatar({ prenom, nom, sexe }) {
   return (
     <View style={[styles.avatar, { backgroundColor: female ? '#FCE4EC' : '#E8F0FE' }]}>
       <Text style={[styles.avatarText, { color: female ? '#C2185B' : '#1A73E8' }]}>{initials}</Text>
+    </View>
+  );
+}
+
+function MiniTag({ icon, label, iconLib = 'material' }) {
+  return (
+    <View style={styles.tag}>
+      {iconLib === 'ionicons'
+        ? <Ionicons name={icon} size={10} color="#9CA3AF" />
+        : <MaterialCommunityIcons name={icon} size={10} color="#9CA3AF" />
+      }
+      <Text style={styles.tagText}>{label}</Text>
     </View>
   );
 }
@@ -63,7 +74,7 @@ export default function DriverRecoCard({
 
           <View style={styles.body}>
 
-            {/* Nom + dispo sur la même ligne */}
+            {/* Nom + dispo */}
             <View style={styles.nameLine}>
               <Text style={styles.name} numberOfLines={1}>
                 {driver.prenom} {driver.nom}
@@ -80,17 +91,36 @@ export default function DriverRecoCard({
 
             {/* Tags */}
             <View style={styles.tagsRow}>
+
+              {/* Distance */}
               {driver.distance_km != null && (
                 <View style={styles.tag}>
                   <Ionicons name="location-outline" size={10} color="#9CA3AF" />
                   <Text style={styles.tagText}>{driver.distance_km} km</Text>
                 </View>
               )}
-              {!driver.talkative    && <MiniTag icon="volume-mute" label="Calme"    />}
-              {driver.talkative     && <MiniTag icon="chatbubbles" label="Bavard"   />}
-              {driver.smoking_allowed && <MiniTag icon="smoking"   label="Fumeur OK"/>}
-              {driver.pets_allowed    && <MiniTag icon="paw"       label="Animaux"  />}
-              {driver.car_big         && <MiniTag icon="car-side"  label="Grand"    />}
+
+              {/* Calme / Bavard */}
+              {!driver.talkative
+                ? <MiniTag icon="volume-mute"  label="Calme"    />
+                : <MiniTag icon="chatbubbles"  label="Bavard"   iconLib="material" />
+              }
+
+              {/* ✅ Radio — ajouté car pris en compte dans le scoring */}
+              {driver.radio_on
+                ? <MiniTag icon="radio"        label="Radio ✓"  />
+                : <MiniTag icon="radio-off"    label="Sans radio" />
+              }
+
+              {/* Fumeur */}
+              {driver.smoking_allowed && <MiniTag icon="smoking"     label="Fumeur OK" />}
+
+              {/* Animaux */}
+              {driver.pets_allowed    && <MiniTag icon="paw"         label="Animaux"   />}
+
+              {/* Grand coffre */}
+              {driver.car_big         && <MiniTag icon="car-side"    label="Grand"     />}
+
             </View>
           </View>
 
@@ -101,15 +131,6 @@ export default function DriverRecoCard({
         </View>
       </Animated.View>
     </Pressable>
-  );
-}
-
-function MiniTag({ icon, label }) {
-  return (
-    <View style={styles.tag}>
-      <MaterialCommunityIcons name={icon} size={10} color="#9CA3AF" />
-      <Text style={styles.tagText}>{label}</Text>
-    </View>
   );
 }
 
@@ -132,8 +153,6 @@ const styles = StyleSheet.create({
     borderColor: '#111',
     backgroundColor: '#FAFAFA',
   },
-
-  // Check badge
   checkBadge: {
     position: 'absolute', top: -6, right: -6,
     width: 20, height: 20, borderRadius: 10,
@@ -142,39 +161,29 @@ const styles = StyleSheet.create({
     zIndex: 1,
     borderWidth: 2, borderColor: '#fff',
   },
-
   row:  { flexDirection: 'row', alignItems: 'center', gap: 12 },
   body: { flex: 1, gap: 5 },
-
-  // Avatar
   avatar: {
     width: 46, height: 46, borderRadius: 23,
     alignItems: 'center', justifyContent: 'center',
   },
-  avatarText: { fontSize: 15, fontWeight: '800' },
-
-  // Nom + dispo
-  nameLine: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  name:     { fontSize: 15, fontWeight: '700', color: '#111', flex: 1 },
-
+  avatarText:  { fontSize: 15, fontWeight: '800' },
+  nameLine:    { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  name:        { fontSize: 15, fontWeight: '700', color: '#111', flex: 1 },
   dispoBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 4,
     backgroundColor: '#F0FDF4', paddingHorizontal: 7,
     paddingVertical: 2, borderRadius: 20,
   },
-  dispoDot:  { width: 6, height: 6, borderRadius: 3, backgroundColor: '#16A34A' },
-  dispoText: { fontSize: 10, fontWeight: '700', color: '#16A34A' },
-
-  ratingNum: { fontSize: 11, fontWeight: '600', color: '#9CA3AF', marginLeft: 3 },
-
-  // Tags
-  tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
+  dispoDot:    { width: 6, height: 6, borderRadius: 3, backgroundColor: '#16A34A' },
+  dispoText:   { fontSize: 10, fontWeight: '700', color: '#16A34A' },
+  ratingNum:   { fontSize: 11, fontWeight: '600', color: '#9CA3AF', marginLeft: 3 },
+  tagsRow:     { flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
   tag: {
     flexDirection: 'row', alignItems: 'center', gap: 3,
     backgroundColor: '#F5F5F5', paddingHorizontal: 7,
     paddingVertical: 3, borderRadius: 6,
   },
-  tagText: { fontSize: 10, fontWeight: '600', color: '#9CA3AF' },
-
-  hintCol: { paddingLeft: 4 },
+  tagText:  { fontSize: 10, fontWeight: '600', color: '#9CA3AF' },
+  hintCol:  { paddingLeft: 4 },
 });

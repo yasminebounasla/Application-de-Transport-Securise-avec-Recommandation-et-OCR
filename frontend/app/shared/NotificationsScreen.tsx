@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
   StyleSheet, StatusBar, Image,
@@ -11,31 +11,32 @@ type Notification = {
   title: string;
   message: string;
   timestamp?: number;
+  isRead?: boolean;
   photoUrl?: string;
   prenom?: string;
   nom?: string;
 };
 
 const getRelativeTime = (timestamp: number) => {
-  const diff = Date.now() - timestamp;
-  const mins = Math.floor(diff / 60000);
+  const diff  = Date.now() - timestamp;
+  const mins  = Math.floor(diff / 60000);
   const hours = Math.floor(diff / 3600000);
-  const days = Math.floor(diff / 86400000);
-  if (mins < 1) return "À l'instant";
-  if (mins < 60) return `${mins}m`;
+  const days  = Math.floor(diff / 86400000);
+  if (mins < 1)   return "À l'instant";
+  if (mins < 60)  return `${mins}m`;
   if (hours < 24) return `${hours}h`;
   return `${days}j`;
 };
 
 const CATEGORY = (title: string) => {
-  if (title.includes('confirmé') || title.includes('accepté'))
+  if (title.includes('confirmé') || title.includes('accepté') || title.includes('démarré'))
     return { color: '#22C55E', bg: '#F0FFF4', icon: 'checkmark-circle' as const };
-  if (title.includes('refus'))
+  if (title.includes('refus') || title.includes('annulé') || title.includes('expirée'))
     return { color: '#EF4444', bg: '#FFF5F5', icon: 'close-circle' as const };
-  if (title.includes('annulé'))
-    return { color: '#EF4444', bg: '#FFF5F5', icon: 'close-circle' as const };
-  if (title.includes('envoyée') || title.includes('créé'))
+  if (title.includes('envoyée') || title.includes('créé') || title.includes('demande'))
     return { color: '#3B82F6', bg: '#EFF6FF', icon: 'car' as const };
+  if (title.includes('terminé') || title.includes('arrivé'))
+    return { color: '#8B5CF6', bg: '#F5F3FF', icon: 'flag' as const };
   return { color: '#F59E0B', bg: '#FFFBEB', icon: 'alert-circle' as const };
 };
 
@@ -66,18 +67,32 @@ function NotifAvatar({ notif, cat }: { notif: Notification; cat: ReturnType<type
 }
 
 export default function NotificationsScreen() {
-  const { notifications, unreadCount, clearNotifications, markAllAsRead } = useNotifications();
-  const [newCount] = useState(unreadCount);
+  const { notifications, clearNotifications, markAllAsRead } = useNotifications();
 
-  const newNotifs = notifications.slice(0, newCount);
-  const oldNotifs = notifications.slice(newCount);
+  // ✅ VRAI FIX : on snapshote les listes entières au focus
+  // PAS unreadCount (peut être 0), PAS isRead (changé par markAllAsRead immédiatement)
+  // → on copie les 2 listes au moment exact du focus, AVANT markAllAsRead
+  const [newNotifs, setNewNotifs] = useState<Notification[]>([]);
+  const [oldNotifs, setOldNotifs] = useState<Notification[]>([]);
+  const hasSnapshotted = useRef(false);
 
-  // ✅ Juste reset le badge quand on ouvre, sans supprimer les notifs
   useFocusEffect(
     React.useCallback(() => {
-      markAllAsRead();
+      // Reset à chaque fois qu'on revient sur l'écran
+      hasSnapshotted.current = false;
     }, [])
   );
+
+  // Snapshot au premier render après le focus, quand notifications est chargé
+  // useRef empêche de re-snapshoter si markAllAsRead re-render le composant
+  if (!hasSnapshotted.current && notifications.length > 0) {
+    hasSnapshotted.current = true;
+    const unread = notifications.filter(n => !n.isRead);
+    const read   = notifications.filter(n =>  n.isRead);
+    setNewNotifs(unread);
+    setOldNotifs(read);
+    markAllAsRead();
+  }
 
   const renderNotif = (notif: Notification, i: number, isNew: boolean) => {
     const cat = CATEGORY(notif.title);
@@ -98,6 +113,8 @@ export default function NotificationsScreen() {
     );
   };
 
+  const allEmpty = newNotifs.length === 0 && oldNotifs.length === 0;
+
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
@@ -106,14 +123,14 @@ export default function NotificationsScreen() {
 
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Notifications</Text>
-          {notifications.length > 0 && (
-            <TouchableOpacity onPress={clearNotifications} activeOpacity={0.7}>
+          {!allEmpty && (
+            <TouchableOpacity onPress={() => { clearNotifications(); setNewNotifs([]); setOldNotifs([]); }} activeOpacity={0.7}>
               <Text style={styles.clearBtn}>Tout effacer</Text>
             </TouchableOpacity>
           )}
         </View>
 
-        {notifications.length === 0 ? (
+        {allEmpty ? (
           <View style={styles.empty}>
             <View style={styles.emptyIconWrap}>
               <Ionicons name="notifications-outline" size={36} color="#CCC" />
@@ -151,50 +168,50 @@ export default function NotificationsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container:    { flex: 1, backgroundColor: '#fff' },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 18, paddingTop: 58, paddingBottom: 14,
     borderBottomWidth: 1, borderBottomColor: '#F2F2F2',
   },
-  headerTitle: { fontSize: 22, fontWeight: '800', color: '#111', letterSpacing: -0.4 },
-  clearBtn: { fontSize: 13, color: '#BBB', fontWeight: '500' },
+  headerTitle:     { fontSize: 22, fontWeight: '800', color: '#111', letterSpacing: -0.4 },
+  clearBtn:        { fontSize: 13, color: '#BBB', fontWeight: '500' },
   sectionHeader: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 18, paddingTop: 16, paddingBottom: 6, gap: 8,
   },
-  sectionRedDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#EF4444' },
-  sectionTitle: { fontSize: 12, fontWeight: '700', color: '#EF4444', textTransform: 'uppercase', letterSpacing: 0.8 },
+  sectionRedDot:   { width: 8, height: 8, borderRadius: 4, backgroundColor: '#EF4444' },
+  sectionTitle:    { fontSize: 12, fontWeight: '700', color: '#EF4444', textTransform: 'uppercase', letterSpacing: 0.8 },
   sectionTitleOld: { fontSize: 12, fontWeight: '700', color: '#AAA', textTransform: 'uppercase', letterSpacing: 0.8 },
-  sectionLine: { flex: 1, height: 1, backgroundColor: '#FECACA' },
+  sectionLine:     { flex: 1, height: 1, backgroundColor: '#FECACA' },
   sectionLineGray: { flex: 1, height: 1, backgroundColor: '#F0F0F0' },
   row: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 18, paddingVertical: 13,
     borderBottomWidth: 1, borderBottomColor: '#F7F7F7',
   },
-  rowNew: { backgroundColor: '#FFF8F8' },
-  newDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#EF4444', marginRight: 8 },
-  avatarWrapper: { position: 'relative', marginRight: 13 },
-  avatar: { width: 48, height: 48, borderRadius: 24 },
+  rowNew:         { backgroundColor: '#FFF8F8' },
+  newDot:         { width: 7, height: 7, borderRadius: 4, backgroundColor: '#EF4444', marginRight: 8 },
+  avatarWrapper:  { position: 'relative', marginRight: 13 },
+  avatar:         { width: 48, height: 48, borderRadius: 24 },
   avatarFallback: { justifyContent: 'center', alignItems: 'center' },
-  initials: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  initials:       { color: '#fff', fontSize: 16, fontWeight: '700' },
   badge: {
     position: 'absolute', bottom: 0, right: -1,
     width: 17, height: 17, borderRadius: 9,
     justifyContent: 'center', alignItems: 'center',
     borderWidth: 2, borderColor: '#fff',
   },
-  content: { flex: 1 },
-  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 },
-  title: { fontSize: 14, fontWeight: '700', color: '#111', flex: 1 },
-  time: { fontSize: 12, color: '#BBB', marginLeft: 8 },
-  msg: { fontSize: 13, color: '#666', lineHeight: 18 },
-  empty: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10, paddingBottom: 80 },
+  content:  { flex: 1 },
+  topRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 },
+  title:    { fontSize: 14, fontWeight: '700', color: '#111', flex: 1 },
+  time:     { fontSize: 12, color: '#BBB', marginLeft: 8 },
+  msg:      { fontSize: 13, color: '#666', lineHeight: 18 },
+  empty:    { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10, paddingBottom: 80 },
   emptyIconWrap: {
     width: 80, height: 80, borderRadius: 40, backgroundColor: '#F7F7F7',
     justifyContent: 'center', alignItems: 'center', marginBottom: 6,
   },
   emptyTitle: { fontSize: 17, fontWeight: '700', color: '#222' },
-  emptySub: { fontSize: 13, color: '#BBB', textAlign: 'center', paddingHorizontal: 50 },
+  emptySub:   { fontSize: 13, color: '#BBB', textAlign: 'center', paddingHorizontal: 50 },
 });

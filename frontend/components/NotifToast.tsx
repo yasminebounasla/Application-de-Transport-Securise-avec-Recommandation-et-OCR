@@ -1,106 +1,105 @@
 import React, { useEffect, useRef } from 'react';
-import {
-  Animated, Text, View, StyleSheet,
-  TouchableOpacity, Platform,
-} from 'react-native';
+import { View, Text, Animated, TouchableOpacity, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
 
+// ✅ Type exporté — NotificationContext.tsx l'importe pour typer currentToast
 export type ToastData = {
   title: string;
   message: string;
-  color?: string;
-  icon?: keyof typeof Ionicons.glyphMap;
+  color: string;
+  icon: string;
 };
 
-type Props = {
+type NotifToastProps = {
   toast: ToastData | null;
   onHide: () => void;
+  duration?: number;
 };
 
-function ProgressBar({ color, duration }: { color: string; duration: number }) {
-  const width = useRef(new Animated.Value(100)).current;
-  useEffect(() => {
-    width.setValue(100);
-    Animated.timing(width, {
-      toValue: 0,
-      duration,
-      useNativeDriver: false,
-    }).start();
-  }, []);
-  return (
-    <View style={styles.progressBg}>
-      <Animated.View
-        style={[
-          styles.progressBar,
-          {
-            backgroundColor: color,
-            width: width.interpolate({
-              inputRange: [0, 100],
-              outputRange: ['0%', '100%'],
-            }),
-          },
-        ]}
-      />
-    </View>
-  );
-}
-
-export default function NotifToast({ toast, onHide }: Props) {
-  const translateY = useRef(new Animated.Value(-120)).current;
+// ✅ Composant séparé de Toast.tsx existant
+// POURQUOI: Toast.tsx est fait pour le tracking (type 'success'|'error', message simple).
+//           NotifToast est fait pour les notifications socket :
+//           - title + message (deux lignes)
+//           - color et icon dynamiques selon le type de notif
+//           - Ionicons au lieu de MaterialIcons
+//           - design cohérent avec NotificationsScreen.tsx
+export default function NotifToast({ toast, onHide, duration = 3500 }: NotifToastProps) {
   const opacity = useRef(new Animated.Value(0)).current;
-
-  const hide = () => {
-    Animated.parallel([
-      Animated.timing(translateY, { toValue: -120, duration: 300, useNativeDriver: true }),
-      Animated.timing(opacity, { toValue: 0, duration: 300, useNativeDriver: true }),
-    ]).start(() => onHide());
-  };
+  const translateY = useRef(new Animated.Value(-20)).current;
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!toast) return;
-    translateY.setValue(-120);
+
+    // Reset les valeurs avant animation (si toast précédent encore visible)
     opacity.setValue(0);
+    translateY.setValue(-20);
+
+    // Annule le timer précédent si un nouveau toast arrive
+    if (timerRef.current) clearTimeout(timerRef.current);
+
+    // Animation entrée
     Animated.parallel([
-      Animated.spring(translateY, {
-        toValue: 0,
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 280,
         useNativeDriver: true,
-        tension: 80,
-        friction: 10,
       }),
-      Animated.timing(opacity, { toValue: 1, duration: 200, useNativeDriver: true }),
+      Animated.timing(translateY, {
+        toValue: 0,
+        duration: 280,
+        useNativeDriver: true,
+      }),
     ]).start();
-    const timer = setTimeout(() => hide(), 4000);
-    return () => clearTimeout(timer);
+
+    // Auto-hide
+    timerRef.current = setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(opacity, {
+          toValue: 0,
+          duration: 260,
+          useNativeDriver: true,
+        }),
+        Animated.timing(translateY, {
+          toValue: -20,
+          duration: 260,
+          useNativeDriver: true,
+        }),
+      ]).start(() => onHide());
+    }, duration);
+
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
   }, [toast]);
 
   if (!toast) return null;
 
-  const color = toast.color ?? '#3B82F6';
-  const icon = toast.icon ?? 'notifications';
-
   return (
-    <Animated.View style={[styles.container, { transform: [{ translateY }], opacity }]}>
-      <TouchableOpacity 
-         activeOpacity={0.95} 
-         onPress={() => {
-            hide();
-            router.push('../shared/NotificationsScreen' as any);
-          }}
-          style={styles.inner}
-        >
-        <View style={[styles.iconWrap, { backgroundColor: color + '22' }]}>
-          <Ionicons name={icon} size={22} color={color} />
+    <Animated.View
+      style={[
+        styles.container,
+        { opacity, transform: [{ translateY }] },
+      ]}
+      pointerEvents="box-none"
+    >
+      <View style={[styles.card, { borderLeftColor: toast.color }]}>
+        {/* Icône colorée */}
+        <View style={[styles.iconWrap, { backgroundColor: toast.color + '20' }]}>
+          <Ionicons name={toast.icon as any} size={20} color={toast.color} />
         </View>
+
+        {/* Texte */}
         <View style={styles.textWrap}>
           <Text style={styles.title} numberOfLines={1}>{toast.title}</Text>
           <Text style={styles.message} numberOfLines={2}>{toast.message}</Text>
         </View>
-        <TouchableOpacity onPress={hide} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-          <Ionicons name="close" size={16} color="#AAA" />
+
+        {/* Bouton fermer */}
+        <TouchableOpacity onPress={onHide} style={styles.closeBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+          <Ionicons name="close" size={16} color="#9CA3AF" />
         </TouchableOpacity>
-      </TouchableOpacity>
-      <ProgressBar color={color} duration={4000} />
+      </View>
     </Animated.View>
   );
 }
@@ -108,35 +107,48 @@ export default function NotifToast({ toast, onHide }: Props) {
 const styles = StyleSheet.create({
   container: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 54 : 40,
+    top: 54,
     left: 16,
     right: 16,
     zIndex: 9999,
-    borderRadius: 16,
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 20,
-    overflow: 'hidden',
   },
-  inner: {
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    borderLeftWidth: 4,
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 14,
-    gap: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 12,
+    elevation: 8,
+    gap: 10,
   },
   iconWrap: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
   },
-  textWrap: { flex: 1 },
-  title: { fontSize: 14, fontWeight: '700', color: '#111', marginBottom: 2 },
-  message: { fontSize: 12, color: '#666', lineHeight: 17 },
-  progressBg: { height: 3, backgroundColor: '#F0F0F0' },
-  progressBar: { height: 3 },
+  textWrap: {
+    flex: 1,
+  },
+  title: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#111827',
+    marginBottom: 2,
+  },
+  message: {
+    fontSize: 12,
+    color: '#6B7280',
+    lineHeight: 16,
+  },
+  closeBtn: {
+    padding: 2,
+  },
 });
