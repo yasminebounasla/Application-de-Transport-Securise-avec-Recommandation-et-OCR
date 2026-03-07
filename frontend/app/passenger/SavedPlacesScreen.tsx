@@ -2,7 +2,6 @@ import React, { useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   TouchableOpacity,
   Alert,
   ActivityIndicator,
@@ -18,10 +17,10 @@ import { Ionicons } from '@expo/vector-icons';
 import api from '../../services/api';
 import { searchPlaces } from '../../services/placesService';
 
+// Only Home and Work as fixed types
 const ADDRESS_TYPES = [
-  { key: 'home',  label: 'Home',  icon: 'home-outline',      filledIcon: 'home' },
-  { key: 'work',  label: 'Work',  icon: 'briefcase-outline',  filledIcon: 'briefcase' },
-  { key: 'other', label: 'Other', icon: 'location-outline',   filledIcon: 'location' },
+  { key: 'home', label: 'Home', icon: 'home-outline',     filledIcon: 'home' },
+  { key: 'work', label: 'Work', icon: 'briefcase-outline', filledIcon: 'briefcase' },
 ];
 
 // ─────────────────────────────────────────────
@@ -32,6 +31,13 @@ export default function SavedPlacesScreen() {
   const [loading, setLoading]       = useState(true);
   const [modalVisible, setModal]    = useState(false);
   const [editTarget, setEditTarget] = useState(null);
+
+  // Nickname first, then address (for "Add new place" flow)
+  const [nicknameModal, setNicknameModal]   = useState(false);
+  const [pendingPlace, setPendingPlace]     = useState<{ address: string; lat: number; lng: number } | null>(null);
+  const [nickname, setNickname]             = useState('');
+  const [pendingNickname, setPendingNickname] = useState('');
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
   // ── Load from API ──────────────────────────
@@ -50,7 +56,6 @@ export default function SavedPlacesScreen() {
 
   useFocusEffect(useCallback(() => { loadPlaces(); }, []));
 
-  // ── Helper: find place by label ────────────
   const findByLabel = (label) =>
     places.find(p => p.label.toLowerCase() === label.toLowerCase()) || null;
 
@@ -92,19 +97,45 @@ export default function SavedPlacesScreen() {
     ]);
   };
 
-  // ── Save from modal ───────────────────────
+  // ── Save from modal (Home / Work) ─────────
   const handleSave = async ({ label, address, lat, lng }) => {
     if (!editTarget) return;
     setModal(false);
-
     const existing = findByLabel(editTarget.label);
-
     if (existing) {
       await updatePlace(existing.id, { label: editTarget.label, address, lat, lng });
     } else {
       await addPlace({ label: editTarget.label, address, lat, lng });
     }
   };
+
+  // ── New place flow ────────────────────────
+  // Step 1: click "Add new" → show nickname modal
+  const handleOpenNewPlace = () => {
+    setNickname('');
+    setNicknameModal(true);
+  };
+
+  // Step 2: nickname confirmed → open address search with that label
+  const handleNicknameConfirmed = () => {
+    if (!nickname.trim()) return;
+    setPendingNickname(nickname.trim());
+    setNicknameModal(false);
+    setTimeout(() => {
+      setEditTarget({ key: 'new', label: nickname.trim(), icon: 'bookmark' });
+      setModal(true);
+    }, 300);
+  };
+
+  // Step 3: address chosen → save with the nickname
+  const handleNewPlaceAddressChosen = ({ address, lat, lng }) => {
+    setModal(false);
+    addPlace({ label: pendingNickname, address, lat, lng });
+    setPendingNickname('');
+  };
+
+  // (unused for new flow but kept for compat)
+  const handleSaveNickname = handleNicknameConfirmed;
 
   // ── Open modal ────────────────────────────
   const openModal = (target) => {
@@ -167,7 +198,7 @@ export default function SavedPlacesScreen() {
 
         <View style={{ height: 1, backgroundColor: '#F0F0F0', marginHorizontal: 20, marginBottom: 8 }} />
 
-        {/* ── HOME / WORK / OTHER ── */}
+        {/* ── HOME / WORK ── */}
         {ADDRESS_TYPES.map(type => {
           const saved = findByLabel(type.label);
           return (
@@ -187,7 +218,7 @@ export default function SavedPlacesScreen() {
         {customPlaces.map(place => (
           <AddressRow
             key={place.id}
-            icon="bookmark-outline"
+            icon="bookmark"
             label={place.label}
             value={place.address}
             placeholder=""
@@ -198,7 +229,7 @@ export default function SavedPlacesScreen() {
 
         {/* ── ADD NEW ── */}
         <TouchableOpacity
-          onPress={() => openModal({ key: 'new', label: 'New place', icon: 'add-circle-outline' })}
+          onPress={handleOpenNewPlace}
           style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 18 }}
           activeOpacity={0.7}
         >
@@ -213,13 +244,24 @@ export default function SavedPlacesScreen() {
         </TouchableOpacity>
       </Animated.ScrollView>
 
-      {/* ── ADDRESS PICKER MODAL ── */}
+      {/* ── ADDRESS PICKER MODAL (Home / Work / custom) ── */}
       <AddressModal
         visible={modalVisible}
         target={editTarget}
+        isNew={editTarget?.key === 'new'}
         onClose={() => setModal(false)}
-        onSave={handleSave}
+        onSave={editTarget?.key === 'new' ? handleNewPlaceAddressChosen : handleSave}
         onSetOnMap={() => handleSetOnMap(editTarget)}
+      />
+
+      {/* ── NICKNAME MODAL (only for new custom places) ── */}
+      <NicknameModal
+        visible={nicknameModal}
+        address=""
+        value={nickname}
+        onChange={setNickname}
+        onClose={() => { setNicknameModal(false); setNickname(''); }}
+        onSave={handleNicknameConfirmed}
       />
     </>
   );
@@ -268,9 +310,9 @@ function AddressRow({ icon, label, value, placeholder, onPress, onDelete }) {
 }
 
 // ─────────────────────────────────────────────
-// ADDRESS MODAL
+// ADDRESS SEARCH MODAL
 // ─────────────────────────────────────────────
-function AddressModal({ visible, target, onClose, onSave, onSetOnMap }) {
+function AddressModal({ visible, target, isNew, onClose, onSave, onSetOnMap }) {
   const [query, setQuery]      = useState('');
   const [results, setResults]  = useState([]);
   const [searching, setSearch] = useState(false);
@@ -292,7 +334,6 @@ function AddressModal({ visible, target, onClose, onSave, onSetOnMap }) {
     }, 500);
   };
 
-  // ── Uses real field names from placesService ──
   const handleSelect = (place) => {
     onSave({
       label:   target?.label || place.shortName,
@@ -317,7 +358,7 @@ function AddressModal({ visible, target, onClose, onSave, onSetOnMap }) {
               <Ionicons name="arrow-back" size={22} color="#111" />
             </TouchableOpacity>
             <Text style={{ fontSize: 17, fontWeight: '700', color: '#111', flex: 1 }}>
-              {target?.label ? `Set ${target.label}` : 'Add address'}
+              {isNew ? 'Choose a location' : target?.label ? `Set ${target.label}` : 'Add address'}
             </Text>
           </View>
 
@@ -386,7 +427,7 @@ function AddressModal({ visible, target, onClose, onSave, onSetOnMap }) {
             )}
           />
 
-          {/* SET ON MAP BUTTON */}
+          {/* SET ON MAP */}
           <TouchableOpacity
             onPress={onSetOnMap}
             activeOpacity={0.7}
@@ -405,7 +446,105 @@ function AddressModal({ visible, target, onClose, onSave, onSetOnMap }) {
             </View>
             <Text style={{ fontSize: 14, fontWeight: '600', color: '#111' }}>Set location on map</Text>
           </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
 
+// ─────────────────────────────────────────────
+// NICKNAME MODAL  (step 2 for new custom place)
+// ─────────────────────────────────────────────
+function NicknameModal({ visible, address, value, onChange, onClose, onSave }) {
+  const canSave = value.trim().length > 0;
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
+        <View style={{ flex: 1, backgroundColor: '#fff' }}>
+
+          {/* HEADER */}
+          <View style={{
+            flexDirection: 'row', alignItems: 'center',
+            paddingHorizontal: 16, paddingTop: 18, paddingBottom: 12,
+            borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
+          }}>
+            <TouchableOpacity onPress={onClose} style={{ padding: 6, marginRight: 8 }}>
+              <Ionicons name="arrow-back" size={22} color="#111" />
+            </TouchableOpacity>
+            <Text style={{ fontSize: 17, fontWeight: '700', color: '#111' }}>
+              Add a saved place
+            </Text>
+          </View>
+
+          <View style={{ flex: 1, paddingHorizontal: 20, paddingTop: 28 }}>
+
+            {/* Step indicator */}
+            <Text style={{ fontSize: 13, color: '#BBB', marginBottom: 24, fontWeight: '500' }}>
+              Step 1 of 2 — Give this place a name
+            </Text>
+
+            {/* NICKNAME INPUT */}
+            <Text style={{ fontSize: 13, fontWeight: '700', color: '#888', marginBottom: 8, letterSpacing: 0.4 }}>
+              LOCATION NICKNAME
+            </Text>
+            <View style={{
+              flexDirection: 'row', alignItems: 'center',
+              borderWidth: 1.5,
+              borderColor: '#E5E7EB',
+              borderRadius: 12,
+              paddingHorizontal: 14,
+              height: 52,
+            }}>
+              <Ionicons name="bookmark-outline" size={18} color="#999" style={{ marginRight: 10 }} />
+              <TextInput
+                style={{ flex: 1, fontSize: 15, color: '#111' }}
+                placeholder="e.g. Alex's home"
+                placeholderTextColor="#BBB"
+                value={value}
+                onChangeText={onChange}
+                autoFocus
+                returnKeyType="done"
+                onSubmitEditing={canSave ? onSave : undefined}
+              />
+              {value.length > 0 && (
+                <TouchableOpacity onPress={() => onChange('')}>
+                  <Ionicons name="close-circle" size={18} color="#BBB" />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+
+          {/* SAVE BUTTON */}
+          <View style={{
+            paddingHorizontal: 20,
+            paddingBottom: Platform.OS === 'ios' ? 36 : 20,
+            paddingTop: 12,
+            borderTopWidth: 1,
+            borderTopColor: '#F0F0F0',
+          }}>
+            <TouchableOpacity
+              onPress={onSave}
+              disabled={!canSave}
+              activeOpacity={0.8}
+              style={{
+                backgroundColor: canSave ? '#111' : '#E5E7EB',
+                borderRadius: 50,
+                paddingVertical: 15,
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{
+                fontSize: 16, fontWeight: '700',
+                color: canSave ? '#fff' : '#BBB',
+              }}>
+                Next: Pick location
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </KeyboardAvoidingView>
     </Modal>
