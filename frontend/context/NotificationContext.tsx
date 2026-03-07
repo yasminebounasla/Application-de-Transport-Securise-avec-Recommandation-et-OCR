@@ -1,13 +1,18 @@
-import React, { createContext, useContext, useEffect, useState, useRef, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef, ReactNode, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router } from 'expo-router';
 import { useAuth } from './AuthContext';
 import { ToastData } from '../components/NotifToast';
 
-type Notification = {
+const API_URL = process.env.EXPO_PUBLIC_API_URL;
+
+export type Notification = {
+  id?: number;
   title: string;
   message: string;
   timestamp: number;
+  isRead?: boolean;
   photoUrl?: string;
   prenom?: string;
   nom?: string;
@@ -24,25 +29,14 @@ type NotificationContextType = {
   hideToast: () => void;
 };
 
-const NotificationContext = createContext<NotificationContextType>({
-  notifications: [],
-  unreadCount: 0,
-  socket: null,
-  currentToast: null,
-  clearNotifications: () => {},
-  markAllAsRead: () => {},
-  hideToast: () => {},
-});
+const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
 
 const CATEGORY_TOAST = (title: string): { color: string; icon: any } => {
-  if (title.includes('confirmé') || title.includes('accepté'))
-    return { color: '#22C55E', icon: 'checkmark-circle' };
-  if (title.includes('refus') || title.includes('annulé') || title.includes('expirée'))
-    return { color: '#EF4444', icon: 'close-circle' };
-  if (title.includes('envoyée') || title.includes('créé') || title.includes('demande'))
-    return { color: '#3B82F6', icon: 'car' };
-  if (title.includes('avis'))
-    return { color: '#F59E0B', icon: 'star' };
+  const t = title.toLowerCase();
+  if (t.includes('confirmé') || t.includes('accepté')) return { color: '#22C55E', icon: 'checkmark-circle' };
+  if (t.includes('refus') || t.includes('annulé') || t.includes('expirée')) return { color: '#EF4444', icon: 'close-circle' };
+  if (t.includes('envoyée') || t.includes('créé') || t.includes('demande')) return { color: '#3B82F6', icon: 'car' };
+  if (t.includes('avis')) return { color: '#F59E0B', icon: 'star' };
   return { color: '#8B5CF6', icon: 'notifications' };
 };
 
@@ -53,180 +47,173 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
   const [currentToast, setCurrentToast] = useState<ToastData | null>(null);
   const { user } = useAuth();
 
+  // Clé unique par utilisateur pour éviter les fuites de données entre sessions
   const storageKey = user?.id ? `app_notifications_${user.id}` : null;
-  const storageKeyRef = useRef(storageKey);
-  useEffect(() => { storageKeyRef.current = storageKey; }, [storageKey]);
 
-  // ✅ Charger notifs au démarrage
+  // 1. Reset au Logout + Chargement Cache au Login
   useEffect(() => {
-    if (!storageKey) return;
-    const load = async () => {
+    if (!user) {
+      setNotifications([]);
+      setUnreadCount(0);
+      return;
+    }
+
+    const loadLocalCache = async () => {
+      if (!storageKey) return;
       try {
-        const stored = await AsyncStorage.getItem(storageKey);
+        const cached = await AsyncStorage.getItem(storageKey);
         const unread = await AsyncStorage.getItem(`${storageKey}_unread`);
-        if (stored) setNotifications(JSON.parse(stored));
-        else setNotifications([]);
-        setUnreadCount(unread ? parseInt(unread) : 0);
+        if (cached) {
+          const parsed = JSON.parse(cached);
+          setNotifications(parsed);
+          setUnreadCount(unread ? parseInt(unread) : 0);
+        }
       } catch (e) {
-        console.error('Erreur chargement notifications:', e);
+        console.error("Erreur cache local:", e);
       }
     };
-    load();
-  }, [storageKey]);
 
-  // ✅ Ajouter une notif
-  const addNotif = useRef(async (title: string, message: string, extra?: Partial<Notification>) => {
-    const key = storageKeyRef.current;
-    if (!key) return;
-    const newNotif: Notification = { title, message, timestamp: Date.now(), ...extra };
+    loadLocalCache();
+  }, [user?.id, storageKey]);
+
+  // 2. Sync avec la Base de Données
+  const fetchFromDB = useCallback(async (retryCount = 0) => {
+    if (!user?.id || !storageKey) return;
+
+    try {
+      const token = await AsyncStorage.getItem('token');
+      if (!token) {
+        if (retryCount < 3) setTimeout(() => fetchFromDB(retryCount + 1), 1000);
+        return;
+      }
+
+      const response = await fetch(`${API_URL}/notifications`, {
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+
+      if (response.ok) {
+        const { data, unreadCount: serverUnread } = await response.json();
+        const normalized: Notification[] = data.map((n: any) => ({
+          id: n.id,
+          title: n.title,
+          message: n.message,
+          timestamp: new Date(n.createdAt).getTime(),
+          isRead: n.isRead,
+          rideId: n.data?.rideId,
+          prenom: n.data?.passenger?.prenom || n.data?.driver?.prenom,
+          nom: n.data?.passenger?.nom || n.data?.driver?.nom,
+        }));
+
+        setNotifications(normalized);
+        setUnreadCount(serverUnread);
+        
+        await AsyncStorage.setItem(storageKey, JSON.stringify(normalized));
+        await AsyncStorage.setItem(`${storageKey}_unread`, String(serverUnread));
+      }
+    } catch (e) {
+      console.error('Erreur fetch DB notifications:', e);
+    }
+  }, [user?.id, storageKey]);
+
+  useEffect(() => {
+    if (user?.id) fetchFromDB();
+  }, [user?.id, fetchFromDB]);
+
+  // 3. Actions (Ajout, Lecture, Clear)
+  const addNotif = useCallback(async (title: string, message: string, extra?: Partial<Notification>) => {
+    const newNotif: Notification = { title, message, timestamp: Date.now(), isRead: false, ...extra };
+    
     setNotifications(prev => {
       const updated = [newNotif, ...prev];
-      AsyncStorage.setItem(key, JSON.stringify(updated)).catch(console.error);
+      if (storageKey) AsyncStorage.setItem(storageKey, JSON.stringify(updated));
       return updated;
     });
+
     setUnreadCount(prev => {
       const next = prev + 1;
-      AsyncStorage.setItem(`${key}_unread`, String(next)).catch(console.error);
+      if (storageKey) AsyncStorage.setItem(`${storageKey}_unread`, String(next));
       return next;
     });
+
     const { color, icon } = CATEGORY_TOAST(title);
     setCurrentToast({ title, message, color, icon });
-  });
-
-  // ✅ Remplacer une notif rideRequest par rideTakenByOther
-  const replaceRideNotif = useRef(async (rideId: number) => {
-    const key = storageKeyRef.current;
-    if (!key) return;
-
-    setNotifications(prev => {
-      // Cherche la notif rideRequest avec ce rideId
-      const index = prev.findIndex(n => n.rideId === rideId && n.title.includes('demande'));
-      if (index === -1) return prev; // pas trouvée, rien à faire
-
-      // Remplace par la notif "expirée"
-      const updated = [...prev];
-      updated[index] = {
-        ...updated[index],
-        title: '⚡ Demande expirée',
-        message: 'Un autre conducteur a été choisi pour ce trajet.',
-        timestamp: Date.now(),
-      };
-
-      AsyncStorage.setItem(key, JSON.stringify(updated)).catch(console.error);
-      return updated;
-    });
-
-    // ✅ Affiche aussi un toast discret
-    setCurrentToast({
-      title: '⚡ Demande expirée',
-      message: 'Un autre conducteur a été choisi pour ce trajet.',
-      color: '#F59E0B',
-      icon: 'time',
-    });
-  });
-
-  const clearNotifications = async () => {
-    if (!storageKey) return;
-    setNotifications([]);
-    setUnreadCount(0);
-    await AsyncStorage.removeItem(storageKey);
-    await AsyncStorage.removeItem(`${storageKey}_unread`);
-  };
+  }, [storageKey]);
 
   const markAllAsRead = async () => {
-    if (!storageKey) return;
     setUnreadCount(0);
-    await AsyncStorage.setItem(`${storageKey}_unread`, '0');
+    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    if (storageKey) await AsyncStorage.setItem(`${storageKey}_unread`, '0');
+    
+    try {
+      const token = await AsyncStorage.getItem('token');
+      await fetch(`${API_URL}/notifications/read-all`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+    } catch (e) { console.error(e); }
   };
 
-  const hideToast = () => setCurrentToast(null);
+  const clearNotifications = async () => {
+    setNotifications([]);
+    setUnreadCount(0);
+    if (storageKey) {
+      await AsyncStorage.removeItem(storageKey);
+      await AsyncStorage.removeItem(`${storageKey}_unread`);
+    }
+    try {
+      const token = await AsyncStorage.getItem('token');
+      await fetch(`${API_URL}/notifications`, { 
+        method: 'DELETE', 
+        headers: { 'Authorization': `Bearer ${token}` } 
+      });
+    } catch (e) { console.error(e); }
+  };
 
+  // 4. Socket.IO logic
   useEffect(() => {
     if (!user?.id) return;
 
     const newSocket = io(process.env.EXPO_PUBLIC_API_URL_SANS_API!, {
       transports: ['websocket'],
-      reconnection: true,
+      reconnection: true
     });
 
-    setSocket(newSocket);
-
     newSocket.on('connect', () => {
-      console.log('✅ Connecté à Socket.IO:', newSocket.id);
-
       if (user.role === 'passenger') {
-        newSocket.emit('registerUser', user.id);
-
-        newSocket.on('rideCreated', () => {
-          addNotif.current(
-            '🚗 Demande envoyée',
-            "Votre demande a été soumise. En attente d'un conducteur."
-          );
-        });
-
-        newSocket.on('rideAccepted', (data: any) => {
-          addNotif.current(
-            '✅ Trajet confirmé',
-            `${data.driver.prenom} ${data.driver.nom ?? ''} a accepté votre trajet.`,
-            { prenom: data.driver.prenom, nom: data.driver.nom, photoUrl: data.driver.photoUrl }
-          );
-        });
-
-        newSocket.on('rideRejectedByDriver', () => {
-          addNotif.current(
-            '❌ Demande non acceptée',
-            "Votre demande n'a pas pu être prise en charge."
-          );
-        });
-
+        newSocket.emit('registerUser', user.passengerId);
       } else if (user.role === 'driver') {
-        newSocket.emit('registerDriver', user.id);
-
-        newSocket.on('rideRequest', (data: any) => {
-          addNotif.current(
-            '🚗 Nouvelle demande',
-            `${data.passenger.prenom} ${data.passenger.nom} · ${data.startAddress} → ${data.endAddress}`,
-            { prenom: data.passenger.prenom, nom: data.passenger.nom, rideId: data.rideId }
-          );
-        });
-
-        // ✅ Remplace la notif rideRequest par "expirée"
-        newSocket.on('rideTakenByOther', (data: any) => {
-          replaceRideNotif.current(data.rideId);
-        });
-
-        newSocket.on('rideCancelledByPassenger', (data: any) => {
-          addNotif.current(
-            '⚠️ Trajet annulé',
-            `${data.passenger.prenom} ${data.passenger.nom ?? ''} a annulé sa demande.`,
-            { prenom: data.passenger.prenom, nom: data.passenger.nom }
-          );
-        });
-
-        newSocket.on('newFeedback', (data: any) => {
-          const stars = '⭐'.repeat(data.rating);
-          const message = data.comment
-            ? `${data.passengerName} a évalué votre trajet : ${stars}\n"${data.comment}"`
-            : `${data.passengerName} a évalué votre trajet : ${stars}`;
-          addNotif.current('⭐ Nouvel avis reçu', message);
-        });
+        newSocket.emit('registerDriver', user.driverId);
       }
     });
 
-    newSocket.on('connect_error', (err) => console.log('❌ Erreur socket:', err.message));
-    newSocket.on('disconnect', () => console.log('❌ Socket déconnecté'));
+    if (user.role === 'driver') {
+      newSocket.on('rideRequest', (data) => {
+        addNotif('🚗 Nouvelle demande', `${data.passenger.prenom} sollicite un trajet`, { rideId: data.rideId, prenom: data.passenger.prenom });
+      });
+    }
 
+    if (user.role === 'passenger') {
+      newSocket.on('rideAccepted', (data) => {
+        addNotif('✅ Trajet confirmé', `${data.driver.prenom} a accepté votre trajet.`);
+      });
+    }
+
+    setSocket(newSocket);
     return () => { newSocket.disconnect(); };
-  }, [user]);
+  }, [user?.id, user?.role, addNotif]);
 
   return (
-    <NotificationContext.Provider value={{
-      notifications, unreadCount, socket,
-      currentToast, clearNotifications, markAllAsRead, hideToast,
+    <NotificationContext.Provider value={{ 
+      notifications, unreadCount, socket, currentToast, 
+      clearNotifications, markAllAsRead, hideToast: () => setCurrentToast(null) 
     }}>
       {children}
     </NotificationContext.Provider>
   );
 };
 
-export const useNotifications = () => useContext(NotificationContext);
+export const useNotifications = () => {
+  const context = useContext(NotificationContext);
+  if (!context) throw new Error("useNotifications must be used within NotificationProvider");
+  return context;
+};
