@@ -138,7 +138,7 @@ export default function MapScreen() {
   };
 
   const validateAndFetchRoute = async () => {
-    const validation = validateLocationsInAlgeria(startLocation, endLocation);
+    const validation = await validateLocationsInAlgeria(startLocation, endLocation);
     if (!validation.valid) {
       setIsValidRoute(false);
       setRouteCoordinates([]);
@@ -494,6 +494,7 @@ export default function MapScreen() {
         style={StyleSheet.absoluteFillObject}
         initialRegion={getInitialRegion()}
         showsUserLocation
+        showsMyLocationButton={false}
         onPress={handleMapPress}
       >
         {selectedLocation?.latitude && selectedLocation?.longitude && (
@@ -504,6 +505,22 @@ export default function MapScreen() {
           />
         )}
       </MapView>
+      {/* Locate button — floating on map, bottom-right just above the sheet */}
+      <TouchableOpacity
+        style={styles.locationButton}
+        onPress={() => {
+          if (!currentLocation || !mapRef.current) return;
+         mapRef.current.animateToRegion({
+           latitude: currentLocation.latitude,
+           longitude: currentLocation.longitude,
+           latitudeDelta: 0.01,
+           longitudeDelta: 0.01,
+          }, 500);
+       }}
+       activeOpacity={0.8}
+      >
+       <Ionicons name="locate" size={20} color="#007AFF" />
+      </TouchableOpacity>
 
       <View style={styles.bottomSheetFixed}>
         <View style={styles.dragHandle} />
@@ -807,4 +824,15 @@ const styles = StyleSheet.create({
   priceValue: {
     fontSize: 20, fontWeight: '800', color: '#111',
   },
+  locationButton: {
+  position: 'absolute',
+  right: 16,
+  bottom: 210,
+  width: 44, height: 44, borderRadius: 22,
+  backgroundColor: '#fff',
+  justifyContent: 'center', alignItems: 'center',
+  shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.12, shadowRadius: 8,
+  elevation: 30, zIndex: 999,
+},
 });
