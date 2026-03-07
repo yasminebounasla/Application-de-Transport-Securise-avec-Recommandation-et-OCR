@@ -1,9 +1,3 @@
-/**
- * Geovalidation.js
- * Validation géographique via Nominatim (OpenStreetMap reverse geocoding).
- * 100% précis — utilise les vraies frontières officielles.
- */
-
 const LOCATIONIQ_KEY = process.env.EXPO_PUBLIC_LOCATIONIQ_API_KEY;
 
 /**
