@@ -48,13 +48,21 @@ function SavedChip({
   icon,
   label,
   onPress,
+  onPressIn,
 }: {
   icon: string;
   label: string;
   onPress: () => void;
+  onPressIn: () => void;
 }) {
   return (
-    <TouchableOpacity style={styles.chip} onPress={onPress} activeOpacity={0.7}>
+    <TouchableOpacity
+      style={styles.chip}
+      onPressIn={onPressIn}
+      onPress={onPress}
+      activeOpacity={0.7}
+      delayPressIn={0}
+    >
       <Ionicons name={icon as any} size={14} color="#111" style={{ marginRight: 5 }} />
       <Text style={styles.chipText} numberOfLines={1}>{label}</Text>
     </TouchableOpacity>
@@ -66,10 +74,12 @@ function SavedPlacesSection({
   savedAddresses,
   customPlaces,
   onSelect,
+  onPressIn,
 }: {
   savedAddresses: SavedAddresses;
   customPlaces: CustomPlace[];
   onSelect: (place: { address: string; lat?: number; lng?: number }) => void;
+  onPressIn: () => void;
 }) {
   const fixed = [
     { key: "home",  icon: "home",      label: "Home",  data: savedAddresses.home },
@@ -104,6 +114,7 @@ function SavedPlacesSection({
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         style={styles.chipsRow}
         contentContainerStyle={{ paddingRight: 8 }}
       >
@@ -112,27 +123,12 @@ function SavedPlacesSection({
             key={p.id}
             icon={p.icon}
             label={p.label}
+            onPressIn={onPressIn}
             onPress={() => onSelect({ address: p.address, lat: p.lat, lng: p.lng })}
           />
         ))}
       </ScrollView>
-      {all.map((p) => (
-        <TouchableOpacity
-          key={p.id}
-          style={styles.savedRow}
-          onPress={() => onSelect({ address: p.address, lat: p.lat, lng: p.lng })}
-          activeOpacity={0.7}
-        >
-          <View style={styles.savedRowIcon}>
-            <Ionicons name={p.icon as any} size={16} color="#fff" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.savedRowLabel}>{p.label}</Text>
-            <Text style={styles.savedRowAddress} numberOfLines={1}>{p.address}</Text>
-          </View>
-          <Ionicons name="arrow-forward-outline" size={15} color="#CCC" />
-        </TouchableOpacity>
-      ))}
+
     </View>
   );
 }
@@ -250,36 +246,51 @@ export default function SearchRideScreen() {
   const [radio_ok, setRadioOk] = useState(false);
   const [female_driver_pref, setFemaleDriverPref] = useState(false);
 
-  // ── Load saved addresses ─────────────────────────────────────────────────
+  // ── Load saved addresses (cache-first for poor network) ─────────────────
   useEffect(() => {
+    const CACHE_KEY = "savedPlacesCache";
+
+    const applyPlaces = (places: any[]) => {
+      const home  = places.find((p: any) => p.label.toLowerCase() === "home")  || null;
+      const work  = places.find((p: any) => p.label.toLowerCase() === "work")  || null;
+      const other = places.find((p: any) => p.label.toLowerCase() === "other") || null;
+      setSavedAddresses({
+        home:  home  ? { name: "Home",  address: home.address,  lat: home.lat,  lng: home.lng }  : null,
+        work:  work  ? { name: "Work",  address: work.address,  lat: work.lat,  lng: work.lng }  : null,
+        other: other ? { name: "Other", address: other.address, lat: other.lat, lng: other.lng } : null,
+      });
+      const custom = places.filter(
+        (p: any) => !["home", "work", "other"].includes(p.label.toLowerCase())
+      );
+      setCustomPlaces(
+        custom.map((p: any) => ({
+          id: String(p.id),
+          name: p.label,
+          address: p.address,
+          lat: p.lat,
+          lng: p.lng,
+        }))
+      );
+    };
+
     const loadSavedAddresses = async () => {
+      // 1️⃣ Load from cache instantly (works offline / slow network)
+      try {
+        const cached = await AsyncStorage.getItem(CACHE_KEY);
+        if (cached) applyPlaces(JSON.parse(cached));
+      } catch (_) {}
+
+      // 2️⃣ Fetch fresh from network in background, update cache + UI
       try {
         const res = await api.get("/passengers/saved-places");
         const places = res.data.data || [];
-        const home  = places.find((p: any) => p.label.toLowerCase() === "home")  || null;
-        const work  = places.find((p: any) => p.label.toLowerCase() === "work")  || null;
-        const other = places.find((p: any) => p.label.toLowerCase() === "other") || null;
-        setSavedAddresses({
-          home:  home  ? { name: "Home",  address: home.address,  lat: home.lat,  lng: home.lng }  : null,
-          work:  work  ? { name: "Work",  address: work.address,  lat: work.lat,  lng: work.lng }  : null,
-          other: other ? { name: "Other", address: other.address, lat: other.lat, lng: other.lng } : null,
-        });
-        const custom = places.filter(
-          (p: any) => !["home", "work", "other"].includes(p.label.toLowerCase())
-        );
-        setCustomPlaces(
-          custom.map((p: any) => ({
-            id: String(p.id),
-            name: p.label,
-            address: p.address,
-            lat: p.lat,
-            lng: p.lng,
-          }))
-        );
+        applyPlaces(places);
+        await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(places));
       } catch (e) {
-        console.error("Failed to load saved addresses:", e);
+        console.error("Failed to fetch saved places (using cache):", e);
       }
     };
+
     loadSavedAddresses();
   }, []);
 
@@ -376,7 +387,7 @@ export default function SearchRideScreen() {
     blurTimeoutRef.current = setTimeout(() => {
       if (!isSelectingSuggestion.current && !isNavigatingToMap.current)
         setFocusedField(null);
-    }, 400);
+    }, 600);
   };
 
   // ── Clear ────────────────────────────────────────────────────────────────
@@ -436,16 +447,26 @@ export default function SearchRideScreen() {
   const handleSelectSavedForStart = (place: { address: string; lat?: number; lng?: number }) => {
     isSelectingSuggestion.current = false;
     if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
-    if (place.lat && place.lng) setStartLocation({ latitude: place.lat, longitude: place.lng });
-    else setStartAddress(place.address);
-    setStartSuggestions([]); setFocusedField(null); Keyboard.dismiss();
+    if (place.lat && place.lng) {
+      setStartLocation({ latitude: place.lat, longitude: place.lng });
+      setStartAddress(place.address); // set address immediately, no need to wait for reverseGeocode
+      lastStartCoords.current = `${place.lat.toFixed(4)},${place.lng.toFixed(4)}`; // prevent redundant geocode
+    } else {
+      setStartAddress(place.address);
+    }
+    setStartQuery(""); setStartSuggestions([]); setFocusedField(null); Keyboard.dismiss();
   };
   const handleSelectSavedForEnd = (place: { address: string; lat?: number; lng?: number }) => {
     isSelectingSuggestion.current = false;
     if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
-    if (place.lat && place.lng) setEndLocation({ latitude: place.lat, longitude: place.lng });
-    else setEndAddress(place.address);
-    setEndSuggestions([]); setFocusedField(null); Keyboard.dismiss();
+    if (place.lat && place.lng) {
+      setEndLocation({ latitude: place.lat, longitude: place.lng });
+      setEndAddress(place.address); // set address immediately, no need to wait for reverseGeocode
+      lastEndCoords.current = `${place.lat.toFixed(4)},${place.lng.toFixed(4)}`; // prevent redundant geocode
+    } else {
+      setEndAddress(place.address);
+    }
+    setEndQuery(""); setEndSuggestions([]); setFocusedField(null); Keyboard.dismiss();
   };
 
   // ── Date / time handlers ─────────────────────────────────────────────────
@@ -695,6 +716,7 @@ export default function SearchRideScreen() {
                       savedAddresses={savedAddresses}
                       customPlaces={customPlaces}
                       onSelect={handleSelectSavedForStart}
+                      onPressIn={() => { isSelectingSuggestion.current = true; if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current); }}
                     />
                     <View style={styles.dividerLine} />
                   </>
@@ -740,6 +762,7 @@ export default function SearchRideScreen() {
                       savedAddresses={savedAddresses}
                       customPlaces={customPlaces}
                       onSelect={handleSelectSavedForEnd}
+                      onPressIn={() => { isSelectingSuggestion.current = true; if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current); }}
                     />
                     <View style={styles.dividerLine} />
                   </>
@@ -913,6 +936,7 @@ export default function SearchRideScreen() {
     </>
   );
 }
+
 
 // ── Passenger modal styles ────────────────────────────────────────────────────
 const passStyles = StyleSheet.create({
