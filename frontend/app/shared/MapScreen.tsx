@@ -2,6 +2,7 @@ import React, { useContext, useRef, useEffect, useState } from "react";
 import {
   View,
   StyleSheet,
+  Platform,
   TouchableOpacity,
   Text,
   ActivityIndicator,
@@ -418,81 +419,96 @@ export default function MapScreen() {
           {isValidRoute && routeCoordinates.length > 0 && (
             <Polyline
               coordinates={routeCoordinates}
-              strokeColor="#385c8e"
-              strokeWidth={2.5}
+              strokeColor="#294190"
+              strokeWidth={2}
             />
           )}
         </MapView>
 
-        <View style={styles.topAddresses}>
-          <View style={styles.addressCard}>
-            <View style={styles.addressRow}>
-              <View style={styles.dotGreen} />
-              <Text style={styles.addressText} numberOfLines={1}>
-                {startAddress || "Departure"}
-              </Text>
-            </View>
-            <View style={styles.addressSeparator} />
-            <View style={styles.addressRow}>
-              <View style={styles.dotRed} />
-              <Text style={styles.addressText} numberOfLines={1}>
-                {endAddress || "Destination"}
-              </Text>
-            </View>
+        {/* ── Top address card ── */}
+        <View style={routeStyles.topCard}>
+          <View style={routeStyles.addressRow}>
+            <View style={routeStyles.dotGreen} />
+            <Text style={routeStyles.addressText} numberOfLines={1}>
+              {startAddress || "Departure"}
+            </Text>
+          </View>
+          <View style={routeStyles.addressDivider} />
+          <View style={routeStyles.addressRow}>
+            <View style={routeStyles.dotBlue} />
+            <Text style={routeStyles.addressText} numberOfLines={1}>
+              {endAddress || "Destination"}
+            </Text>
           </View>
         </View>
 
         {showLocationError ? (
           <LocationNotSupported onTryAnother={handleTryAnother} />
         ) : (
-          <View style={styles.bottomSheet}>
-            <View style={styles.dragHandle} />
+          <View style={routeStyles.bottomSheet}>
+            <View style={routeStyles.handle} />
 
             {loadingRoute ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color="#000" />
-                <Text style={styles.loadingText}>Calculating route...</Text>
+              <View style={routeStyles.loadingRow}>
+                <ActivityIndicator size="small" color="#111" />
+                <Text style={routeStyles.loadingText}>Calculating route...</Text>
               </View>
             ) : (
               <>
-                {routeDistance !== null && routeDuration !== null && estimatedPrice !== null && (
-                  <View style={styles.routeInfoRow}>
-                    <View style={styles.routeMeta}>
-                      <Ionicons name="navigate-outline" size={14} color="#888" />
-                      <Text style={styles.routeMetaText}>
-                        {formatDistance(routeDistance)} · {formatDuration(routeDuration)}
+                {/* ── Price hero ── */}
+                {estimatedPrice !== null && (
+                  <View style={routeStyles.priceRow}>
+                    <View>
+                      <Text style={routeStyles.priceLabel}>Estimated price</Text>
+                      <Text style={routeStyles.priceValue}>
+                        {estimatedPrice.toLocaleString()} <Text style={routeStyles.priceCurrency}>DA</Text>
                       </Text>
                     </View>
-                    <View style={styles.priceChip}>
-                      <Text style={styles.priceLabel}>Estimated</Text>
-                      <Text style={styles.priceValue}>{estimatedPrice.toLocaleString()} DA</Text>
-                    </View>
+                    {routeDistance !== null && routeDuration !== null && (
+                      <View style={routeStyles.metaBox}>
+                        <View style={routeStyles.metaItem}>
+                          <Ionicons name="navigate-outline" size={13} color="#666" />
+                          <Text style={routeStyles.metaText}>{formatDistance(routeDistance)}</Text>
+                        </View>
+                        <View style={routeStyles.metaDot} />
+                        <View style={routeStyles.metaItem}>
+                          <Ionicons name="time-outline" size={13} color="#666" />
+                          <Text style={routeStyles.metaText}>{formatDuration(routeDuration)}</Text>
+                        </View>
+                      </View>
+                    )}
                   </View>
                 )}
 
+                {/* ── Find drivers CTA ── */}
                 <TouchableOpacity
-                  style={styles.recommendedSection}
+                  style={routeStyles.ctaButton}
                   onPress={() =>
                     router.push({
                       pathname: "/passenger/RecommendedDriversScreen",
                       params: { rideId, startAddress, endAddress },
                     })
                   }
-                  activeOpacity={0.7}
+                  activeOpacity={0.85}
                 >
-                  <View style={styles.recommendedContent}>
-                    <Text style={styles.recommendedTitle}>Recommended Drivers</Text>
+                 <View style={routeStyles.ctaInner}>
+                    <View>
+                      <Text style={routeStyles.ctaLabel}>Ready to go?</Text>
+                      <Text style={routeStyles.ctaText}>Find Drivers</Text>
+                    </View>
+                    <View style={routeStyles.ctaArrow}>
+                      <Ionicons name="arrow-forward" size={20} color="#111" />
+                    </View>
                   </View>
-                  <Ionicons name="chevron-forward" size={24} color="#666" />
                 </TouchableOpacity>
 
+                {/* ── Cancel ── */}
                 <TouchableOpacity
-                  style={styles.cancelRideButton}
+                  style={routeStyles.cancelButton}
                   onPress={handleCancelRide}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.cancelRideText}>Cancel Ride</Text>
-                  <Ionicons name="close-circle" size={22} color="#E53E3E" />
+                  <Text style={routeStyles.cancelText}>Cancel ride</Text>
                 </TouchableOpacity>
               </>
             )}
@@ -556,6 +572,7 @@ export default function MapScreen() {
     </View>
   );
 }
+
 const errorStyles = StyleSheet.create({
   overlay: {
     position: "absolute",
@@ -844,4 +861,182 @@ const styles = StyleSheet.create({
   shadowOpacity: 0.12, shadowRadius: 8,
   elevation: 30, zIndex: 999,
 },
+});
+// ── Route mode styles ─────────────────────────────────────────────────────────
+const routeStyles = StyleSheet.create({
+  topCard: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    right: 16,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+  },
+  addressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    gap: 12,
+  },
+  addressDivider: {
+    height: 1,
+    backgroundColor: '#F0F0F0',
+    marginLeft: 22,
+  },
+  dotGreen: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#22C55E',
+  },
+  dotBlue: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#3B82F6',
+  },
+  addressText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111',
+  },
+
+  bottomSheet: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+    paddingTop: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: -4 },
+    elevation: 16,
+  },
+  handle: {
+    width: 36,
+    height: 4,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+
+  loadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 20,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#666',
+  },
+
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  priceLabel: {
+    fontSize: 12,
+    color: '#999',
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  priceValue: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#111',
+    letterSpacing: -0.5,
+  },
+  priceCurrency: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#555',
+  },
+  metaBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 6,
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  metaDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: '#CCC',
+  },
+  metaText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#555',
+  },
+
+  ctaButton: {
+  backgroundColor: '#111',
+  borderRadius: 20,
+  paddingVertical: 18,
+  paddingHorizontal: 20,
+  marginBottom: 10,
+},
+ctaInner: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+},
+ctaLabel: {
+  fontSize: 11,
+  fontWeight: '500',
+  color: '#888',
+  marginBottom: 2,
+  textTransform: 'uppercase',
+  letterSpacing: 0.8,
+},
+ctaText: {
+  fontSize: 20,
+  fontWeight: '800',
+  color: '#fff',
+  letterSpacing: -0.3,
+},
+ctaArrow: {
+  width: 40,
+  height: 40,
+  borderRadius: 20,
+  backgroundColor: '#fff',
+  alignItems: 'center',
+  justifyContent: 'center',
+},
+  cancelButton: {
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  cancelText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#EF4444',
+  },
 });
