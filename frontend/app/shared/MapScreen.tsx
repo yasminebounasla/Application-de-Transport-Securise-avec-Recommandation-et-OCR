@@ -7,6 +7,7 @@ import {
   Text,
   ActivityIndicator,
   Alert,
+  Modal,
 } from "react-native";
 import MapView, { Marker, Polyline } from "react-native-maps";
 import { LocationContext } from "../../context/LocationContext";
@@ -16,7 +17,7 @@ import { formatDuration, formatDistance } from "../../utils/formatUtils";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from '@expo/vector-icons';
 import api from "../../services/api";
-import { calculatePrice }   from "../../utils/priceCalculator";
+import { calculatePrice } from "../../utils/priceCalculator";
 
 
 function LocationNotSupported({ onTryAnother }) {
@@ -50,16 +51,16 @@ function LocationNotSupported({ onTryAnother }) {
 
 export default function MapScreen() {
   const router = useRouter();
-  const { 
-    selectionType, 
-    rideId, 
-    startAddress, 
+  const {
+    selectionType,
+    rideId,
+    startAddress,
     endAddress,
     startLat,
     startLng,
     endLat,
     endLng,
-    targetKey:   _targetKey,  
+    targetKey:   _targetKey,
     targetLabel: _targetLabel,
   } = useLocalSearchParams();
   const targetKey   = (Array.isArray(_targetKey)   ? _targetKey[0]   : _targetKey)   as string;
@@ -77,29 +78,28 @@ export default function MapScreen() {
     selectionType === "start" ? startLocation : endLocation
   );
   const [selectedAddress, setSelectedAddress] = useState("");
-  const [loadingAddress, setLoadingAddress] = useState(false);
-  const [savingAddress, setSavingAddress]     = useState(false); 
+  const [loadingAddress, setLoadingAddress]   = useState(false);
+  const [savingAddress, setSavingAddress]     = useState(false);
 
   const [routeCoordinates, setRouteCoordinates] = useState([]);
-  const [loadingRoute, setLoadingRoute] = useState(false);
-  const [isValidRoute, setIsValidRoute] = useState(true);
-  const [routeDistance, setRouteDistance] = useState<number | null>(null);
-  const [routeDuration, setRouteDuration] = useState<number | null>(null);
-
-  const [estimatedPrice, setEstimatedPrice] = useState<number | null>(null);
-
+  const [loadingRoute, setLoadingRoute]         = useState(false);
+  const [isValidRoute, setIsValidRoute]         = useState(true);
+  const [routeDistance, setRouteDistance]       = useState<number | null>(null);
+  const [routeDuration, setRouteDuration]       = useState<number | null>(null);
+  const [estimatedPrice, setEstimatedPrice]     = useState<number | null>(null);
   const [showLocationError, setShowLocationError] = useState(false);
+  const [showCancelModal, setShowCancelModal]   = useState(false);
 
-  const mapRef = useRef(null);
+  const mapRef          = useRef(null);
   const debounceTimeout = useRef(null);
 
-  // ── Shared go-to-current-location helper ────
+  // ── Shared locate helper ─────────────────────
   const goToCurrentLocation = () => {
     if (!currentLocation || !mapRef.current) return;
     mapRef.current.animateToRegion({
-      latitude: currentLocation.latitude,
-      longitude: currentLocation.longitude,
-      latitudeDelta: 0.01,
+      latitude:      currentLocation.latitude,
+      longitude:     currentLocation.longitude,
+      latitudeDelta:  0.01,
       longitudeDelta: 0.01,
     }, 500);
   };
@@ -113,17 +113,13 @@ export default function MapScreen() {
         const val = Array.isArray(coord) ? coord[0] : coord;
         return parseFloat(val);
       };
-
       const startLatNum = parseCoord(startLat);
       const startLngNum = parseCoord(startLng);
-      const endLatNum = parseCoord(endLat);
-      const endLngNum = parseCoord(endLng);
-
+      const endLatNum   = parseCoord(endLat);
+      const endLngNum   = parseCoord(endLng);
       if (startLatNum && startLngNum && endLatNum && endLngNum) {
-        const start = { latitude: startLatNum, longitude: startLngNum };
-        const end = { latitude: endLatNum, longitude: endLngNum };
-        setStartLocation(start);
-        setEndLocation(end);
+        setStartLocation({ latitude: startLatNum, longitude: startLngNum });
+        setEndLocation({ latitude: endLatNum,   longitude: endLngNum });
       }
     }
   }, [selectionType, startLocation, endLocation, startLat, startLng, endLat, endLng]);
@@ -139,12 +135,9 @@ export default function MapScreen() {
     mapRef.current.fitToCoordinates(
       [
         { latitude: startLocation.latitude, longitude: startLocation.longitude },
-        { latitude: endLocation.latitude, longitude: endLocation.longitude },
+        { latitude: endLocation.latitude,   longitude: endLocation.longitude },
       ],
-      {
-        edgePadding: { top: 200, right: 60, bottom: 280, left: 60 },
-        animated: true,
-      }
+      { edgePadding: { top: 200, right: 60, bottom: 280, left: 60 }, animated: true }
     );
   };
 
@@ -168,32 +161,18 @@ export default function MapScreen() {
   const fetchRoute = async () => {
     setLoadingRoute(true);
     try {
-      const response = await api.post('/ride/calculate', {
-        start: startLocation,
-        end: endLocation,
-      });
+      const response = await api.post('/ride/calculate', { start: startLocation, end: endLocation });
       const data = response.data;
-
       if (data.success && data.geometry?.coordinates) {
-        const coords = data.geometry.coordinates.map(([lng, lat]) => ({
-          latitude: lat,
-          longitude: lng,
-        }));
+        const coords = data.geometry.coordinates.map(([lng, lat]) => ({ latitude: lat, longitude: lng }));
         setRouteCoordinates(coords);
-
-        const distKm  = parseFloat(data.distanceKm);
-        const durMin  = parseInt(data.durationMin, 10);
-
+        const distKm = parseFloat(data.distanceKm);
+        const durMin = parseInt(data.durationMin, 10);
         setRouteDistance(distKm);
         setRouteDuration(durMin);
-
         const { price } = calculatePrice(distKm, durMin);
         setEstimatedPrice(price);
-        
-        if (rideId) {
-         await api.patch(`/ridesDem/${rideId}/price`, { prix: price });
-        }
-
+        if (rideId) await api.patch(`/ridesDem/${rideId}/price`, { prix: price });
         if (mapRef.current && coords.length > 0) {
           mapRef.current.fitToCoordinates(coords, {
             edgePadding: { top: 200, right: 60, bottom: 280, left: 60 },
@@ -217,8 +196,7 @@ export default function MapScreen() {
     debounceTimeout.current = setTimeout(async () => {
       setLoadingAddress(true);
       try {
-        const address = await reverseGeocode(coords);
-        setSelectedAddress(address);
+        setSelectedAddress(await reverseGeocode(coords));
       } catch {
         setSelectedAddress("Error loading address");
       } finally {
@@ -243,11 +221,8 @@ export default function MapScreen() {
 
   const handleConfirm = () => {
     if (!selectedLocation) return;
-    if (selectionType === "start") {
-      setStartLocation(selectedLocation);
-    } else {
-      setEndLocation(selectedLocation);
-    }
+    if (selectionType === "start") setStartLocation(selectedLocation);
+    else setEndLocation(selectedLocation);
     router.back();
   };
 
@@ -259,18 +234,15 @@ export default function MapScreen() {
       const lat     = selectedLocation.latitude;
       const lng     = selectedLocation.longitude;
       const address = selectedAddress;
-
       const listRes = await api.get('/passengers/saved-places');
       const existing = (listRes.data.data || []).find(
         (p) => p.label.toLowerCase() === label.toLowerCase()
       );
-
       if (existing) {
         await api.put(`/passengers/saved-places/${existing.id}`, { label, address, lat, lng });
       } else {
         await api.post('/passengers/saved-places', { label, address, lat, lng });
       }
-
       router.back();
     } catch (e) {
       console.error("❌ Error saving address:", e);
@@ -285,28 +257,17 @@ export default function MapScreen() {
       router.push("/passenger/SearchRideScreen");
       return;
     }
+    setShowCancelModal(true);
+  };
 
-    Alert.alert(
-      "Cancel Ride",
-      "Are you sure you want to cancel this ride?",
-      [
-        { text: "No", style: "cancel" },
-        {
-          text: "Yes, Cancel",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              const response = await api.put(`/ridesDem/${rideId}/cancel`);
-              console.log(`✅ Ride ${rideId} cancelled`, response.data);
-            } catch (error) {
-              console.error('❌ Erreur cancel:', error.response?.data || error.message);
-            } finally {
-              router.push("/(passengerTabs)/PassengerHomeScreen");
-            }
-          },
-        }
-      ]
-    );
+  const confirmCancelRide = async () => {
+    setShowCancelModal(false);
+    try {
+      await api.put(`/ridesDem/${rideId}/cancel`);
+    } catch (error) {
+      console.error('❌ Erreur cancel:', error.response?.data || error.message);
+    }
+    router.replace("/(passengerTabs)/PassengerHomeScreen");
   };
 
   const handleTryAnother = () => {
@@ -316,16 +277,16 @@ export default function MapScreen() {
   const getInitialRegion = () => {
     if (selectionType === "route" && startLocation && endLocation) {
       return {
-        latitude: (startLocation.latitude + endLocation.latitude) / 2,
-        longitude: (startLocation.longitude + endLocation.longitude) / 2,
-        latitudeDelta: Math.abs(startLocation.latitude - endLocation.latitude) * 1.5 || 0.1,
+        latitude:       (startLocation.latitude  + endLocation.latitude)  / 2,
+        longitude:      (startLocation.longitude + endLocation.longitude) / 2,
+        latitudeDelta:  Math.abs(startLocation.latitude  - endLocation.latitude)  * 1.5 || 0.1,
         longitudeDelta: Math.abs(startLocation.longitude - endLocation.longitude) * 1.5 || 0.1,
       };
     }
     return {
-      latitude: currentLocation?.latitude ?? 36.7538,
-      longitude: currentLocation?.longitude ?? 3.0588,
-      latitudeDelta: 0.01,
+      latitude:       currentLocation?.latitude  ?? 36.7538,
+      longitude:      currentLocation?.longitude ?? 3.0588,
+      latitudeDelta:  0.01,
       longitudeDelta: 0.01,
     };
   };
@@ -345,20 +306,11 @@ export default function MapScreen() {
           onPress={handleMapPress}
         >
           {selectedLocation?.latitude && selectedLocation?.longitude && (
-            <Marker
-              coordinate={selectedLocation}
-              draggable
-              onDragEnd={handleMarkerDragEnd}
-            />
+            <Marker coordinate={selectedLocation} draggable onDragEnd={handleMarkerDragEnd} />
           )}
         </MapView>
 
-        {/* Locate button — floating, bottom-right just above the sheet */}
-        <TouchableOpacity
-          style={styles.locationButton}
-          onPress={goToCurrentLocation}
-          activeOpacity={0.8}
-        >
+        <TouchableOpacity style={styles.locationButton} onPress={goToCurrentLocation} activeOpacity={0.8}>
           <Ionicons name="locate" size={20} color="#007AFF" />
         </TouchableOpacity>
 
@@ -367,7 +319,6 @@ export default function MapScreen() {
           <Text style={styles.title}>
             {targetLabel ? `Set ${targetLabel} location` : 'Set location'}
           </Text>
-
           {loadingAddress ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="small" color="#666" />
@@ -378,21 +329,16 @@ export default function MapScreen() {
               {selectedAddress || 'Tap or drag pin on map'}
             </Text>
           )}
-
           <TouchableOpacity
-            style={[
-              styles.confirmBtn,
-              (!selectedLocation || loadingAddress || savingAddress) && styles.confirmBtnDisabled,
-            ]}
+            style={[styles.confirmBtn, (!selectedLocation || loadingAddress || savingAddress) && styles.confirmBtnDisabled]}
             onPress={handleConfirmSavedAddress}
             disabled={!selectedLocation || loadingAddress || savingAddress}
             activeOpacity={0.8}
           >
-            {savingAddress ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Text style={styles.confirmText}>Save address</Text>
-            )}
+            {savingAddress
+              ? <ActivityIndicator size="small" color="#fff" />
+              : <Text style={styles.confirmText}>Save address</Text>
+            }
           </TouchableOpacity>
         </View>
       </View>
@@ -417,11 +363,7 @@ export default function MapScreen() {
             <Marker coordinate={endLocation} pinColor="blue" />
           )}
           {isValidRoute && routeCoordinates.length > 0 && (
-            <Polyline
-              coordinates={routeCoordinates}
-              strokeColor="#294190"
-              strokeWidth={2}
-            />
+            <Polyline coordinates={routeCoordinates} strokeColor="#294190" strokeWidth={2} />
           )}
         </MapView>
 
@@ -429,16 +371,12 @@ export default function MapScreen() {
         <View style={routeStyles.topCard}>
           <View style={routeStyles.addressRow}>
             <View style={routeStyles.dotGreen} />
-            <Text style={routeStyles.addressText} numberOfLines={1}>
-              {startAddress || "Departure"}
-            </Text>
+            <Text style={routeStyles.addressText} numberOfLines={1}>{startAddress || "Departure"}</Text>
           </View>
           <View style={routeStyles.addressDivider} />
           <View style={routeStyles.addressRow}>
             <View style={routeStyles.dotBlue} />
-            <Text style={routeStyles.addressText} numberOfLines={1}>
-              {endAddress || "Destination"}
-            </Text>
+            <Text style={routeStyles.addressText} numberOfLines={1}>{endAddress || "Destination"}</Text>
           </View>
         </View>
 
@@ -447,7 +385,6 @@ export default function MapScreen() {
         ) : (
           <View style={routeStyles.bottomSheet}>
             <View style={routeStyles.handle} />
-
             {loadingRoute ? (
               <View style={routeStyles.loadingRow}>
                 <ActivityIndicator size="small" color="#111" />
@@ -483,15 +420,13 @@ export default function MapScreen() {
                 {/* ── Find drivers CTA ── */}
                 <TouchableOpacity
                   style={routeStyles.ctaButton}
-                  onPress={() =>
-                    router.push({
-                      pathname: "/passenger/RecommendedDriversScreen",
-                      params: { rideId, startAddress, endAddress },
-                    })
-                  }
+                  onPress={() => router.push({
+                    pathname: "/passenger/RecommendedDriversScreen",
+                    params: { rideId, startAddress, endAddress },
+                  })}
                   activeOpacity={0.85}
                 >
-                 <View style={routeStyles.ctaInner}>
+                  <View style={routeStyles.ctaInner}>
                     <View>
                       <Text style={routeStyles.ctaLabel}>Ready to go?</Text>
                       <Text style={routeStyles.ctaText}>Find Drivers</Text>
@@ -503,17 +438,39 @@ export default function MapScreen() {
                 </TouchableOpacity>
 
                 {/* ── Cancel ── */}
-                <TouchableOpacity
-                  style={routeStyles.cancelButton}
-                  onPress={handleCancelRide}
-                  activeOpacity={0.7}
-                >
+                <TouchableOpacity style={routeStyles.cancelButton} onPress={handleCancelRide} activeOpacity={0.7}>
                   <Text style={routeStyles.cancelText}>Cancel ride</Text>
                 </TouchableOpacity>
               </>
             )}
           </View>
         )}
+
+        {/* ── Cancel confirmation modal ── */}
+        <Modal
+          visible={showCancelModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowCancelModal(false)}
+        >
+          <View style={cancelStyles.overlay}>
+            <View style={cancelStyles.card}>
+              <View style={cancelStyles.iconWrap}>
+                <Ionicons name="close-circle-outline" size={40} color="#EF4444" />
+              </View>
+              <Text style={cancelStyles.title}>Cancel this ride?</Text>
+              <Text style={cancelStyles.subtitle}>
+                Your ride request will be removed and drivers will no longer see it.
+              </Text>
+              <TouchableOpacity style={cancelStyles.confirmBtn} onPress={confirmCancelRide} activeOpacity={0.85}>
+                <Text style={cancelStyles.confirmText}>Yes, cancel ride</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={cancelStyles.keepBtn} onPress={() => setShowCancelModal(false)} activeOpacity={0.7}>
+                <Text style={cancelStyles.keepText}>Keep ride</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </View>
     );
   }
@@ -530,20 +487,11 @@ export default function MapScreen() {
         onPress={handleMapPress}
       >
         {selectedLocation?.latitude && selectedLocation?.longitude && (
-          <Marker
-            coordinate={selectedLocation}
-            draggable
-            onDragEnd={handleMarkerDragEnd}
-          />
+          <Marker coordinate={selectedLocation} draggable onDragEnd={handleMarkerDragEnd} />
         )}
       </MapView>
 
-      {/* Locate button — floating on map, bottom-right just above the sheet */}
-      <TouchableOpacity
-        style={styles.locationButton}
-        onPress={goToCurrentLocation}
-        activeOpacity={0.8}
-      >
+      <TouchableOpacity style={styles.locationButton} onPress={goToCurrentLocation} activeOpacity={0.8}>
         <Ionicons name="locate" size={20} color="#007AFF" />
       </TouchableOpacity>
 
@@ -1038,5 +986,69 @@ ctaArrow: {
     fontSize: 14,
     fontWeight: '600',
     color: '#EF4444',
+  },
+});
+const cancelStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    padding: 28,
+    alignItems: 'center',
+    width: '100%',
+  },
+  iconWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#FEE2E2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#111',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#888',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  confirmBtn: {
+    width: '100%',
+    backgroundColor: '#EF4444',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  confirmText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  keepBtn: {
+    width: '100%',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  keepText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#111',
   },
 });
