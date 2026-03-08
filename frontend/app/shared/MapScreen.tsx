@@ -85,13 +85,23 @@ export default function MapScreen() {
   const [routeDistance, setRouteDistance] = useState<number | null>(null);
   const [routeDuration, setRouteDuration] = useState<number | null>(null);
 
-  // ── Prix estimé ─────────────────────────────
   const [estimatedPrice, setEstimatedPrice] = useState<number | null>(null);
 
   const [showLocationError, setShowLocationError] = useState(false);
 
   const mapRef = useRef(null);
   const debounceTimeout = useRef(null);
+
+  // ── Shared go-to-current-location helper ────
+  const goToCurrentLocation = () => {
+    if (!currentLocation || !mapRef.current) return;
+    mapRef.current.animateToRegion({
+      latitude: currentLocation.latitude,
+      longitude: currentLocation.longitude,
+      latitudeDelta: 0.01,
+      longitudeDelta: 0.01,
+    }, 500);
+  };
 
   useEffect(() => {
     if (selectionType === "route" && startLocation && endLocation) {
@@ -176,7 +186,6 @@ export default function MapScreen() {
         setRouteDistance(distKm);
         setRouteDuration(durMin);
 
-        // ── Calcul du prix juste après avoir obtenu distance + durée ──
         const { price } = calculatePrice(distKm, durMin);
         setEstimatedPrice(price);
         
@@ -331,6 +340,7 @@ export default function MapScreen() {
           style={StyleSheet.absoluteFillObject}
           initialRegion={getInitialRegion()}
           showsUserLocation
+          showsMyLocationButton={false}
           onPress={handleMapPress}
         >
           {selectedLocation?.latitude && selectedLocation?.longitude && (
@@ -341,6 +351,15 @@ export default function MapScreen() {
             />
           )}
         </MapView>
+
+        {/* Locate button — floating, bottom-right just above the sheet */}
+        <TouchableOpacity
+          style={styles.locationButton}
+          onPress={goToCurrentLocation}
+          activeOpacity={0.8}
+        >
+          <Ionicons name="locate" size={20} color="#007AFF" />
+        </TouchableOpacity>
 
         <View style={styles.bottomSheetFixed}>
           <View style={styles.dragHandle} />
@@ -436,17 +455,14 @@ export default function MapScreen() {
               </View>
             ) : (
               <>
-                {/* ── Prix + infos itinéraire ── */}
                 {routeDistance !== null && routeDuration !== null && estimatedPrice !== null && (
                   <View style={styles.routeInfoRow}>
-                    {/* Distance · Durée */}
                     <View style={styles.routeMeta}>
                       <Ionicons name="navigate-outline" size={14} color="#888" />
                       <Text style={styles.routeMetaText}>
                         {formatDistance(routeDistance)} · {formatDuration(routeDuration)}
                       </Text>
                     </View>
-                    {/* Prix estimé */}
                     <View style={styles.priceChip}>
                       <Text style={styles.priceLabel}>Estimated</Text>
                       <Text style={styles.priceValue}>{estimatedPrice.toLocaleString()} DA</Text>
@@ -505,21 +521,14 @@ export default function MapScreen() {
           />
         )}
       </MapView>
+
       {/* Locate button — floating on map, bottom-right just above the sheet */}
       <TouchableOpacity
         style={styles.locationButton}
-        onPress={() => {
-          if (!currentLocation || !mapRef.current) return;
-         mapRef.current.animateToRegion({
-           latitude: currentLocation.latitude,
-           longitude: currentLocation.longitude,
-           latitudeDelta: 0.01,
-           longitudeDelta: 0.01,
-          }, 500);
-       }}
-       activeOpacity={0.8}
+        onPress={goToCurrentLocation}
+        activeOpacity={0.8}
       >
-       <Ionicons name="locate" size={20} color="#007AFF" />
+        <Ionicons name="locate" size={20} color="#007AFF" />
       </TouchableOpacity>
 
       <View style={styles.bottomSheetFixed}>
