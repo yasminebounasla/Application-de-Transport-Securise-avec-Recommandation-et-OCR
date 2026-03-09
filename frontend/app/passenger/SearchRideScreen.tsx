@@ -33,7 +33,6 @@ type SavedAddress = {
 type SavedAddresses = {
   home: SavedAddress;
   work: SavedAddress;
-  other: SavedAddress;
 };
 type CustomPlace = {
   id: string;
@@ -69,7 +68,8 @@ function SavedChip({
   );
 }
 
-// ── Saved places section ──────────────────────────────────────────────────────
+
+// ── SavedPlacesSection corrigée ───────────────────────────────────────────────
 function SavedPlacesSection({
   savedAddresses,
   customPlaces,
@@ -81,10 +81,10 @@ function SavedPlacesSection({
   onSelect: (place: { address: string; lat?: number; lng?: number }) => void;
   onPressIn: () => void;
 }) {
+  // Miroir exact de ADDRESS_TYPES dans SavedPlacesScreen (home + work uniquement)
   const fixed = [
-    { key: "home",  icon: "home",      label: "Home",  data: savedAddresses.home },
-    { key: "work",  icon: "briefcase", label: "Work",  data: savedAddresses.work },
-    { key: "other", icon: "location",  label: "Other", data: savedAddresses.other },
+    { key: "home", icon: "home",      label: "Home", data: savedAddresses.home },
+    { key: "work", icon: "briefcase", label: "Work", data: savedAddresses.work },
   ].filter((p) => p.data !== null);
 
   const all = [
@@ -96,6 +96,7 @@ function SavedPlacesSection({
       lat: p.data!.lat,
       lng: p.data!.lng,
     })),
+    // Custom = tout ce qui n'est pas home/work (ex: "Gym", "Grandma's house"…)
     ...customPlaces.map((p) => ({
       id: p.id,
       icon: "bookmark-outline",
@@ -128,7 +129,6 @@ function SavedPlacesSection({
           />
         ))}
       </ScrollView>
-
     </View>
   );
 }
@@ -223,7 +223,6 @@ export default function SearchRideScreen() {
   const [savedAddresses, setSavedAddresses] = useState<SavedAddresses>({
     home: null,
     work: null,
-    other: null,
   });
   const [customPlaces, setCustomPlaces] = useState<CustomPlace[]>([]);
 
@@ -257,7 +256,6 @@ export default function SearchRideScreen() {
       setSavedAddresses({
         home:  home  ? { name: "Home",  address: home.address,  lat: home.lat,  lng: home.lng }  : null,
         work:  work  ? { name: "Work",  address: work.address,  lat: work.lat,  lng: work.lng }  : null,
-        other: other ? { name: "Other", address: other.address, lat: other.lat, lng: other.lng } : null,
       });
       const custom = places.filter(
         (p: any) => !["home", "work", "other"].includes(p.label.toLowerCase())
@@ -570,7 +568,7 @@ export default function SearchRideScreen() {
     !!(startLocation && endLocation && dateDepart && !loadingStart && !loadingEnd && !rideLoading);
 
   const hasSavedPlaces =
-    savedAddresses.home || savedAddresses.work || savedAddresses.other || customPlaces.length > 0;
+    savedAddresses.home || savedAddresses.work || customPlaces.length > 0;
   const showSavedForStart = focusedField === "start" && startQuery.length === 0 && hasSavedPlaces;
   const showSavedForEnd   = focusedField === "destination" && endQuery.length === 0 && hasSavedPlaces;
 
