@@ -212,7 +212,7 @@ export default function SearchRideScreen() {
 
   const lastStartCoords = useRef<string | null>(null);
   const lastEndCoords = useRef<string | null>(null);
-
+  const isSubmittingRef = useRef(false);
   const [startQuery, setStartQuery] = useState("");
   const [endQuery, setEndQuery] = useState("");
   const [startSuggestions, setStartSuggestions] = useState<any[]>([]);
@@ -494,12 +494,16 @@ export default function SearchRideScreen() {
 
   // ── Ride request ─────────────────────────────────────────────────────────
   const handleRideRequest = async () => {
+    if (isSubmittingRef.current) return;
+    isSubmittingRef.current = true;
     if (!startLocation || !endLocation || !dateDepart) {
+      isSubmittingRef.current = false;
       Alert.alert("Error", "Please fill all fields");
       return;
     }
     const validation = await validateLocationsInAlgeria(startLocation, endLocation);
     if (!validation.valid) {
+      isSubmittingRef.current = false;
       router.push({
         pathname: "/shared/MapScreen",
         params: {
@@ -543,6 +547,7 @@ export default function SearchRideScreen() {
           endAddress: endAddress || "Destination",
         })
       );
+      isSubmittingRef.current = false;
       router.push({
         pathname: "/shared/MapScreen",
         params: {
@@ -553,6 +558,7 @@ export default function SearchRideScreen() {
         },
       });
     } catch (error: any) {
+      isSubmittingRef.current = false;
       Alert.alert(
         "Error",
         error.response?.data?.message || error.message || "Unable to create your request."

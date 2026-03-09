@@ -48,7 +48,6 @@ export default function Home() {
     } catch (error) { console.error('Erreur sauvegarde feedback:', error); }
   };
 
-  // ligne 52
 useEffect(() => {
     const handleRides = async () => {
       if (passengerRides.length === 0) return;
