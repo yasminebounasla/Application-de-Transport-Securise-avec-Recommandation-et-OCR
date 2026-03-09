@@ -138,6 +138,19 @@ async function seedTrajets() {
 
   console.log("\n🚀 Création des trajets avec patterns réalistes...\n");
 
+  const CITY_POINTS = {
+    "Alger Centre": { lat: 36.7538, lng: 3.0588, address: "Alger Centre, Alger, Algeria" },
+    "Oran Ville": { lat: 35.6971, lng: -0.6308, address: "Oran Ville, Oran, Algeria" },
+    "Constantine Centre": { lat: 36.3650, lng: 6.6147, address: "Constantine Centre, Constantine, Algeria" },
+    "Annaba Ville": { lat: 36.9000, lng: 7.7667, address: "Annaba Ville, Annaba, Algeria" },
+    "Sétif Ville": { lat: 36.1911, lng: 5.4137, address: "Sétif Ville, Sétif, Algeria" },
+    "Blida Centre": { lat: 36.4700, lng: 2.8277, address: "Blida Centre, Blida, Algeria" },
+    "Tizi Ouzou": { lat: 36.7169, lng: 4.0497, address: "Tizi Ouzou, Tizi Ouzou, Algeria" },
+    "Béjaïa Centre": { lat: 36.7509, lng: 5.0567, address: "Béjaïa Centre, Béjaïa, Algeria" },
+    "Médéa Ville": { lat: 36.2642, lng: 2.7583, address: "Médéa Ville, Médéa, Algeria" },
+    "Boumerdès": { lat: 36.7664, lng: 3.4772, address: "Boumerdès, Boumerdès, Algeria" },
+  };
+
   const VILLES_DEPART = ["Alger Centre", "Oran Ville", "Constantine Centre", "Annaba Ville", "Sétif Ville"];
   const VILLES_ARRIVEE = ["Blida Centre", "Tizi Ouzou", "Béjaïa Centre", "Médéa Ville", "Boumerdès"];
 
@@ -188,13 +201,24 @@ async function seedTrajets() {
         rating = parseFloat(rating.toFixed(1));
       }
 
+      const depart = randomChoice(VILLES_DEPART);
+      const destination = randomChoice(VILLES_ARRIVEE);
+      const departPoint = CITY_POINTS[depart];
+      const destinationPoint = CITY_POINTS[destination];
+
       try {
         const trajet = await prisma.trajet.create({
           data: {
             driverId: driver.id,
             passagerId: passenger.id,
-            depart: randomChoice(VILLES_DEPART),
-            destination: randomChoice(VILLES_ARRIVEE),
+            depart,
+            destination,
+            startLat: departPoint?.lat ?? null,
+            startLng: departPoint?.lng ?? null,
+            startAddress: departPoint?.address ?? depart,
+            endLat: destinationPoint?.lat ?? null,
+            endLng: destinationPoint?.lng ?? null,
+            endAddress: destinationPoint?.address ?? destination,
             dateDepart: new Date(Date.now() - randomInt(1, 120) * 24 * 60 * 60 * 1000),
             heureDepart: `${randomInt(6, 22)}:${randomChoice(["00", "15", "30", "45"])}`,
             placesDispo: randomInt(1, 4),

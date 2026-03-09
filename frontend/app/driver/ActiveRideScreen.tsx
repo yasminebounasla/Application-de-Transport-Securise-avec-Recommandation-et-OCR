@@ -1,25 +1,65 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Button, Alert } from 'react-native';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import * as Location from 'expo-location';
+import { useLocalSearchParams } from 'expo-router';
 import { useRide } from '../../context/RideContext';
 import { initSocket } from '../../services/socket';
 
 export default function ActiveRideScreen() {
-  const { driverRequests, completeRide } = useRide();
+  const { trajetId } = useLocalSearchParams<{ trajetId?: string }>();
+  const {
+    driverRequests,
+    currentRide,
+    getDriverActiveRide,
+    getRideById,
+    completeRide,
+  } = useRide();
 
-  const activeRide = driverRequests?.find(
-    (r) => r.status === 'ACCEPTED' || r.status === 'IN_PROGRESS'
-  );
+  const [selectedRide, setSelectedRide] = useState<any>(null);
+  const [selectedRideLoading, setSelectedRideLoading] = useState(false);
+  const [currentLocation, setCurrentLocation] = useState<any>(null);
 
-  const [currentLocation, setCurrentLocation] = useState(null);
-  const watchRef = useRef(null);
-  const socketRef = useRef(null);
-  const mapRef = useRef(null);
+  const socketRef = useRef<any>(null);
+  const mapRef = useRef<MapView | null>(null);
 
-  // initialise socket + location tracking when ride is available
   useEffect(() => {
-    let unsub = null;
+    getDriverActiveRide();
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    const loadSelectedRide = async () => {
+      if (!trajetId) {
+        setSelectedRide(null);
+        return;
+      }
+      setSelectedRideLoading(true);
+      try {
+        const ride = await getRideById(trajetId);
+        if (mounted) setSelectedRide(ride);
+      } catch (err) {
+        console.error('Load selected ride failed:', err);
+      } finally {
+        if (mounted) setSelectedRideLoading(false);
+      }
+    };
+    loadSelectedRide();
+    return () => {
+      mounted = false;
+    };
+  }, [trajetId]);
+
+  const activeRide =
+    selectedRide ||
+    (currentRide && (currentRide.status === 'ACCEPTED' || currentRide.status === 'IN_PROGRESS')
+      ? currentRide
+      : null) ||
+    driverRequests?.find((r: any) => r.status === 'ACCEPTED' || r.status === 'IN_PROGRESS' || r.status === 'PENDING');
+
+  useEffect(() => {
+    let subscription: any = null;
+
     const setup = async () => {
       if (!activeRide) return;
 
@@ -37,7 +77,27 @@ export default function ActiveRideScreen() {
         return;
       }
 
-      unsub = await Location.watchPositionAsync(
+      try {
+        const firstLocation = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.High,
+        });
+        const initialCoords = {
+          latitude: firstLocation.coords.latitude,
+          longitude: firstLocation.coords.longitude,
+        };
+        setCurrentLocation(initialCoords);
+
+        if (socketRef.current && activeRide?.id) {
+          socketRef.current.emit('driverLocationUpdate', {
+            rideId: activeRide.id,
+            location: initialCoords,
+          });
+        }
+      } catch (err) {
+        console.warn('Initial location read failed:', err);
+      }
+
+      subscription = await Location.watchPositionAsync(
         { accuracy: Location.Accuracy.High, distanceInterval: 5 },
         (loc) => {
           const coords = {
@@ -59,40 +119,49 @@ export default function ActiveRideScreen() {
     setup();
 
     return () => {
-      if (unsub) unsub.remove();
+      if (subscription) subscription.remove();
       if (socketRef.current) socketRef.current.disconnect();
     };
   }, [activeRide]);
 
-  // center map when locations available
   useEffect(() => {
-    if (mapRef.current && activeRide) {
-      const coords = [];
-      if (activeRide.startLat && activeRide.startLng) {
-        coords.push({ latitude: activeRide.startLat, longitude: activeRide.startLng });
-      }
-      if (activeRide.endLat && activeRide.endLng) {
-        coords.push({ latitude: activeRide.endLat, longitude: activeRide.endLng });
-      }
-      if (coords.length) {
-        mapRef.current.fitToCoordinates(coords, {
-          edgePadding: { top: 100, right: 100, bottom: 200, left: 100 },
-          animated: true,
-        });
-      }
+    if (!mapRef.current || !activeRide) return;
+    const coords: any[] = [];
+    if (activeRide.startLat && activeRide.startLng) {
+      coords.push({ latitude: activeRide.startLat, longitude: activeRide.startLng });
     }
-  }, [activeRide]);
+    if (activeRide.endLat && activeRide.endLng) {
+      coords.push({ latitude: activeRide.endLat, longitude: activeRide.endLng });
+    }
+    if (currentLocation?.latitude && currentLocation?.longitude) {
+      coords.push(currentLocation);
+    }
+    if (coords.length >= 2) {
+      mapRef.current.fitToCoordinates(coords, {
+        edgePadding: { top: 90, right: 90, bottom: 180, left: 90 },
+        animated: true,
+      });
+    }
+  }, [activeRide, currentLocation]);
 
   const handleFinish = async () => {
     if (!activeRide) return;
     try {
       await completeRide(activeRide.id);
-      Alert.alert('Succès', 'Trajet terminé');
+      Alert.alert('Succes', 'Trajet termine');
     } catch (err) {
       console.error('Finish error', err);
       Alert.alert('Erreur', 'Impossible de terminer le trajet');
     }
   };
+
+  if (selectedRideLoading) {
+    return (
+      <View style={styles.center}>
+        <Text>Chargement du trajet...</Text>
+      </View>
+    );
+  }
 
   if (!activeRide) {
     return (
@@ -108,10 +177,10 @@ export default function ActiveRideScreen() {
         ref={mapRef}
         style={styles.map}
         initialRegion={{
-          latitude: currentLocation?.latitude || activeRide.startLat || 0,
-          longitude: currentLocation?.longitude || activeRide.startLng || 0,
-          latitudeDelta: 0.05,
-          longitudeDelta: 0.05,
+          latitude: currentLocation?.latitude || activeRide.startLat || 36.7538,
+          longitude: currentLocation?.longitude || activeRide.startLng || 3.0588,
+          latitudeDelta: 0.03,
+          longitudeDelta: 0.03,
         }}
       >
         {activeRide.startLat && activeRide.startLng && (
@@ -120,18 +189,22 @@ export default function ActiveRideScreen() {
               latitude: activeRide.startLat,
               longitude: activeRide.startLng,
             }}
-            title="Départ"
+            title="Passenger"
+            pinColor="green"
           />
         )}
+
         {activeRide.endLat && activeRide.endLng && (
           <Marker
             coordinate={{
               latitude: activeRide.endLat,
               longitude: activeRide.endLng,
             }}
-            title="Arrivée"
+            title="Destination"
+            pinColor="red"
           />
         )}
+
         {currentLocation && (
           <Marker
             coordinate={currentLocation}
@@ -139,6 +212,7 @@ export default function ActiveRideScreen() {
             title="Vous"
           />
         )}
+
         {activeRide.startLat &&
           activeRide.startLng &&
           activeRide.endLat &&
@@ -149,10 +223,24 @@ export default function ActiveRideScreen() {
                 { latitude: activeRide.endLat, longitude: activeRide.endLng },
               ]}
               strokeWidth={4}
-              strokeColor="red"
+              strokeColor="#2563EB"
+            />
+          )}
+
+        {currentLocation &&
+          activeRide.startLat &&
+          activeRide.startLng && (
+            <Polyline
+              coordinates={[
+                { latitude: currentLocation.latitude, longitude: currentLocation.longitude },
+                { latitude: activeRide.startLat, longitude: activeRide.startLng },
+              ]}
+              strokeWidth={4}
+              strokeColor="#000000"
             />
           )}
       </MapView>
+
       <View style={styles.buttonContainer}>
         <Button title="Terminer" onPress={handleFinish} />
       </View>

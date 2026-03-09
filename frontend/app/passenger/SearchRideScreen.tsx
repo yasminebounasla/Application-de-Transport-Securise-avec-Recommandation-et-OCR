@@ -236,6 +236,20 @@ export default function SearchRideScreen() {
     lastEndCoords.current = null; setFocusedField('destination'); endInputRef.current?.focus();
   };
 
+  const handleStartQueryChange = (text: string) => {
+    setStartQuery(text);
+    setStartLocation(null);
+    setStartAddress("");
+    lastStartCoords.current = null;
+  };
+
+  const handleEndQueryChange = (text: string) => {
+    setEndQuery(text);
+    setEndLocation(null);
+    setEndAddress("");
+    lastEndCoords.current = null;
+  };
+
   const handleCurrentPosition = async () => {
     if (currentLocation) { setStartLocation(currentLocation); setFocusedField(null); Keyboard.dismiss(); }
   };
@@ -276,14 +290,22 @@ export default function SearchRideScreen() {
     isSelectingSuggestion.current = false;
     if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
     if (place.lat && place.lng) setStartLocation({ latitude: place.lat, longitude: place.lng });
-    else setStartAddress(place.address);
+    else {
+      setStartLocation(null);
+      setStartAddress(place.address);
+      lastStartCoords.current = null;
+    }
     setStartSuggestions([]); setFocusedField(null); Keyboard.dismiss();
   };
   const handleSelectSavedForEnd = (place: { address: string; lat?: number; lng?: number }) => {
     isSelectingSuggestion.current = false;
     if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
     if (place.lat && place.lng) setEndLocation({ latitude: place.lat, longitude: place.lng });
-    else setEndAddress(place.address);
+    else {
+      setEndLocation(null);
+      setEndAddress(place.address);
+      lastEndCoords.current = null;
+    }
     setEndSuggestions([]); setFocusedField(null); Keyboard.dismiss();
   };
 
@@ -405,7 +427,7 @@ export default function SearchRideScreen() {
                         ref={startInputRef}
                         placeholder="From?"
                         value={focusedField === 'start' ? startQuery : startAddress}
-                        onChangeText={setStartQuery}
+                        onChangeText={handleStartQueryChange}
                         onFocus={handleStartFocus}
                         onBlur={handleBlur}
                         style={styles.input}
@@ -438,7 +460,7 @@ export default function SearchRideScreen() {
                         ref={endInputRef}
                         placeholder="Where to?"
                         value={focusedField === 'destination' ? endQuery : endAddress}
-                        onChangeText={setEndQuery}
+                        onChangeText={handleEndQueryChange}
                         onFocus={handleEndFocus}
                         onBlur={handleBlur}
                         style={styles.input}

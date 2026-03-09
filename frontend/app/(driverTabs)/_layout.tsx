@@ -3,11 +3,10 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function TabsLayout() {
   return (
-    <Tabs screenOptions={{ 
-      headerStyle : { backgroundColor:"#f5f5f5"},
-      headerShadowVisible: false, 
+    <Tabs screenOptions={{
+      headerShown: false,
       tabBarStyle: {
-        backgroundColor:"#f5f5f5",
+        backgroundColor: "#f5f5f5",
         borderTopWidth: 0,
         elevation: 0,
         shadowOpacity: 0
@@ -16,24 +15,24 @@ export default function TabsLayout() {
       tabBarInactiveTintColor: "#666666"
     }}>
 
-      <Tabs.Screen  
-        name="DriverHomeScreen" 
+      <Tabs.Screen
+        name="DriverHomeScreen"
         options={{
-          title : "Home",
-          tabBarIcon : ({color, size}) => (
-            <MaterialCommunityIcons 
-              name="home" 
-              size={size} 
+          title: "Home",
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons
+              name="home"
+              size={size}
               color={color}
             />
           ),
         }}
       />
 
-      <Tabs.Screen  
-        name="Activity" 
+      <Tabs.Screen
+        name="MesTrajets"
         options={{
-          title : "Activity",
+          title: "Mes Trajets",
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons
               name="car"
@@ -44,16 +43,30 @@ export default function TabsLayout() {
         }}
       />
 
-      <Tabs.Screen  
-        name="DriverProfile" 
+      <Tabs.Screen
+        name="Activity"
         options={{
-            title: "Profile",
-            headerShown: false, 
-            tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="account" size={size} color={color} />
-            ),
+          title: "Activity",
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons
+              name="history"
+              size={size}
+              color={color}
+            />
+          ),
         }}
-        />
-          
+      />
+
+      <Tabs.Screen
+        name="DriverProfile"
+        options={{
+          title: "Profile",
+          tabBarIcon: ({ color, size }) => (
+            <MaterialCommunityIcons name="account" size={size} color={color} />
+          ),
+        }}
+      />
+
     </Tabs>
-)}
+  );
+}

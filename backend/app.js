@@ -44,6 +44,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/driver", recommendationRoutes);
 app.use("/api/ride", rideRoutes);
 app.use("/api/ridesDem", ridesDemRoutes);
+app.use("/api/rides", ridesDemRoutes);
 app.use("/api/drivers", driverRoutes);
 app.use("/api/passengers/saved-places", savedPlacesRoutes);
 app.use("/api/passengers", passengerRoutes);

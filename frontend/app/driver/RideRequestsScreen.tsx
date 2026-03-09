@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
+import { router } from 'expo-router';
 import { useRide } from '../../context/RideContext';
 import RideCard from '../../components/RideCard';
 
@@ -47,6 +48,7 @@ export default function RideRequestsScreen() {
             try {
               await acceptRide(rideId);
               Alert.alert('✅ Success', 'Ride accepted!');
+              router.push('/driver/ActiveRideScreen');
               loadRequests();
             } catch (error) {
               Alert.alert('Error', error.message || 'Failed to accept ride');

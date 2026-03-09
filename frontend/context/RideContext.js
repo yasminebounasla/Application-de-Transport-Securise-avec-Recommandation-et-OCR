@@ -1,5 +1,7 @@
-import React, { createContext, useState, useContext } from 'react';
+import React, { createContext, useState, useContext, useEffect, useRef } from 'react';
 import api from '../services/api';
+import { initSocket } from '../services/socket';
+import { useAuth } from './AuthContext';
 
 const RideContext = createContext();
 
@@ -12,10 +14,73 @@ export const useRide = () => {
 };
 
 export const RideProvider = ({ children }) => {
+  const { user } = useAuth();
   const [passengerRides, setPassengerRides] = useState([]);
   const [driverRequests, setDriverRequests] = useState([]);
   const [currentRide, setCurrentRide] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [driverLocationsByRide, setDriverLocationsByRide] = useState({});
+  const passengerSocketRef = useRef(null);
+  const passengerListenerRef = useRef(null);
+
+  useEffect(() => {
+    let mounted = true;
+    let interval = null;
+
+    const clearPassengerListener = () => {
+      if (passengerSocketRef.current && passengerListenerRef.current) {
+        passengerSocketRef.current.off('driverLocationUpdate', passengerListenerRef.current);
+      }
+      passengerListenerRef.current = null;
+    };
+
+    const subscribeToActivePassengerRides = async () => {
+      if (!user || user.role !== 'passenger') return;
+      try {
+        const response = await api.get('/ridesDem/my-rides');
+        const rides = response.data?.data || [];
+        if (mounted) setPassengerRides(rides);
+
+        const activeRides = rides.filter((r) => ['ACCEPTED', 'IN_PROGRESS'].includes(r.status));
+        if (activeRides.length === 0) return;
+
+        const sock = await initSocket();
+        passengerSocketRef.current = sock;
+
+        clearPassengerListener();
+
+        const onDriverLocationUpdate = ({ rideId, location }) => {
+          if (!rideId || !location) return;
+          setDriverLocationsByRide((prev) => ({
+            ...prev,
+            [String(rideId)]: location,
+          }));
+        };
+
+        passengerListenerRef.current = onDriverLocationUpdate;
+        sock.on('driverLocationUpdate', onDriverLocationUpdate);
+
+        activeRides.forEach((ride) => {
+          sock.emit('subscribeToRide', ride.id);
+        });
+      } catch (error) {
+        console.error('❌ Erreur auto-tracking passager:', error.response?.data || error.message);
+      }
+    };
+
+    if (user?.role === 'passenger') {
+      subscribeToActivePassengerRides();
+      interval = setInterval(subscribeToActivePassengerRides, 15000);
+    } else {
+      setDriverLocationsByRide({});
+    }
+
+    return () => {
+      mounted = false;
+      if (interval) clearInterval(interval);
+      clearPassengerListener();
+    };
+  }, [user?.id, user?.role]);
 
   const createRide = async (rideData) => {
     setLoading(true);
@@ -87,15 +152,34 @@ export const RideProvider = ({ children }) => {
     }
   };
 
+  const getDriverActiveRide = async () => {
+    setLoading(true);
+    try {
+      const response = await api.get('/ridesDem/driver/active');
+      const activeRides = response.data?.data || [];
+      const latestActiveRide = activeRides[0] || null;
+      setCurrentRide(latestActiveRide);
+      return latestActiveRide;
+    } catch (error) {
+      console.error('❌ Erreur getDriverActiveRide:', error.response?.data || error.message);
+      setCurrentRide(null);
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const acceptRide = async (rideId) => {
     try {
       console.log('✅ Acceptation du ride:', rideId);
       
       const response = await api.put(`/ridesDem/${rideId}/accept`);
+      const acceptedRide = response.data.data;
       
       console.log('✅ Ride accepté:', response.data);
+      setCurrentRide(acceptedRide);
       
-      return response.data.data;
+      return acceptedRide;
     } catch (error) {
       console.error('❌ Erreur acceptRide:', error);
       throw error;
@@ -205,6 +289,11 @@ export const RideProvider = ({ children }) => {
     }
   };
 
+  const getDriverLocationForRide = (rideId) => {
+    if (!rideId) return null;
+    return driverLocationsByRide[String(rideId)] || null;
+  };
+
 
   const value = {
     passengerRides,
@@ -214,12 +303,14 @@ export const RideProvider = ({ children }) => {
     createRide,
     getPassengerRides,
     getDriverRequests,
+    getDriverActiveRide,
     acceptRide,
     rejectRide,
     cancelRide,
     listenToRideStatus,
     getRideById,
-    completeRide
+    completeRide,
+    getDriverLocationForRide
   };
 
   return <RideContext.Provider value={value}>{children}</RideContext.Provider>;

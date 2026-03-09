@@ -3,6 +3,11 @@ import { getIO } from '../socket/socket.js';
 
 const prisma = new PrismaClient();
 
+const parseAndValidateId = (rawId) => {
+  const id = Number.parseInt(rawId, 10);
+  return Number.isNaN(id) ? null : id;
+};
+
 export const createRide = async (req, res) => {
   console.log("REQ.USER:", req.user); 
   const passengerId = req.user.passengerId;
@@ -140,6 +145,48 @@ export const getPassengerRides = async (req, res) => {
   }
 };
 
+// Récupération d'un trajet par ID (passager ou driver concerné)
+export const getRideById = async (req, res) => {
+  const { id } = req.params;
+  const passengerId = req.user?.passengerId;
+  const driverId = req.user?.driverId;
+
+  if (!passengerId && !driverId) {
+    return res.status(400).json({ success: false, message: "User not found in request" });
+  }
+
+  try {
+    const ride = await prisma.trajet.findUnique({
+      where: { id: parseInt(id, 10) },
+      include: {
+        passenger: { select: { id: true, nom: true, prenom: true, numTel: true } },
+        driver: { select: { id: true, nom: true, prenom: true, numTel: true } },
+      },
+    });
+
+    if (!ride) {
+      return res.status(404).json({ success: false, message: "Trajet introuvable" });
+    }
+
+    if (passengerId && ride.passagerId !== passengerId) {
+      return res.status(403).json({ success: false, message: "Accès refusé à ce trajet" });
+    }
+
+    if (driverId && ride.driverId !== driverId) {
+      return res.status(403).json({ success: false, message: "Accès refusé à ce trajet" });
+    }
+
+    return res.status(200).json({ success: true, data: ride });
+  } catch (error) {
+    console.error("Erreur getRideById:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Erreur lors de la récupération du trajet",
+      error: error.message,
+    });
+  }
+};
+
 
 // Récupération des demandes pour le driver
 
@@ -185,6 +232,43 @@ export const getDriverRequests = async (req, res) => {
     return res.status(500).json({ 
       message: 'Erreur lors de la récupération des demandes',
       error: error.message 
+    });
+  }
+};
+
+// Récupération des trajets actifs pour le driver (ACCEPTED / IN_PROGRESS)
+export const getDriverActiveRides = async (req, res) => {
+  const driverId = req.user?.driverId;
+
+  if (!driverId) {
+    return res.status(400).json({ success: false, message: "Driver not found in request" });
+  }
+
+  try {
+    const activeRides = await prisma.trajet.findMany({
+      where: {
+        driverId,
+        status: { in: ['ACCEPTED', 'IN_PROGRESS'] },
+      },
+      include: {
+        passenger: {
+          select: { id: true, nom: true, prenom: true, numTel: true, age: true },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    return res.status(200).json({
+      success: true,
+      count: activeRides.length,
+      data: activeRides,
+    });
+  } catch (error) {
+    console.error('Erreur getDriverActiveRides:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la récupération des trajets actifs',
+      error: error.message,
     });
   }
 };
@@ -497,5 +581,123 @@ export const cancelRide = async (req, res) => {
   } catch (error) {
     console.error('Erreur cancelRide:', error);
     return res.status(500).json({ message: 'Erreur lors de l\'annulation du trajet', error: error.message });
+  }
+};
+
+// Activite des trajets pour un passager
+export const getPassengerRideActivity = async (req, res) => {
+  const passengerId = parseAndValidateId(req.params.id);
+
+  if (!passengerId) {
+    return res.status(400).json({ success: false, message: "ID passager invalide" });
+  }
+
+  if (req.user?.passengerId && req.user.passengerId !== passengerId) {
+    return res.status(403).json({ success: false, message: "Acces refuse" });
+  }
+
+  try {
+    const rides = await prisma.trajet.findMany({
+      where: { passagerId: passengerId },
+      include: {
+        passenger: {
+          select: { id: true, nom: true, prenom: true, numTel: true },
+        },
+        driver: {
+          select: { id: true, nom: true, prenom: true, numTel: true, avgRating: true },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    const activity = rides.map((ride) => ({
+      rideId: ride.id,
+      status: ride.status,
+      activityAt: ride.updatedAt,
+      createdAt: ride.createdAt,
+      updatedAt: ride.updatedAt,
+      completedAt: ride.completedAt,
+      prix: ride.prix,
+      depart: ride.depart,
+      destination: ride.destination,
+      startAddress: ride.startAddress,
+      endAddress: ride.endAddress,
+      dateDepart: ride.dateDepart,
+      heureDepart: ride.heureDepart,
+      passenger: ride.passenger || null,
+      driver: ride.driver || null,
+    }));
+
+    return res.status(200).json({
+      success: true,
+      count: activity.length,
+      data: activity,
+    });
+  } catch (error) {
+    console.error('Erreur getPassengerRideActivity:', error);
+    return res.status(500).json({
+      success: false,
+      message: "Erreur lors de la recuperation de l'activite passager",
+      error: error.message,
+    });
+  }
+};
+
+// Activite des trajets pour un conducteur
+export const getDriverRideActivity = async (req, res) => {
+  const driverId = parseAndValidateId(req.params.id);
+
+  if (!driverId) {
+    return res.status(400).json({ success: false, message: "ID conducteur invalide" });
+  }
+
+  if (req.user?.driverId && req.user.driverId !== driverId) {
+    return res.status(403).json({ success: false, message: "Acces refuse" });
+  }
+
+  try {
+    const rides = await prisma.trajet.findMany({
+      where: { driverId },
+      include: {
+        driver: {
+          select: { id: true, nom: true, prenom: true, numTel: true },
+        },
+        passenger: {
+          select: { id: true, nom: true, prenom: true, numTel: true, age: true },
+        },
+      },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    const activity = rides.map((ride) => ({
+      rideId: ride.id,
+      status: ride.status,
+      activityAt: ride.updatedAt,
+      createdAt: ride.createdAt,
+      updatedAt: ride.updatedAt,
+      completedAt: ride.completedAt,
+      prix: ride.prix,
+      depart: ride.depart,
+      destination: ride.destination,
+      startAddress: ride.startAddress,
+      endAddress: ride.endAddress,
+      dateDepart: ride.dateDepart,
+      heureDepart: ride.heureDepart,
+      driver: ride.driver || null,
+      passenger: ride.passenger || null,
+    }));
+
+    return res.status(200).json({
+      success: true,
+      count: activity.length,
+      data: activity,
+    });
+  } catch (error) {
+    console.error('Erreur getDriverRideActivity:', error);
+    return res.status(500).json({
+      success: false,
+      message: "Erreur lors de la recuperation de l'activite conducteur",
+      error: error.message,
+    });
   }
 };
