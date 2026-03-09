@@ -16,7 +16,6 @@ const FEEDBACK_REQUESTED_KEY = 'feedback_requested_rides';
 export default function Home() {
   const { getPassengerRides, passengerRides } = useRide();
   const { currentLocation } = useContext(LocationContext);
-  const { unreadCount } = useNotifications();
   const insets = useSafeAreaInsets();
   const TAB_BAR_HEIGHT = 60 + insets.bottom;
 
@@ -101,19 +100,6 @@ useEffect(() => {
         showsMyLocationButton={false}
       />
 
-      {/* Notification bell — top right */}
-      <TouchableOpacity
-        style={styles.notificationButton}
-        onPress={() => router.push('../shared/NotificationsScreen' as any)}
-      >
-        <Feather name="bell" size={22} color="#000" />
-        {unreadCount > 0 && (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{unreadCount}</Text>
-          </View>
-        )}
-      </TouchableOpacity>
-
       {/* Locate button — floating on map, bottom-right just above the sheet */}
       <TouchableOpacity
         style={[styles.locationButton, { bottom: TAB_BAR_HEIGHT + 120 }]}
@@ -185,19 +171,6 @@ useEffect(() => {
 }
 
 const styles = StyleSheet.create({
-  notificationButton: {
-    position: 'absolute', top: 16, right: 16,
-    width: 44, height: 44, borderRadius: 22,
-    backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12, shadowRadius: 8, elevation: 10,
-  },
-  badge: {
-    position: 'absolute', top: -4, right: -4,
-    backgroundColor: '#E53E3E', borderRadius: 8,
-    width: 16, height: 16, justifyContent: 'center', alignItems: 'center',
-  },
-  badgeText: { color: '#FFF', fontSize: 10, fontWeight: '700' },
 
   locationButton: {
     position: 'absolute',

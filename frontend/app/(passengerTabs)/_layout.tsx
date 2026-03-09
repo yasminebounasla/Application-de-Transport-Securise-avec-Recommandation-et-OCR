@@ -8,7 +8,12 @@ function NotificationButton() {
   return (
     <TouchableOpacity
       onPress={() => router.push('/shared/NotificationsScreen' as any)}
-      style={{ marginRight: 16 }}
+      style={{
+        marginRight: 16,
+        width: 44, height: 44, borderRadius: 22,
+        backgroundColor: '#f0f0F2',   // ← gris clair au lieu du blanc
+        justifyContent: 'center', alignItems: 'center',
+      }}
     >
       <Feather name="bell" size={22} color="#000" />
       {unreadCount > 0 && (
@@ -28,6 +33,21 @@ export default function TabsLayout() {
   return (
     <Tabs screenOptions={{
       headerRight: () => <NotificationButton />,
+      // Titre plus gras + shadow sur le header
+      headerTitleStyle: {
+        fontWeight: '800',
+        fontSize: 22,
+      },
+      headerStyle: {
+        backgroundColor: '#ffffff',
+        // Shadow iOS
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 6,
+        // Shadow Android
+        elevation: 4,
+      },
       tabBarStyle: {
         backgroundColor: "#f5f5f5",
         borderTopWidth: 0,
