@@ -1,13 +1,11 @@
-
 import React, { useEffect, useMemo, useState, useContext, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
 import FeedbackModal from '../../components/FeedbackModal';
 import { useRide } from '../../context/RideContext';
 import { LocationContext } from '../../context/LocationContext';
-import { useNotifications } from '../../context/NotificationContext';
 import MapView from 'react-native-maps';
-import { Feather, Ionicons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '../../services/api';
