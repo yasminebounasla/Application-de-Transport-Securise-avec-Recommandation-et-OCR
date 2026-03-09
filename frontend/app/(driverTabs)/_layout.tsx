@@ -11,7 +11,7 @@ function NotificationButton() {
       style={{
         marginRight: 16,
         width: 44, height: 44, borderRadius: 22,
-        backgroundColor: '#f0f0F2',   // ← gris clair au lieu du blanc
+        backgroundColor: '#F0F0F2',
         justifyContent: 'center', alignItems: 'center',
       }}
     >
@@ -29,23 +29,20 @@ function NotificationButton() {
   );
 }
 
-export default function TabsLayout() {
+export default function DriverTabsLayout() {
   return (
     <Tabs screenOptions={{
       headerRight: () => <NotificationButton />,
-      // Titre plus gras + shadow sur le header
       headerTitleStyle: {
         fontWeight: '800',
         fontSize: 22,
       },
       headerStyle: {
         backgroundColor: '#ffffff',
-        // Shadow iOS
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.08,
         shadowRadius: 6,
-        // Shadow Android
         elevation: 4,
       },
       tabBarStyle: {
@@ -58,7 +55,7 @@ export default function TabsLayout() {
       tabBarInactiveTintColor: "#666666",
     }}>
       <Tabs.Screen
-        name="PassengerHomeScreen"
+        name="DriverHomeScreen"
         options={{
           title: "Accueil",
           headerShown: true,
@@ -88,7 +85,7 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
-        name="PassengerProfile"
+        name="DriverProfile"
         options={{
           title: "Profil",
           headerShown: true,
