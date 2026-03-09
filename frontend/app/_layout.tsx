@@ -1,6 +1,5 @@
 import { Stack, router } from 'expo-router';
-import { Alert, Pressable, TouchableOpacity, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { TouchableOpacity, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider, useAuth } from '../context/AuthContext';
 import { LocationProvider } from '../context/LocationContext';
@@ -38,34 +37,8 @@ function AppContent() {
             <Stack>
               <Stack.Screen name="index" options={{ headerShown: false }} />
               <Stack.Screen name="auth" options={{ headerShown: false }} />
-              <Stack.Screen
-                name="(driverTabs)"
-                options={{
-                  title: '(driver tabs)',
-                  headerRight: () => (
-                    <Pressable
-                      onPress={() => Alert.alert('Notifications', 'No new notifications for now.')}
-                      style={{ marginRight: 12 }}
-                    >
-                      <Ionicons name="notifications-outline" size={22} color="#111" />
-                    </Pressable>
-                  ),
-                }}
-              />
-              <Stack.Screen
-                name="(passengerTabs)"
-                options={{
-                  title: '(passenger tabs)',
-                  headerRight: () => (
-                    <Pressable
-                      onPress={() => Alert.alert('Notifications', 'No new notifications for now.')}
-                      style={{ marginRight: 12 }}
-                    >
-                      <Ionicons name="notifications-outline" size={22} color="#111" />
-                    </Pressable>
-                  ),
-                }}
-              />
+              <Stack.Screen name="(driverTabs)" options={{ headerShown: false }} />
+              <Stack.Screen name="(passengerTabs)" options={{ headerShown: false }} />
               <Stack.Screen name="driver" options={{ headerShown: false }} />
               <Stack.Screen name="passenger" options={{ headerShown: false }} />
               <Stack.Screen name="shared/MapScreen" options={{ title: 'Map' }} />
@@ -85,4 +58,3 @@ export default function Layout() {
     </AuthProvider>
   );
 }
-

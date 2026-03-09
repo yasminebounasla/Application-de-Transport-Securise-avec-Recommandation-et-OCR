@@ -4,7 +4,6 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 export default function TabsLayout() {
   return (
     <Tabs screenOptions={{
-      headerShown: false,
       tabBarStyle: {
         backgroundColor: "#f5f5f5",
         borderTopWidth: 0,
@@ -18,6 +17,7 @@ export default function TabsLayout() {
         name="PassengerHomeScreen"
         options={{
           title: "Accueil",
+          headerShown: true,
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="home" size={size} color={color} />
           ),
@@ -26,7 +26,8 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="MesTrajets"
         options={{
-          title: "Trajets",
+          title: "Mes Trajets",
+          headerShown: true,
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="car" size={size} color={color} />
           ),
@@ -36,6 +37,7 @@ export default function TabsLayout() {
         name="Activity"
         options={{
           title: "Activity",
+          headerShown: true,
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="history" size={size} color={color} />
           ),
@@ -45,6 +47,7 @@ export default function TabsLayout() {
         name="PassengerProfile"
         options={{
           title: "Profil",
+          headerShown: true,
           tabBarIcon: ({ color, size }) => (
             <MaterialCommunityIcons name="account" size={size} color={color} />
           ),
