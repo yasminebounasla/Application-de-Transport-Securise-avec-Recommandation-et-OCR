@@ -1,7 +1,6 @@
+console.log('API KEY:', LOCATIONIQ_API_KEY);
 const LOCATIONIQ_API_KEY = process.env.EXPO_PUBLIC_LOCATIONIQ_API_KEY;
 const LOCATIONIQ_BASE_URL = 'https://us1.locationiq.com/v1';
-
-console.log('API KEY:', LOCATIONIQ_API_KEY ? 'defined' : 'undefined');
 
 let lastRequestTime = 0;
 const MIN_REQUEST_INTERVAL = 1000;
@@ -67,13 +66,9 @@ function formatAddress(place) {
 }
 
 export async function searchPlaces(query, userLocation = null) {
-  if (!LOCATIONIQ_API_KEY) {
-    console.warn('?? EXPO_PUBLIC_LOCATIONIQ_API_KEY is missing');
-    return [];
-  }
-
   if (!query || query.length < 2) return [];
 
+  // ✅ Rate limiting
   const now = Date.now();
   const timeSinceLastRequest = now - lastRequestTime;
   if (timeSinceLastRequest < MIN_REQUEST_INTERVAL) {
@@ -84,29 +79,31 @@ export async function searchPlaces(query, userLocation = null) {
     lastRequestTime = Date.now();
 
     const params = new URLSearchParams({
-      key: LOCATIONIQ_API_KEY,
-      q: query,
-      format: 'json',
-      countrycodes: 'dz',
-      limit: '5',
+      key:            LOCATIONIQ_API_KEY,
+      q:              query,
+      format:         'json',
+      countrycodes:   'dz',       // Algérie uniquement
+      limit:          '5',
       addressdetails: '1',
       'accept-language': 'en',
     });
 
+    // ✅ Bias vers la position de l'utilisateur si disponible
     if (userLocation?.latitude && userLocation?.longitude) {
-      params.append(
-        'viewboxlbrt',
-        `${userLocation.longitude - 1},${userLocation.latitude - 1},${userLocation.longitude + 1},${userLocation.latitude + 1}`
+      params.append('viewboxlbrt',
+        `${userLocation.longitude - 1},${userLocation.latitude - 1},` +
+        `${userLocation.longitude + 1},${userLocation.latitude + 1}`
       );
-      params.append('bounded', '0');
+      params.append('bounded', '0'); // 0 = cherche aussi en dehors du viewbox
     }
 
     const url = `${LOCATIONIQ_BASE_URL}/search?${params.toString()}`;
 
     const fetchPromise = fetch(url, {
-      headers: { Accept: 'application/json' },
+      headers: { 'Accept': 'application/json' },
     });
 
+    // ✅ Timeout 8 secondes
     const timeoutPromise = new Promise((_, reject) =>
       setTimeout(() => reject(new Error('TIMEOUT')), 8000)
     );
@@ -114,7 +111,7 @@ export async function searchPlaces(query, userLocation = null) {
     const response = await Promise.race([fetchPromise, timeoutPromise]);
 
     if (response.status === 429) {
-      console.warn('?? LocationIQ rate limited (429)');
+      console.warn('⚠️ LocationIQ rate limited (429)');
       return [];
     }
 
@@ -127,18 +124,18 @@ export async function searchPlaces(query, userLocation = null) {
     if (!Array.isArray(data)) return [];
 
     return data.map(place => ({
-      id: place.place_id,
-      name: place.display_name,
-      shortName: getShortName(place),
+      id:          place.place_id,
+      name:        place.display_name,
+      shortName:   getShortName(place),
       displayName: formatAddress(place),
-      latitude: parseFloat(place.lat),
-      longitude: parseFloat(place.lon),
-      type: place.type,
-      address: place.address,
+      latitude:    parseFloat(place.lat),
+      longitude:   parseFloat(place.lon),
+      type:        place.type,
+      address:     place.address,
     }));
 
   } catch (error) {
-    console.error('? searchPlaces error:', error.message);
+    console.error('❌ searchPlaces error:', error.message);
     return [];
   }
 }
