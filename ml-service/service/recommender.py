@@ -12,7 +12,6 @@ load_dotenv()
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:5000")
 
 # ── HAVERSINE ────────────────────────────────────────────────────────────────
-#  formule pour calculer la distance réelle entre 2 points GPS sur la Terre
 def haversine(lat1, lng1, lat2, lng2) -> float:
     R = 6371
     dLat = math.radians(lat2 - lat1)
@@ -28,10 +27,9 @@ def haversine(lat1, lng1, lat2, lng2) -> float:
 def score_distance(distance_km: float, hours_until_departure: float) -> float:
     if   hours_until_departure < 2:   reference_km = 15
     elif hours_until_departure < 24:  reference_km = 40
-    elif hours_until_departure < 168: reference_km = 80
-    else:                             reference_km = 100
+    elif hours_until_departure < 168: reference_km = 60
+    else:                             reference_km = 80
     return 1 / (1 + distance_km / reference_km)
-
 
 
 # ── SCORE HEURE DE TRAVAIL ────────────────────────────────────────────────────
@@ -52,7 +50,6 @@ def distance_bucket(km: float) -> str:
     else:          return "dist:very_far"
 
 
-
 # ── SCORE MATCHING PRÉFÉRENCES ────────────────────────────────────────────────
 def calculate_match_score(driver: Dict, preferences: Dict) -> float:
     score = 0
@@ -63,29 +60,23 @@ def calculate_match_score(driver: Dict, preferences: Dict) -> float:
         if val is None: return "no"
         return str(val).lower()
 
-    # quiet_ride
-    if   preferences.get("quiet_ride") == "yes" and b(driver.get("talkative")) == "no":    score += 3
-    elif preferences.get("quiet_ride") == "no"  and b(driver.get("talkative")) == "yes":   score += 2
+    if   preferences.get("quiet_ride") == "yes" and b(driver.get("talkative")) == "no":        score += 3
+    elif preferences.get("quiet_ride") == "no"  and b(driver.get("talkative")) == "yes":       score += 2
 
-    # radio_ok
-    if   preferences.get("radio_ok") == "yes" and b(driver.get("radio_on")) == "yes":      score += 1
-    elif preferences.get("radio_ok") == "no"  and b(driver.get("radio_on")) == "no":       score += 1
+    if   preferences.get("radio_ok") == "yes" and b(driver.get("radio_on")) == "yes":          score += 1
+    elif preferences.get("radio_ok") == "no"  and b(driver.get("radio_on")) == "no":           score += 1
 
-    # smoking_ok
     if   preferences.get("smoking_ok") == "yes" and b(driver.get("smoking_allowed")) == "yes": score += 2
     elif preferences.get("smoking_ok") == "no"  and b(driver.get("smoking_allowed")) == "no":  score += 2
 
-    # pets_ok
-    if   preferences.get("pets_ok") == "yes" and b(driver.get("pets_allowed")) == "yes":   score += 2
-    elif preferences.get("pets_ok") == "no"  and b(driver.get("pets_allowed")) == "no":    score += 2
+    if   preferences.get("pets_ok") == "yes" and b(driver.get("pets_allowed")) == "yes":       score += 2
+    elif preferences.get("pets_ok") == "no"  and b(driver.get("pets_allowed")) == "no":        score += 2
 
-    # luggage_large
-    if   preferences.get("luggage_large") == "yes" and b(driver.get("car_big")) == "yes":  score += 2
-    elif preferences.get("luggage_large") == "no"  and b(driver.get("car_big")) == "no":   score += 2
+    if   preferences.get("luggage_large") == "yes" and b(driver.get("car_big")) == "yes":      score += 2
+    elif preferences.get("luggage_large") == "no"  and b(driver.get("car_big")) == "no":       score += 2
 
-    # female_driver_pref
-    if   preferences.get("female_driver_pref") == "yes" and driver.get("sexe") == "F":     score += 1
-    elif preferences.get("female_driver_pref") == "no"  and driver.get("sexe") == "M":     score += 1
+    if   preferences.get("female_driver_pref") == "yes" and driver.get("sexe") == "F":         score += 1
+    elif preferences.get("female_driver_pref") == "no"  and driver.get("sexe") == "M":         score += 1
 
     return score / max_score
 
@@ -130,7 +121,6 @@ class Recommender:
                     f"{BACKEND_URL}/api/auth/driver/all",
                     timeout=30.0
                 )
-                
                 if response.status_code == 200:
                     result  = response.json()
                     drivers = result.get("data", result) if isinstance(result, dict) else result
@@ -142,17 +132,7 @@ class Recommender:
             print(f"Erreur get_all_drivers: {e}")
             return []
 
-    # ✅ NOUVEAU : historique interactions passager → drivers
     async def get_interaction_counts(self, passenger_id: str) -> Dict[str, int]:
-        """
-        Retourne le nb de trajets COMPLETED entre ce passager et chaque driver
-        Exemple : { "29": 3, "82": 5, "15": 1 }
-        
-        Utilisé pour la DIVERSIFICATION :
-        Si passager a déjà fait 5 trajets avec driver X
-        → réduire le score de X pour découvrir d'autres drivers
-        → évite que les mêmes drivers monopolisent toutes les demandes
-        """
         try:
             clean_id = passenger_id.replace("P", "")
             async with httpx.AsyncClient() as client:
@@ -166,7 +146,6 @@ class Recommender:
                     return counts
                 return {}
         except Exception as e:
-            # Si endpoint pas dispo → pas de diversification, pas grave
             print(f"[WARNING] Interactions non disponibles: {e}")
             return {}
 
@@ -237,35 +216,24 @@ async def get_recommendations(
     print(f"\n🔍 Recommandations pour passager: {passenger_id}")
 
     # ── Infos du trajet ──────────────────────────────────────────────────────
-    start_lat             = trajet.get("startLat")
-    start_lng             = trajet.get("startLng")
-    date_depart_str       = trajet.get("dateDepart")
-    heure_depart_str      = trajet.get("heureDepart", "12:00")
-    departure_hour        = int(heure_depart_str.split(":")[0]) if heure_depart_str else 12
+    start_lat        = trajet.get("startLat")
+    start_lng        = trajet.get("startLng")
+    date_depart_str  = trajet.get("dateDepart")
+    heure_depart_str = trajet.get("heureDepart", "12:00")
+    departure_hour   = int(heure_depart_str.split(":")[0]) if heure_depart_str else 12
 
     hours_until_departure = 48.0
     if date_depart_str:
         try:
             from datetime import datetime, timezone
             date_depart = datetime.fromisoformat(date_depart_str.replace("Z", "+00:00"))
-            now = datetime.now(timezone.utc)
+            now  = datetime.now(timezone.utc)
             diff = date_depart - now
             hours_until_departure = max(0.0, diff.total_seconds() / 3600)
         except Exception:
             pass
 
     print(f"   Heure départ: {departure_hour}h | Délai: {hours_until_departure:.1f}h")
-
-    # ── Scores LightFM ───────────────────────────────────────────────────────
-    lightfm_scores   = {}
-    user_feat_matrix = recommender.build_user_features_for_new_trajet(
-        preferences, 50.0, hours_until_departure, departure_hour
-    )
-    if user_feat_matrix is not None:
-        lightfm_scores = recommender.predict_cold_start(user_feat_matrix)
-        print(f"   LightFM: {len(lightfm_scores)} scores calculés")
-    else:
-        print("   LightFM non disponible → fallback préférences")
 
     # ── Récupérer drivers + historique en parallèle ──────────────────────────
     import asyncio
@@ -281,13 +249,8 @@ async def get_recommendations(
     for driver in all_drivers:
         driver_id = f"D{driver['id']}"
 
-        # 1. LightFM
-        lightfm_score = max(0.0, lightfm_scores.get(driver_id, 0.0))
-
-        # 2. Préférences
-        pref_score = calculate_match_score(driver, preferences)
-
-        # 3. Distance
+        # 1. Distance réelle de CE driver
+        dist_km    = 50.0
         dist_score = 0.5
         if start_lat and start_lng and driver.get("latitude") and driver.get("longitude"):
             try:
@@ -297,6 +260,18 @@ async def get_recommendations(
             except Exception:
                 pass
 
+        # 2. LightFM avec vraie distance de CE driver
+        lightfm_score    = 0.0
+        user_feat_matrix = recommender.build_user_features_for_new_trajet(
+            preferences, dist_km, hours_until_departure, departure_hour
+        )
+        if user_feat_matrix is not None:
+            scores        = recommender.predict_cold_start(user_feat_matrix)
+            lightfm_score = max(0.0, scores.get(driver_id, 0.0))
+
+        # 3. Préférences
+        pref_score = calculate_match_score(driver, preferences)
+
         # 4. Heure de travail
         work_score = work_hour_match(driver, departure_hour)
 
@@ -305,7 +280,7 @@ async def get_recommendations(
         rating_score = (avg_rating - 1) / 4
 
         # Score final
-        if lightfm_scores:
+        if user_feat_matrix is not None:
             final_score = (
                 0.45 * lightfm_score +
                 0.20 * pref_score    +
@@ -322,16 +297,13 @@ async def get_recommendations(
             )
 
         # ── DIVERSIFICATION ───────────────────────────────────────────────
-        # Réduire le score si passager a déjà beaucoup voyagé avec ce driver
-        # But : éviter que les mêmes drivers monopolisent toutes les demandes
-        #       et encourager la découverte de nouveaux drivers compatibles
         nb_trajets_ensemble = interaction_counts.get(str(driver["id"]), 0)
         if nb_trajets_ensemble >= 5:
             final_score *= 0.80
-            print(f"   🔄 Driver {driver['id']}: {nb_trajets_ensemble} trajets ensemble → score ×0.80")
+            print(f"   🔄 Driver {driver['id']}: {nb_trajets_ensemble} trajets → score ×0.80")
         elif nb_trajets_ensemble >= 3:
             final_score *= 0.90
-            print(f"   🔄 Driver {driver['id']}: {nb_trajets_ensemble} trajets ensemble → score ×0.90")
+            print(f"   🔄 Driver {driver['id']}: {nb_trajets_ensemble} trajets → score ×0.90")
 
         driver["final_score"] = round(final_score, 4)
         driver["work_match"]  = work_score == 1.0
