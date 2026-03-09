@@ -7,7 +7,6 @@ const parseAndValidateId = (rawId) => {
   const id = Number.parseInt(rawId, 10);
   return Number.isNaN(id) ? null : id;
 };
-
 export const createRide = async (req, res) => {
   console.log("REQ.USER:", req.user); 
   const passengerId = req.user.passengerId;
@@ -33,6 +32,29 @@ export const createRide = async (req, res) => {
     });
   }
 
+  // ── ✅ Date validation ────────────────────────────────────────────────────
+  const now        = new Date();
+  const departure  = new Date(departureTime);
+  const diffMs     = departure.getTime() - now.getTime();
+  const diffMin    = diffMs / 60_000;
+  const diffDays   = diffMs / 86_400_000;
+
+  console.log("[createRide] now       :", now.toISOString());
+  console.log("[createRide] departure :", departure.toISOString());
+  console.log("[createRide] diffMin   :", diffMin.toFixed(1));
+  console.log("[createRide] diffDays  :", diffDays.toFixed(2));
+
+  if (isNaN(departure.getTime())) {
+    return res.status(400).json({ message: "Format de date invalide." });
+  }
+  if (diffMin < 30) {
+    return res.status(400).json({ message: "RIDE_TOO_SOON: Le départ doit être au moins 30 minutes dans le futur." });
+  }
+  if (diffDays > 30) {
+    return res.status(400).json({ message: "RIDE_TOO_FAR: Le départ ne peut pas dépasser 30 jours." });
+  }
+  // ─────────────────────────────────────────────────────────────────────────
+
   try {
     const passengerExists = await prisma.passenger.findUnique({
       where: { id: passengerId }
@@ -49,23 +71,20 @@ export const createRide = async (req, res) => {
         passenger: {
           connect: { id: passengerId }
         },
-        // ✅ Champs obligatoires ajoutés
         depart: startAddress,
         destination: endAddress,
-        // Coordonnées GPS
         startLat: parseFloat(startLat),
         startLng: parseFloat(startLng),
         startAddress,
         endLat: parseFloat(endLat),
         endLng: parseFloat(endLng),
         endAddress,
-        dateDepart: new Date(departureTime),
-        heureDepart: new Date(departureTime).toTimeString().slice(0, 5),
+        dateDepart: departure,
+        heureDepart: departure.toTimeString().slice(0, 5),
         placesDispo: 1,
         prix: 0,
         status: 'PENDING',
       },
-
       include: {
         passenger: {
           select: {
@@ -93,9 +112,6 @@ export const createRide = async (req, res) => {
     });
   }
 };
-
-
-
 // Récupération des trajets du passager
 
 export const getPassengerRides = async (req, res) => {
