@@ -282,18 +282,18 @@ async def get_recommendations(
         # Score final
         if user_feat_matrix is not None:
             final_score = (
-                0.45 * lightfm_score +
-                0.20 * pref_score    +
-                0.15 * dist_score    +
+                0.60 * lightfm_score +
+                0.15 * pref_score    +
+                0.10 * dist_score    +
                 0.10 * work_score    +
-                0.10 * rating_score
+                0.05 * rating_score
             )
         else:
             final_score = (
                 0.40 * pref_score  +
-                0.25 * dist_score  +
-                0.20 * work_score  +
-                0.15 * rating_score
+                0.35 * dist_score  +
+                0.25 * work_score  +
+                0.10 * rating_score
             )
 
         # ── DIVERSIFICATION ───────────────────────────────────────────────
