@@ -74,9 +74,7 @@ export default function MapScreen() {
     setEndLocation,
   } = useContext(LocationContext);
 
-  const [selectedLocation, setSelectedLocation] = useState(
-    selectionType === "start" ? startLocation : endLocation
-  );
+  const [selectedLocation, setSelectedLocation] = useState(null);
   const [selectedAddress, setSelectedAddress] = useState("");
   const [loadingAddress, setLoadingAddress]   = useState(false);
   const [savingAddress, setSavingAddress]     = useState(false);
@@ -172,7 +170,13 @@ export default function MapScreen() {
         setRouteDuration(durMin);
         const { price } = calculatePrice(distKm, durMin);
         setEstimatedPrice(price);
-        if (rideId) await api.patch(`/ridesDem/${rideId}/price`, { prix: price });
+        if (rideId && rideId !== "" && rideId !== "undefined") {
+         try {
+            await api.patch(`/ridesDem/${rideId}/price`, { prix: price });
+         } catch (e) {
+           console.warn('⚠️ Price update skipped:', e.message);
+         }
+        }
         if (mapRef.current && coords.length > 0) {
           mapRef.current.fitToCoordinates(coords, {
             edgePadding: { top: 200, right: 60, bottom: 280, left: 60 },
