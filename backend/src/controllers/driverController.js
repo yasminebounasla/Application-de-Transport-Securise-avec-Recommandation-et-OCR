@@ -1,4 +1,5 @@
 import { prisma } from "../config/prisma.js";
+import { getIO } from '../socket/socket.js';
 
 export const addDriverPreferences = async (req, res) => {
   // On prend l'ID directement depuis le token
@@ -388,6 +389,8 @@ export const getDriverProfile = async (req, res) => {
       password, 
       hasAcceptedPhotoStorage, 
       trajets, 
+      email, 
+      numTel,
       ...driverData 
     } = driver;
 
@@ -555,5 +558,72 @@ export const updateDriverProfile = async (req, res) => {
       message: "Failed to update driver profile.",
       error: err.message,
     });
+  }
+};
+
+export const notifySelectedDrivers = async (req, res) => {
+  const passengerId = req.user.passengerId;
+
+  if (!passengerId) {
+    return res.status(400).json({ success: false, message: "User not found in request" });
+  }
+
+  const { rideId, driverIds } = req.body;
+
+  if (!rideId || !driverIds || !Array.isArray(driverIds) || driverIds.length === 0) {
+    return res.status(400).json({ 
+      success: false, 
+      message: "rideId et driverIds sont requis" 
+    });
+  }
+
+  try {
+    const ride = await prisma.trajet.findUnique({
+      where: { id: parseInt(rideId) },
+      include: {
+        passenger: {
+          select: { id: true, nom: true, prenom: true, numTel: true }
+        }
+      }
+    });
+
+    if (!ride) {
+      return res.status(404).json({ success: false, message: "Trajet introuvable" });
+    }
+
+    if (ride.passagerId !== passengerId) {
+      return res.status(403).json({ success: false, message: "Ce trajet ne vous appartient pas" });
+    }
+
+    if (ride.status !== 'PENDING') {
+      return res.status(400).json({ success: false, message: "Ce trajet n'est plus disponible" });
+    }
+
+    const io = getIO();
+
+    // Notifier chaque driver sélectionné
+    driverIds.forEach(driverId => {
+      io.to(`driver_${driverId}`).emit('rideRequest', {
+        rideId: ride.id,
+        passenger: ride.passenger,
+        startAddress: ride.startAddress,
+        endAddress: ride.endAddress,
+        prix: ride.prix,
+        dateDepart: ride.dateDepart,
+        startLat: ride.startLat,
+        startLng: ride.startLng,
+        endLat: ride.endLat,
+        endLng: ride.endLng,
+      });
+    });
+
+    return res.status(200).json({
+      success: true,
+      message: `${driverIds.length} conducteur(s) notifié(s)`,
+    });
+
+  } catch (error) {
+    console.error('Erreur notifySelectedDrivers:', error);
+    return res.status(500).json({ success: false, message: error.message });
   }
 };

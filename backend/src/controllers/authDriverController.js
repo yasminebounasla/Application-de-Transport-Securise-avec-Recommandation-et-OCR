@@ -133,7 +133,9 @@ export const getAllDrivers = async (req, res) => {
                 works_evening: true,
                 works_night: true,
                 avgRating: true,
-                isVerified: true
+                isVerified: true,
+                latitude: true,   
+                longitude: true,  
             }
         });
 

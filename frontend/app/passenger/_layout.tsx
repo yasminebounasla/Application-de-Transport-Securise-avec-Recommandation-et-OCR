@@ -5,11 +5,12 @@ export default function Layout() {
     <Stack>
       <Stack.Screen name="HomeScreen" />
       <Stack.Screen name="SearchRideScreen" />
-      <Stack.Screen name="RecommendedDriversScreen" /> 
+      <Stack.Screen name="RecommendedDriversScreen" options={{ headerShown: false }} /> 
       <Stack.Screen name="DemandeTrajetScreen" />
       <Stack.Screen name="HistoryScreen" />
       <Stack.Screen name="RideTrackingScreen" />
       <Stack.Screen name="FeedbackScreen" />
+      <Stack.Screen name="NotificationScreen" options={{ headerShown: false }}/>
     </Stack>
   );
 }

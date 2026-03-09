@@ -1,10 +1,8 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
-  ScrollView,
   TouchableOpacity,
-  Alert,
   ActivityIndicator,
   TextInput,
   Modal,
@@ -12,30 +10,18 @@ import {
   Platform,
   FlatList,
   Animated,
+  Alert,
 } from 'react-native';
 import { Stack, router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import api from '../../services/api'; 
+import api from '../../services/api';
+import { searchPlaces } from '../../services/placesService';
 
+// Only Home and Work as fixed types
 const ADDRESS_TYPES = [
-  { key: 'home',  label: 'Home',  icon: 'home-outline',      filledIcon: 'home' },
-  { key: 'work',  label: 'Work',  icon: 'briefcase-outline',  filledIcon: 'briefcase' },
-  { key: 'other', label: 'Other', icon: 'location-outline',   filledIcon: 'location' },
+  { key: 'home', label: 'Home', icon: 'home-outline',     filledIcon: 'home' },
+  { key: 'work', label: 'Work', icon: 'briefcase-outline', filledIcon: 'briefcase' },
 ];
-
-// ─────────────────────────────────────────────
-// GEOCODER  — remplace par ton API réelle
-// ─────────────────────────────────────────────
-async function searchPlaces(query) {
-  await new Promise(r => setTimeout(r, 600));
-  if (!query.trim()) return [];
-  return [
-    { id: '1', name: query,             address: `${query}, Alger, Algérie`,                lat: 36.7538, lng: 3.0588 },
-    { id: '2', name: `${query} Centre`, address: `${query} Centre, Bir Mourad Raïs, Alger`, lat: 36.7400, lng: 3.0600 },
-    { id: '3', name: `${query} Nord`,   address: `${query} Nord, Bab Ezzouar, Alger`,        lat: 36.7200, lng: 3.1800 },
-    { id: '4', name: `Rue ${query}`,    address: `Rue ${query}, Hussein Dey, Alger`,         lat: 36.7372, lng: 3.1008 },
-  ];
-}
 
 // ─────────────────────────────────────────────
 // MAIN SCREEN
@@ -45,7 +31,28 @@ export default function SavedPlacesScreen() {
   const [loading, setLoading]       = useState(true);
   const [modalVisible, setModal]    = useState(false);
   const [editTarget, setEditTarget] = useState(null);
+
+  // Nickname first, then address (for "Add new place" flow)
+  const [nicknameModal, setNicknameModal]   = useState(false);
+  const [pendingPlace, setPendingPlace]     = useState<{ address: string; lat: number; lng: number } | null>(null);
+  const [nickname, setNickname]             = useState('');
+  const [pendingNickname, setPendingNickname] = useState('');
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
+
+  // ── Undo delete toast ─────────────────────
+  const [pendingDelete, setPendingDelete] = useState<{ id: number; label: string } | null>(null);
+  const deleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toastAnim = useRef(new Animated.Value(0)).current;
+
+  // ── Edit / menu state ─────────────────────
+  const [menuTarget, setMenuTarget] = useState<{
+    icon: string;
+    isFixed: any; id: number; label: string; address: string; lat: number; lng: number 
+} | null>(null);
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [editNicknameModal, setEditNicknameModal] = useState(false);
+  const [editNickname, setEditNickname] = useState('');
 
   // ── Load from API ──────────────────────────
   const loadPlaces = async () => {
@@ -63,7 +70,6 @@ export default function SavedPlacesScreen() {
 
   useFocusEffect(useCallback(() => { loadPlaces(); }, []));
 
-  // ── Helper: find place by label ────────────
   const findByLabel = (label) =>
     places.find(p => p.label.toLowerCase() === label.toLowerCase()) || null;
 
@@ -87,37 +93,102 @@ export default function SavedPlacesScreen() {
     }
   };
 
-  // ── DELETE ────────────────────────────────
-  const deletePlace = (id) => {
-    Alert.alert('Remove address', 'Are you sure?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Remove', style: 'destructive',
-        onPress: async () => {
-          try {
-            await api.delete(`/passengers/saved-places/${id}`);
-            setPlaces(prev => prev.filter(p => p.id !== id));
-          } catch (e) {
-            Alert.alert('Error', e.response?.data?.message || e.message);
-          }
-        },
-      },
-    ]);
+  // ── DELETE with 2s undo ───────────────────
+  const deletePlace = (id: number, label: string) => {
+    // Clear any existing timer
+    if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current);
+
+    // Optimistically remove from list
+    setPlaces(prev => prev.filter(p => p.id !== id));
+
+    // Show undo toast
+    setPendingDelete({ id, label });
+    Animated.spring(toastAnim, { toValue: 1, useNativeDriver: true }).start();
+
+    // After 2s, actually delete from server
+    deleteTimerRef.current = setTimeout(async () => {
+      setPendingDelete(null);
+      Animated.timing(toastAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start();
+      try {
+        await api.delete(`/passengers/saved-places/${id}`);
+      } catch (e) {
+        // If server delete fails, reload places
+        loadPlaces();
+      }
+    }, 2500);
   };
 
-  // ── Save from modal ───────────────────────
+  const undoDelete = () => {
+    if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current);
+    if (pendingDelete) {
+      // Reload to restore the place
+      loadPlaces();
+    }
+    setPendingDelete(null);
+    Animated.timing(toastAnim, { toValue: 0, duration: 200, useNativeDriver: true }).start();
+  };
+
+  useEffect(() => {
+    return () => { if (deleteTimerRef.current) clearTimeout(deleteTimerRef.current); };
+  }, []);
+
+  // ── Edit nickname ─────────────────────────
+  const openMenu = (place: any) => {
+    setMenuTarget(place);
+    setMenuVisible(true);
+  };
+
+  const handleEditNicknameSave = async () => {
+    if (!editNickname.trim() || !menuTarget) return;
+    setEditNicknameModal(false);
+    await updatePlace(menuTarget.id, {
+      label:   editNickname.trim(),
+      address: menuTarget.address,
+      lat:     menuTarget.lat,
+      lng:     menuTarget.lng,
+    });
+    setMenuTarget(null);
+  };
+
+  // ── Save from modal (Home / Work) ─────────
   const handleSave = async ({ label, address, lat, lng }) => {
     if (!editTarget) return;
     setModal(false);
-
     const existing = findByLabel(editTarget.label);
-
     if (existing) {
       await updatePlace(existing.id, { label: editTarget.label, address, lat, lng });
     } else {
       await addPlace({ label: editTarget.label, address, lat, lng });
     }
   };
+
+  // ── New place flow ────────────────────────
+  // Step 1: click "Add new" → show nickname modal
+  const handleOpenNewPlace = () => {
+    setNickname('');
+    setNicknameModal(true);
+  };
+
+  // Step 2: nickname confirmed → open address search with that label
+  const handleNicknameConfirmed = () => {
+    if (!nickname.trim()) return;
+    setPendingNickname(nickname.trim());
+    setNicknameModal(false);
+    setTimeout(() => {
+      setEditTarget({ key: 'new', label: nickname.trim(), icon: 'bookmark' });
+      setModal(true);
+    }, 300);
+  };
+
+  // Step 3: address chosen → save with the nickname
+  const handleNewPlaceAddressChosen = ({ address, lat, lng }) => {
+    setModal(false);
+    addPlace({ label: pendingNickname, address, lat, lng });
+    setPendingNickname('');
+  };
+
+  // (unused for new flow but kept for compat)
+  const handleSaveNickname = handleNicknameConfirmed;
 
   // ── Open modal ────────────────────────────
   const openModal = (target) => {
@@ -180,7 +251,7 @@ export default function SavedPlacesScreen() {
 
         <View style={{ height: 1, backgroundColor: '#F0F0F0', marginHorizontal: 20, marginBottom: 8 }} />
 
-        {/* ── HOME / WORK / OTHER ── */}
+        {/* ── HOME / WORK ── */}
         {ADDRESS_TYPES.map(type => {
           const saved = findByLabel(type.label);
           return (
@@ -191,7 +262,8 @@ export default function SavedPlacesScreen() {
               value={saved?.address || null}
               placeholder="Tap to set the address"
               onPress={() => openModal({ key: type.key, label: type.label, icon: type.filledIcon })}
-              onDelete={saved ? () => deletePlace(saved.id) : null}
+              onDelete={saved ? () => deletePlace(saved.id, type.label) : null}
+              onMenuPress={saved ? () => openMenu({ ...saved, isFixed: true, icon: type.filledIcon }) : undefined}
             />
           );
         })}
@@ -200,18 +272,19 @@ export default function SavedPlacesScreen() {
         {customPlaces.map(place => (
           <AddressRow
             key={place.id}
-            icon="bookmark-outline"
+            icon="bookmark"
             label={place.label}
             value={place.address}
             placeholder=""
             onPress={() => openModal({ key: 'custom', label: place.label, icon: 'bookmark', id: place.id })}
-            onDelete={() => deletePlace(place.id)}
+            onDelete={() => deletePlace(place.id, place.label)}
+            onMenuPress={() => openMenu({ ...place, isFixed: false, icon: 'bookmark' })}
           />
         ))}
 
         {/* ── ADD NEW ── */}
         <TouchableOpacity
-          onPress={() => openModal({ key: 'new', label: 'New place', icon: 'add-circle-outline' })}
+          onPress={handleOpenNewPlace}
           style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 18 }}
           activeOpacity={0.7}
         >
@@ -226,14 +299,188 @@ export default function SavedPlacesScreen() {
         </TouchableOpacity>
       </Animated.ScrollView>
 
-      {/* ── ADDRESS PICKER MODAL ── */}
+      {/* ── ADDRESS PICKER MODAL (Home / Work / custom) ── */}
       <AddressModal
         visible={modalVisible}
         target={editTarget}
+        isNew={editTarget?.key === 'new'}
         onClose={() => setModal(false)}
-        onSave={handleSave}
+        onSave={editTarget?.key === 'new' ? handleNewPlaceAddressChosen : handleSave}
         onSetOnMap={() => handleSetOnMap(editTarget)}
       />
+
+      {/* ── NICKNAME MODAL (only for new custom places) ── */}
+      <NicknameModal
+        visible={nicknameModal}
+        address=""
+        value={nickname}
+        onChange={setNickname}
+        onClose={() => { setNicknameModal(false); setNickname(''); }}
+        onSave={handleNicknameConfirmed}
+      />
+
+      {/* ── 3-DOT BOTTOM SHEET MENU ── */}
+      <Modal
+        visible={menuVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setMenuVisible(false)}
+      >
+        <TouchableOpacity
+          style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.45)' }}
+          activeOpacity={1}
+          onPress={() => setMenuVisible(false)}
+        />
+        <View style={{
+          backgroundColor: '#fff',
+          borderTopLeftRadius: 24,
+          borderTopRightRadius: 24,
+          paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+          paddingTop: 12,
+        }}>
+          {/* Handle */}
+          <View style={{ width: 36, height: 4, backgroundColor: '#E0E0E0', borderRadius: 2, alignSelf: 'center', marginBottom: 20 }} />
+
+          {/* Place name header */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, marginBottom: 16 }}>
+            <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#111', alignItems: 'center', justifyContent: 'center', marginRight: 12 }}>
+              <Ionicons name={(menuTarget?.icon || "bookmark") as any} size={18} color="#fff" />
+            </View>
+            <View>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: '#111' }}>{menuTarget?.label}</Text>
+              <Text style={{ fontSize: 12, color: '#999', marginTop: 2 }} numberOfLines={1}>{menuTarget?.address}</Text>
+            </View>
+          </View>
+
+          <View style={{ height: 1, backgroundColor: '#F0F0F0', marginBottom: 8 }} />
+
+          {/* Edit — only for custom places */}
+          {!menuTarget?.isFixed && (
+            <TouchableOpacity
+              onPress={() => {
+                setMenuVisible(false);
+                setEditNickname(menuTarget?.label || '');
+                setTimeout(() => setEditNicknameModal(true), 300);
+              }}
+              activeOpacity={0.7}
+              style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14 }}
+            >
+              <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#F5F5F5', alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
+                <Ionicons name="pencil-outline" size={19} color="#111" />
+              </View>
+              <Text style={{ fontSize: 15, fontWeight: '600', color: '#111' }}>Edit name</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Delete */}
+          <TouchableOpacity
+            onPress={() => {
+              setMenuVisible(false);
+              if (menuTarget) deletePlace(menuTarget.id, menuTarget.label);
+            }}
+            activeOpacity={0.7}
+            style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14 }}
+          >
+            <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: '#FEE2E2', alignItems: 'center', justifyContent: 'center', marginRight: 14 }}>
+              <Ionicons name="trash-outline" size={19} color="#EF4444" />
+            </View>
+            <Text style={{ fontSize: 15, fontWeight: '600', color: '#EF4444' }}>Remove</Text>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+
+      {/* ── EDIT NICKNAME MODAL ── */}
+      <Modal
+        visible={editNicknameModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setEditNicknameModal(false)}
+      >
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+          <View style={{ flex: 1, backgroundColor: '#fff' }}>
+            <View style={{
+              flexDirection: 'row', alignItems: 'center',
+              paddingHorizontal: 16, paddingTop: 18, paddingBottom: 12,
+              borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
+            }}>
+              <TouchableOpacity onPress={() => setEditNicknameModal(false)} style={{ padding: 6, marginRight: 8 }}>
+                <Ionicons name="arrow-back" size={22} color="#111" />
+              </TouchableOpacity>
+              <Text style={{ fontSize: 17, fontWeight: '700', color: '#111' }}>Edit saved place</Text>
+            </View>
+
+            <View style={{ flex: 1, paddingHorizontal: 20, paddingTop: 28 }}>
+              <Text style={{ fontSize: 13, fontWeight: '700', color: '#888', marginBottom: 8, letterSpacing: 0.4 }}>
+                LOCATION NICKNAME
+              </Text>
+              <View style={{
+                flexDirection: 'row', alignItems: 'center',
+                borderWidth: 1.5, borderColor: '#E5E7EB',
+                borderRadius: 12, paddingHorizontal: 14, height: 52,
+              }}>
+                <Ionicons name="bookmark-outline" size={18} color="#999" style={{ marginRight: 10 }} />
+                <TextInput
+                  style={{ flex: 1, fontSize: 15, color: '#111' }}
+                  placeholder="e.g. Grandma's house"
+                  placeholderTextColor="#BBB"
+                  value={editNickname}
+                  onChangeText={setEditNickname}
+                  autoFocus
+                  returnKeyType="done"
+                  onSubmitEditing={handleEditNicknameSave}
+                />
+                {editNickname.length > 0 && (
+                  <TouchableOpacity onPress={() => setEditNickname('')}>
+                    <Ionicons name="close-circle" size={18} color="#BBB" />
+                  </TouchableOpacity>
+                )}
+              </View>
+            </View>
+
+            <View style={{
+              paddingHorizontal: 20,
+              paddingBottom: Platform.OS === 'ios' ? 36 : 20,
+              paddingTop: 12,
+              borderTopWidth: 1, borderTopColor: '#F0F0F0',
+            }}>
+              <TouchableOpacity
+                onPress={handleEditNicknameSave}
+                disabled={!editNickname.trim()}
+                activeOpacity={0.8}
+                style={{
+                  backgroundColor: editNickname.trim() ? '#111' : '#E5E7EB',
+                  borderRadius: 50, paddingVertical: 15, alignItems: 'center',
+                }}
+              >
+                <Text style={{ fontSize: 16, fontWeight: '700', color: editNickname.trim() ? '#fff' : '#BBB' }}>
+                  Save place
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* ── UNDO DELETE TOAST ── */}
+      {pendingDelete && (
+        <Animated.View style={{
+          position: 'absolute', bottom: 30, left: 20, right: 20,
+          transform: [{ translateY: toastAnim.interpolate({ inputRange: [0,1], outputRange: [100, 0] }) }],
+          opacity: toastAnim,
+          backgroundColor: '#111', borderRadius: 16,
+          flexDirection: 'row', alignItems: 'center',
+          paddingHorizontal: 16, paddingVertical: 14,
+          shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 12, elevation: 10,
+        }}>
+          <Ionicons name="trash-outline" size={18} color="#fff" style={{ marginRight: 10 }} />
+          <Text style={{ flex: 1, color: '#fff', fontSize: 14, fontWeight: '500' }}>
+            "{pendingDelete.label}" removed
+          </Text>
+          <TouchableOpacity onPress={undoDelete} activeOpacity={0.7}>
+            <Text style={{ color: '#60A5FA', fontWeight: '700', fontSize: 14 }}>Undo</Text>
+          </TouchableOpacity>
+        </Animated.View>
+      )}
     </>
   );
 }
@@ -241,49 +488,58 @@ export default function SavedPlacesScreen() {
 // ─────────────────────────────────────────────
 // ADDRESS ROW
 // ─────────────────────────────────────────────
-function AddressRow({ icon, label, value, placeholder, onPress, onDelete }) {
+function AddressRow({ icon, label, value, placeholder, onPress, onDelete, onMenuPress }) {
   return (
-    <TouchableOpacity
-      onPress={onPress}
-      activeOpacity={0.75}
-      style={{
-        flexDirection: 'row', alignItems: 'center',
-        paddingHorizontal: 24, paddingVertical: 16,
-        borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
-      }}
-    >
-      <View style={{
-        width: 40, height: 40, borderRadius: 20,
-        backgroundColor: value ? '#111' : '#F5F5F5',
-        alignItems: 'center', justifyContent: 'center', marginRight: 16,
-      }}>
-        <Ionicons name={icon} size={19} color={value ? '#fff' : '#555'} />
-      </View>
+    <View style={{
+      flexDirection: 'row', alignItems: 'center',
+      borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
+    }}>
+      {/* Main tappable area */}
+      <TouchableOpacity
+        onPress={onPress}
+        activeOpacity={0.75}
+        style={{ flex: 1, flexDirection: 'row', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 16 }}
+      >
+        <View style={{
+          width: 40, height: 40, borderRadius: 20,
+          backgroundColor: value ? '#111' : '#F5F5F5',
+          alignItems: 'center', justifyContent: 'center', marginRight: 16,
+        }}>
+          <Ionicons name={icon} size={19} color={value ? '#fff' : '#555'} />
+        </View>
 
-      <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 15, fontWeight: '700', color: '#111' }}>{label}</Text>
-        {value ? (
-          <Text style={{ fontSize: 13, color: '#888', marginTop: 2 }} numberOfLines={1}>{value}</Text>
-        ) : (
-          <Text style={{ fontSize: 13, color: '#BBB', marginTop: 2 }}>{placeholder}</Text>
-        )}
-      </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ fontSize: 15, fontWeight: '700', color: '#111' }}>{label}</Text>
+          {value ? (
+            <Text style={{ fontSize: 13, color: '#888', marginTop: 2 }} numberOfLines={1}>{value}</Text>
+          ) : (
+            <Text style={{ fontSize: 13, color: '#BBB', marginTop: 2 }}>{placeholder}</Text>
+          )}
+        </View>
+      </TouchableOpacity>
 
-      {onDelete ? (
-        <TouchableOpacity onPress={onDelete} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+      {/* Action button — outside the row touchable to avoid conflict */}
+      {onMenuPress ? (
+        <TouchableOpacity
+          onPress={onMenuPress}
+          hitSlop={{ top: 16, bottom: 16, left: 16, right: 16 }}
+          style={{ paddingRight: 20, paddingVertical: 16 }}
+        >
           <Ionicons name="ellipsis-vertical" size={18} color="#BBB" />
         </TouchableOpacity>
       ) : (
-        <Ionicons name="chevron-forward" size={16} color="#CCC" />
+        <View style={{ paddingRight: 20 }}>
+          <Ionicons name="chevron-forward" size={16} color="#CCC" />
+        </View>
       )}
-    </TouchableOpacity>
+    </View>
   );
 }
 
 // ─────────────────────────────────────────────
-// ADDRESS MODAL
+// ADDRESS SEARCH MODAL
 // ─────────────────────────────────────────────
-function AddressModal({ visible, target, onClose, onSave, onSetOnMap }) {
+function AddressModal({ visible, target, isNew, onClose, onSave, onSetOnMap }) {
   const [query, setQuery]      = useState('');
   const [results, setResults]  = useState([]);
   const [searching, setSearch] = useState(false);
@@ -307,10 +563,10 @@ function AddressModal({ visible, target, onClose, onSave, onSetOnMap }) {
 
   const handleSelect = (place) => {
     onSave({
-      label: target?.label || place.name,
-      address: place.address,
-      lat: place.lat,
-      lng: place.lng,
+      label:   target?.label || place.shortName,
+      address: place.displayName,
+      lat:     place.latitude,
+      lng:     place.longitude,
     });
   };
 
@@ -329,7 +585,7 @@ function AddressModal({ visible, target, onClose, onSave, onSetOnMap }) {
               <Ionicons name="arrow-back" size={22} color="#111" />
             </TouchableOpacity>
             <Text style={{ fontSize: 17, fontWeight: '700', color: '#111', flex: 1 }}>
-              {target?.label ? `Set ${target.label}` : 'Add address'}
+              {isNew ? 'Choose a location' : target?.label ? `Set ${target.label}` : 'Add address'}
             </Text>
           </View>
 
@@ -360,7 +616,7 @@ function AddressModal({ visible, target, onClose, onSave, onSetOnMap }) {
           {/* RESULTS */}
           <FlatList
             data={results}
-            keyExtractor={item => item.id}
+            keyExtractor={item => String(item.id)}
             keyboardShouldPersistTaps="handled"
             ItemSeparatorComponent={() => (
               <View style={{ height: 1, backgroundColor: '#F5F5F5', marginLeft: 60 }} />
@@ -387,16 +643,18 @@ function AddressModal({ visible, target, onClose, onSave, onSetOnMap }) {
                   <Ionicons name="location-outline" size={17} color="#555" />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#111' }}>{item.name}</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#111' }}>
+                    {item.shortName || item.displayName}
+                  </Text>
                   <Text style={{ fontSize: 12, color: '#999', marginTop: 2 }} numberOfLines={1}>
-                    {item.address}
+                    {item.displayName}
                   </Text>
                 </View>
               </TouchableOpacity>
             )}
           />
 
-          {/* SET ON MAP BUTTON */}
+          {/* SET ON MAP */}
           <TouchableOpacity
             onPress={onSetOnMap}
             activeOpacity={0.7}
@@ -415,7 +673,105 @@ function AddressModal({ visible, target, onClose, onSave, onSetOnMap }) {
             </View>
             <Text style={{ fontSize: 14, fontWeight: '600', color: '#111' }}>Set location on map</Text>
           </TouchableOpacity>
+        </View>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
 
+// ─────────────────────────────────────────────
+// NICKNAME MODAL  (step 2 for new custom place)
+// ─────────────────────────────────────────────
+function NicknameModal({ visible, address, value, onChange, onClose, onSave }) {
+  const canSave = value.trim().length > 0;
+
+  return (
+    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
+        <View style={{ flex: 1, backgroundColor: '#fff' }}>
+
+          {/* HEADER */}
+          <View style={{
+            flexDirection: 'row', alignItems: 'center',
+            paddingHorizontal: 16, paddingTop: 18, paddingBottom: 12,
+            borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
+          }}>
+            <TouchableOpacity onPress={onClose} style={{ padding: 6, marginRight: 8 }}>
+              <Ionicons name="arrow-back" size={22} color="#111" />
+            </TouchableOpacity>
+            <Text style={{ fontSize: 17, fontWeight: '700', color: '#111' }}>
+              Add a saved place
+            </Text>
+          </View>
+
+          <View style={{ flex: 1, paddingHorizontal: 20, paddingTop: 28 }}>
+
+            {/* Step indicator */}
+            <Text style={{ fontSize: 13, color: '#BBB', marginBottom: 24, fontWeight: '500' }}>
+              Step 1 of 2 — Give this place a name
+            </Text>
+
+            {/* NICKNAME INPUT */}
+            <Text style={{ fontSize: 13, fontWeight: '700', color: '#888', marginBottom: 8, letterSpacing: 0.4 }}>
+              LOCATION NICKNAME
+            </Text>
+            <View style={{
+              flexDirection: 'row', alignItems: 'center',
+              borderWidth: 1.5,
+              borderColor: '#E5E7EB',
+              borderRadius: 12,
+              paddingHorizontal: 14,
+              height: 52,
+            }}>
+              <Ionicons name="bookmark-outline" size={18} color="#999" style={{ marginRight: 10 }} />
+              <TextInput
+                style={{ flex: 1, fontSize: 15, color: '#111' }}
+                placeholder="e.g. Alex's home"
+                placeholderTextColor="#BBB"
+                value={value}
+                onChangeText={onChange}
+                autoFocus
+                returnKeyType="done"
+                onSubmitEditing={canSave ? onSave : undefined}
+              />
+              {value.length > 0 && (
+                <TouchableOpacity onPress={() => onChange('')}>
+                  <Ionicons name="close-circle" size={18} color="#BBB" />
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+
+          {/* SAVE BUTTON */}
+          <View style={{
+            paddingHorizontal: 20,
+            paddingBottom: Platform.OS === 'ios' ? 36 : 20,
+            paddingTop: 12,
+            borderTopWidth: 1,
+            borderTopColor: '#F0F0F0',
+          }}>
+            <TouchableOpacity
+              onPress={onSave}
+              disabled={!canSave}
+              activeOpacity={0.8}
+              style={{
+                backgroundColor: canSave ? '#111' : '#E5E7EB',
+                borderRadius: 50,
+                paddingVertical: 15,
+                alignItems: 'center',
+              }}
+            >
+              <Text style={{
+                fontSize: 16, fontWeight: '700',
+                color: canSave ? '#fff' : '#BBB',
+              }}>
+                Next: Pick location
+              </Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </KeyboardAvoidingView>
     </Modal>

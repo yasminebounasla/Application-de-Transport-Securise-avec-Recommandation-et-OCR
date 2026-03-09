@@ -4,7 +4,6 @@ import { loginDriver, loginPassenger, registerDriver, registerPassenger } from '
 
 const AuthContext = createContext();
 
-// Décoder le JWT
 const decodeJWT = (token) => {
   try {
     const base64Url = token.split('.')[1];
@@ -22,7 +21,6 @@ const decodeJWT = (token) => {
   }
 };
 
-// Vérifier si le token est expiré
 const isTokenExpired = (token) => {
   const decoded = decodeJWT(token);
   if (!decoded || !decoded.exp) return true;
@@ -41,7 +39,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const token = await AsyncStorage.getItem('token');
       const storedUser = await AsyncStorage.getItem('user');
-      
+
       if (token && token.trim() !== "" && token !== "null" && token !== "undefined") {
         if (isTokenExpired(token)) {
           await AsyncStorage.removeItem("token");
@@ -49,7 +47,6 @@ export const AuthProvider = ({ children }) => {
           setUser(null);
           return;
         }
-        
         if (storedUser) {
           setUser(JSON.parse(storedUser));
         }
@@ -74,13 +71,20 @@ export const AuthProvider = ({ children }) => {
       const response = await loginDriver({ email, password });
       const responseData = response.data.data || response.data;
       const { driver, token } = responseData;
-      
+
       if (!token) throw new Error('No token received from server');
-      
+
       await AsyncStorage.setItem("token", token);
 
       const userInfo = {
         id: driver.id,
+        // ✅ AJOUT: driverId explicite
+        // POURQUOI: NotificationContext.tsx fait newSocket.emit('registerDriver', user.driverId)
+        //           Le backend socket.js fait socket.join(`driver_${driverId}`)
+        //           Et les notifications sont envoyées via io.to(`driver_${driver.id}`)
+        //           → user.id et driver.id sont le même ici, mais on l'expose
+        //           explicitement pour que le code socket soit clair et sans ambiguïté.
+        driverId: driver.id,
         firstName: driver.prenom,
         familyName: driver.nom,
         sexe: driver.sexe,
@@ -92,13 +96,13 @@ export const AuthProvider = ({ children }) => {
 
       await AsyncStorage.setItem("user", JSON.stringify(userInfo));
       setUser(userInfo);
-      
+
       return { success: true };
     } catch (err) {
       console.error("Login error:", err);
-      return { 
-        success: false, 
-        message: err.response?.data?.message || err.message || "Login failed" 
+      return {
+        success: false,
+        message: err.response?.data?.message || err.message || "Login failed"
       };
     } finally {
       setLoading(false);
@@ -111,30 +115,37 @@ export const AuthProvider = ({ children }) => {
       const response = await loginPassenger({ email, password });
       const responseData = response.data.data || response.data;
       const { passenger, token } = responseData;
-      
+
       if (!token) throw new Error('No token received from server');
-      
+
       await AsyncStorage.setItem("token", token);
-      
+
       const userInfo = {
         id: passenger.id,
-        firstName: passenger.prenom,  
+        // ✅ AJOUT: passengerId explicite
+        // POURQUOI: NotificationContext.tsx fait newSocket.emit('registerUser', user.passengerId)
+        //           Le backend socket.js fait socket.join(`passenger_${userId}`)
+        //           Et rideController.js notifie via io.to(`passenger_${updatedRide.passenger.id}`)
+        //           → sans passengerId ici, user.passengerId était undefined
+        //           → le passager rejoignait la room "passenger_undefined" → aucune notif reçue.
+        passengerId: passenger.id,
+        firstName: passenger.prenom,
         familyName: passenger.nom,
         age: passenger.age,
         numTel: passenger.numTel,
         email: passenger.email,
         role: 'passenger'
       };
-      
+
       await AsyncStorage.setItem("user", JSON.stringify(userInfo));
       setUser(userInfo);
-      
+
       return { success: true };
     } catch (error) {
       console.error("Login error:", error);
-      return { 
-        success: false, 
-        message: error.response?.data?.message || error.message || 'Login failed' 
+      return {
+        success: false,
+        message: error.response?.data?.message || error.message || 'Login failed'
       };
     } finally {
       setLoading(false);
@@ -143,20 +154,20 @@ export const AuthProvider = ({ children }) => {
 
   const registerAsDriver = async (driverData) => {
     setLoading(true);
-    console.log("📡 Tentative d'inscription sur : ", "Vérifie ton authService.js");
-    console.log("📦 Données envoyées :", JSON.stringify(driverData));
     try {
       const response = await registerDriver(driverData);
       const responseData = response.data.data || response.data;
       const { newDriver, token } = responseData;
-      
+
       if (!token) throw new Error('No token received from server');
       if (!newDriver) throw new Error('No driver data received from server');
-      
+
       await AsyncStorage.setItem("token", token);
-      
+
       const driverInfo = {
         id: newDriver.id,
+        // ✅ AJOUT: driverId dès l'inscription
+        driverId: newDriver.id,
         firstName: newDriver.prenom,
         familyName: newDriver.nom,
         age: newDriver.age,
@@ -168,13 +179,13 @@ export const AuthProvider = ({ children }) => {
 
       await AsyncStorage.setItem("user", JSON.stringify(driverInfo));
       setUser(driverInfo);
-      
+
       return { success: true };
     } catch (err) {
       console.error("Registration error:", err);
-      return { 
-        success: false, 
-        message: err.response?.data?.message || err.message || "Registration failed" 
+      return {
+        success: false,
+        message: err.response?.data?.message || err.message || "Registration failed"
       };
     } finally {
       setLoading(false);
@@ -187,14 +198,16 @@ export const AuthProvider = ({ children }) => {
       const response = await registerPassenger(userData);
       const responseData = response.data.data || response.data;
       const { newPassenger, token } = responseData;
-      
+
       if (!token) throw new Error('No token received from server');
       if (!newPassenger) throw new Error('No passenger data received from server');
-      
+
       await AsyncStorage.setItem("token", token);
-      
+
       const userInfo = {
         id: newPassenger.id,
+        // ✅ AJOUT: passengerId dès l'inscription
+        passengerId: newPassenger.id,
         firstName: newPassenger.prenom,
         familyName: newPassenger.nom,
         email: newPassenger.email,
@@ -202,16 +215,16 @@ export const AuthProvider = ({ children }) => {
         numTel: newPassenger.numTel,
         role: 'passenger'
       };
-      
+
       await AsyncStorage.setItem("user", JSON.stringify(userInfo));
       setUser(userInfo);
-      
+
       return { success: true };
     } catch (err) {
       console.error("Registration error:", err);
-      return { 
-        success: false, 
-        message: err.response?.data?.message || err.message || "Registration failed" 
+      return {
+        success: false,
+        message: err.response?.data?.message || err.message || "Registration failed"
       };
     } finally {
       setLoading(false);

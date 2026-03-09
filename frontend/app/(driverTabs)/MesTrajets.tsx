@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { useRide } from '../../context/RideContext';
@@ -11,22 +11,32 @@ const formatDateTime = (dateValue?: string) => {
 
 export default function MesTrajets() {
   const { driverRequests, currentRide, getDriverRequests, getDriverActiveRide, loading } = useRide();
+  const [screenLoading, setScreenLoading] = useState(true);
 
   useFocusEffect(
     useCallback(() => {
-      getDriverRequests();
-      getDriverActiveRide();
-    }, [getDriverRequests, getDriverActiveRide])
+      let active = true;
+      (async () => {
+        try {
+          await Promise.all([getDriverRequests(), getDriverActiveRide()]);
+        } finally {
+          if (active) setScreenLoading(false);
+        }
+      })();
+      return () => {
+        active = false;
+      };
+    }, [])
   );
 
   const rides = useMemo(() => {
     const map = new Map();
     (driverRequests || []).forEach((ride: any) => {
-      if (['PENDING', 'ACCEPTED', 'IN_PROGRESS'].includes(ride.status)) {
+      if (ride.status === 'ACCEPTED') {
         map.set(ride.id, ride);
       }
     });
-    if (currentRide && ['PENDING', 'ACCEPTED', 'IN_PROGRESS'].includes(currentRide.status)) {
+    if (currentRide && currentRide.status === 'ACCEPTED') {
       map.set(currentRide.id, currentRide);
     }
     return Array.from(map.values()).sort(
@@ -41,7 +51,7 @@ export default function MesTrajets() {
     });
   };
 
-  if (loading && rides.length === 0) {
+  if ((screenLoading || loading) && rides.length === 0) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color="#111" />

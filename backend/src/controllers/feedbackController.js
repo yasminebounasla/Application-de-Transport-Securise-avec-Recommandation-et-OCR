@@ -10,12 +10,13 @@ export const submitFeedback = async (req, res) => {
         // Vérifie que le trajet existe
         const trajet = await prisma.trajet.findUnique({
             where: { id: trajetId },
-            include: { driver: true }
+            // FIX : "passenger" ajouté dans include
+            include: { driver: true, passenger: true }
         });
+
         if (!trajet) {
             return res.status(404).json({ message: "Trajet not found." });
         }
-
 
         // Vérifie que le trajet est terminé
         if (trajet.status !== "COMPLETED") {
@@ -43,13 +44,12 @@ export const submitFeedback = async (req, res) => {
             }
         });
 
-
         // Met à jour le conducteur
         const driver = trajet.driver;
         if (driver) {
             const newRatingsCount = (driver.ratingsCount || 0) + 1;
             const newAvgRating = ((driver.avgRating || 0) * (driver.ratingsCount || 0) + rating) / newRatingsCount;
-            
+
             await prisma.driver.update({
                 where: { id: driver.id },
                 data: {
@@ -57,15 +57,17 @@ export const submitFeedback = async (req, res) => {
                     avgRating: newAvgRating
                 }
             });
-        }
 
-        const io = getIO();
-        io.to(trajet.driverId).emit('newFeedback', {
-            trajetId: trajet.id,
-            rating,
-            comment,
-            passengerName: `${trajet.passenger.prenom} ${trajet.passenger.nom}`
-        });
+            const io = getIO();
+
+            // FIX : "driver_${trajet.driverId}" au lieu de "trajet.driverId" seul
+            io.to(`driver_${trajet.driverId}`).emit('newFeedback', {
+                trajetId: trajet.id,
+                rating,
+                comment,
+                passengerName: `${trajet.passenger.prenom} ${trajet.passenger.nom}`
+            });
+        }
 
         return res.status(201).json({
             message: "Feedback submitted successfully.",
@@ -84,12 +86,12 @@ export const submitFeedback = async (req, res) => {
 // GET feedback pour un trajet spécifique
 export const getFeedbackByTrajet = async (req, res) => {
     const { trajetId } = req.params;
-    
+
     try {
         const feedback = await prisma.evaluation.findUnique({
             where: { trajetId: parseInt(trajetId) }
         });
-        
+
         return res.status(200).json({
             message: "Feedback retrieved successfully.",
             data: feedback ? [feedback] : []
@@ -108,15 +110,12 @@ export const getDriverFeedback = async (req, res) => {
     if (!driverId) {
         return res.status(403).json({ message: "Access restricted to drivers only." });
     }
-    
-    try {
 
-        // Pagination
+    try {
         const page = parseInt(req.query.page) || 1;
         const limit = parseInt(req.query.limit) || 10;
         const skip = (page - 1) * limit;
 
-        // Récupérer les feedbacks
         const feedbacks = await prisma.evaluation.findMany({
             where: {
                 trajet: {
@@ -130,7 +129,7 @@ export const getDriverFeedback = async (req, res) => {
                         startAddress: true,
                         endAddress: true,
                         dateDepart: true,
-                        passenger: {  // Info du passager
+                        passenger: {
                             select: {
                                 id: true,
                                 nom: true,
@@ -145,7 +144,6 @@ export const getDriverFeedback = async (req, res) => {
             take: limit
         });
 
-        // Compter le total
         const totalFeedbacks = await prisma.evaluation.count({
             where: {
                 trajet: {
@@ -166,23 +164,22 @@ export const getDriverFeedback = async (req, res) => {
                 hasPrevPage: page > 1
             }
         });
-    } catch(err) {
+    } catch (err) {
         return res.status(500).json({
             message: "Failed to retrieve feedback.",
             error: err.message
         });
-    }   
+    }
 };
 
-// GET stats d'un driver (avg + total)  (pour le profile personnel du driver)
+// GET stats d'un driver (avg + total)
 export const getDriverStats = async (req, res) => {
     const driverId = req.user.driverId;
     if (!driverId) {
         return res.status(403).json({ message: "Access restricted to drivers only." });
     }
-    
+
     try {
-        // Récupérer les stats depuis la table Driver 
         const driver = await prisma.driver.findUnique({
             where: { id: driverId },
             select: {
@@ -202,7 +199,7 @@ export const getDriverStats = async (req, res) => {
                 totalFeedbacks: driver.ratingsCount || 0
             }
         });
-    } catch(err) {
+    } catch (err) {
         return res.status(500).json({
             message: "Failed to retrieve driver stats.",
             error: err.message
@@ -210,22 +207,18 @@ export const getDriverStats = async (req, res) => {
     }
 };
 
-// GET stats d'un driver PUBLIC (pour les passagers qui voient son profil)
+// GET stats d'un driver PUBLIC
 export const getPublicDriverStats = async (req, res) => {
     const { driverId } = req.params;
-    
+
     try {
         const driver = await prisma.driver.findUnique({
             where: { id: parseInt(driverId) },
             select: {
                 avgRating: true,
                 ratingsCount: true,
-                user: {
-                    select: {
-                        nom: true,
-                        prenom: true
-                    }
-                }
+                nom: true,
+                prenom: true,
             }
         });
 
@@ -238,10 +231,10 @@ export const getPublicDriverStats = async (req, res) => {
             data: {
                 averageRating: driver.avgRating || 0,
                 totalFeedbacks: driver.ratingsCount || 0,
-                driverName: `${driver.user.prenom} ${driver.user.nom}`
+                driverName: `${driver.prenom} ${driver.nom}`
             }
         });
-    } catch(err) {
+    } catch (err) {
         return res.status(500).json({
             message: "Failed to retrieve driver stats.",
             error: err.message
@@ -249,13 +242,13 @@ export const getPublicDriverStats = async (req, res) => {
     }
 };
 
-// GET feedbacks publics d'un driver (pour les passagers qui voient son profil)
+// GET feedbacks publics d'un driver
 export const getPublicDriverFeedback = async (req, res) => {
     const { driverId } = req.params;
-    
+
     try {
         const page = parseInt(req.query.page) || 1;
-        const limit = parseInt(req.query.limit) || 5; // Moins par défaut pour le public
+        const limit = parseInt(req.query.limit) || 5;
         const skip = (page - 1) * limit;
 
         const feedbacks = await prisma.evaluation.findMany({
@@ -276,7 +269,7 @@ export const getPublicDriverFeedback = async (req, res) => {
                         dateDepart: true,
                         passenger: {
                             select: {
-                                prenom: true // Juste prénom pour anonymat partiel
+                                prenom: true
                             }
                         }
                     }
@@ -307,7 +300,7 @@ export const getPublicDriverFeedback = async (req, res) => {
                 hasPrevPage: page > 1
             }
         });
-    } catch(err) {
+    } catch (err) {
         return res.status(500).json({
             message: "Failed to retrieve public feedback.",
             error: err.message

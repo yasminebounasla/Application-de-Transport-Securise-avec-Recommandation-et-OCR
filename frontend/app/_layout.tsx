@@ -1,53 +1,88 @@
-import { Stack } from 'expo-router';
-import { Alert, Pressable } from 'react-native';
+import { Stack, router } from 'expo-router';
+import { Alert, Pressable, TouchableOpacity, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { AuthProvider } from '../context/AuthContext';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { AuthProvider, useAuth } from '../context/AuthContext';
 import { LocationProvider } from '../context/LocationContext';
 import { RideProvider } from '../context/RideContext';
+import { NotificationProvider, useNotifications } from '../context/NotificationContext';
+import NotifToast from '../components/NotifToast';
 import '../global.css';
+
+function ToastManager() {
+  const { currentToast, hideToast } = useNotifications();
+
+  const handlePress = () => {
+    hideToast();
+    router.push('/shared/NotificationsScreen' as any);
+  };
+
+  return (
+    <View style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 9999 }} pointerEvents={currentToast ? 'box-none' : 'none'}>
+      <TouchableOpacity onPress={handlePress} activeOpacity={0.95}>
+        <NotifToast toast={currentToast} onHide={hideToast} />
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+function AppContent() {
+  const { loading } = useAuth();
+  if (loading) return null;
+
+  return (
+    <NotificationProvider>
+      <LocationProvider>
+        <RideProvider>
+          <SafeAreaProvider>
+            <Stack>
+              <Stack.Screen name="index" options={{ headerShown: false }} />
+              <Stack.Screen name="auth" options={{ headerShown: false }} />
+              <Stack.Screen
+                name="(driverTabs)"
+                options={{
+                  title: '(driver tabs)',
+                  headerRight: () => (
+                    <Pressable
+                      onPress={() => Alert.alert('Notifications', 'No new notifications for now.')}
+                      style={{ marginRight: 12 }}
+                    >
+                      <Ionicons name="notifications-outline" size={22} color="#111" />
+                    </Pressable>
+                  ),
+                }}
+              />
+              <Stack.Screen
+                name="(passengerTabs)"
+                options={{
+                  title: '(passenger tabs)',
+                  headerRight: () => (
+                    <Pressable
+                      onPress={() => Alert.alert('Notifications', 'No new notifications for now.')}
+                      style={{ marginRight: 12 }}
+                    >
+                      <Ionicons name="notifications-outline" size={22} color="#111" />
+                    </Pressable>
+                  ),
+                }}
+              />
+              <Stack.Screen name="driver" options={{ headerShown: false }} />
+              <Stack.Screen name="passenger" options={{ headerShown: false }} />
+              <Stack.Screen name="shared/MapScreen" options={{ title: 'Map' }} />
+            </Stack>
+            <ToastManager />
+          </SafeAreaProvider>
+        </RideProvider>
+      </LocationProvider>
+    </NotificationProvider>
+  );
+}
 
 export default function Layout() {
   return (
     <AuthProvider>
-      <LocationProvider>
-        <RideProvider>
-          <Stack>
-            <Stack.Screen name="index" options={{ headerShown: false }} />
-            <Stack.Screen name="auth" options={{ headerShown: false }} />
-            <Stack.Screen
-              name="(driverTabs)"
-              options={{
-                title: '(driver tabs)',
-                headerRight: () => (
-                  <Pressable
-                    onPress={() => Alert.alert('Notifications', 'No new notifications for now.')}
-                    style={{ marginRight: 12 }}
-                  >
-                    <Ionicons name="notifications-outline" size={22} color="#111" />
-                  </Pressable>
-                ),
-              }}
-            />
-            <Stack.Screen
-              name="(passengerTabs)"
-              options={{
-                title: '(passenger tabs)',
-                headerRight: () => (
-                  <Pressable
-                    onPress={() => Alert.alert('Notifications', 'No new notifications for now.')}
-                    style={{ marginRight: 12 }}
-                  >
-                    <Ionicons name="notifications-outline" size={22} color="#111" />
-                  </Pressable>
-                ),
-              }}
-            />
-            <Stack.Screen name="driver" options={{ headerShown: false }} />
-            <Stack.Screen name="passenger" options={{ headerShown: false }} />
-            <Stack.Screen name="shared/MapScreen" options={{ title: 'Map' }} />
-          </Stack>
-        </RideProvider>
-      </LocationProvider>
+      <AppContent />
     </AuthProvider>
   );
 }
+

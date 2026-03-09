@@ -1,251 +1,189 @@
-// install the icons first with expo install @expo/vector-icons
-
-import React from "react";
-import { Pressable, View, Text, StyleSheet } from "react-native";
+import React, { useRef } from "react";
+import { Pressable, View, Text, StyleSheet, Animated } from "react-native";
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
+function Stars({ rating }) {
+  const safe  = Math.min(5, Math.max(0, rating ?? 0));
+  const full  = Math.floor(safe);
+  const half  = safe - full >= 0.25 && safe - full < 0.75;
+  const empty = 5 - full - (half ? 1 : 0);
+  return (
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 1 }}>
+      {Array.from({ length: full  }).map((_, i) => <Ionicons key={`f${i}`} name="star"         size={12} color="#F59E0B" />)}
+      {half &&                                       <Ionicons              name="star-half"    size={12} color="#F59E0B" />}
+      {Array.from({ length: empty }).map((_, i) => <Ionicons key={`e${i}`} name="star-outline" size={12} color="#E5E7EB" />)}
+      <Text style={styles.ratingNum}>{safe.toFixed(1)}</Text>
+    </View>
+  );
+}
+
+function Avatar({ prenom, nom, sexe }) {
+  const initials = `${prenom?.[0] ?? ''}${nom?.[0] ?? ''}`.toUpperCase();
+  const female   = sexe === 'F';
+  return (
+    <View style={[styles.avatar, { backgroundColor: female ? '#FCE4EC' : '#E8F0FE' }]}>
+      <Text style={[styles.avatarText, { color: female ? '#C2185B' : '#1A73E8' }]}>{initials}</Text>
+    </View>
+  );
+}
+
+function MiniTag({ icon, label, iconLib = 'material' }) {
+  return (
+    <View style={styles.tag}>
+      {iconLib === 'ionicons'
+        ? <Ionicons name={icon} size={10} color="#9CA3AF" />
+        : <MaterialCommunityIcons name={icon} size={10} color="#9CA3AF" />
+      }
+      <Text style={styles.tagText}>{label}</Text>
+    </View>
+  );
+}
+
 export default function DriverRecoCard({
-  driver,
-  isSelected = false,
-  onPress,
-  style,
+  driver, isSelected = false, onPress, onLongPress, style = undefined
 }) {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const onPressIn  = () => Animated.spring(scale, { toValue: 0.97, useNativeDriver: true }).start();
+  const onPressOut = () => Animated.spring(scale, { toValue: 1,    useNativeDriver: true }).start();
 
   return (
     <Pressable
       onPress={() => onPress(driver)}
-      style={({ pressed }) => [
-        styles.card,
-        isSelected && styles.selected,
-        pressed && styles.pressed,
-        style,
-      ]}
+      onLongPress={() => onLongPress && onLongPress(driver)}
+      onPressIn={onPressIn}
+      onPressOut={onPressOut}
+      style={style}
+      delayLongPress={400}
     >
-        
-      {/* Header avec nom et rating */}
-      <View style={styles.header}>
-        <View style={styles.nameContainer}>
+      <Animated.View style={[
+        styles.card,
+        isSelected && styles.cardSelected,
+        { transform: [{ scale }] }
+      ]}>
 
-          <Text style={styles.name}>
-            {driver.prenom} {driver.nom}
-          </Text>
+        {/* Checkmark sélectionné */}
+        {isSelected && (
+          <View style={styles.checkBadge}>
+            <Ionicons name="checkmark" size={11} color="#fff" />
+          </View>
+        )}
 
-          <View style={styles.genderRow}>
-            <Ionicons 
-              name={driver.sexe === 'F' ? "woman" : "man"} 
-              size={16} 
-              color="#6B7280" 
-            />
-            <Text style={styles.gender}>{driver.age} ans</Text>
+        <View style={styles.row}>
+          <Avatar prenom={driver.prenom} nom={driver.nom} sexe={driver.sexe} />
+
+          <View style={styles.body}>
+
+            {/* Nom + dispo */}
+            <View style={styles.nameLine}>
+              <Text style={styles.name} numberOfLines={1}>
+                {driver.prenom} {driver.nom}
+              </Text>
+              {driver.work_match && (
+                <View style={styles.dispoBadge}>
+                  <View style={styles.dispoDot} />
+                  <Text style={styles.dispoText}>Dispo</Text>
+                </View>
+              )}
+            </View>
+
+            <Stars rating={driver.avgRating} />
+
+            {/* Tags */}
+            <View style={styles.tagsRow}>
+
+              {/* Distance */}
+              {driver.distance_km != null && (
+                <View style={styles.tag}>
+                  <Ionicons name="location-outline" size={10} color="#9CA3AF" />
+                  <Text style={styles.tagText}>{driver.distance_km} km</Text>
+                </View>
+              )}
+
+              {/* Calme / Bavard */}
+              {!driver.talkative
+                ? <MiniTag icon="volume-mute"  label="Calme"    />
+                : <MiniTag icon="chatbubbles"  label="Bavard"   iconLib="material" />
+              }
+
+              {/* ✅ Radio — ajouté car pris en compte dans le scoring */}
+              {driver.radio_on
+                ? <MiniTag icon="radio"        label="Radio ✓"  />
+                : <MiniTag icon="radio-off"    label="Sans radio" />
+              }
+
+              {/* Fumeur */}
+              {driver.smoking_allowed && <MiniTag icon="smoking"     label="Fumeur OK" />}
+
+              {/* Animaux */}
+              {driver.pets_allowed    && <MiniTag icon="paw"         label="Animaux"   />}
+
+              {/* Grand coffre */}
+              {driver.car_big         && <MiniTag icon="car-side"    label="Grand"     />}
+
+            </View>
           </View>
 
+          {/* Hint long press */}
+          <View style={styles.hintCol}>
+            <Ionicons name="ellipsis-vertical" size={14} color="#D1D5DB" />
+          </View>
         </View>
-
-        <View style={styles.ratingContainer}>
-          <Ionicons name="star" size={18} color="#F59E0B" />
-          <Text style={styles.ratingText}>
-            {driver.note?.toFixed(1) || '4.5'}
-          </Text>
-        </View>
-      </View>
-
-      {/* Infos de contact */}
-      <View style={styles.contactInfo}>
-        <View style={styles.contactRow}>
-          <Ionicons name="mail-outline" size={14} color="#6B7280" />
-          <Text style={styles.contact} numberOfLines={1}>
-            {driver.email}
-          </Text>
-        </View>
-        <View style={styles.contactRow}>
-          <Ionicons name="call-outline" size={14} color="#6B7280" />
-          <Text style={styles.contact}>{driver.numTel}</Text>
-        </View>
-      </View>
-
-      {/* Caractéristiques */}
-      <View style={styles.features}>
-        <View style={styles.featureRow}>
-          <FeatureTag 
-            Icon={() => <Ionicons name="car-sport" size={14} color="#374151" />}
-            text={driver.car_big ? 'Grande voiture' : 'Standard'} 
-          />
-          <FeatureTag 
-            Icon={() => <Ionicons 
-              name={driver.talkative ? "chatbubbles" : "volume-mute"} 
-              size={14} 
-              color="#374151" 
-            />}
-            text={driver.talkative ? 'Bavard(e)' : 'Silencieux(se)'} 
-          />
-        </View>
-        
-        <View style={styles.featureRow}>
-          {driver.radio_on && (
-            <FeatureTag 
-              Icon={() => <Ionicons name="musical-notes" size={14} color="#374151" />}
-              text="Radio" 
-            />
-          )}
-          {driver.smoking_allowed && (
-            <FeatureTag 
-              Icon={() => <MaterialCommunityIcons name="smoking" size={14} color="#374151" />}
-              text="Fumeur OK" 
-            />
-          )}
-          {driver.pets_allowed && (
-            <FeatureTag 
-              Icon={() => <MaterialCommunityIcons name="paw" size={14} color="#374151" />}
-              text="Animaux" 
-            />
-          )}
-        </View>
-      </View>
-
-      {/* Badge de sélection */}
-      {isSelected && (
-        <View style={styles.selectedBadge}>
-          <Ionicons name="checkmark-circle" size={20} color="#000" />
-          <Text style={styles.selectedText}>Sélectionné</Text>
-        </View>
-      )}
+      </Animated.View>
     </Pressable>
-  );
-}
-
-// Composant pour les tags de caractéristiques
-function FeatureTag({ Icon, text }) {
-  return (
-    <View style={styles.tag}>
-      <Icon />
-      <Text style={styles.tagText}>{text}</Text>
-    </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: 'white',
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 12,
-    borderWidth: 2,
-    borderColor: '#E5E7EB',
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    marginBottom: 8,
+    borderWidth: 1.5,
+    borderColor: '#F3F4F6',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
   },
-  selected: {
-    borderColor: '#000000',
-    backgroundColor: '#F9FAFB',
-    borderWidth: 3,
+  cardSelected: {
+    borderColor: '#111',
+    backgroundColor: '#FAFAFA',
   },
-  pressed: {
-    opacity: 0.7,
-    transform: [{ scale: 0.98 }],
+  checkBadge: {
+    position: 'absolute', top: -6, right: -6,
+    width: 20, height: 20, borderRadius: 10,
+    backgroundColor: '#111',
+    alignItems: 'center', justifyContent: 'center',
+    zIndex: 1,
+    borderWidth: 2, borderColor: '#fff',
   },
-
-  // Header
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: 12,
-    paddingBottom: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F3F4F6',
+  row:  { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  body: { flex: 1, gap: 5 },
+  avatar: {
+    width: 46, height: 46, borderRadius: 23,
+    alignItems: 'center', justifyContent: 'center',
   },
-  nameContainer: {
-    flex: 1,
+  avatarText:  { fontSize: 15, fontWeight: '800' },
+  nameLine:    { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  name:        { fontSize: 15, fontWeight: '700', color: '#111', flex: 1 },
+  dispoBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: '#F0FDF4', paddingHorizontal: 7,
+    paddingVertical: 2, borderRadius: 20,
   },
-  name: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#111827',
-    marginBottom: 6,
-  },
-  genderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  gender: {
-    fontSize: 13,
-    color: '#6B7280',
-  },
-  ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFAE5',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    gap: 4,
-  },
-  ratingText: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: 'gray',
-  },
-
-  // Contact
-  contactInfo: {
-    marginBottom: 12,
-    gap: 6,
-  },
-  contactRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  contact: {
-    fontSize: 13,
-    color: '#4B5563',
-    flex: 1,
-  },
-
-  // Features
-  features: {
-    gap: 8,
-  },
-  featureRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-  },
+  dispoDot:    { width: 6, height: 6, borderRadius: 3, backgroundColor: '#16A34A' },
+  dispoText:   { fontSize: 10, fontWeight: '700', color: '#16A34A' },
+  ratingNum:   { fontSize: 11, fontWeight: '600', color: '#9CA3AF', marginLeft: 3 },
+  tagsRow:     { flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
   tag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#F3F4F6',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    gap: 6,
+    flexDirection: 'row', alignItems: 'center', gap: 3,
+    backgroundColor: '#F5F5F5', paddingHorizontal: 7,
+    paddingVertical: 3, borderRadius: 6,
   },
-  tagText: {
-    fontSize: 12,
-    color: '#374151',
-    fontWeight: '600',
-  },
-
-  // Selected badge
-  selectedBadge: {
-    marginTop: 12,
-    paddingTop: 12,
-    borderTopWidth: 1,
-    borderTopColor: '#E5E7EB',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
-  selectedText: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#000000',
-  },
+  tagText:  { fontSize: 10, fontWeight: '600', color: '#9CA3AF' },
+  hintCol:  { paddingLeft: 4 },
 });

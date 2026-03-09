@@ -2,12 +2,12 @@ import { View, Text, TouchableOpacity } from 'react-native';
 import { Stack, router } from 'expo-router';
 import { HeaderBackButton } from '@react-navigation/elements';
 
-export default function PassengerHome() {
+export default function DriverHome() {
   return (
     <>
       <Stack.Screen
         options={{
-          title: 'Passenger',
+          title: 'Driver',
           headerBackVisible: false,
           headerLeft: (props) => (
             <HeaderBackButton
@@ -22,16 +22,16 @@ export default function PassengerHome() {
         <View className="flex-1 justify-center">
           <View className="mb-12">
             <Text className="text-4xl font-bold text-black mb-2">
-              Passenger
+              Driver
             </Text>
             <Text className="text-gray-600 text-base">
-              Get started with your account
+              Access your driver account
             </Text>
           </View>
 
           <View className="space-y-4">
             <TouchableOpacity
-              onPress={() => router.push('/auth/passenger/LoginPassengerScreen')}
+              onPress={() => router.push('/auth/driver/LoginDriverScreen')}
               className="bg-black rounded-2xl py-5 mb-4"
             >
               <Text className="text-white text-center text-lg font-semibold">
@@ -40,18 +40,18 @@ export default function PassengerHome() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              onPress={() => router.push('/auth/passenger/RegisterPassengerScreen')}
+              onPress={() => router.push('/auth/driver/RegisterDriverScreen')}
               className="bg-white border-2 border-gray-300 rounded-2xl py-5"
             >
               <Text className="text-black text-center text-lg font-semibold">
-                Create Account
+                Register as Driver
               </Text>
             </TouchableOpacity>
           </View>
 
           <View className="mt-8">
             <Text className="text-center text-gray-500 text-sm">
-              New to our platform? Sign up to start riding
+              Want to earn money? Register and start driving
             </Text>
           </View>
         </View>

@@ -1,120 +1,125 @@
-const ALGERIA_BOUNDS = {
-  minLat: 18.96,  
-  maxLat: 37.09,  
-  minLng: -8.67, 
-  maxLng: 11.98,  
-};
+const LOCATIONIQ_KEY = process.env.EXPO_PUBLIC_LOCATIONIQ_API_KEY;
 
-const MOROCCO_EXCLUSION = {
-  minLat: 27.0,
-  maxLat: 36.0,
-  minLng: -17.0,
-  maxLng: -1.0,
-};
-
-const TUNISIA_EXCLUSION = {
-  minLat: 30.2,
-  maxLat: 37.6,
-  minLng: 7.5,
-  maxLng: 11.98,
-};
-
-const LIBYA_EXCLUSION = {
-  minLat: 19.5,
-  maxLat: 33.2,
-  minLng: 11.0,
-  maxLng: 25.0,
-};
-
-const MALI_NIGER_EXCLUSION = {
-  minLat: 10.0,
-  maxLat: 20.0,
-  minLng: -8.67,
-  maxLng: 11.98,
-};
-
-const WESTERN_SAHARA_EXCLUSION = {
-  minLat: 20.0,
-  maxLat: 27.7,
-  minLng: -17.0,
-  maxLng: -8.67,
-};
-
-export function isInAlgeria(location) {
-  if (!location || !location.latitude || !location.longitude) {
+/**
+ * Vérifie si une coordonnée est en Algérie via LocationIQ reverse geocoding.
+ */
+export async function isInAlgeria(location) {
+  if (!location || location.latitude == null || location.longitude == null) {
     return false;
   }
 
   const { latitude, longitude } = location;
 
-  const inAlgeriaBounds =
-    latitude >= ALGERIA_BOUNDS.minLat &&
-    latitude <= ALGERIA_BOUNDS.maxLat &&
-    longitude >= ALGERIA_BOUNDS.minLng &&
-    longitude <= ALGERIA_BOUNDS.maxLng;
-
-  if (!inAlgeriaBounds) {
+  // Bounding box rapide avant l'appel API (optimisation)
+  if (
+    latitude  < 18.96 || latitude  > 37.20 ||
+    longitude < -8.67 || longitude > 11.98
+  ) {
     console.log('❌ Hors bounding box Algérie');
     return false;
   }
 
-  if (
-    latitude >= MOROCCO_EXCLUSION.minLat &&
-    latitude <= MOROCCO_EXCLUSION.maxLat &&
-    longitude >= MOROCCO_EXCLUSION.minLng &&
-    longitude <= MOROCCO_EXCLUSION.maxLng
-  ) {
-    console.log('❌ Zone Maroc détectée');
-    return false;
-  }
+  try {
+    const response = await fetch(
+      `https://us1.locationiq.com/v1/reverse?key=${LOCATIONIQ_KEY}&lat=${latitude}&lon=${longitude}&format=json`,
+    );
 
-  if (
-    latitude >= TUNISIA_EXCLUSION.minLat &&
-    latitude <= TUNISIA_EXCLUSION.maxLat &&
-    longitude >= TUNISIA_EXCLUSION.minLng &&
-    longitude <= TUNISIA_EXCLUSION.maxLng
-  ) {
-    if (longitude >= 8.0 && latitude >= 32.0) {
-      console.log('❌ Zone Tunisie détectée');
-      return false;
+    if (!response.ok) {
+      console.warn(`⚠️ LocationIQ error ${response.status}, fallback polygone`);
+      return isInAlgeriaFallback(location);
     }
-  }
 
-  if (longitude >= LIBYA_EXCLUSION.minLng) {
-    console.log('❌ Zone Libye détectée (lng >= 11.0°)');
-    return false;
-  }
+    const data = await response.json();
+    const countryCode = data?.address?.country_code?.toUpperCase();
 
-  if (
-    latitude >= MALI_NIGER_EXCLUSION.minLat &&
-    latitude <= MALI_NIGER_EXCLUSION.maxLat &&
-    latitude < 20.5
-  ) {
-    console.log('❌ Zone Mali/Niger détectée');
-    return false;
-  }
+    console.log(`📍 LocationIQ (${latitude}, ${longitude}): country_code = ${countryCode}`);
 
-  if (
-    latitude >= WESTERN_SAHARA_EXCLUSION.minLat &&
-    latitude <= WESTERN_SAHARA_EXCLUSION.maxLat &&
-    longitude >= WESTERN_SAHARA_EXCLUSION.minLng &&
-    longitude < -8.0
-  ) {
-    console.log('❌ Zone Sahara Occidental détectée');
-    return false;
-  }
+    return countryCode === 'DZ';
 
-  console.log('✅ Coordonnée en Algérie');
-  return true;
+  } catch (error) {
+    console.warn('⚠️ LocationIQ indisponible, fallback polygone:', error.message);
+    return isInAlgeriaFallback(location);
+  }
 }
 
-export function validateLocationsInAlgeria(start, end) {
+/**
+ * Fallback polygone si Nominatim est indisponible.
+ */
+const ALGERIA_POLYGON = [
+  { lat: 35.1717, lng: -2.2170 },
+  { lat: 34.8780, lng: -1.7924 },
+  { lat: 34.0000, lng: -1.6000 },
+  { lat: 33.2000, lng: -1.6500 },
+  { lat: 32.0800, lng: -1.2500 },
+  { lat: 30.0000, lng: -2.0000 },
+  { lat: 29.0000, lng: -1.2500 },
+  { lat: 27.6577, lng: -8.6670 },
+  { lat: 24.9945, lng: -8.6670 },
+  { lat: 23.4728, lng: -5.9000 },
+  { lat: 21.8000, lng: -5.2000 },
+  { lat: 21.3307, lng: -4.8300 },
+  { lat: 21.0000, lng: -3.5000 },
+  { lat: 20.4000, lng: -2.5000 },
+  { lat: 19.8000, lng: -1.5000 },
+  { lat: 19.4000, lng:  0.5000 },
+  { lat: 19.1670, lng:  3.1670 },
+  { lat: 19.4000, lng:  4.0000 },
+  { lat: 19.5700, lng:  5.7700 },
+  { lat: 20.0000, lng:  6.5000 },
+  { lat: 20.5000, lng:  7.5000 },
+  { lat: 21.0000, lng:  8.5000 },
+  { lat: 21.8000, lng:  9.0000 },
+  { lat: 22.5000, lng:  9.3800 },
+  { lat: 23.9000, lng:  9.5500 },
+  { lat: 24.9500, lng: 11.5600 },
+  { lat: 25.0000, lng: 11.9800 },
+  { lat: 26.5000, lng: 11.9800 },
+  { lat: 28.0000, lng: 11.5000 },
+  { lat: 30.4000, lng:  9.5200 },
+  { lat: 33.1400, lng:  9.5000 },
+  { lat: 33.1700, lng:  8.4300 },
+  { lat: 36.4670, lng:  8.2250 },
+  { lat: 37.0930, lng:  8.5730 },
+  { lat: 37.0900, lng:  8.6000 },
+  { lat: 37.1100, lng:  5.1000 },
+  { lat: 36.9400, lng:  3.0600 },
+  { lat: 35.8500, lng:  0.2200 },
+  { lat: 35.7500, lng: -0.7300 },
+  { lat: 35.3500, lng: -1.2000 },
+  { lat: 35.1717, lng: -2.2170 },
+];
+
+function isPointInPolygon(lat, lng, polygon) {
+  let inside = false;
+  const n = polygon.length;
+  for (let i = 0, j = n - 1; i < n; j = i++) {
+    const xi = polygon[i].lng, yi = polygon[i].lat;
+    const xj = polygon[j].lng, yj = polygon[j].lat;
+    const intersect = yi > lat !== yj > lat &&
+      lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi;
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+function isInAlgeriaFallback(location) {
+  console.log('⚠️ Fallback polygone utilisé');
+  return isPointInPolygon(location.latitude, location.longitude, ALGERIA_POLYGON);
+}
+
+/**
+ * Valide que les deux points sont en Algérie.
+ * ⚠️ Cette fonction est async — utilise await dans SearchRideScreen.
+ */
+export async function validateLocationsInAlgeria(start, end) {
   console.log('🔍 Validation géographique:');
   console.log('  Départ:', start);
   console.log('  Destination:', end);
 
-  const startInAlgeria = isInAlgeria(start);
-  const endInAlgeria = isInAlgeria(end);
+  const [startInAlgeria, endInAlgeria] = await Promise.all([
+    isInAlgeria(start),
+    isInAlgeria(end),
+  ]);
 
   console.log('  Départ en Algérie:', startInAlgeria);
   console.log('  Destination en Algérie:', endInAlgeria);
@@ -127,7 +132,6 @@ export function validateLocationsInAlgeria(start, end) {
       endValid: false,
     };
   }
-
   if (!startInAlgeria) {
     return {
       valid: false,
@@ -136,7 +140,6 @@ export function validateLocationsInAlgeria(start, end) {
       endValid: true,
     };
   }
-
   if (!endInAlgeria) {
     return {
       valid: false,
@@ -154,70 +157,22 @@ export function validateLocationsInAlgeria(start, end) {
   };
 }
 
-export function getApproximateCountry(location) {
+/**
+ * Retourne le nom du pays via Nominatim.
+ */
+export async function getApproximateCountry(location) {
   if (!location) return "Inconnu";
-
-  if (isInAlgeria(location)) {
-    return "Algérie 🇩🇿";
+  try {
+    const response = await fetch(
+      `https://us1.locationiq.com/v1/reverse?key=${LOCATIONIQ_KEY}&lat=${location.latitude}&lon=${location.longitude}&format=json`
+    );
+    const data = await response.json();
+    return data?.address?.country || "Inconnu";
+  } catch {
+    return "Inconnu";
   }
-
-  const { latitude, longitude } = location;
-
-  if (
-    latitude >= MOROCCO_EXCLUSION.minLat &&
-    latitude <= MOROCCO_EXCLUSION.maxLat &&
-    longitude >= MOROCCO_EXCLUSION.minLng &&
-    longitude <= MOROCCO_EXCLUSION.maxLng
-  ) {
-    return "Maroc 🇲🇦";
-  }
-
-  if (
-    latitude >= TUNISIA_EXCLUSION.minLat &&
-    latitude <= TUNISIA_EXCLUSION.maxLat &&
-    longitude >= TUNISIA_EXCLUSION.minLng &&
-    longitude <= TUNISIA_EXCLUSION.maxLng
-  ) {
-    return "Tunisie 🇹🇳";
-  }
-
-  if (longitude >= LIBYA_EXCLUSION.minLng) {
-    return "Libye 🇱🇾";
-  }
-
-  if (latitude < 20.5) {
-    return "Mali/Niger 🇲🇱🇳🇪";
-  }
-
-  if (longitude < -8.0 && latitude < 27.7) {
-    return "Sahara Occidental";
-  }
-
-  return "Hors Algérie";
 }
 
 export function getAlgeriaBounds() {
-  return ALGERIA_BOUNDS;
-}
-
-export function testCoordinates() {
-  const tests = [
-    { name: "Alger", lat: 36.7538, lng: 3.0588 },
-    { name: "Oran", lat: 35.6969, lng: -0.6331 },
-    { name: "Constantine", lat: 36.3650, lng: 6.6147 },
-    { name: "Tlemcen (frontière Maroc)", lat: 34.8780, lng: -1.3157 },
-    { name: "Annaba (frontière Tunisie)", lat: 36.9000, lng: 7.7667 },
-    { name: "Tamanrasset (sud)", lat: 22.7850, lng: 5.5228 },
-    { name: "Casablanca (Maroc)", lat: 33.5731, lng: -7.5898 },
-    { name: "Tunis (Tunisie)", lat: 36.8065, lng: 10.1815 },
-    { name: "Sfax (Tunisie)", lat: 34.7406, lng: 10.7603 },
-    { name: "Tripoli (Libye)", lat: 32.8872, lng: 13.1913 },
-    { name: "Bamako (Mali)", lat: 12.6392, lng: -8.0029 },
-  ];
-
-  console.log('\n🧪 Test de validation géographique:\n');
-  tests.forEach(test => {
-    const result = isInAlgeria({ latitude: test.lat, longitude: test.lng });
-    console.log(`${result ? '✅' : '❌'} ${test.name}: ${test.lat}, ${test.lng}`);
-  });
+  return { minLat: 18.96, maxLat: 37.20, minLng: -8.67, maxLng: 11.98 };
 }

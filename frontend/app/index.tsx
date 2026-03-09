@@ -14,7 +14,7 @@ export default function Home() {
         {/* Role Selection Buttons */}
         <View className="w-full max-w-sm">
           <TouchableOpacity
-            onPress={() => router.push('/auth/driver/driver')}
+            onPress={() => router.push('/auth/driver')}
             className="bg-black rounded-2xl py-5 mb-4 shadow-lg"
           >
             <Text className="text-white text-center text-lg font-semibold">
@@ -23,7 +23,7 @@ export default function Home() {
           </TouchableOpacity>
           
           <TouchableOpacity
-            onPress={() => router.push('/auth/passenger/passenger')}
+            onPress={() => router.push('/auth/passenger')}
             className="bg-white border-2 border-gray-300 rounded-2xl py-5"
           >
             <Text className="text-black text-center text-lg font-semibold">
@@ -42,3 +42,4 @@ export default function Home() {
     </View>
   );
 }
+

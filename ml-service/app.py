@@ -18,7 +18,7 @@ async def recommend(data: RecommendationRequest):
     recommendations = await get_recommendations(
         passenger_id=passenger_id,
         preferences=data.preferences,
-        top_n=10
+        top_n=5
     )
     return {
         "success": True,

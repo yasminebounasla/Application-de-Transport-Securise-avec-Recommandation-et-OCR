@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { useRide } from '../../context/RideContext';
@@ -19,16 +19,27 @@ const minutesUntilDeparture = (dateValue?: string) => {
 
 export default function MesTrajets() {
   const { passengerRides, getPassengerRides, loading } = useRide();
+  const [screenLoading, setScreenLoading] = useState(true);
 
   useFocusEffect(
     useCallback(() => {
-      getPassengerRides();
-    }, [getPassengerRides])
+      let active = true;
+      (async () => {
+        try {
+          await getPassengerRides();
+        } finally {
+          if (active) setScreenLoading(false);
+        }
+      })();
+      return () => {
+        active = false;
+      };
+    }, [])
   );
 
   const rides = useMemo(() => {
     return (passengerRides || []).filter((ride: any) =>
-      ['PENDING', 'ACCEPTED', 'IN_PROGRESS'].includes(ride.status)
+      ride.status === 'ACCEPTED'
     );
   }, [passengerRides]);
 
@@ -53,7 +64,7 @@ export default function MesTrajets() {
     });
   };
 
-  if (loading && rides.length === 0) {
+  if ((screenLoading || loading) && rides.length === 0) {
     return (
       <View style={styles.center}>
         <ActivityIndicator size="large" color="#111" />

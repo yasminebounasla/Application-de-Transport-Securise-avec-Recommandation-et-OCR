@@ -121,7 +121,7 @@ export default function SelfieScreen() {
   
   // Wait 3 seconds before redirecting
   setTimeout(() => {
-    router.replace("/driver/HomeScreen");
+    router.replace("/driver/ProfileSetupScreen");
   }, 3000);
   
       } else {

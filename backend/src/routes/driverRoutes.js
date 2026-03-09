@@ -8,7 +8,7 @@ import { addDriverPreferences, getDriverRating ,
   getDriverPreferences,
   getDriverProfile,
   getMyDriverProfile,
-  updateDriverProfile
+  updateDriverProfile ,
 } from "../controllers/driverController.js";
 
 const router = express.Router();

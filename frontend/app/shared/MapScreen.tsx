@@ -2,10 +2,12 @@ import React, { useContext, useRef, useEffect, useState } from "react";
 import {
   View,
   StyleSheet,
+  Platform,
   TouchableOpacity,
   Text,
   ActivityIndicator,
   Alert,
+  Modal,
 } from "react-native";
 import MapView, { Marker, Polyline } from "react-native-maps";
 import { LocationContext } from "../../context/LocationContext";
@@ -15,7 +17,7 @@ import { formatDuration, formatDistance } from "../../utils/formatUtils";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from '@expo/vector-icons';
 import api from "../../services/api";
-import { calculatePrice }   from "../../utils/priceCalculator";
+import { calculatePrice } from "../../utils/priceCalculator";
 
 
 function LocationNotSupported({ onTryAnother }) {
@@ -49,16 +51,16 @@ function LocationNotSupported({ onTryAnother }) {
 
 export default function MapScreen() {
   const router = useRouter();
-  const { 
-    selectionType, 
-    rideId, 
-    startAddress, 
+  const {
+    selectionType,
+    rideId,
+    startAddress,
     endAddress,
     startLat,
     startLng,
     endLat,
     endLng,
-    targetKey:   _targetKey,  
+    targetKey:   _targetKey,
     targetLabel: _targetLabel,
   } = useLocalSearchParams();
   const targetKey   = (Array.isArray(_targetKey)   ? _targetKey[0]   : _targetKey)   as string;
@@ -76,22 +78,31 @@ export default function MapScreen() {
     selectionType === "start" ? startLocation : endLocation
   );
   const [selectedAddress, setSelectedAddress] = useState("");
-  const [loadingAddress, setLoadingAddress] = useState(false);
-  const [savingAddress, setSavingAddress]     = useState(false); 
+  const [loadingAddress, setLoadingAddress]   = useState(false);
+  const [savingAddress, setSavingAddress]     = useState(false);
 
   const [routeCoordinates, setRouteCoordinates] = useState([]);
-  const [loadingRoute, setLoadingRoute] = useState(false);
-  const [isValidRoute, setIsValidRoute] = useState(true);
-  const [routeDistance, setRouteDistance] = useState<number | null>(null);
-  const [routeDuration, setRouteDuration] = useState<number | null>(null);
-
-  // ── Prix estimé ─────────────────────────────
-  const [estimatedPrice, setEstimatedPrice] = useState<number | null>(null);
-
+  const [loadingRoute, setLoadingRoute]         = useState(false);
+  const [isValidRoute, setIsValidRoute]         = useState(true);
+  const [routeDistance, setRouteDistance]       = useState<number | null>(null);
+  const [routeDuration, setRouteDuration]       = useState<number | null>(null);
+  const [estimatedPrice, setEstimatedPrice]     = useState<number | null>(null);
   const [showLocationError, setShowLocationError] = useState(false);
+  const [showCancelModal, setShowCancelModal]   = useState(false);
 
-  const mapRef = useRef(null);
+  const mapRef          = useRef(null);
   const debounceTimeout = useRef(null);
+
+  // ── Shared locate helper ─────────────────────
+  const goToCurrentLocation = () => {
+    if (!currentLocation || !mapRef.current) return;
+    mapRef.current.animateToRegion({
+      latitude:      currentLocation.latitude,
+      longitude:     currentLocation.longitude,
+      latitudeDelta:  0.01,
+      longitudeDelta: 0.01,
+    }, 500);
+  };
 
   useEffect(() => {
     if (selectionType === "route" && startLocation && endLocation) {
@@ -102,17 +113,13 @@ export default function MapScreen() {
         const val = Array.isArray(coord) ? coord[0] : coord;
         return parseFloat(val);
       };
-
       const startLatNum = parseCoord(startLat);
       const startLngNum = parseCoord(startLng);
-      const endLatNum = parseCoord(endLat);
-      const endLngNum = parseCoord(endLng);
-
+      const endLatNum   = parseCoord(endLat);
+      const endLngNum   = parseCoord(endLng);
       if (startLatNum && startLngNum && endLatNum && endLngNum) {
-        const start = { latitude: startLatNum, longitude: startLngNum };
-        const end = { latitude: endLatNum, longitude: endLngNum };
-        setStartLocation(start);
-        setEndLocation(end);
+        setStartLocation({ latitude: startLatNum, longitude: startLngNum });
+        setEndLocation({ latitude: endLatNum,   longitude: endLngNum });
       }
     }
   }, [selectionType, startLocation, endLocation, startLat, startLng, endLat, endLng]);
@@ -128,17 +135,14 @@ export default function MapScreen() {
     mapRef.current.fitToCoordinates(
       [
         { latitude: startLocation.latitude, longitude: startLocation.longitude },
-        { latitude: endLocation.latitude, longitude: endLocation.longitude },
+        { latitude: endLocation.latitude,   longitude: endLocation.longitude },
       ],
-      {
-        edgePadding: { top: 200, right: 60, bottom: 280, left: 60 },
-        animated: true,
-      }
+      { edgePadding: { top: 200, right: 60, bottom: 280, left: 60 }, animated: true }
     );
   };
 
   const validateAndFetchRoute = async () => {
-    const validation = validateLocationsInAlgeria(startLocation, endLocation);
+    const validation = await validateLocationsInAlgeria(startLocation, endLocation);
     if (!validation.valid) {
       setIsValidRoute(false);
       setRouteCoordinates([]);
@@ -157,29 +161,18 @@ export default function MapScreen() {
   const fetchRoute = async () => {
     setLoadingRoute(true);
     try {
-      const response = await api.post('/ride/calculate', {
-        start: startLocation,
-        end: endLocation,
-      });
+      const response = await api.post('/ride/calculate', { start: startLocation, end: endLocation });
       const data = response.data;
-
       if (data.success && data.geometry?.coordinates) {
-        const coords = data.geometry.coordinates.map(([lng, lat]) => ({
-          latitude: lat,
-          longitude: lng,
-        }));
+        const coords = data.geometry.coordinates.map(([lng, lat]) => ({ latitude: lat, longitude: lng }));
         setRouteCoordinates(coords);
-
-        const distKm  = parseFloat(data.distanceKm);
-        const durMin  = parseInt(data.durationMin, 10);
-
+        const distKm = parseFloat(data.distanceKm);
+        const durMin = parseInt(data.durationMin, 10);
         setRouteDistance(distKm);
         setRouteDuration(durMin);
-
-        // ── Calcul du prix juste après avoir obtenu distance + durée ──
         const { price } = calculatePrice(distKm, durMin);
         setEstimatedPrice(price);
-
+        if (rideId) await api.patch(`/ridesDem/${rideId}/price`, { prix: price });
         if (mapRef.current && coords.length > 0) {
           mapRef.current.fitToCoordinates(coords, {
             edgePadding: { top: 200, right: 60, bottom: 280, left: 60 },
@@ -203,8 +196,7 @@ export default function MapScreen() {
     debounceTimeout.current = setTimeout(async () => {
       setLoadingAddress(true);
       try {
-        const address = await reverseGeocode(coords);
-        setSelectedAddress(address);
+        setSelectedAddress(await reverseGeocode(coords));
       } catch {
         setSelectedAddress("Error loading address");
       } finally {
@@ -229,11 +221,8 @@ export default function MapScreen() {
 
   const handleConfirm = () => {
     if (!selectedLocation) return;
-    if (selectionType === "start") {
-      setStartLocation(selectedLocation);
-    } else {
-      setEndLocation(selectedLocation);
-    }
+    if (selectionType === "start") setStartLocation(selectedLocation);
+    else setEndLocation(selectedLocation);
     router.back();
   };
 
@@ -245,18 +234,15 @@ export default function MapScreen() {
       const lat     = selectedLocation.latitude;
       const lng     = selectedLocation.longitude;
       const address = selectedAddress;
-
       const listRes = await api.get('/passengers/saved-places');
       const existing = (listRes.data.data || []).find(
         (p) => p.label.toLowerCase() === label.toLowerCase()
       );
-
       if (existing) {
         await api.put(`/passengers/saved-places/${existing.id}`, { label, address, lat, lng });
       } else {
         await api.post('/passengers/saved-places', { label, address, lat, lng });
       }
-
       router.back();
     } catch (e) {
       console.error("❌ Error saving address:", e);
@@ -271,48 +257,36 @@ export default function MapScreen() {
       router.push("/passenger/SearchRideScreen");
       return;
     }
+    setShowCancelModal(true);
+  };
 
-    Alert.alert(
-      "Cancel Ride",
-      "Are you sure you want to cancel this ride?",
-      [
-        { text: "No", style: "cancel" },
-        {
-          text: "Yes, Cancel",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              const response = await api.put(`/ridesDem/${rideId}/cancel`);
-              console.log(`✅ Ride ${rideId} cancelled`, response.data);
-            } catch (error) {
-              console.error('❌ Erreur cancel:', error.response?.data || error.message);
-            } finally {
-              router.push("/passenger/SearchRideScreen");
-            }
-          },
-        }
-      ]
-    );
+  const confirmCancelRide = async () => {
+    setShowCancelModal(false);
+    try {
+      await api.put(`/ridesDem/${rideId}/cancel`);
+    } catch (error) {
+      console.error('❌ Erreur cancel:', error.response?.data || error.message);
+    }
+    router.replace("/(passengerTabs)/PassengerHomeScreen");
   };
 
   const handleTryAnother = () => {
-    setShowLocationError(false);
     router.push("/passenger/SearchRideScreen");
   };
 
   const getInitialRegion = () => {
     if (selectionType === "route" && startLocation && endLocation) {
       return {
-        latitude: (startLocation.latitude + endLocation.latitude) / 2,
-        longitude: (startLocation.longitude + endLocation.longitude) / 2,
-        latitudeDelta: Math.abs(startLocation.latitude - endLocation.latitude) * 1.5 || 0.1,
+        latitude:       (startLocation.latitude  + endLocation.latitude)  / 2,
+        longitude:      (startLocation.longitude + endLocation.longitude) / 2,
+        latitudeDelta:  Math.abs(startLocation.latitude  - endLocation.latitude)  * 1.5 || 0.1,
         longitudeDelta: Math.abs(startLocation.longitude - endLocation.longitude) * 1.5 || 0.1,
       };
     }
     return {
-      latitude: currentLocation?.latitude ?? 36.7538,
-      longitude: currentLocation?.longitude ?? 3.0588,
-      latitudeDelta: 0.01,
+      latitude:       currentLocation?.latitude  ?? 36.7538,
+      longitude:      currentLocation?.longitude ?? 3.0588,
+      latitudeDelta:  0.01,
       longitudeDelta: 0.01,
     };
   };
@@ -328,23 +302,23 @@ export default function MapScreen() {
           style={StyleSheet.absoluteFillObject}
           initialRegion={getInitialRegion()}
           showsUserLocation
+          showsMyLocationButton={false}
           onPress={handleMapPress}
         >
           {selectedLocation?.latitude && selectedLocation?.longitude && (
-            <Marker
-              coordinate={selectedLocation}
-              draggable
-              onDragEnd={handleMarkerDragEnd}
-            />
+            <Marker coordinate={selectedLocation} draggable onDragEnd={handleMarkerDragEnd} />
           )}
         </MapView>
+
+        <TouchableOpacity style={styles.locationButton} onPress={goToCurrentLocation} activeOpacity={0.8}>
+          <Ionicons name="locate" size={20} color="#007AFF" />
+        </TouchableOpacity>
 
         <View style={styles.bottomSheetFixed}>
           <View style={styles.dragHandle} />
           <Text style={styles.title}>
             {targetLabel ? `Set ${targetLabel} location` : 'Set location'}
           </Text>
-
           {loadingAddress ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="small" color="#666" />
@@ -355,21 +329,16 @@ export default function MapScreen() {
               {selectedAddress || 'Tap or drag pin on map'}
             </Text>
           )}
-
           <TouchableOpacity
-            style={[
-              styles.confirmBtn,
-              (!selectedLocation || loadingAddress || savingAddress) && styles.confirmBtnDisabled,
-            ]}
+            style={[styles.confirmBtn, (!selectedLocation || loadingAddress || savingAddress) && styles.confirmBtnDisabled]}
             onPress={handleConfirmSavedAddress}
             disabled={!selectedLocation || loadingAddress || savingAddress}
             activeOpacity={0.8}
           >
-            {savingAddress ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <Text style={styles.confirmText}>Save address</Text>
-            )}
+            {savingAddress
+              ? <ActivityIndicator size="small" color="#fff" />
+              : <Text style={styles.confirmText}>Save address</Text>
+            }
           </TouchableOpacity>
         </View>
       </View>
@@ -394,91 +363,114 @@ export default function MapScreen() {
             <Marker coordinate={endLocation} pinColor="blue" />
           )}
           {isValidRoute && routeCoordinates.length > 0 && (
-            <Polyline
-              coordinates={routeCoordinates}
-              strokeColor="#385c8e"
-              strokeWidth={2.5}
-            />
+            <Polyline coordinates={routeCoordinates} strokeColor="#294190" strokeWidth={2} />
           )}
         </MapView>
 
-        <View style={styles.topAddresses}>
-          <View style={styles.addressCard}>
-            <View style={styles.addressRow}>
-              <View style={styles.dotGreen} />
-              <Text style={styles.addressText} numberOfLines={1}>
-                {startAddress || "Departure"}
-              </Text>
-            </View>
-            <View style={styles.addressSeparator} />
-            <View style={styles.addressRow}>
-              <View style={styles.dotRed} />
-              <Text style={styles.addressText} numberOfLines={1}>
-                {endAddress || "Destination"}
-              </Text>
-            </View>
+        {/* ── Top address card ── */}
+        <View style={routeStyles.topCard}>
+          <View style={routeStyles.addressRow}>
+            <View style={routeStyles.dotGreen} />
+            <Text style={routeStyles.addressText} numberOfLines={1}>{startAddress || "Departure"}</Text>
+          </View>
+          <View style={routeStyles.addressDivider} />
+          <View style={routeStyles.addressRow}>
+            <View style={routeStyles.dotBlue} />
+            <Text style={routeStyles.addressText} numberOfLines={1}>{endAddress || "Destination"}</Text>
           </View>
         </View>
 
         {showLocationError ? (
           <LocationNotSupported onTryAnother={handleTryAnother} />
         ) : (
-          <View style={styles.bottomSheet}>
-            <View style={styles.dragHandle} />
-
+          <View style={routeStyles.bottomSheet}>
+            <View style={routeStyles.handle} />
             {loadingRoute ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color="#000" />
-                <Text style={styles.loadingText}>Calculating route...</Text>
+              <View style={routeStyles.loadingRow}>
+                <ActivityIndicator size="small" color="#111" />
+                <Text style={routeStyles.loadingText}>Calculating route...</Text>
               </View>
             ) : (
               <>
-                {/* ── Prix + infos itinéraire ── */}
-                {routeDistance !== null && routeDuration !== null && estimatedPrice !== null && (
-                  <View style={styles.routeInfoRow}>
-                    {/* Distance · Durée */}
-                    <View style={styles.routeMeta}>
-                      <Ionicons name="navigate-outline" size={14} color="#888" />
-                      <Text style={styles.routeMetaText}>
-                        {formatDistance(routeDistance)} · {formatDuration(routeDuration)}
+                {/* ── Price hero ── */}
+                {estimatedPrice !== null && (
+                  <View style={routeStyles.priceRow}>
+                    <View>
+                      <Text style={routeStyles.priceLabel}>Estimated price</Text>
+                      <Text style={routeStyles.priceValue}>
+                        {estimatedPrice.toLocaleString()} <Text style={routeStyles.priceCurrency}>DA</Text>
                       </Text>
                     </View>
-                    {/* Prix estimé */}
-                    <View style={styles.priceChip}>
-                      <Text style={styles.priceLabel}>Estimated</Text>
-                      <Text style={styles.priceValue}>{estimatedPrice.toLocaleString()} DA</Text>
-                    </View>
+                    {routeDistance !== null && routeDuration !== null && (
+                      <View style={routeStyles.metaBox}>
+                        <View style={routeStyles.metaItem}>
+                          <Ionicons name="navigate-outline" size={13} color="#666" />
+                          <Text style={routeStyles.metaText}>{formatDistance(routeDistance)}</Text>
+                        </View>
+                        <View style={routeStyles.metaDot} />
+                        <View style={routeStyles.metaItem}>
+                          <Ionicons name="time-outline" size={13} color="#666" />
+                          <Text style={routeStyles.metaText}>{formatDuration(routeDuration)}</Text>
+                        </View>
+                      </View>
+                    )}
                   </View>
                 )}
 
+                {/* ── Find drivers CTA ── */}
                 <TouchableOpacity
-                  style={styles.recommendedSection}
-                  onPress={() =>
-                    router.push({
-                      pathname: "/passenger/RecommendedDriversScreen",
-                      params: { rideId, startAddress, endAddress },
-                    })
-                  }
-                  activeOpacity={0.7}
+                  style={routeStyles.ctaButton}
+                  onPress={() => router.push({
+                    pathname: "/passenger/RecommendedDriversScreen",
+                    params: { rideId, startAddress, endAddress },
+                  })}
+                  activeOpacity={0.85}
                 >
-                  <View style={styles.recommendedContent}>
-                    <Text style={styles.recommendedTitle}>Recommended Drivers</Text>
+                  <View style={routeStyles.ctaInner}>
+                    <View>
+                      <Text style={routeStyles.ctaLabel}>Ready to go?</Text>
+                      <Text style={routeStyles.ctaText}>Find Drivers</Text>
+                    </View>
+                    <View style={routeStyles.ctaArrow}>
+                      <Ionicons name="arrow-forward" size={20} color="#111" />
+                    </View>
                   </View>
-                  <Ionicons name="chevron-forward" size={24} color="#666" />
                 </TouchableOpacity>
 
-                <TouchableOpacity
-                  style={styles.cancelRideButton}
-                  onPress={handleCancelRide}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.cancelRideText}>Cancel Ride</Text>
-                  <Ionicons name="close-circle" size={22} color="#E53E3E" />
+                {/* ── Cancel ── */}
+                <TouchableOpacity style={routeStyles.cancelButton} onPress={handleCancelRide} activeOpacity={0.7}>
+                  <Text style={routeStyles.cancelText}>Cancel ride</Text>
                 </TouchableOpacity>
               </>
             )}
           </View>
         )}
+
+        {/* ── Cancel confirmation modal ── */}
+        <Modal
+          visible={showCancelModal}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setShowCancelModal(false)}
+        >
+          <View style={cancelStyles.overlay}>
+            <View style={cancelStyles.card}>
+              <View style={cancelStyles.iconWrap}>
+                <Ionicons name="close-circle-outline" size={40} color="#EF4444" />
+              </View>
+              <Text style={cancelStyles.title}>Cancel this ride?</Text>
+              <Text style={cancelStyles.subtitle}>
+                Your ride request will be removed and drivers will no longer see it.
+              </Text>
+              <TouchableOpacity style={cancelStyles.confirmBtn} onPress={confirmCancelRide} activeOpacity={0.85}>
+                <Text style={cancelStyles.confirmText}>Yes, cancel ride</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={cancelStyles.keepBtn} onPress={() => setShowCancelModal(false)} activeOpacity={0.7}>
+                <Text style={cancelStyles.keepText}>Keep ride</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </View>
     );
   }
@@ -491,16 +483,17 @@ export default function MapScreen() {
         style={StyleSheet.absoluteFillObject}
         initialRegion={getInitialRegion()}
         showsUserLocation
+        showsMyLocationButton={false}
         onPress={handleMapPress}
       >
         {selectedLocation?.latitude && selectedLocation?.longitude && (
-          <Marker
-            coordinate={selectedLocation}
-            draggable
-            onDragEnd={handleMarkerDragEnd}
-          />
+          <Marker coordinate={selectedLocation} draggable onDragEnd={handleMarkerDragEnd} />
         )}
       </MapView>
+
+      <TouchableOpacity style={styles.locationButton} onPress={goToCurrentLocation} activeOpacity={0.8}>
+        <Ionicons name="locate" size={20} color="#007AFF" />
+      </TouchableOpacity>
 
       <View style={styles.bottomSheetFixed}>
         <View style={styles.dragHandle} />
@@ -527,6 +520,7 @@ export default function MapScreen() {
     </View>
   );
 }
+
 const errorStyles = StyleSheet.create({
   overlay: {
     position: "absolute",
@@ -803,5 +797,258 @@ const styles = StyleSheet.create({
   },
   priceValue: {
     fontSize: 20, fontWeight: '800', color: '#111',
+  },
+  locationButton: {
+  position: 'absolute',
+  right: 16,
+  bottom: 210,
+  width: 44, height: 44, borderRadius: 22,
+  backgroundColor: '#fff',
+  justifyContent: 'center', alignItems: 'center',
+  shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+  shadowOpacity: 0.12, shadowRadius: 8,
+  elevation: 30, zIndex: 999,
+},
+});
+// ── Route mode styles ─────────────────────────────────────────────────────────
+const routeStyles = StyleSheet.create({
+  topCard: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    right: 16,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 6,
+  },
+  addressRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    gap: 12,
+  },
+  addressDivider: {
+    height: 1,
+    backgroundColor: '#F0F0F0',
+    marginLeft: 22,
+  },
+  dotGreen: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#22C55E',
+  },
+  dotBlue: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#3B82F6',
+  },
+  addressText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111',
+  },
+
+  bottomSheet: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+    paddingTop: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.12,
+    shadowRadius: 20,
+    shadowOffset: { width: 0, height: -4 },
+    elevation: 16,
+  },
+  handle: {
+    width: 36,
+    height: 4,
+    backgroundColor: '#E0E0E0',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 20,
+  },
+
+  loadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    paddingVertical: 20,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: '#666',
+  },
+
+  priceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+  },
+  priceLabel: {
+    fontSize: 12,
+    color: '#999',
+    fontWeight: '500',
+    marginBottom: 2,
+  },
+  priceValue: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#111',
+    letterSpacing: -0.5,
+  },
+  priceCurrency: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#555',
+  },
+  metaBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    gap: 6,
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  metaDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: '#CCC',
+  },
+  metaText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#555',
+  },
+
+  ctaButton: {
+  backgroundColor: '#111',
+  borderRadius: 20,
+  paddingVertical: 18,
+  paddingHorizontal: 20,
+  marginBottom: 10,
+},
+ctaInner: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'space-between',
+},
+ctaLabel: {
+  fontSize: 11,
+  fontWeight: '500',
+  color: '#888',
+  marginBottom: 2,
+  textTransform: 'uppercase',
+  letterSpacing: 0.8,
+},
+ctaText: {
+  fontSize: 20,
+  fontWeight: '800',
+  color: '#fff',
+  letterSpacing: -0.3,
+},
+ctaArrow: {
+  width: 40,
+  height: 40,
+  borderRadius: 20,
+  backgroundColor: '#fff',
+  alignItems: 'center',
+  justifyContent: 'center',
+},
+  cancelButton: {
+    alignItems: 'center',
+    paddingVertical: 12,
+  },
+  cancelText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#EF4444',
+  },
+});
+const cancelStyles = StyleSheet.create({
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  card: {
+    backgroundColor: '#fff',
+    borderRadius: 24,
+    padding: 28,
+    alignItems: 'center',
+    width: '100%',
+  },
+  iconWrap: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#FEE2E2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#111',
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#888',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  confirmBtn: {
+    width: '100%',
+    backgroundColor: '#EF4444',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  confirmText: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  keepBtn: {
+    width: '100%',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: 'center',
+  },
+  keepText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#111',
   },
 });
