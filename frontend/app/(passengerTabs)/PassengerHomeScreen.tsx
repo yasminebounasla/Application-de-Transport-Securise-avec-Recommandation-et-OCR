@@ -116,7 +116,7 @@ useEffect(() => {
 
       {/* Locate button — floating on map, bottom-right just above the sheet */}
       <TouchableOpacity
-        style={[styles.locationButton, { bottom: TAB_BAR_HEIGHT + 140 }]}
+        style={[styles.locationButton, { bottom: TAB_BAR_HEIGHT + 120 }]}
         onPress={goToCurrentLocation}
         activeOpacity={0.8}
       >
@@ -151,7 +151,7 @@ useEffect(() => {
       )}
 
       {/* ── Bottom Sheet ── */}
-      <View style={[styles.bottomSheet, { paddingBottom: insets.bottom + 16 }]}>
+      <View style={[styles.bottomSheet, { paddingBottom: insets.bottom + 5 }]}>
         <View style={styles.bottomSheetHandle} />
 
         <Text style={styles.sectionTitle}>Pick your destination</Text>
