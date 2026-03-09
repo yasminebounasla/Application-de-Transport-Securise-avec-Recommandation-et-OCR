@@ -1,9 +1,33 @@
-import { Tabs } from "expo-router";
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Tabs, router } from "expo-router";
+import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
+import { TouchableOpacity, View, Text } from 'react-native';
+import { useNotifications } from '../../context/NotificationContext';
+
+function NotificationButton() {
+  const { unreadCount } = useNotifications();
+  return (
+    <TouchableOpacity
+      onPress={() => router.push('/shared/NotificationsScreen' as any)}
+      style={{ marginRight: 16 }}
+    >
+      <Feather name="bell" size={22} color="#000" />
+      {unreadCount > 0 && (
+        <View style={{
+          position: 'absolute', top: -4, right: -4,
+          backgroundColor: '#E53E3E', borderRadius: 8,
+          width: 16, height: 16, justifyContent: 'center', alignItems: 'center',
+        }}>
+          <Text style={{ color: '#FFF', fontSize: 10, fontWeight: '700' }}>{unreadCount}</Text>
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+}
 
 export default function TabsLayout() {
   return (
     <Tabs screenOptions={{
+      headerRight: () => <NotificationButton />,
       tabBarStyle: {
         backgroundColor: "#f5f5f5",
         borderTopWidth: 0,
