@@ -22,6 +22,8 @@ export default function Home() {
 
   const mapRef = useRef<MapView>(null);
 
+  const feedbackCheckedRef = useRef<Set<number>>(new Set());
+
   const [showFeedbackModal, setShowFeedbackModal] = useState<boolean>(false);
   const [completedRideId, setCompletedRideId] = useState<number | null>(null);
 
@@ -46,22 +48,24 @@ export default function Home() {
     } catch (error) { console.error('Erreur sauvegarde feedback:', error); }
   };
 
-  useEffect(() => {
+  // ligne 52
+useEffect(() => {
     const handleRides = async () => {
       if (passengerRides.length === 0) return;
       const completedRide = passengerRides.find((ride: any) => ride.status === 'COMPLETED');
-      if (completedRide) {
-        try {
-          const alreadyRequested = await isFeedbackRequested(completedRide.id);
-          if (alreadyRequested) return;
-          const response = await api.get(`/feedback/trajet/${completedRide.id}`);
-          if (response.data.data.length === 0) {
-            await markFeedbackAsRequested(completedRide.id);
-            setCompletedRideId(completedRide.id);
-            setShowFeedbackModal(true);
-          }
-        } catch (err) { console.error('Erreur check feedback:', err); }
-      }
+      if (!completedRide) return;
+      if (feedbackCheckedRef.current.has(completedRide.id)) return;
+      feedbackCheckedRef.current.add(completedRide.id);
+      try {
+        const alreadyRequested = await isFeedbackRequested(completedRide.id);
+        if (alreadyRequested) return;
+        const response = await api.get(`/feedback/trajet/${completedRide.id}`);
+        if (response.data.data.length === 0) {
+          await markFeedbackAsRequested(completedRide.id);
+          setCompletedRideId(completedRide.id);
+          setShowFeedbackModal(true);
+        }
+      } catch (err) { console.error('Erreur check feedback:', err); }
     };
     handleRides();
   }, [passengerRides]);
