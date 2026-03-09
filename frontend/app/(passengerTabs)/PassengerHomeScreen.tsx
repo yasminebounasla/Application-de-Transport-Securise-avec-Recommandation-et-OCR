@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useContext, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { router } from 'expo-router';
 import FeedbackModal from '../../components/FeedbackModal';
 import { useRide } from '../../context/RideContext';
@@ -8,7 +8,6 @@ import { useNotifications } from '../../context/NotificationContext';
 import MapView from 'react-native-maps';
 import { Feather, Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '../../services/api';
 
 const FEEDBACK_REQUESTED_KEY = 'feedback_requested_rides';
@@ -17,12 +16,8 @@ export default function Home() {
   const { getPassengerRides, passengerRides } = useRide();
   const { currentLocation } = useContext(LocationContext);
   const { unreadCount } = useNotifications();
-  const insets = useSafeAreaInsets();
-  const TAB_BAR_HEIGHT = 60 + insets.bottom;
 
   const mapRef = useRef<MapView>(null);
-
-  const feedbackCheckedRef = useRef<Set<number>>(new Set());
 
   const [showFeedbackModal, setShowFeedbackModal] = useState<boolean>(false);
   const [completedRideId, setCompletedRideId] = useState<number | null>(null);
@@ -48,23 +43,22 @@ export default function Home() {
     } catch (error) { console.error('Erreur sauvegarde feedback:', error); }
   };
 
-useEffect(() => {
+  useEffect(() => {
     const handleRides = async () => {
       if (passengerRides.length === 0) return;
       const completedRide = passengerRides.find((ride: any) => ride.status === 'COMPLETED');
-      if (!completedRide) return;
-      if (feedbackCheckedRef.current.has(completedRide.id)) return;
-      feedbackCheckedRef.current.add(completedRide.id);
-      try {
-        const alreadyRequested = await isFeedbackRequested(completedRide.id);
-        if (alreadyRequested) return;
-        const response = await api.get(`/feedback/trajet/${completedRide.id}`);
-        if (response.data.data.length === 0) {
-          await markFeedbackAsRequested(completedRide.id);
-          setCompletedRideId(completedRide.id);
-          setShowFeedbackModal(true);
-        }
-      } catch (err) { console.error('Erreur check feedback:', err); }
+      if (completedRide) {
+        try {
+          const alreadyRequested = await isFeedbackRequested(completedRide.id);
+          if (alreadyRequested) return;
+          const response = await api.get(`/feedback/trajet/${completedRide.id}`);
+          if (response.data.data.length === 0) {
+            await markFeedbackAsRequested(completedRide.id);
+            setCompletedRideId(completedRide.id);
+            setShowFeedbackModal(true);
+          }
+        } catch (err) { console.error('Erreur check feedback:', err); }
+      }
     };
     handleRides();
   }, [passengerRides]);
@@ -77,10 +71,11 @@ useEffect(() => {
   const initialRegion = {
     latitude:  currentLocation?.latitude  ?? 36.7538,
     longitude: currentLocation?.longitude ?? 3.0588,
-    latitudeDelta:  0.05,
-    longitudeDelta: 0.05,
+    latitudeDelta:  0.01,
+    longitudeDelta: 0.01,
   };
 
+  // Animate map back to current location
   const goToCurrentLocation = () => {
     if (!currentLocation) return;
     mapRef.current?.animateToRegion({
@@ -101,7 +96,7 @@ useEffect(() => {
         showsMyLocationButton={false}
       />
 
-      {/* Notification bell — top right */}
+      {/* Notification bell */}
       <TouchableOpacity
         style={styles.notificationButton}
         onPress={() => router.push('../shared/NotificationsScreen' as any)}
@@ -114,9 +109,9 @@ useEffect(() => {
         )}
       </TouchableOpacity>
 
-      {/* Locate button — floating on map, bottom-right just above the sheet */}
+      {/* Current location button */}
       <TouchableOpacity
-        style={[styles.locationButton, { bottom: TAB_BAR_HEIGHT + 120 }]}
+        style={styles.locationButton}
         onPress={goToCurrentLocation}
         activeOpacity={0.8}
       >
@@ -151,7 +146,7 @@ useEffect(() => {
       )}
 
       {/* ── Bottom Sheet ── */}
-      <View style={[styles.bottomSheet, { paddingBottom: insets.bottom + 5 }]}>
+      <View style={styles.bottomSheet}>
         <View style={styles.bottomSheetHandle} />
 
         <Text style={styles.sectionTitle}>Pick your destination</Text>
@@ -199,17 +194,18 @@ const styles = StyleSheet.create({
   },
   badgeText: { color: '#FFF', fontSize: 10, fontWeight: '700' },
 
+  /* ── Current location button — juste en dessous de la cloche ── */
   locationButton: {
     position: 'absolute',
+    top: 70,
     right: 16,
     width: 44, height: 44, borderRadius: 22,
     backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center',
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12, shadowRadius: 8, elevation: 30,
-    zIndex: 999,
+    shadowOpacity: 0.12, shadowRadius: 8, elevation: 10,
   },
 
-  activeTripsContainer: { position: 'absolute', top: 70, left: 16, right: 16, gap: 8 },
+  activeTripsContainer: { position: 'absolute', top: 124, left: 16, right: 16, gap: 8 },
   tripCard: {
     backgroundColor: '#fff', borderRadius: 16, padding: 14,
     flexDirection: 'row', alignItems: 'center', gap: 12,
@@ -232,6 +228,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     borderTopLeftRadius: 28, borderTopRightRadius: 28,
     paddingHorizontal: 20, paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 100 : 90,
     shadowColor: '#000', shadowOffset: { width: 0, height: -4 },
     shadowOpacity: 0.08, shadowRadius: 20, elevation: 20,
   },
@@ -265,6 +262,6 @@ const styles = StyleSheet.create({
     fontSize: 9, fontWeight: '700', color: 'rgba(255,255,255,0.6)',
     letterSpacing: 0.5, textTransform: 'uppercase',
   },
-  cardTitle: { fontSize: 17, fontWeight: '800', color: '#FFF', letterSpacing: -0.3 },
-  cardSub: { fontSize: 12, color: 'rgba(255,255,255,0.35)', fontWeight: '400', marginTop: 2 },
+  cardTitle: { fontSize: 14, fontWeight: '800', color: '#FFF', letterSpacing: -0.3 },
+  cardSub: { fontSize: 11, color: 'rgba(255,255,255,0.35)', fontWeight: '400', marginTop: 1 },
 });
