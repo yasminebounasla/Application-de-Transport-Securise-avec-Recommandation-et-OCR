@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
   StyleSheet, StatusBar, Image,
@@ -69,30 +69,33 @@ function NotifAvatar({ notif, cat }: { notif: Notification; cat: ReturnType<type
 export default function NotificationsScreen() {
   const { notifications, clearNotifications, markAllAsRead } = useNotifications();
 
-  // ✅ VRAI FIX : on snapshote les listes entières au focus
-  // PAS unreadCount (peut être 0), PAS isRead (changé par markAllAsRead immédiatement)
-  // → on copie les 2 listes au moment exact du focus, AVANT markAllAsRead
   const [newNotifs, setNewNotifs] = useState<Notification[]>([]);
   const [oldNotifs, setOldNotifs] = useState<Notification[]>([]);
   const hasSnapshotted = useRef(false);
 
+  // ✅ FIX : Reset le snapshot à chaque fois qu'on revient sur l'écran
   useFocusEffect(
     React.useCallback(() => {
-      // Reset à chaque fois qu'on revient sur l'écran
       hasSnapshotted.current = false;
     }, [])
   );
 
-  // Snapshot au premier render après le focus, quand notifications est chargé
-  // useRef empêche de re-snapshoter si markAllAsRead re-render le composant
-  if (!hasSnapshotted.current && notifications.length > 0) {
-    hasSnapshotted.current = true;
-    const unread = notifications.filter(n => !n.isRead);
-    const read   = notifications.filter(n =>  n.isRead);
-    setNewNotifs(unread);
-    setOldNotifs(read);
-    markAllAsRead();
-  }
+  // ✅ FIX PRINCIPAL : snapshot + markAllAsRead dans un useEffect
+  // JAMAIS pendant le rendu → évite "Cannot update a component while rendering"
+  useEffect(() => {
+    if (!hasSnapshotted.current && notifications.length > 0) {
+      hasSnapshotted.current = true;
+
+      // Snapshot AVANT markAllAsRead
+      const unread = notifications.filter(n => !n.isRead);
+      const read   = notifications.filter(n =>  n.isRead);
+      setNewNotifs(unread);
+      setOldNotifs(read);
+
+      // Marquer comme lu APRÈS le snapshot, dans le même effect
+      markAllAsRead();
+    }
+  }, [notifications, markAllAsRead]);
 
   const renderNotif = (notif: Notification, i: number, isNew: boolean) => {
     const cat = CATEGORY(notif.title);
@@ -124,7 +127,14 @@ export default function NotificationsScreen() {
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Notifications</Text>
           {!allEmpty && (
-            <TouchableOpacity onPress={() => { clearNotifications(); setNewNotifs([]); setOldNotifs([]); }} activeOpacity={0.7}>
+            <TouchableOpacity
+              onPress={() => {
+                clearNotifications();
+                setNewNotifs([]);
+                setOldNotifs([]);
+              }}
+              activeOpacity={0.7}
+            >
               <Text style={styles.clearBtn}>Tout effacer</Text>
             </TouchableOpacity>
           )}
