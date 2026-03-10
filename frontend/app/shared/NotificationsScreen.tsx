@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
   StyleSheet, StatusBar, Image,
@@ -67,42 +67,29 @@ function NotifAvatar({ notif, cat }: { notif: Notification; cat: ReturnType<type
 }
 
 export default function NotificationsScreen() {
-  const { notifications, clearNotifications, markAllAsRead, unreadCount } = useNotifications();
+  const { notifications, clearNotifications, markAllAsRead } = useNotifications();
 
   const [newNotifs, setNewNotifs] = useState<Notification[]>([]);
   const [oldNotifs, setOldNotifs] = useState<Notification[]>([]);
 
-  // ✅ FIX : capturer unreadCount au moment du focus, AVANT markAllAsRead
-  // On ne peut pas se fier à isRead car le cache AsyncStorage recharge
-  // les notifs avec isRead=true même si elles sont "nouvelles" pour l'user
-  const unreadCountAtFocus = useRef(0);
-  const hasSnapshotted = useRef(false);
-
-  // Étape 1 : au focus, sauvegarder combien de notifs sont non-lues
+  // ✅ FIX FINAL :
+  // - isRead=false  → notif jamais vue → NOUVELLE (rouge)
+  // - isRead=true   → déjà vue → PRÉCÉDENTE (gris)
+  // - markAllAsRead sauvegarde isRead=true dans le cache AsyncStorage
+  // - Au redémarrage de l'app → cache chargé avec isRead=true → tout précédent ✅
+  // - Nouvelle notif reçue socket → isRead=false → rouge ✅
   useFocusEffect(
     useCallback(() => {
-      hasSnapshotted.current = false;
-      unreadCountAtFocus.current = unreadCount; // snapshot du badge
-    }, [unreadCount])
+      const unread = notifications.filter(n => n.isRead === false);
+      const read   = notifications.filter(n => n.isRead !== false);
+
+      setNewNotifs(unread);
+      setOldNotifs(read);
+
+      if (unread.length > 0) markAllAsRead();
+
+    }, [notifications, markAllAsRead])
   );
-
-  // Étape 2 : quand notifications se charge, faire le split new/old
-  useEffect(() => {
-    if (hasSnapshotted.current) return;
-    if (notifications.length === 0) return;
-
-    hasSnapshotted.current = true;
-
-    // Les N premières (les plus récentes, triées desc par le backend) = nouvelles
-    // Le reste = précédentes
-    const n = unreadCountAtFocus.current;
-    setNewNotifs(n > 0 ? notifications.slice(0, n) : []);
-    setOldNotifs(n > 0 ? notifications.slice(n)    : notifications);
-
-    // Marquer comme lu seulement si il y avait des nouvelles
-    if (n > 0) markAllAsRead();
-
-  }, [notifications, markAllAsRead]);
 
   const renderNotif = (notif: Notification, i: number, isNew: boolean) => {
     const cat = CATEGORY(notif.title);
@@ -201,7 +188,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 18, paddingVertical: 13,
-    borderBottomWidth: 1, borderBottomColor: '#F7F7F7',
+        borderBottomWidth: 1, borderBottomColor: '#F7F7F7',
   },
   rowNew:         { backgroundColor: '#FFF8F8' },
   newDot:         { width: 7, height: 7, borderRadius: 4, backgroundColor: '#EF4444', marginRight: 8 },

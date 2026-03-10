@@ -64,6 +64,7 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
         const cached = await AsyncStorage.getItem(storageKey);
         const unread = await AsyncStorage.getItem(`${storageKey}_unread`);
         if (cached) {
+          // ✅ Le cache contient déjà le bon isRead (sauvegardé par markAllAsRead)
           setNotifications(JSON.parse(cached));
           setUnreadCount(unread ? parseInt(unread) : 0);
         }
@@ -75,7 +76,10 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
     loadLocalCache();
   }, [user?.id, storageKey]);
 
-  // ── 2. Sync avec la base de données ────────────────────────────────────────
+  // ── 2. Sync BD — appelé UNE SEULE FOIS au login, pas au focus ──────────────
+  // ✅ FIX PRINCIPAL : fetchFromDB est appelé uniquement quand user.id change
+  // (login/logout), jamais au focus de l'écran notifs.
+  // Résultat : isRead en mémoire locale fait foi, pas la BD.
   const fetchFromDB = useCallback(async (retryCount = 0) => {
     if (!user?.id || !storageKey) return;
     try {
@@ -91,30 +95,50 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
 
       if (response.ok) {
         const { data, unreadCount: serverUnread } = await response.json();
+
         const normalized: Notification[] = data.map((n: any) => ({
           id:        n.id,
           title:     n.title,
           message:   n.message,
           timestamp: new Date(n.createdAt).getTime(),
-          isRead:    n.isRead,
+          isRead:    n.isRead,  // valeur BD
           rideId:    n.data?.rideId,
           prenom:    n.data?.passenger?.prenom || n.data?.driver?.prenom,
           nom:       n.data?.passenger?.nom    || n.data?.driver?.nom,
         }));
 
-        setNotifications(normalized);
-        setUnreadCount(serverUnread);
-        await AsyncStorage.setItem(storageKey, JSON.stringify(normalized));
-        await AsyncStorage.setItem(`${storageKey}_unread`, String(serverUnread));
+        // ✅ FIX : merge avec le cache local existant
+        // Si une notif est isRead=false dans le cache local → on garde false
+        // même si la BD dit true (cas : notif reçue par socket avant fetchFromDB)
+        const cachedRaw = await AsyncStorage.getItem(storageKey);
+        const cached: Notification[] = cachedRaw ? JSON.parse(cachedRaw) : [];
+        const localUnreadIds = new Set(
+          cached.filter(n => n.isRead === false && n.id).map(n => n.id)
+        );
+
+        const merged = normalized.map(n => ({
+          ...n,
+          isRead: localUnreadIds.has(n.id) ? false : n.isRead,
+        }));
+
+        // unreadCount : max entre serveur et cache local
+        const localUnread = parseInt(await AsyncStorage.getItem(`${storageKey}_unread`) || '0');
+        const finalUnread = Math.max(serverUnread, localUnread);
+
+        setNotifications(merged);
+        setUnreadCount(finalUnread);
+        await AsyncStorage.setItem(storageKey, JSON.stringify(merged));
+        await AsyncStorage.setItem(`${storageKey}_unread`, String(finalUnread));
       }
     } catch (e) {
       console.error('Erreur fetch DB notifications:', e);
     }
   }, [user?.id, storageKey]);
 
+  // ✅ Appel UNIQUEMENT au login (user.id change), jamais au focus
   useEffect(() => {
     if (user?.id) fetchFromDB();
-  }, [user?.id, fetchFromDB]);
+  }, [user?.id]);  // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── 3. Actions ──────────────────────────────────────────────────────────────
   const addNotif = useCallback(async (title: string, message: string, extra?: Partial<Notification>) => {
@@ -136,18 +160,27 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
     setCurrentToast({ title, message, color, icon });
   }, [storageKey]);
 
-  const markAllAsRead = async () => {
+  const markAllAsRead = useCallback(async () => {
+    // ✅ FIX : mettre isRead=true en mémoire ET dans le cache local
+    // On capture les notifs actuelles pour les sauvegarder correctement
     setUnreadCount(0);
-    setNotifications(prev => prev.map(n => ({ ...n, isRead: true })));
+    setNotifications(prev => {
+      const updated = prev.map(n => ({ ...n, isRead: true }));
+      // Sauvegarder le cache avec isRead=true
+      if (storageKey) AsyncStorage.setItem(storageKey, JSON.stringify(updated));
+      return updated;
+    });
     if (storageKey) await AsyncStorage.setItem(`${storageKey}_unread`, '0');
+
+    // Appel BD en arrière-plan (non bloquant)
     try {
       const token = await AsyncStorage.getItem('token');
-      await fetch(`${API_URL}/notifications/read-all`, {
+      fetch(`${API_URL}/notifications/read-all`, {
         method: 'PATCH',
         headers: { 'Authorization': `Bearer ${token}` },
       });
     } catch (e) { console.error(e); }
-  };
+  }, [storageKey]);
 
   const clearNotifications = async () => {
     setNotifications([]);
@@ -176,84 +209,37 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
 
     newSocket.on('connect', () => {
       console.log('🔌 Socket connecté:', newSocket.id);
-
-      // ✅ FIX : enregistrement DANS le callback connect pour garantir
-      //          que le socket est bien connecté avant d'émettre
-      if (user.role === 'passenger') {
-        newSocket.emit('registerUser', user.id);
-      } else if (user.role === 'driver') {
-        newSocket.emit('registerDriver', user.id);
-      }
+      if (user.role === 'passenger') newSocket.emit('registerUser', user.id);
+      else if (user.role === 'driver') newSocket.emit('registerDriver', user.id);
     });
 
-    // ── Events PASSAGER ──────────────────────────────────────────────────────
     if (user.role === 'passenger') {
       newSocket.on('rideAccepted', (data) => {
-        addNotif(
-          data.title || '✅ Trajet confirmé',
-          data.message || `${data.driver?.prenom} a accepté votre demande de trajet.`,
-          { rideId: data.rideId, prenom: data.driver?.prenom, nom: data.driver?.nom }
-        );
+        addNotif(data.title || '✅ Trajet confirmé', data.message || `${data.driver?.prenom} a accepté votre demande.`, { rideId: data.rideId, prenom: data.driver?.prenom, nom: data.driver?.nom });
       });
-
-      // ✅ FIX : écouter le refus de trajet par le driver
       newSocket.on('rideRejectedByDriver', (data) => {
-        addNotif(
-          data.title || '❌ Demande refusée',
-          data.message || 'Votre demande de trajet a été refusée.',
-          { rideId: data.rideId }
-        );
+        addNotif(data.title || '❌ Demande refusée', data.message || 'Votre demande a été refusée.', { rideId: data.rideId });
       });
-
-      // ✅ FIX : écouter le démarrage du trajet
       newSocket.on('rideStarted', (data) => {
-        addNotif(
-          data.title || '🚗 Trajet démarré',
-          data.message || 'Votre trajet a démarré !',
-          { rideId: data.rideId }
-        );
+        addNotif(data.title || '🚗 Trajet démarré', data.message || 'Votre trajet a démarré !', { rideId: data.rideId });
       });
-
-      // ✅ FIX : écouter la fin du trajet
       newSocket.on('rideCompleted', (data) => {
-        addNotif(
-          data.title || '🏁 Trajet terminé',
-          data.message || 'Votre trajet est terminé.',
-          { rideId: data.rideId }
-        );
+        addNotif(data.title || '🏁 Trajet terminé', data.message || 'Votre trajet est terminé.', { rideId: data.rideId });
       });
     }
 
-    // ── Events DRIVER ────────────────────────────────────────────────────────
     if (user.role === 'driver') {
       newSocket.on('rideRequest', (data) => {
-        addNotif(
-          '🚗 Nouvelle demande',
-          `${data.passenger?.prenom} sollicite un trajet`,
-          { rideId: data.rideId, prenom: data.passenger?.prenom, nom: data.passenger?.nom }
-        );
+        addNotif('🚗 Nouvelle demande', `${data.passenger?.prenom} sollicite un trajet`, { rideId: data.rideId, prenom: data.passenger?.prenom, nom: data.passenger?.nom });
       });
-
-      // ✅ FIX : écouter l'annulation par le passager
       newSocket.on('rideCancelledByPassenger', (data) => {
-        addNotif(
-          data.title || '❌ Trajet annulé',
-          data.message || `${data.passenger?.prenom} a annulé le trajet.`,
-          { rideId: data.rideId, prenom: data.passenger?.prenom, nom: data.passenger?.nom }
-        );
+        addNotif(data.title || '❌ Trajet annulé', data.message || `${data.passenger?.prenom} a annulé le trajet.`, { rideId: data.rideId, prenom: data.passenger?.prenom, nom: data.passenger?.nom });
       });
-
-      // ✅ FIX : écouter les nouveaux avis
       newSocket.on('newFeedback', (data) => {
-        addNotif(
-          data.title || '⭐ Nouvel avis reçu',
-          data.message || `${data.passengerName} vous a donné une note.`,
-          { rideId: data.trajetId }
-        );
+        addNotif(data.title || '⭐ Nouvel avis reçu', data.message || `${data.passengerName} vous a donné une note.`, { rideId: data.trajetId });
       });
     }
 
-    // ✅ FIX : re-register si reconnexion automatique
     newSocket.on('reconnect', () => {
       if (user.role === 'passenger') newSocket.emit('registerUser', user.id);
       else if (user.role === 'driver') newSocket.emit('registerDriver', user.id);
