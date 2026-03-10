@@ -12,6 +12,7 @@ import {
   Alert,
   ScrollView,
   KeyboardAvoidingView,
+  Animated,
 } from "react-native";
 import { useRouter, Stack } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -24,16 +25,19 @@ import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import api from "../../services/api";
 
+// ── Types ─────────────────────────────────────────────────────────────────────
 type SavedAddress = {
   name: string;
   address: string;
   lat?: number;
   lng?: number;
 } | null;
+
 type SavedAddresses = {
   home: SavedAddress;
   work: SavedAddress;
 };
+
 type CustomPlace = {
   id: string;
   name: string;
@@ -42,7 +46,97 @@ type CustomPlace = {
   lng?: number;
 };
 
-// ── Saved place chip ──────────────────────────────────────────────────────────
+// ── DateErrorModal (inline) ───────────────────────────────────────────────────
+function DateErrorModal({
+  visible,
+  onClose,
+}: {
+  visible: boolean;
+  onClose: () => void;
+}) {
+  const scaleAnim   = useRef(new Animated.Value(0.85)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.spring(scaleAnim, {
+          toValue:         1,
+          useNativeDriver: true,
+          tension:         80,
+          friction:        8,
+        }),
+        Animated.timing(opacityAnim, {
+          toValue:         1,
+          duration:        200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      scaleAnim.setValue(0.85);
+      opacityAnim.setValue(0);
+    }
+  }, [visible]);
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="none"
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
+      <TouchableOpacity
+        style={modalStyles.backdrop}
+        activeOpacity={1}
+        onPress={onClose}
+      >
+        <TouchableOpacity activeOpacity={1}>
+          <Animated.View
+            style={[
+              modalStyles.card,
+              {
+                opacity:   opacityAnim,
+                transform: [{ scale: scaleAnim }],
+              },
+            ]}
+          >
+            {/* Contenu centré */}
+            <View style={modalStyles.content}>
+
+              {/* Icon */}
+              <View style={modalStyles.iconWrap}>
+                <Ionicons name="time-outline" size={22} color="#F97316" />
+              </View>
+
+              {/* Title */}
+              <Text style={modalStyles.title}>Departure too soon</Text>
+
+              {/* Body */}
+              <Text style={modalStyles.body}>
+                Pick a time at least{" "}
+                <Text style={modalStyles.bold}>30 min from now</Text>{" "}
+                so the driver can reach you in time.
+              </Text>
+
+              {/* Button — centré, rectangulaire, largeur fixe */}
+              <TouchableOpacity
+                style={modalStyles.btn}
+                onPress={onClose}
+                activeOpacity={0.8}
+              >
+                <Text style={modalStyles.btnText}>Got it</Text>
+              </TouchableOpacity>
+
+            </View>
+          </Animated.View>
+        </TouchableOpacity>
+      </TouchableOpacity>
+    </Modal>
+  );
+}
+
+// ── SavedChip ─────────────────────────────────────────────────────────────────
 function SavedChip({
   icon,
   label,
@@ -62,14 +156,20 @@ function SavedChip({
       activeOpacity={0.7}
       delayPressIn={0}
     >
-      <Ionicons name={icon as any} size={14} color="#111" style={{ marginRight: 5 }} />
-      <Text style={styles.chipText} numberOfLines={1}>{label}</Text>
+      <Ionicons
+        name={icon as any}
+        size={14}
+        color="#111"
+        style={{ marginRight: 5 }}
+      />
+      <Text style={styles.chipText} numberOfLines={1}>
+        {label}
+      </Text>
     </TouchableOpacity>
   );
 }
 
-
-// ── SavedPlacesSection corrigée ───────────────────────────────────────────────
+// ── SavedPlacesSection ────────────────────────────────────────────────────────
 function SavedPlacesSection({
   savedAddresses,
   customPlaces,
@@ -81,7 +181,6 @@ function SavedPlacesSection({
   onSelect: (place: { address: string; lat?: number; lng?: number }) => void;
   onPressIn: () => void;
 }) {
-  // Miroir exact de ADDRESS_TYPES dans SavedPlacesScreen (home + work uniquement)
   const fixed = [
     { key: "home", icon: "home",      label: "Home", data: savedAddresses.home },
     { key: "work", icon: "briefcase", label: "Work", data: savedAddresses.work },
@@ -89,21 +188,20 @@ function SavedPlacesSection({
 
   const all = [
     ...fixed.map((p) => ({
-      id: p.key,
-      icon: p.icon,
-      label: p.label,
+      id:      p.key,
+      icon:    p.icon,
+      label:   p.label,
       address: p.data!.address,
-      lat: p.data!.lat,
-      lng: p.data!.lng,
+      lat:     p.data!.lat,
+      lng:     p.data!.lng,
     })),
-    // Custom = tout ce qui n'est pas home/work (ex: "Gym", "Grandma's house"…)
     ...customPlaces.map((p) => ({
-      id: p.id,
-      icon: "bookmark-outline",
-      label: p.name,
+      id:      p.id,
+      icon:    "bookmark-outline",
+      label:   p.name,
       address: p.address,
-      lat: p.lat,
-      lng: p.lng,
+      lat:     p.lat,
+      lng:     p.lng,
     })),
   ];
 
@@ -125,7 +223,9 @@ function SavedPlacesSection({
             icon={p.icon}
             label={p.label}
             onPressIn={onPressIn}
-            onPress={() => onSelect({ address: p.address, lat: p.lat, lng: p.lng })}
+            onPress={() =>
+              onSelect({ address: p.address, lat: p.lat, lng: p.lng })
+            }
           />
         ))}
       </ScrollView>
@@ -133,7 +233,7 @@ function SavedPlacesSection({
   );
 }
 
-// ── Passenger picker modal (max 4) ────────────────────────────────────────────
+// ── PassengerPickerModal ──────────────────────────────────────────────────────
 function PassengerPickerModal({
   value,
   onChange,
@@ -144,7 +244,12 @@ function PassengerPickerModal({
   onClose: () => void;
 }) {
   return (
-    <Modal transparent animationType="slide" visible onRequestClose={onClose}>
+    <Modal
+      transparent
+      animationType="slide"
+      visible
+      onRequestClose={onClose}
+    >
       <View style={{ flex: 1 }}>
         <TouchableOpacity
           style={passStyles.overlay}
@@ -154,11 +259,15 @@ function PassengerPickerModal({
         <View style={passStyles.sheet}>
           <View style={passStyles.handle} />
           <Text style={passStyles.title}>Number of passengers</Text>
+
           {[1, 2, 3, 4].map((n) => (
             <TouchableOpacity
               key={n}
               style={[passStyles.row, value === n && passStyles.rowActive]}
-              onPress={() => { onChange(n); onClose(); }}
+              onPress={() => {
+                onChange(n);
+                onClose();
+              }}
               activeOpacity={0.7}
             >
               <Ionicons
@@ -166,7 +275,12 @@ function PassengerPickerModal({
                 size={20}
                 color={value === n ? "#fff" : "#333"}
               />
-              <Text style={[passStyles.rowText, value === n && passStyles.rowTextActive]}>
+              <Text
+                style={[
+                  passStyles.rowText,
+                  value === n && passStyles.rowTextActive,
+                ]}
+              >
                 {n} passenger{n > 1 ? "s" : ""}
               </Text>
               {value === n && (
@@ -185,9 +299,10 @@ function PassengerPickerModal({
   );
 }
 
-// ── Main screen ───────────────────────────────────────────────────────────────
+// ── Main Screen ───────────────────────────────────────────────────────────────
 export default function SearchRideScreen() {
   const router = useRouter();
+
   const {
     currentLocation,
     startLocation,
@@ -195,92 +310,103 @@ export default function SearchRideScreen() {
     endLocation,
     setEndLocation,
   } = useContext(LocationContext);
+
   const { createRide, loading: rideLoading } = useRide();
 
+  // ── Address state ────────────────────────────────────────────────────────
   const [startAddress, setStartAddress] = useState("");
-  const [endAddress, setEndAddress] = useState("");
+  const [endAddress, setEndAddress]     = useState("");
   const [loadingStart, setLoadingStart] = useState(false);
-  const [loadingEnd, setLoadingEnd] = useState(false);
+  const [loadingEnd, setLoadingEnd]     = useState(false);
 
+  // ── Focus state ──────────────────────────────────────────────────────────
   const [focusedField, setFocusedField] = useState<"start" | "destination" | null>(null);
   const startInputRef = useRef<TextInput>(null);
-  const endInputRef = useRef<TextInput>(null);
+  const endInputRef   = useRef<TextInput>(null);
 
+  // ── Refs ─────────────────────────────────────────────────────────────────
   const isSelectingSuggestion = useRef(false);
-  const isNavigatingToMap = useRef(false);
-  const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isNavigatingToMap     = useRef(false);
+  const blurTimeoutRef        = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastStartCoords       = useRef<string | null>(null);
+  const lastEndCoords         = useRef<string | null>(null);
+  const isSubmittingRef       = useRef(false);
 
-  const lastStartCoords = useRef<string | null>(null);
-  const lastEndCoords = useRef<string | null>(null);
-  const isSubmittingRef = useRef(false);
+  // ── Search queries ───────────────────────────────────────────────────────
   const [startQuery, setStartQuery] = useState("");
-  const [endQuery, setEndQuery] = useState("");
+  const [endQuery, setEndQuery]     = useState("");
   const [startSuggestions, setStartSuggestions] = useState<any[]>([]);
-  const [endSuggestions, setEndSuggestions] = useState<any[]>([]);
+  const [endSuggestions, setEndSuggestions]     = useState<any[]>([]);
   const [loadingStartSuggestions, setLoadingStartSuggestions] = useState(false);
-  const [loadingEndSuggestions, setLoadingEndSuggestions] = useState(false);
+  const [loadingEndSuggestions, setLoadingEndSuggestions]     = useState(false);
 
+  // ── Saved places ─────────────────────────────────────────────────────────
   const [savedAddresses, setSavedAddresses] = useState<SavedAddresses>({
     home: null,
     work: null,
   });
   const [customPlaces, setCustomPlaces] = useState<CustomPlace[]>([]);
 
-  // ── Passenger count ──────────────────────────────────────────────────────
-  const [nbPassagers, setNbPassagers] = useState(1);
+  // ── Passengers ───────────────────────────────────────────────────────────
+  const [nbPassagers, setNbPassagers]               = useState(1);
   const [showPassengerModal, setShowPassengerModal] = useState(false);
 
   // ── Date / time ──────────────────────────────────────────────────────────
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [dateDepart, setDateDepart] = useState<Date | null>(null);
-  const [heureDepart, setHeureDepart] = useState<string | null>(null);
+  const [selectedDate, setSelectedDate]     = useState(new Date());
+  const [dateDepart, setDateDepart]         = useState<Date | null>(null);
+  const [heureDepart, setHeureDepart]       = useState<string | null>(null);
+
+  // ── Date error modal ─────────────────────────────────────────────────────
+  const [dateErrorVisible, setDateErrorVisible] = useState(false);
 
   // ── Preferences ──────────────────────────────────────────────────────────
-  const [smoking_ok, setSmokingOk] = useState(false);
-  const [pets_ok, setPetsOk] = useState(false);
-  const [luggage_large, setLuggageLarge] = useState(false);
-  const [quiet_ride, setQuietRide] = useState(false);
-  const [radio_ok, setRadioOk] = useState(false);
+  const [smoking_ok, setSmokingOk]                = useState(false);
+  const [pets_ok, setPetsOk]                      = useState(false);
+  const [luggage_large, setLuggageLarge]          = useState(false);
+  const [quiet_ride, setQuietRide]                = useState(false);
+  const [radio_ok, setRadioOk]                    = useState(false);
   const [female_driver_pref, setFemaleDriverPref] = useState(false);
 
-  // ── Load saved addresses (cache-first for poor network) ─────────────────
+  // ── Load saved addresses ─────────────────────────────────────────────────
   useEffect(() => {
     const CACHE_KEY = "savedPlacesCache";
 
     const applyPlaces = (places: any[]) => {
-      const home  = places.find((p: any) => p.label.toLowerCase() === "home")  || null;
-      const work  = places.find((p: any) => p.label.toLowerCase() === "work")  || null;
-      const other = places.find((p: any) => p.label.toLowerCase() === "other") || null;
+      const home = places.find((p: any) => p.label.toLowerCase() === "home") || null;
+      const work = places.find((p: any) => p.label.toLowerCase() === "work") || null;
+
       setSavedAddresses({
-        home:  home  ? { name: "Home",  address: home.address,  lat: home.lat,  lng: home.lng }  : null,
-        work:  work  ? { name: "Work",  address: work.address,  lat: work.lat,  lng: work.lng }  : null,
+        home: home
+          ? { name: "Home", address: home.address, lat: home.lat, lng: home.lng }
+          : null,
+        work: work
+          ? { name: "Work", address: work.address, lat: work.lat, lng: work.lng }
+          : null,
       });
+
       const custom = places.filter(
-        (p: any) => !["home", "work", "other"].includes(p.label.toLowerCase())
+        (p: any) => !["home", "work"].includes(p.label.toLowerCase())
       );
       setCustomPlaces(
         custom.map((p: any) => ({
-          id: String(p.id),
-          name: p.label,
+          id:      String(p.id),
+          name:    p.label,
           address: p.address,
-          lat: p.lat,
-          lng: p.lng,
+          lat:     p.lat,
+          lng:     p.lng,
         }))
       );
     };
 
     const loadSavedAddresses = async () => {
-      // 1️⃣ Load from cache instantly (works offline / slow network)
       try {
         const cached = await AsyncStorage.getItem(CACHE_KEY);
         if (cached) applyPlaces(JSON.parse(cached));
       } catch (_) {}
-
-      // 2️⃣ Fetch fresh from network in background, update cache + UI
       try {
-        const res = await api.get("/passengers/saved-places");
+        const res    = await api.get("/passengers/saved-places");
         const places = res.data.data || [];
         applyPlaces(places);
         await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(places));
@@ -298,11 +424,14 @@ export default function SearchRideScreen() {
     };
   }, []);
 
-  // ── Reverse geocode start ────────────────────────────────────────────────
+  // ── Reverse geocode: start ───────────────────────────────────────────────
   useEffect(() => {
     const load = async () => {
       if (!startLocation?.latitude || !startLocation?.longitude) {
-        setStartAddress(""); setLoadingStart(false); lastStartCoords.current = null; return;
+        setStartAddress("");
+        setLoadingStart(false);
+        lastStartCoords.current = null;
+        return;
       }
       const key = `${startLocation.latitude.toFixed(4)},${startLocation.longitude.toFixed(4)}`;
       if (lastStartCoords.current === key) return;
@@ -321,11 +450,14 @@ export default function SearchRideScreen() {
     load();
   }, [startLocation?.latitude, startLocation?.longitude]);
 
-  // ── Reverse geocode end ──────────────────────────────────────────────────
+  // ── Reverse geocode: end ─────────────────────────────────────────────────
   useEffect(() => {
     const load = async () => {
       if (!endLocation?.latitude || !endLocation?.longitude) {
-        setEndAddress(""); setLoadingEnd(false); lastEndCoords.current = null; return;
+        setEndAddress("");
+        setLoadingEnd(false);
+        lastEndCoords.current = null;
+        return;
       }
       const key = `${endLocation.latitude.toFixed(4)},${endLocation.longitude.toFixed(4)}`;
       if (lastEndCoords.current === key) return;
@@ -349,9 +481,13 @@ export default function SearchRideScreen() {
     const fetch = async () => {
       if (startQuery.length < 2) { setStartSuggestions([]); return; }
       setLoadingStartSuggestions(true);
-      try { setStartSuggestions(await searchPlaces(startQuery, currentLocation)); }
-      catch (e) { console.error(e); }
-      finally { setLoadingStartSuggestions(false); }
+      try {
+        setStartSuggestions(await searchPlaces(startQuery, currentLocation));
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoadingStartSuggestions(false);
+      }
     };
     const t = setTimeout(fetch, 500);
     return () => clearTimeout(t);
@@ -362,9 +498,13 @@ export default function SearchRideScreen() {
     const fetch = async () => {
       if (endQuery.length < 2) { setEndSuggestions([]); return; }
       setLoadingEndSuggestions(true);
-      try { setEndSuggestions(await searchPlaces(endQuery, currentLocation)); }
-      catch (e) { console.error(e); }
-      finally { setLoadingEndSuggestions(false); }
+      try {
+        setEndSuggestions(await searchPlaces(endQuery, currentLocation));
+      } catch (e) {
+        console.error(e);
+      } finally {
+        setLoadingEndSuggestions(false);
+      }
     };
     const t = setTimeout(fetch, 500);
     return () => clearTimeout(t);
@@ -376,28 +516,40 @@ export default function SearchRideScreen() {
     setFocusedField("start");
     setStartQuery(startAddress);
   };
+
   const handleEndFocus = () => {
     if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
     setFocusedField("destination");
     setEndQuery(endAddress);
   };
+
   const handleBlur = () => {
     blurTimeoutRef.current = setTimeout(() => {
-      if (!isSelectingSuggestion.current && !isNavigatingToMap.current)
+      if (!isSelectingSuggestion.current && !isNavigatingToMap.current) {
         setFocusedField(null);
+      }
     }, 600);
   };
 
   // ── Clear ────────────────────────────────────────────────────────────────
   const handleClearStart = () => {
-    setStartLocation(null); setStartAddress(""); setStartQuery("");
-    setStartSuggestions([]); lastStartCoords.current = null;
-    setFocusedField("start"); startInputRef.current?.focus();
+    setStartLocation(null);
+    setStartAddress("");
+    setStartQuery("");
+    setStartSuggestions([]);
+    lastStartCoords.current = null;
+    setFocusedField("start");
+    startInputRef.current?.focus();
   };
+
   const handleClearEnd = () => {
-    setEndLocation(null); setEndAddress(""); setEndQuery("");
-    setEndSuggestions([]); lastEndCoords.current = null;
-    setFocusedField("destination"); endInputRef.current?.focus();
+    setEndLocation(null);
+    setEndAddress("");
+    setEndQuery("");
+    setEndSuggestions([]);
+    lastEndCoords.current = null;
+    setFocusedField("destination");
+    endInputRef.current?.focus();
   };
 
   const handleCurrentPosition = async () => {
@@ -412,16 +564,19 @@ export default function SearchRideScreen() {
   const handleSetOnMapStart = () => {
     isNavigatingToMap.current = true;
     if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
-    setFocusedField(null); Keyboard.dismiss();
+    setFocusedField(null);
+    Keyboard.dismiss();
     setTimeout(() => {
       isNavigatingToMap.current = false;
       router.push({ pathname: "/shared/MapScreen", params: { selectionType: "start" } });
     }, 50);
   };
+
   const handleSetOnMapEnd = () => {
     isNavigatingToMap.current = true;
     if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
-    setFocusedField(null); Keyboard.dismiss();
+    setFocusedField(null);
+    Keyboard.dismiss();
     setTimeout(() => {
       isNavigatingToMap.current = false;
       router.push({ pathname: "/shared/MapScreen", params: { selectionType: "destination" } });
@@ -433,58 +588,128 @@ export default function SearchRideScreen() {
     isSelectingSuggestion.current = false;
     if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
     setStartLocation({ latitude: place.latitude, longitude: place.longitude });
-    setStartSuggestions([]); setFocusedField(null); Keyboard.dismiss();
+    setStartSuggestions([]);
+    setFocusedField(null);
+    Keyboard.dismiss();
   };
+
   const handleSelectEndSuggestion = (place: any) => {
     isSelectingSuggestion.current = false;
     if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
     setEndLocation({ latitude: place.latitude, longitude: place.longitude });
-    setEndSuggestions([]); setFocusedField(null); Keyboard.dismiss();
+    setEndSuggestions([]);
+    setFocusedField(null);
+    Keyboard.dismiss();
   };
 
-  const handleSelectSavedForStart = (place: { address: string; lat?: number; lng?: number }) => {
+  const handleSelectSavedForStart = (place: {
+    address: string;
+    lat?: number;
+    lng?: number;
+  }) => {
     isSelectingSuggestion.current = false;
     if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
     if (place.lat && place.lng) {
       setStartLocation({ latitude: place.lat, longitude: place.lng });
-      setStartAddress(place.address); // set address immediately, no need to wait for reverseGeocode
-      lastStartCoords.current = `${place.lat.toFixed(4)},${place.lng.toFixed(4)}`; // prevent redundant geocode
+      setStartAddress(place.address);
+      lastStartCoords.current = `${place.lat.toFixed(4)},${place.lng.toFixed(4)}`;
     } else {
       setStartAddress(place.address);
     }
-    setStartQuery(""); setStartSuggestions([]); setFocusedField(null); Keyboard.dismiss();
+    setStartQuery("");
+    setStartSuggestions([]);
+    setFocusedField(null);
+    Keyboard.dismiss();
   };
-  const handleSelectSavedForEnd = (place: { address: string; lat?: number; lng?: number }) => {
+
+  const handleSelectSavedForEnd = (place: {
+    address: string;
+    lat?: number;
+    lng?: number;
+  }) => {
     isSelectingSuggestion.current = false;
     if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
     if (place.lat && place.lng) {
       setEndLocation({ latitude: place.lat, longitude: place.lng });
-      setEndAddress(place.address); // set address immediately, no need to wait for reverseGeocode
-      lastEndCoords.current = `${place.lat.toFixed(4)},${place.lng.toFixed(4)}`; // prevent redundant geocode
+      setEndAddress(place.address);
+      lastEndCoords.current = `${place.lat.toFixed(4)},${place.lng.toFixed(4)}`;
     } else {
       setEndAddress(place.address);
     }
-    setEndQuery(""); setEndSuggestions([]); setFocusedField(null); Keyboard.dismiss();
+    setEndQuery("");
+    setEndSuggestions([]);
+    setFocusedField(null);
+    Keyboard.dismiss();
+  };
+
+  // ── ✅ Date validation ────────────────────────────────────────────────────
+  const validateDateDepart = (dt: Date): boolean => {
+    const now     = Date.now();
+    const diffMin = (dt.getTime() - now) / 60_000;
+
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log("🕐 [validateDateDepart]");
+    console.log("   ► now     :", new Date(now).toLocaleString());
+    console.log("   ► picked  :", dt.toLocaleString());
+    console.log("   ► diffMin :", diffMin.toFixed(1), "min");
+
+    if (diffMin < 30) {
+      console.log("   ❌ BLOCKED — less than 30 min from now");
+      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+      return false;
+    }
+
+    console.log("   ✅ VALID");
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    return true;
   };
 
   // ── Date / time handlers ─────────────────────────────────────────────────
-  const handleOpenDatePicker = () => setShowDatePicker(true);
+  const handleOpenDatePicker = () => {
+    console.log("📅 [handleOpenDatePicker]");
+    setShowDatePicker(true);
+  };
+
   const handleDateChange = (event: any, date?: Date) => {
+    console.log("📅 [handleDateChange] type:", event.type, "| date:", date?.toLocaleDateString());
     if (Platform.OS === "android") setShowDatePicker(false);
     if (date) {
       setSelectedDate(date);
       if (Platform.OS === "android") setTimeout(() => setShowTimePicker(true), 100);
     }
   };
+
   const handleTimeChange = (event: any, time?: Date) => {
+    console.log("⏰ [handleTimeChange] type:", event.type, "| time:", time?.toLocaleTimeString());
     setShowTimePicker(false);
+
+    if (event.type === "dismissed") {
+      console.log("   ⚠️  dismissed — no change");
+      return;
+    }
+
     if (time) {
       const dt = new Date(selectedDate);
       dt.setHours(time.getHours());
       dt.setMinutes(time.getMinutes());
+      dt.setSeconds(0);
+      dt.setMilliseconds(0);
+
+      console.log("⏰ [handleTimeChange] built datetime:", dt.toLocaleString());
+
+      if (!validateDateDepart(dt)) {
+        // ✅ Modal UI au lieu de Alert.alert
+        setDateErrorVisible(true);
+        if (Platform.OS === "ios") setShowDatePicker(false);
+        return;
+      }
+
       setDateDepart(dt);
       setHeureDepart(
-        `${time.getHours().toString().padStart(2, "0")}:${time.getMinutes().toString().padStart(2, "0")}`
+        `${time.getHours().toString().padStart(2, "0")}:${time
+          .getMinutes()
+          .toString()
+          .padStart(2, "0")}`
       );
       if (Platform.OS === "ios") setShowDatePicker(false);
     }
@@ -492,13 +717,23 @@ export default function SearchRideScreen() {
 
   // ── Ride request ─────────────────────────────────────────────────────────
   const handleRideRequest = async () => {
+    console.log("🚗 [handleRideRequest] triggered");
     if (isSubmittingRef.current) return;
     isSubmittingRef.current = true;
+
     if (!startLocation || !endLocation || !dateDepart) {
       isSubmittingRef.current = false;
       Alert.alert("Error", "Please fill all fields");
       return;
     }
+
+    // Final guard
+    if (!validateDateDepart(dateDepart)) {
+      isSubmittingRef.current = false;
+      setDateErrorVisible(true);
+      return;
+    }
+
     const validation = await validateLocationsInAlgeria(startLocation, endLocation);
     if (!validation.valid) {
       isSubmittingRef.current = false;
@@ -506,53 +741,56 @@ export default function SearchRideScreen() {
         pathname: "/shared/MapScreen",
         params: {
           selectionType: "route",
-          rideId: "",
-          startAddress: startAddress || "Departure point",
-          endAddress: endAddress || "Destination",
-          startLat: startLocation.latitude.toString(),
-          startLng: startLocation.longitude.toString(),
-          endLat: endLocation.latitude.toString(),
-          endLng: endLocation.longitude.toString(),
+          rideId:        "",
+          startAddress:  startAddress || "Departure point",
+          endAddress:    endAddress   || "Destination",
+          startLat:      startLocation.latitude.toString(),
+          startLng:      startLocation.longitude.toString(),
+          endLat:        endLocation.latitude.toString(),
+          endLng:        endLocation.longitude.toString(),
         },
       });
       return;
     }
+
     try {
       const newRide = await createRide({
-        startLat: startLocation.latitude,
-        startLng: startLocation.longitude,
-        startAddress: startAddress || "Departure point",
-        endLat: endLocation.latitude,
-        endLng: endLocation.longitude,
-        endAddress: endAddress || "Destination",
+        startLat:      startLocation.latitude,
+        startLng:      startLocation.longitude,
+        startAddress:  startAddress || "Departure point",
+        endLat:        endLocation.latitude,
+        endLng:        endLocation.longitude,
+        endAddress:    endAddress   || "Destination",
         departureTime: dateDepart.toISOString(),
-        placesDispo: nbPassagers,
+        placesDispo:   nbPassagers,
       });
+
       await AsyncStorage.setItem(
         "tripRequest",
         JSON.stringify({
-          rideId: newRide.id,
+          rideId:      newRide.id,
           passengerId: newRide.passengerId || 1,
           preferences: {
-            quiet_ride: quiet_ride ? "yes" : "no",
-            radio_ok: radio_ok ? "yes" : "no",
-            smoking_ok: smoking_ok ? "yes" : "no",
-            pets_ok: pets_ok ? "yes" : "no",
-            luggage_large: luggage_large ? "yes" : "no",
+            quiet_ride:         quiet_ride         ? "yes" : "no",
+            radio_ok:           radio_ok           ? "yes" : "no",
+            smoking_ok:         smoking_ok         ? "yes" : "no",
+            pets_ok:            pets_ok            ? "yes" : "no",
+            luggage_large:      luggage_large      ? "yes" : "no",
             female_driver_pref: female_driver_pref ? "yes" : "no",
           },
           startAddress: startAddress || "Departure point",
-          endAddress: endAddress || "Destination",
+          endAddress:   endAddress   || "Destination",
         })
       );
+
       isSubmittingRef.current = false;
       router.push({
         pathname: "/shared/MapScreen",
         params: {
           selectionType: "route",
-          rideId: String(newRide.id),
-          startAddress: startAddress || "Departure point",
-          endAddress: endAddress || "Destination",
+          rideId:        String(newRide.id),
+          startAddress:  startAddress || "Departure point",
+          endAddress:    endAddress   || "Destination",
         },
       });
     } catch (error: any) {
@@ -564,13 +802,25 @@ export default function SearchRideScreen() {
     }
   };
 
+  // ── Helpers ──────────────────────────────────────────────────────────────
   const isFormValid = () =>
-    !!(startLocation && endLocation && dateDepart && !loadingStart && !loadingEnd && !rideLoading);
+    !!(
+      startLocation &&
+      endLocation &&
+      dateDepart &&
+      !loadingStart &&
+      !loadingEnd &&
+      !rideLoading
+    );
 
   const hasSavedPlaces =
     savedAddresses.home || savedAddresses.work || customPlaces.length > 0;
-  const showSavedForStart = focusedField === "start" && startQuery.length === 0 && hasSavedPlaces;
-  const showSavedForEnd   = focusedField === "destination" && endQuery.length === 0 && hasSavedPlaces;
+
+  const showSavedForStart =
+    focusedField === "start" && startQuery.length === 0 && hasSavedPlaces;
+
+  const showSavedForEnd =
+    focusedField === "destination" && endQuery.length === 0 && hasSavedPlaces;
 
   const preferences = [
     { label: "Quiet ride",    icon: "ear-hearing-off", value: quiet_ride,         setter: setQuietRide },
@@ -581,14 +831,14 @@ export default function SearchRideScreen() {
     { label: "Female driver", icon: "gender-female",   value: female_driver_pref, setter: setFemaleDriverPref },
   ];
 
-  const valid = isFormValid();
-
-  // ── Helper: FROM field is empty (no address and no typed query) ──────────
+  const valid       = isFormValid();
   const isFromEmpty = !startAddress && !startQuery;
+  const maxDate     = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <>
-      {/* ── Custom header ── */}
+      {/* ── Header ── */}
       <Stack.Screen
         options={{
           title: "",
@@ -597,13 +847,27 @@ export default function SearchRideScreen() {
               <Ionicons name="arrow-back" size={24} color="#111" />
             </TouchableOpacity>
           ),
-          headerTitle: () => <Text style={styles.headerTitle}>Book a Ride</Text>,
+          headerTitle: () => (
+            <Text style={styles.headerTitle}>Book a Ride</Text>
+          ),
           headerRight: () => (
-            <TouchableOpacity onPress={handleOpenDatePicker} style={styles.calendarBtn} activeOpacity={0.7}>
-              <Ionicons name="calendar-outline" size={17} color={dateDepart ? "#111" : "#888"} />
+            <TouchableOpacity
+              onPress={handleOpenDatePicker}
+              style={styles.calendarBtn}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name="calendar-outline"
+                size={17}
+                color={dateDepart ? "#111" : "#888"}
+              />
               {dateDepart ? (
                 <Text style={styles.calendarDateText}>
-                  {dateDepart.toLocaleDateString("en-US", { month: "short", day: "numeric" })} · {heureDepart}
+                  {dateDepart.toLocaleDateString("en-US", {
+                    month: "short",
+                    day:   "numeric",
+                  })}{" "}
+                  · {heureDepart}
                 </Text>
               ) : (
                 <Text style={styles.calendarPlaceholder}>Pick date</Text>
@@ -615,7 +879,7 @@ export default function SearchRideScreen() {
         }}
       />
 
-      {/* ── Outer wrapper ── */}
+      {/* ── Body ── */}
       <View style={styles.outerWrapper}>
         <KeyboardAvoidingView
           style={{ flex: 1 }}
@@ -630,7 +894,7 @@ export default function SearchRideScreen() {
             {/* ── FROM / TO card ── */}
             <View style={styles.routeCard}>
 
-              {/* ── FROM ── */}
+              {/* FROM */}
               <View style={styles.routeRow}>
                 <View style={styles.dotGreen} />
                 <View style={styles.inputContainer}>
@@ -659,7 +923,6 @@ export default function SearchRideScreen() {
                           <Ionicons name="close-circle" size={20} color="#999" />
                         </TouchableOpacity>
                       )}
-                      {/* ── Current position icon: only shown when FROM is empty ── */}
                       {isFromEmpty && (
                         <TouchableOpacity
                           onPress={handleCurrentPosition}
@@ -676,7 +939,7 @@ export default function SearchRideScreen() {
 
               <View style={styles.routeDivider} />
 
-              {/* ── TO ── */}
+              {/* TO */}
               <View style={styles.routeRow}>
                 <View style={styles.dotBlue} />
                 <View style={styles.inputContainer}>
@@ -690,7 +953,9 @@ export default function SearchRideScreen() {
                       <TextInput
                         ref={endInputRef}
                         placeholder="Where to?"
-                        value={focusedField === "destination" ? endQuery : endAddress}
+                        value={
+                          focusedField === "destination" ? endQuery : endAddress
+                        }
                         onChangeText={setEndQuery}
                         onFocus={handleEndFocus}
                         onBlur={handleBlur}
@@ -720,7 +985,10 @@ export default function SearchRideScreen() {
                       savedAddresses={savedAddresses}
                       customPlaces={customPlaces}
                       onSelect={handleSelectSavedForStart}
-                      onPressIn={() => { isSelectingSuggestion.current = true; if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current); }}
+                      onPressIn={() => {
+                        isSelectingSuggestion.current = true;
+                        if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
+                      }}
                     />
                     <View style={styles.dividerLine} />
                   </>
@@ -736,7 +1004,9 @@ export default function SearchRideScreen() {
                   </View>
                   <Text style={styles.optionText}>Set location on map</Text>
                 </TouchableOpacity>
-                {loadingStartSuggestions && <ActivityIndicator style={{ marginTop: 8 }} />}
+                {loadingStartSuggestions && (
+                  <ActivityIndicator style={{ marginTop: 8 }} />
+                )}
                 {startSuggestions.length > 0 && (
                   <>
                     <View style={styles.dividerLine} />
@@ -748,8 +1018,15 @@ export default function SearchRideScreen() {
                         onPress={() => handleSelectStartSuggestion(item)}
                         activeOpacity={0.7}
                       >
-                        <Ionicons name="location-outline" size={18} color="#666" style={styles.optionIcon} />
-                        <Text style={styles.suggestionTitle}>{item.displayName}</Text>
+                        <Ionicons
+                          name="location-outline"
+                          size={18}
+                          color="#666"
+                          style={styles.optionIcon}
+                        />
+                        <Text style={styles.suggestionTitle}>
+                          {item.displayName}
+                        </Text>
                       </TouchableOpacity>
                     ))}
                   </>
@@ -766,7 +1043,10 @@ export default function SearchRideScreen() {
                       savedAddresses={savedAddresses}
                       customPlaces={customPlaces}
                       onSelect={handleSelectSavedForEnd}
-                      onPressIn={() => { isSelectingSuggestion.current = true; if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current); }}
+                      onPressIn={() => {
+                        isSelectingSuggestion.current = true;
+                        if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
+                      }}
                     />
                     <View style={styles.dividerLine} />
                   </>
@@ -782,7 +1062,9 @@ export default function SearchRideScreen() {
                   </View>
                   <Text style={styles.optionText}>Set location on map</Text>
                 </TouchableOpacity>
-                {loadingEndSuggestions && <ActivityIndicator style={{ marginTop: 8 }} />}
+                {loadingEndSuggestions && (
+                  <ActivityIndicator style={{ marginTop: 8 }} />
+                )}
                 {endSuggestions.length > 0 && (
                   <>
                     <View style={styles.dividerLine} />
@@ -794,8 +1076,15 @@ export default function SearchRideScreen() {
                         onPress={() => handleSelectEndSuggestion(item)}
                         activeOpacity={0.7}
                       >
-                        <Ionicons name="location-outline" size={18} color="#666" style={styles.optionIcon} />
-                        <Text style={styles.suggestionTitle}>{item.displayName}</Text>
+                        <Ionicons
+                          name="location-outline"
+                          size={18}
+                          color="#666"
+                          style={styles.optionIcon}
+                        />
+                        <Text style={styles.suggestionTitle}>
+                          {item.displayName}
+                        </Text>
                       </TouchableOpacity>
                     ))}
                   </>
@@ -803,7 +1092,7 @@ export default function SearchRideScreen() {
               </View>
             )}
 
-            {/* ── PASSENGERS bar ── */}
+            {/* ── Passengers bar ── */}
             <TouchableOpacity
               style={styles.passengerBar}
               onPress={() => setShowPassengerModal(true)}
@@ -833,7 +1122,12 @@ export default function SearchRideScreen() {
                     size={18}
                     color={value ? "#fff" : "#555"}
                   />
-                  <Text style={[styles.prefChipText, value && styles.prefChipTextActive]}>
+                  <Text
+                    style={[
+                      styles.prefChipText,
+                      value && styles.prefChipTextActive,
+                    ]}
+                  >
                     {label}
                   </Text>
                 </TouchableOpacity>
@@ -859,7 +1153,12 @@ export default function SearchRideScreen() {
                   size={22}
                   color={valid ? "#fff" : "#bbb"}
                 />
-                <Text style={[styles.continueText, !valid && styles.continueTextDisabled]}>
+                <Text
+                  style={[
+                    styles.continueText,
+                    !valid && styles.continueTextDisabled,
+                  ]}
+                >
                   Continue
                 </Text>
               </>
@@ -868,7 +1167,7 @@ export default function SearchRideScreen() {
         </View>
       </View>
 
-      {/* ── Passenger picker modal ── */}
+      {/* ── Passenger modal ── */}
       {showPassengerModal && (
         <PassengerPickerModal
           value={nbPassagers}
@@ -877,22 +1176,39 @@ export default function SearchRideScreen() {
         />
       )}
 
-      {/* ── Date / time pickers ── */}
+      {/* ── ✅ Date error modal ── */}
+      <DateErrorModal
+        visible={dateErrorVisible}
+        onClose={() => setDateErrorVisible(false)}
+      />
+
+      {/* ── iOS Date / Time picker ── */}
       {Platform.OS === "ios" && showDatePicker && (
         <Modal transparent animationType="slide" visible={showDatePicker}>
           <View style={styles.modalOverlay}>
             <View style={styles.datePickerContainer}>
               <View style={styles.pickerHeader}>
-                <TouchableOpacity onPress={() => { setShowDatePicker(false); setShowTimePicker(false); }}>
+                <TouchableOpacity
+                  onPress={() => {
+                    setShowDatePicker(false);
+                    setShowTimePicker(false);
+                  }}
+                >
                   <Text style={styles.cancelButton}>Cancel</Text>
                 </TouchableOpacity>
                 <Text style={styles.pickerTitle}>
                   {showTimePicker ? "Time" : "Select Date"}
                 </Text>
-                <TouchableOpacity onPress={() => { setShowDatePicker(false); setShowTimePicker(false); }}>
+                <TouchableOpacity
+                  onPress={() => {
+                    setShowDatePicker(false);
+                    setShowTimePicker(false);
+                  }}
+                >
                   <Text style={styles.applyButton}>Apply</Text>
                 </TouchableOpacity>
               </View>
+
               {!showTimePicker ? (
                 <DateTimePicker
                   value={selectedDate}
@@ -900,6 +1216,7 @@ export default function SearchRideScreen() {
                   display="inline"
                   onChange={handleDateChange}
                   minimumDate={new Date()}
+                  maximumDate={maxDate}
                   textColor="#000"
                 />
               ) : (
@@ -911,8 +1228,12 @@ export default function SearchRideScreen() {
                   textColor="#000"
                 />
               )}
+
               {!showTimePicker && (
-                <TouchableOpacity style={styles.nextButton} onPress={() => setShowTimePicker(true)}>
+                <TouchableOpacity
+                  style={styles.nextButton}
+                  onPress={() => setShowTimePicker(true)}
+                >
                   <Text style={styles.nextButtonText}>Next: Select Time</Text>
                 </TouchableOpacity>
               )}
@@ -920,6 +1241,8 @@ export default function SearchRideScreen() {
           </View>
         </Modal>
       )}
+
+      {/* ── Android Date picker ── */}
       {Platform.OS === "android" && showDatePicker && (
         <DateTimePicker
           value={selectedDate}
@@ -927,8 +1250,11 @@ export default function SearchRideScreen() {
           display="default"
           onChange={handleDateChange}
           minimumDate={new Date()}
+          maximumDate={maxDate}
         />
       )}
+
+      {/* ── Android Time picker ── */}
       {Platform.OS === "android" && showTimePicker && (
         <DateTimePicker
           value={selectedDate}
@@ -940,7 +1266,6 @@ export default function SearchRideScreen() {
     </>
   );
 }
-
 
 // ── Passenger modal styles ────────────────────────────────────────────────────
 const passStyles = StyleSheet.create({
@@ -1281,4 +1606,73 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   nextButtonText: { color: "#FFF", fontSize: 16, fontWeight: "600" },
+});
+
+const modalStyles = StyleSheet.create({
+  backdrop: {
+    flex:              1,
+    backgroundColor:   "rgba(0,0,0,0.45)",
+    justifyContent:    "center",
+    alignItems:        "center",
+    paddingHorizontal: 28,
+  },
+  card: {
+    backgroundColor: "#fff",
+    borderRadius:    24,
+    overflow:        "hidden",
+    width:           "100%",
+    ...Platform.select({
+      ios: {
+        shadowColor:   "#000",
+        shadowOpacity: 0.12,
+        shadowRadius:  20,
+        shadowOffset:  { width: 0, height: 8 },
+      },
+      android: { elevation: 10 },
+    }),
+  },
+  content: {
+    alignItems: "center",
+    padding:    24,
+  },
+  iconWrap: {
+    width:           48,
+    height:          48,
+    borderRadius:    24,
+    backgroundColor: "#FFF7ED",
+    alignItems:      "center",
+    justifyContent:  "center",
+    marginBottom:    12,
+  },
+  title: {
+    fontSize:     16,
+    fontWeight:   "700",
+    color:        "#111",
+    marginBottom: 8,
+    textAlign:    "center",
+  },
+  body: {
+    fontSize:     13,
+    color:        "#666",
+    lineHeight:   19,
+    textAlign:    "center",
+  },
+  bold: {
+    fontWeight: "700",
+    color:      "#111",
+  },
+  btn: {
+    backgroundColor: "#FFF7ED",
+    borderRadius:    12,
+    paddingVertical: 12,
+    width:           "85%",
+    alignItems:      "center",
+    justifyContent:  "center",
+    marginTop:       20,
+  },
+  btnText: {
+    color:      "#F97316",
+    fontSize:   16,
+    fontWeight: "700",
+  },
 });
