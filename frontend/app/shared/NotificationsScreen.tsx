@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
   StyleSheet, StatusBar, Image,
@@ -67,34 +67,41 @@ function NotifAvatar({ notif, cat }: { notif: Notification; cat: ReturnType<type
 }
 
 export default function NotificationsScreen() {
-  const { notifications, clearNotifications, markAllAsRead } = useNotifications();
+  const { notifications, clearNotifications, markAllAsRead, unreadCount } = useNotifications();
 
   const [newNotifs, setNewNotifs] = useState<Notification[]>([]);
   const [oldNotifs, setOldNotifs] = useState<Notification[]>([]);
+
+  // ✅ FIX : capturer unreadCount au moment du focus, AVANT markAllAsRead
+  // On ne peut pas se fier à isRead car le cache AsyncStorage recharge
+  // les notifs avec isRead=true même si elles sont "nouvelles" pour l'user
+  const unreadCountAtFocus = useRef(0);
   const hasSnapshotted = useRef(false);
 
-  // ✅ FIX : Reset le snapshot à chaque fois qu'on revient sur l'écran
+  // Étape 1 : au focus, sauvegarder combien de notifs sont non-lues
   useFocusEffect(
-    React.useCallback(() => {
+    useCallback(() => {
       hasSnapshotted.current = false;
-    }, [])
+      unreadCountAtFocus.current = unreadCount; // snapshot du badge
+    }, [unreadCount])
   );
 
-  // ✅ FIX PRINCIPAL : snapshot + markAllAsRead dans un useEffect
-  // JAMAIS pendant le rendu → évite "Cannot update a component while rendering"
+  // Étape 2 : quand notifications se charge, faire le split new/old
   useEffect(() => {
-    if (!hasSnapshotted.current && notifications.length > 0) {
-      hasSnapshotted.current = true;
+    if (hasSnapshotted.current) return;
+    if (notifications.length === 0) return;
 
-      // Snapshot AVANT markAllAsRead
-      const unread = notifications.filter(n => !n.isRead);
-      const read   = notifications.filter(n =>  n.isRead);
-      setNewNotifs(unread);
-      setOldNotifs(read);
+    hasSnapshotted.current = true;
 
-      // Marquer comme lu APRÈS le snapshot, dans le même effect
-      markAllAsRead();
-    }
+    // Les N premières (les plus récentes, triées desc par le backend) = nouvelles
+    // Le reste = précédentes
+    const n = unreadCountAtFocus.current;
+    setNewNotifs(n > 0 ? notifications.slice(0, n) : []);
+    setOldNotifs(n > 0 ? notifications.slice(n)    : notifications);
+
+    // Marquer comme lu seulement si il y avait des nouvelles
+    if (n > 0) markAllAsRead();
+
   }, [notifications, markAllAsRead]);
 
   const renderNotif = (notif: Notification, i: number, isNew: boolean) => {
@@ -128,11 +135,7 @@ export default function NotificationsScreen() {
           <Text style={styles.headerTitle}>Notifications</Text>
           {!allEmpty && (
             <TouchableOpacity
-              onPress={() => {
-                clearNotifications();
-                setNewNotifs([]);
-                setOldNotifs([]);
-              }}
+              onPress={() => { clearNotifications(); setNewNotifs([]); setOldNotifs([]); }}
               activeOpacity={0.7}
             >
               <Text style={styles.clearBtn}>Tout effacer</Text>
