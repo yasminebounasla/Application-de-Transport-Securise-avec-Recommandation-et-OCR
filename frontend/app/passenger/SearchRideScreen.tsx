@@ -12,6 +12,7 @@ import {
   Alert,
   ScrollView,
   KeyboardAvoidingView,
+  Animated,
 } from "react-native";
 import { useRouter, Stack } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -44,6 +45,96 @@ type CustomPlace = {
   lat?: number;
   lng?: number;
 };
+
+// ── DateErrorModal (inline) ───────────────────────────────────────────────────
+function DateErrorModal({
+  visible,
+  onClose,
+}: {
+  visible: boolean;
+  onClose: () => void;
+}) {
+  const scaleAnim   = useRef(new Animated.Value(0.85)).current;
+  const opacityAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.spring(scaleAnim, {
+          toValue:         1,
+          useNativeDriver: true,
+          tension:         80,
+          friction:        8,
+        }),
+        Animated.timing(opacityAnim, {
+          toValue:         1,
+          duration:        200,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      scaleAnim.setValue(0.85);
+      opacityAnim.setValue(0);
+    }
+  }, [visible]);
+
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="none"
+      onRequestClose={onClose}
+      statusBarTranslucent
+    >
+      <TouchableOpacity
+        style={modalStyles.backdrop}
+        activeOpacity={1}
+        onPress={onClose}
+      >
+        <TouchableOpacity activeOpacity={1}>
+          <Animated.View
+            style={[
+              modalStyles.card,
+              {
+                opacity:   opacityAnim,
+                transform: [{ scale: scaleAnim }],
+              },
+            ]}
+          >
+            {/* Contenu centré */}
+            <View style={modalStyles.content}>
+
+              {/* Icon */}
+              <View style={modalStyles.iconWrap}>
+                <Ionicons name="time-outline" size={22} color="#F97316" />
+              </View>
+
+              {/* Title */}
+              <Text style={modalStyles.title}>Departure too soon</Text>
+
+              {/* Body */}
+              <Text style={modalStyles.body}>
+                Pick a time at least{" "}
+                <Text style={modalStyles.bold}>30 min from now</Text>{" "}
+                so the driver can reach you in time.
+              </Text>
+
+              {/* Button — centré, rectangulaire, largeur fixe */}
+              <TouchableOpacity
+                style={modalStyles.btn}
+                onPress={onClose}
+                activeOpacity={0.8}
+              >
+                <Text style={modalStyles.btnText}>Got it</Text>
+              </TouchableOpacity>
+
+            </View>
+          </Animated.View>
+        </TouchableOpacity>
+      </TouchableOpacity>
+    </Modal>
+  );
+}
 
 // ── SavedChip ─────────────────────────────────────────────────────────────────
 function SavedChip({
@@ -223,10 +314,10 @@ export default function SearchRideScreen() {
   const { createRide, loading: rideLoading } = useRide();
 
   // ── Address state ────────────────────────────────────────────────────────
-  const [startAddress, setStartAddress]   = useState("");
-  const [endAddress, setEndAddress]       = useState("");
-  const [loadingStart, setLoadingStart]   = useState(false);
-  const [loadingEnd, setLoadingEnd]       = useState(false);
+  const [startAddress, setStartAddress] = useState("");
+  const [endAddress, setEndAddress]     = useState("");
+  const [loadingStart, setLoadingStart] = useState(false);
+  const [loadingEnd, setLoadingEnd]     = useState(false);
 
   // ── Focus state ──────────────────────────────────────────────────────────
   const [focusedField, setFocusedField] = useState<"start" | "destination" | null>(null);
@@ -242,8 +333,8 @@ export default function SearchRideScreen() {
   const isSubmittingRef       = useRef(false);
 
   // ── Search queries ───────────────────────────────────────────────────────
-  const [startQuery, setStartQuery]   = useState("");
-  const [endQuery, setEndQuery]       = useState("");
+  const [startQuery, setStartQuery] = useState("");
+  const [endQuery, setEndQuery]     = useState("");
   const [startSuggestions, setStartSuggestions] = useState<any[]>([]);
   const [endSuggestions, setEndSuggestions]     = useState<any[]>([]);
   const [loadingStartSuggestions, setLoadingStartSuggestions] = useState(false);
@@ -257,7 +348,7 @@ export default function SearchRideScreen() {
   const [customPlaces, setCustomPlaces] = useState<CustomPlace[]>([]);
 
   // ── Passengers ───────────────────────────────────────────────────────────
-  const [nbPassagers, setNbPassagers]           = useState(1);
+  const [nbPassagers, setNbPassagers]               = useState(1);
   const [showPassengerModal, setShowPassengerModal] = useState(false);
 
   // ── Date / time ──────────────────────────────────────────────────────────
@@ -267,12 +358,15 @@ export default function SearchRideScreen() {
   const [dateDepart, setDateDepart]         = useState<Date | null>(null);
   const [heureDepart, setHeureDepart]       = useState<string | null>(null);
 
+  // ── Date error modal ─────────────────────────────────────────────────────
+  const [dateErrorVisible, setDateErrorVisible] = useState(false);
+
   // ── Preferences ──────────────────────────────────────────────────────────
-  const [smoking_ok, setSmokingOk]               = useState(false);
-  const [pets_ok, setPetsOk]                     = useState(false);
-  const [luggage_large, setLuggageLarge]         = useState(false);
-  const [quiet_ride, setQuietRide]               = useState(false);
-  const [radio_ok, setRadioOk]                   = useState(false);
+  const [smoking_ok, setSmokingOk]                = useState(false);
+  const [pets_ok, setPetsOk]                      = useState(false);
+  const [luggage_large, setLuggageLarge]          = useState(false);
+  const [quiet_ride, setQuietRide]                = useState(false);
+  const [radio_ok, setRadioOk]                    = useState(false);
   const [female_driver_pref, setFemaleDriverPref] = useState(false);
 
   // ── Load saved addresses ─────────────────────────────────────────────────
@@ -292,7 +386,6 @@ export default function SearchRideScreen() {
           : null,
       });
 
-      // Everything that is not home/work → custom
       const custom = places.filter(
         (p: any) => !["home", "work"].includes(p.label.toLowerCase())
       );
@@ -308,13 +401,10 @@ export default function SearchRideScreen() {
     };
 
     const loadSavedAddresses = async () => {
-      // 1️⃣ Cache first (works offline)
       try {
         const cached = await AsyncStorage.getItem(CACHE_KEY);
         if (cached) applyPlaces(JSON.parse(cached));
       } catch (_) {}
-
-      // 2️⃣ Fresh from network
       try {
         const res    = await api.get("/passengers/saved-places");
         const places = res.data.data || [];
@@ -328,7 +418,6 @@ export default function SearchRideScreen() {
     loadSavedAddresses();
   }, []);
 
-  // ── Cleanup blur timeout ─────────────────────────────────────────────────
   useEffect(() => {
     return () => {
       if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current);
@@ -344,11 +433,9 @@ export default function SearchRideScreen() {
         lastStartCoords.current = null;
         return;
       }
-
       const key = `${startLocation.latitude.toFixed(4)},${startLocation.longitude.toFixed(4)}`;
       if (lastStartCoords.current === key) return;
       lastStartCoords.current = key;
-
       setLoadingStart(true);
       try {
         await new Promise((r) => setTimeout(r, 150));
@@ -360,7 +447,6 @@ export default function SearchRideScreen() {
         setLoadingStart(false);
       }
     };
-
     load();
   }, [startLocation?.latitude, startLocation?.longitude]);
 
@@ -373,11 +459,9 @@ export default function SearchRideScreen() {
         lastEndCoords.current = null;
         return;
       }
-
       const key = `${endLocation.latitude.toFixed(4)},${endLocation.longitude.toFixed(4)}`;
       if (lastEndCoords.current === key) return;
       lastEndCoords.current = key;
-
       setLoadingEnd(true);
       try {
         await new Promise((r) => setTimeout(r, 500));
@@ -389,17 +473,13 @@ export default function SearchRideScreen() {
         setLoadingEnd(false);
       }
     };
-
     load();
   }, [endLocation?.latitude, endLocation?.longitude]);
 
   // ── Autocomplete: start ──────────────────────────────────────────────────
   useEffect(() => {
     const fetch = async () => {
-      if (startQuery.length < 2) {
-        setStartSuggestions([]);
-        return;
-      }
+      if (startQuery.length < 2) { setStartSuggestions([]); return; }
       setLoadingStartSuggestions(true);
       try {
         setStartSuggestions(await searchPlaces(startQuery, currentLocation));
@@ -409,7 +489,6 @@ export default function SearchRideScreen() {
         setLoadingStartSuggestions(false);
       }
     };
-
     const t = setTimeout(fetch, 500);
     return () => clearTimeout(t);
   }, [startQuery]);
@@ -417,10 +496,7 @@ export default function SearchRideScreen() {
   // ── Autocomplete: end ────────────────────────────────────────────────────
   useEffect(() => {
     const fetch = async () => {
-      if (endQuery.length < 2) {
-        setEndSuggestions([]);
-        return;
-      }
+      if (endQuery.length < 2) { setEndSuggestions([]); return; }
       setLoadingEndSuggestions(true);
       try {
         setEndSuggestions(await searchPlaces(endQuery, currentLocation));
@@ -430,7 +506,6 @@ export default function SearchRideScreen() {
         setLoadingEndSuggestions(false);
       }
     };
-
     const t = setTimeout(fetch, 500);
     return () => clearTimeout(t);
   }, [endQuery]);
@@ -456,7 +531,7 @@ export default function SearchRideScreen() {
     }, 600);
   };
 
-  // ── Clear fields ─────────────────────────────────────────────────────────
+  // ── Clear ────────────────────────────────────────────────────────────────
   const handleClearStart = () => {
     setStartLocation(null);
     setStartAddress("");
@@ -493,10 +568,7 @@ export default function SearchRideScreen() {
     Keyboard.dismiss();
     setTimeout(() => {
       isNavigatingToMap.current = false;
-      router.push({
-        pathname: "/shared/MapScreen",
-        params: { selectionType: "start" },
-      });
+      router.push({ pathname: "/shared/MapScreen", params: { selectionType: "start" } });
     }, 50);
   };
 
@@ -507,10 +579,7 @@ export default function SearchRideScreen() {
     Keyboard.dismiss();
     setTimeout(() => {
       isNavigatingToMap.current = false;
-      router.push({
-        pathname: "/shared/MapScreen",
-        params: { selectionType: "destination" },
-      });
+      router.push({ pathname: "/shared/MapScreen", params: { selectionType: "destination" } });
     }, 50);
   };
 
@@ -574,44 +643,30 @@ export default function SearchRideScreen() {
   };
 
   // ── ✅ Date validation ────────────────────────────────────────────────────
-  const validateDateDepart = (dt: Date): { valid: boolean; error?: string } => {
-    const now      = Date.now();
-    const diffMs   = dt.getTime() - now;
-    const diffMin  = diffMs / 60_000;
-    const diffDays = diffMs / 86_400_000;
+  const validateDateDepart = (dt: Date): boolean => {
+    const now     = Date.now();
+    const diffMin = (dt.getTime() - now) / 60_000;
 
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     console.log("🕐 [validateDateDepart]");
-    console.log("   ► now      :", new Date(now).toLocaleString());
-    console.log("   ► picked   :", dt.toLocaleString());
-    console.log("   ► diffMin  :", diffMin.toFixed(1), "min");
-    console.log("   ► diffDays :", diffDays.toFixed(2), "days");
+    console.log("   ► now     :", new Date(now).toLocaleString());
+    console.log("   ► picked  :", dt.toLocaleString());
+    console.log("   ► diffMin :", diffMin.toFixed(1), "min");
 
     if (diffMin < 30) {
       console.log("   ❌ BLOCKED — less than 30 min from now");
       console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      return {
-        valid: false,
-        error: "Departure must be at least 30 minutes from now.",
-      };
-    }
-    if (diffDays > 30) {
-      console.log("   ❌ BLOCKED — more than 30 days from now");
-      console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-      return {
-        valid: false,
-        error: "Departure cannot be more than 30 days from now.",
-      };
+      return false;
     }
 
-    console.log("   ✅ VALID — date accepted");
+    console.log("   ✅ VALID");
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
-    return { valid: true };
+    return true;
   };
 
   // ── Date / time handlers ─────────────────────────────────────────────────
   const handleOpenDatePicker = () => {
-    console.log("📅 [handleOpenDatePicker] selectedDate:", selectedDate.toLocaleString());
+    console.log("📅 [handleOpenDatePicker]");
     setShowDatePicker(true);
   };
 
@@ -620,7 +675,6 @@ export default function SearchRideScreen() {
     if (Platform.OS === "android") setShowDatePicker(false);
     if (date) {
       setSelectedDate(date);
-      console.log("   selectedDate →", date.toLocaleDateString());
       if (Platform.OS === "android") setTimeout(() => setShowTimePicker(true), 100);
     }
   };
@@ -629,32 +683,27 @@ export default function SearchRideScreen() {
     console.log("⏰ [handleTimeChange] type:", event.type, "| time:", time?.toLocaleTimeString());
     setShowTimePicker(false);
 
-    // Android dismissal — ignore
     if (event.type === "dismissed") {
       console.log("   ⚠️  dismissed — no change");
       return;
     }
 
     if (time) {
-      // Combine selectedDate + picked time
       const dt = new Date(selectedDate);
       dt.setHours(time.getHours());
       dt.setMinutes(time.getMinutes());
       dt.setSeconds(0);
       dt.setMilliseconds(0);
 
-      console.log("⏰ [handleTimeChange] full datetime built:", dt.toLocaleString());
+      console.log("⏰ [handleTimeChange] built datetime:", dt.toLocaleString());
 
-      const check = validateDateDepart(dt);
-
-      if (!check.valid) {
-        console.log("🚫 [handleTimeChange] INVALID → Alert, dateDepart stays null");
-        Alert.alert("Invalid departure time", check.error);
+      if (!validateDateDepart(dt)) {
+        // ✅ Modal UI au lieu de Alert.alert
+        setDateErrorVisible(true);
         if (Platform.OS === "ios") setShowDatePicker(false);
         return;
       }
 
-      console.log("✅ [handleTimeChange] VALID → saving dateDepart");
       setDateDepart(dt);
       setHeureDepart(
         `${time.getHours().toString().padStart(2, "0")}:${time
@@ -678,16 +727,12 @@ export default function SearchRideScreen() {
       return;
     }
 
-    // Final guard — clock may have drifted since picker
-    console.log("🚗 [handleRideRequest] re-validating:", dateDepart.toLocaleString());
-    const check = validateDateDepart(dateDepart);
-    if (!check.valid) {
+    // Final guard
+    if (!validateDateDepart(dateDepart)) {
       isSubmittingRef.current = false;
-      console.log("🚫 [handleRideRequest] final validation FAILED");
-      Alert.alert("Invalid departure time", check.error);
+      setDateErrorVisible(true);
       return;
     }
-    console.log("✅ [handleRideRequest] final validation PASSED → createRide");
 
     const validation = await validateLocationsInAlgeria(startLocation, endLocation);
     if (!validation.valid) {
@@ -726,11 +771,11 @@ export default function SearchRideScreen() {
           rideId:      newRide.id,
           passengerId: newRide.passengerId || 1,
           preferences: {
-            quiet_ride:        quiet_ride        ? "yes" : "no",
-            radio_ok:          radio_ok          ? "yes" : "no",
-            smoking_ok:        smoking_ok        ? "yes" : "no",
-            pets_ok:           pets_ok           ? "yes" : "no",
-            luggage_large:     luggage_large     ? "yes" : "no",
+            quiet_ride:         quiet_ride         ? "yes" : "no",
+            radio_ok:           radio_ok           ? "yes" : "no",
+            smoking_ok:         smoking_ok         ? "yes" : "no",
+            pets_ok:            pets_ok            ? "yes" : "no",
+            luggage_large:      luggage_large      ? "yes" : "no",
             female_driver_pref: female_driver_pref ? "yes" : "no",
           },
           startAddress: startAddress || "Departure point",
@@ -778,12 +823,12 @@ export default function SearchRideScreen() {
     focusedField === "destination" && endQuery.length === 0 && hasSavedPlaces;
 
   const preferences = [
-    { label: "Quiet ride",    icon: "ear-hearing-off", value: quiet_ride,          setter: setQuietRide },
-    { label: "Radio OK",      icon: "radio",           value: radio_ok,            setter: setRadioOk },
-    { label: "Smoking",       icon: "smoking",         value: smoking_ok,          setter: setSmokingOk },
-    { label: "Pets OK",       icon: "paw",             value: pets_ok,             setter: setPetsOk },
-    { label: "Large bags",    icon: "bag-suitcase",    value: luggage_large,       setter: setLuggageLarge },
-    { label: "Female driver", icon: "gender-female",   value: female_driver_pref,  setter: setFemaleDriverPref },
+    { label: "Quiet ride",    icon: "ear-hearing-off", value: quiet_ride,         setter: setQuietRide },
+    { label: "Radio OK",      icon: "radio",           value: radio_ok,           setter: setRadioOk },
+    { label: "Smoking",       icon: "smoking",         value: smoking_ok,         setter: setSmokingOk },
+    { label: "Pets OK",       icon: "paw",             value: pets_ok,            setter: setPetsOk },
+    { label: "Large bags",    icon: "bag-suitcase",    value: luggage_large,      setter: setLuggageLarge },
+    { label: "Female driver", icon: "gender-female",   value: female_driver_pref, setter: setFemaleDriverPref },
   ];
 
   const valid       = isFormValid();
@@ -798,10 +843,7 @@ export default function SearchRideScreen() {
         options={{
           title: "",
           headerLeft: () => (
-            <TouchableOpacity
-              onPress={() => router.back()}
-              style={{ marginLeft: 4 }}
-            >
+            <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 4 }}>
               <Ionicons name="arrow-back" size={24} color="#111" />
             </TouchableOpacity>
           ),
@@ -951,7 +993,6 @@ export default function SearchRideScreen() {
                     <View style={styles.dividerLine} />
                   </>
                 )}
-
                 <TouchableOpacity
                   style={styles.optionButton}
                   onPressIn={() => { isSelectingSuggestion.current = true; }}
@@ -963,11 +1004,9 @@ export default function SearchRideScreen() {
                   </View>
                   <Text style={styles.optionText}>Set location on map</Text>
                 </TouchableOpacity>
-
                 {loadingStartSuggestions && (
                   <ActivityIndicator style={{ marginTop: 8 }} />
                 )}
-
                 {startSuggestions.length > 0 && (
                   <>
                     <View style={styles.dividerLine} />
@@ -1012,7 +1051,6 @@ export default function SearchRideScreen() {
                     <View style={styles.dividerLine} />
                   </>
                 )}
-
                 <TouchableOpacity
                   style={styles.optionButton}
                   onPressIn={() => { isSelectingSuggestion.current = true; }}
@@ -1024,11 +1062,9 @@ export default function SearchRideScreen() {
                   </View>
                   <Text style={styles.optionText}>Set location on map</Text>
                 </TouchableOpacity>
-
                 {loadingEndSuggestions && (
                   <ActivityIndicator style={{ marginTop: 8 }} />
                 )}
-
                 {endSuggestions.length > 0 && (
                   <>
                     <View style={styles.dividerLine} />
@@ -1140,13 +1176,15 @@ export default function SearchRideScreen() {
         />
       )}
 
+      {/* ── ✅ Date error modal ── */}
+      <DateErrorModal
+        visible={dateErrorVisible}
+        onClose={() => setDateErrorVisible(false)}
+      />
+
       {/* ── iOS Date / Time picker ── */}
       {Platform.OS === "ios" && showDatePicker && (
-        <Modal
-          transparent
-          animationType="slide"
-          visible={showDatePicker}
-        >
+        <Modal transparent animationType="slide" visible={showDatePicker}>
           <View style={styles.modalOverlay}>
             <View style={styles.datePickerContainer}>
               <View style={styles.pickerHeader}>
@@ -1568,4 +1606,73 @@ const styles = StyleSheet.create({
     marginTop: 16,
   },
   nextButtonText: { color: "#FFF", fontSize: 16, fontWeight: "600" },
+});
+
+const modalStyles = StyleSheet.create({
+  backdrop: {
+    flex:              1,
+    backgroundColor:   "rgba(0,0,0,0.45)",
+    justifyContent:    "center",
+    alignItems:        "center",
+    paddingHorizontal: 28,
+  },
+  card: {
+    backgroundColor: "#fff",
+    borderRadius:    24,
+    overflow:        "hidden",
+    width:           "100%",
+    ...Platform.select({
+      ios: {
+        shadowColor:   "#000",
+        shadowOpacity: 0.12,
+        shadowRadius:  20,
+        shadowOffset:  { width: 0, height: 8 },
+      },
+      android: { elevation: 10 },
+    }),
+  },
+  content: {
+    alignItems: "center",
+    padding:    24,
+  },
+  iconWrap: {
+    width:           48,
+    height:          48,
+    borderRadius:    24,
+    backgroundColor: "#FFF7ED",
+    alignItems:      "center",
+    justifyContent:  "center",
+    marginBottom:    12,
+  },
+  title: {
+    fontSize:     16,
+    fontWeight:   "700",
+    color:        "#111",
+    marginBottom: 8,
+    textAlign:    "center",
+  },
+  body: {
+    fontSize:     13,
+    color:        "#666",
+    lineHeight:   19,
+    textAlign:    "center",
+  },
+  bold: {
+    fontWeight: "700",
+    color:      "#111",
+  },
+  btn: {
+    backgroundColor: "#FFF7ED",
+    borderRadius:    12,
+    paddingVertical: 12,
+    width:           "85%",
+    alignItems:      "center",
+    justifyContent:  "center",
+    marginTop:       20,
+  },
+  btnText: {
+    color:      "#F97316",
+    fontSize:   16,
+    fontWeight: "700",
+  },
 });
