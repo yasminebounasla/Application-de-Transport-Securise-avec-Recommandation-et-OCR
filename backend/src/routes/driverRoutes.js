@@ -26,4 +26,6 @@ router.get("/me", authenticate, getMyDriverProfile);
 router.put("/profile", authenticate, updateDriverProfile);
 router.get("/:id", authenticate, getDriverProfile); 
 
+router.patch("/profile/location", authMiddleware, updateDriverLocation);
+
 export default router;
