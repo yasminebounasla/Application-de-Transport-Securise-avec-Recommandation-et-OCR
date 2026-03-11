@@ -173,7 +173,7 @@ export default function ProfileSetupScreen() {
     const digits = formatted.replace(/\D/g, '');
     setErrors({
       ...errors,
-      plaque: digits.length === 10 || digits.length === 0
+      plaque: digits.length === 11 || digits.length === 0
         ? validateLicensePlate(formatted)
         : '',
     });
@@ -256,7 +256,7 @@ export default function ProfileSetupScreen() {
           label="License Plate *"
           value={vehicleData.plaque}
           onChangeText={handleLicensePlateChange}
-          placeholder="12345 126 16"
+          placeholder="123456 126 16"
           keyboardType="numeric"
           error={errors.plaque}
         />
@@ -337,7 +337,7 @@ export default function ProfileSetupScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: '', headerBackVisible: false, headerShadowVisible: false }} />
+      <Stack.Screen options={{ title: 'Complete your profile', headerBackVisible: false, headerShadowVisible: false }} />
       <ScrollView
         style={s.screen}
         contentContainerStyle={{ padding: 24, paddingBottom: 48 }}
