@@ -164,57 +164,51 @@ export const validateSeats = (seats) => {
 
 /**
  * Valider la plaque d'immatriculation algérienne pour application de covoiturage
- * Format strict: XXXXX 1ZZ WW
- * - XXXXX: Numéro de série (5 chiffres obligatoires avec zéros de tête)
+ * Format strict: XXXXXX 1ZZ WW
+ * - XXXXX: Numéro de série (6 chiffres obligatoires avec zéros de tête)
  * - 1: Type de véhicule (DOIT être 1 pour transport de passagers)
  * - ZZ: Année du véhicule (2 chiffres)
  * - WW: Code wilaya (2 chiffres: 01-58)
  */
 export const validateLicensePlate = (plate, vehicleYear = null) => {
-
   if (!plate || plate.trim() === '') {
     return '';
   }
-  
+
   const cleanPlate = plate.trim();
-  
   const plateWithoutSeparators = cleanPlate.replace(/[\s-]/g, '');
- 
+
   if (!/^\d+$/.test(plateWithoutSeparators)) {
     return 'License plate must contain only numbers';
   }
 
-  if (plateWithoutSeparators.length !== 10) {
-    return 'Format: XXXXX 1ZZ WW (10 digits required)';
+  if (plateWithoutSeparators.length !== 11) {
+    return 'Format: XXXXXX 1ZZ WW (11 digits required)';
   }
-  
-  const serialNumber = plateWithoutSeparators.slice(0, 5);   
-  const typeAndYear = plateWithoutSeparators.slice(5, 8);    
-  const wilayaCode = plateWithoutSeparators.slice(8, 10);   
-  
-  // Valider le code wilaya (doit être entre 01 et 58)
+
+  const serialNumber = plateWithoutSeparators.slice(0, 6);
+  const typeAndYear  = plateWithoutSeparators.slice(6, 9);
+  const wilayaCode   = plateWithoutSeparators.slice(9, 11);
+
   const wilayaNum = parseInt(wilayaCode);
   if (wilayaNum < 1 || wilayaNum > 58 || !ALGERIA_WILAYA_CODES.includes(wilayaCode)) {
     return 'Invalid wilaya code (must be 01-58)';
   }
-  
-  // Valider le type de véhicule (DOIT ÊTRE 1 pour transport de passagers)
+
   const vehicleType = parseInt(typeAndYear[0]);
   if (vehicleType !== 1) {
     return 'Only passenger transport vehicles allowed (type must be 1)';
   }
-  
-  // Extraire l'année de la plaque (2 derniers chiffres de typeAndYear)
+
   const plateYear = parseInt(typeAndYear.slice(1));
   if (plateYear < 0 || plateYear > 99) {
     return 'Invalid year in plate';
   }
-  
-  // Validation croisée avec l'année du véhicule si fournie
+
   if (vehicleYear && vehicleYear.trim() !== '') {
     const fullVehicleYear = parseInt(vehicleYear);
-    const vehicleYearShort = fullVehicleYear % 100; 
-    
+    const vehicleYearShort = fullVehicleYear % 100;
+
     if (plateYear !== vehicleYearShort) {
       return `Year mismatch: plate shows '${plateYear}' but vehicle year is '${vehicleYearShort}'`;
     }
@@ -223,12 +217,12 @@ export const validateLicensePlate = (plate, vehicleYear = null) => {
   if (cleanPlate.includes('-') || cleanPlate.includes(' ')) {
     const separator = cleanPlate.includes('-') ? '-' : ' ';
     const expectedFormat = `${serialNumber}${separator}${typeAndYear}${separator}${wilayaCode}`;
-    
+
     if (cleanPlate !== expectedFormat) {
-      return `Format: XXXXX${separator}1ZZ${separator}WW (e.g., 02639${separator}126${separator}09)`;
+      return `Format: XXXXXX${separator}1ZZ${separator}WW (e.g., 123456${separator}126${separator}09)`;
     }
   }
-  
+
   return '';
 };
 
