@@ -1,6 +1,8 @@
 import { prisma } from "../config/prisma.js";
 import { getIO } from '../socket/socket.js';
 import { extractWilayaFromPlaque } from "../utils/algerianPlaque.js";
+import { reverseGeocode }           from "../utils/reverseGeocode.js";
+import { extractWilayaFromAddress }  from "../utils/extractWilayaFromAddress.js";
 
 export const addDriverPreferences = async (req, res) => {
   // On prend l'ID directement depuis le token
@@ -584,7 +586,6 @@ export const updateDriverLocation = async (req, res) => {
       return res.status(400).json({ message: "latitude et longitude sont requis." });
     }
 
-    // Récupère la wilaya actuelle du driver (depuis son matricule)
     const driver = await prisma.driver.findUnique({
       where:  { id: driverId },
       select: { wilaya: true },
@@ -594,16 +595,26 @@ export const updateDriverLocation = async (req, res) => {
       return res.status(404).json({ message: "Driver not found." });
     }
 
-    // Sauvegarde les coordonnées précises
+    // ✅ Reverse geocode
+    const address          = await reverseGeocode(latitude, longitude);
+    const wilayaFromCoords = extractWilayaFromAddress(address);
+
+    console.log("[location] address.state :", address?.state);
+    console.log("[location] wilaya trouvée:", wilayaFromCoords?.nom);
+    console.log("[location] driver.wilaya :", driver.wilaya);
+
+    // ✅ Validation
+    if (!wilayaFromCoords || wilayaFromCoords.nom.toLowerCase() !== driver.wilaya.toLowerCase()) {
+      return res.status(400).json({
+        message: "LOCATION_WILAYA_MISMATCH",
+        detail:  `Vos coordonnées indiquent "${wilayaFromCoords?.nom || "inconnu"}" mais votre wilaya est "${driver.wilaya}".`,
+      });
+    }
+
     await prisma.driver.update({
       where: { id: driverId },
-      data: {
-        latitude:  parseFloat(latitude),
-        longitude: parseFloat(longitude),
-      },
+      data:  { latitude: parseFloat(latitude), longitude: parseFloat(longitude) },
     });
-
-    console.log("[updateDriverLocation] Driver", driverId, "→ lat:", latitude, "lng:", longitude);
 
     res.status(200).json({
       message: "Location updated successfully.",
@@ -613,6 +624,7 @@ export const updateDriverLocation = async (req, res) => {
         longitude: parseFloat(longitude),
       },
     });
+
   } catch (err) {
     console.error("Error updating driver location:", err);
     res.status(500).json({ message: "Failed to update location.", error: err.message });

@@ -12,8 +12,6 @@ import {
   CAR_BRANDS_WITH_MODELS,
   validateBrand,
   validateModel,
-  validateYear,
-  validateSeats,
   validateLicensePlate,
   validateColor,
   validateAllVehicleFields,
@@ -57,39 +55,34 @@ function PreferenceItem({ icon, label, value, onToggle }) {
 // ─────────────────────────────────────────────
 export default function ProfileSetupScreen() {
   const [currentStep, setCurrentStep] = useState(1);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading]         = useState(false);
 
   // Vehicle data
   const [vehicleData, setVehicleData] = useState({
-    marque: '',
-    modele: '',
-    annee: '',
-    nbPlaces: '',
-    plaque: '',
+    marque:  '',
+    modele:  '',
+    plaque:  '',
     couleur: '',
   });
 
   // Preferences data
   const [preferences, setPreferences] = useState({
-    fumeur: false,
-    talkative: false,
-    radio_on: false,
+    talkative:       false,
+    radio_on:        false,
     smoking_allowed: false,
-    pets_allowed: false,
-    car_big: false,
-    works_morning: false,
+    pets_allowed:    false,
+    car_big:         false,
+    works_morning:   false,
     works_afternoon: false,
-    works_evening: false,
-    works_night: false,
+    works_evening:   false,
+    works_night:     false,
   });
 
   // Errors state
   const [errors, setErrors] = useState({
-    marque: '',
-    modele: '',
-    annee: '',
-    nbPlaces: '',
-    plaque: '',
+    marque:  '',
+    modele:  '',
+    plaque:  '',
     couleur: '',
   });
 
@@ -163,11 +156,11 @@ export default function ProfileSetupScreen() {
   };
 
   const handleLicensePlateChange = (text) => {
-    const formatted = formatLicensePlateInput(text, ' ');
+    const formatted  = formatLicensePlateInput(text, ' ');
     setVehicleData({ ...vehicleData, plaque: formatted });
     const digitsOnly = formatted.replace(/\D/g, '');
     if (digitsOnly.length === 10 || digitsOnly.length === 0) {
-      setErrors({ ...errors, plaque: validateLicensePlate(formatted, vehicleData.annee) });
+      setErrors({ ...errors, plaque: validateLicensePlate(formatted) });
     } else {
       setErrors({ ...errors, plaque: '' });
     }
@@ -184,12 +177,10 @@ export default function ProfileSetupScreen() {
     setLoading(true);
     try {
       await api.post('/drivers/vehicle', {
-        marque:   vehicleData.marque,
-        modele:   vehicleData.modele   || null,
-        annee:    vehicleData.annee    ? Number(vehicleData.annee)    : null,
-        nbPlaces: vehicleData.nbPlaces ? Number(vehicleData.nbPlaces) : null,
-        plaque:   vehicleData.plaque   || null,
-        couleur:  vehicleData.couleur  || null,
+        marque:  vehicleData.marque,
+        modele:  vehicleData.modele  || null,
+        plaque:  vehicleData.plaque  || null,
+        couleur: vehicleData.couleur || null,
       });
       setCurrentStep(2);
     } catch (error) {
@@ -248,11 +239,22 @@ export default function ProfileSetupScreen() {
 
       {/* Brand */}
       <View style={{ marginBottom: 16 }}>
-        <Input label="Brand *" value={vehicleData.marque} onChangeText={handleBrandChange} placeholder="e.g. Peugeot, Toyota, Mercedes" error={errors.marque} />
+        <Input
+          label="Brand *"
+          value={vehicleData.marque}
+          onChangeText={handleBrandChange}
+          placeholder="e.g. Peugeot, Toyota, Mercedes"
+          error={errors.marque}
+        />
         {brandSuggestions.length > 0 && (
           <View className="bg-white border border-gray-300 rounded-lg mt-1 shadow-sm">
             {brandSuggestions.map((brand, index) => (
-              <TouchableOpacity key={index} onPress={() => selectBrand(brand)} className="px-4 py-3 border-b border-gray-100" activeOpacity={0.7}>
+              <TouchableOpacity
+                key={index}
+                onPress={() => selectBrand(brand)}
+                className="px-4 py-3 border-b border-gray-100"
+                activeOpacity={0.7}
+              >
                 <Text className="text-base text-black">{brand}</Text>
               </TouchableOpacity>
             ))}
@@ -262,11 +264,22 @@ export default function ProfileSetupScreen() {
 
       {/* Model */}
       <View style={{ marginBottom: 16 }}>
-        <Input label="Model" value={vehicleData.modele} onChangeText={handleModelChange} placeholder="e.g. 308, Corolla, C-Class" error={errors.modele} />
+        <Input
+          label="Model"
+          value={vehicleData.modele}
+          onChangeText={handleModelChange}
+          placeholder="e.g. 308, Corolla, C-Class"
+          error={errors.modele}
+        />
         {modelSuggestions.length > 0 && (
           <View className="bg-white border border-gray-300 rounded-lg mt-1 shadow-sm">
             {modelSuggestions.map((model, index) => (
-              <TouchableOpacity key={index} onPress={() => selectModel(model)} className="px-4 py-3 border-b border-gray-100" activeOpacity={0.7}>
+              <TouchableOpacity
+                key={index}
+                onPress={() => selectModel(model)}
+                className="px-4 py-3 border-b border-gray-100"
+                activeOpacity={0.7}
+              >
                 <Text className="text-base text-black">{model}</Text>
               </TouchableOpacity>
             ))}
@@ -274,39 +287,35 @@ export default function ProfileSetupScreen() {
         )}
       </View>
 
-      {/* Year & Seats */}
-      <View className="flex-row gap-3 mb-4">
-        <View className="flex-1">
-          <Input
-            label="Year" value={vehicleData.annee}
-            onChangeText={(text) => { setVehicleData({ ...vehicleData, annee: text }); setErrors({ ...errors, annee: validateYear(text) }); }}
-            placeholder="2020" keyboardType="numeric" error={errors.annee}
-          />
-        </View>
-        <View className="flex-1">
-          <Input
-            label="Seats" value={vehicleData.nbPlaces}
-            onChangeText={(text) => { setVehicleData({ ...vehicleData, nbPlaces: text }); setErrors({ ...errors, nbPlaces: validateSeats(text) }); }}
-            placeholder="5" keyboardType="numeric" error={errors.nbPlaces}
-          />
-        </View>
-      </View>
-
       {/* License Plate */}
       <Input
-        label="License Plate *" value={vehicleData.plaque}
+        label="License Plate *"
+        value={vehicleData.plaque}
         onChangeText={handleLicensePlateChange}
-        placeholder="12345 126 16" keyboardType="numeric" error={errors.plaque}
+        placeholder="12345 126 16"
+        keyboardType="numeric"
+        error={errors.plaque}
         style={{ marginBottom: 16 }}
       />
 
       {/* Color */}
       <View style={{ marginBottom: 24 }}>
-        <Input label="Color" value={vehicleData.couleur} onChangeText={handleColorChange} placeholder="e.g. Black, White, Red" error={errors.couleur} />
+        <Input
+          label="Color"
+          value={vehicleData.couleur}
+          onChangeText={handleColorChange}
+          placeholder="e.g. Black, White, Red"
+          error={errors.couleur}
+        />
         {colorSuggestions.length > 0 && (
           <View className="bg-white border border-gray-300 rounded-lg mt-1 shadow-sm">
             {colorSuggestions.map((color, index) => (
-              <TouchableOpacity key={index} onPress={() => selectColor(color)} className="px-4 py-3 border-b border-gray-100" activeOpacity={0.7}>
+              <TouchableOpacity
+                key={index}
+                onPress={() => selectColor(color)}
+                className="px-4 py-3 border-b border-gray-100"
+                activeOpacity={0.7}
+              >
                 <Text className="text-base text-black">{color}</Text>
               </TouchableOpacity>
             ))}
@@ -314,7 +323,13 @@ export default function ProfileSetupScreen() {
         )}
       </View>
 
-      <Button title="Next Step" onPress={handleNextStep} variant="primary" loading={loading} style={{ marginBottom: 0 }} />
+      <Button
+        title="Next Step"
+        onPress={handleNextStep}
+        variant="primary"
+        loading={loading}
+        style={{ marginBottom: 0 }}
+      />
     </View>
   );
 
@@ -356,8 +371,8 @@ export default function ProfileSetupScreen() {
       </View>
 
       <View className="flex-row gap-3">
-        <Button title="Back" onPress={() => setCurrentStep(1)} variant="secondary" style={{ flex: 1 }} />
-        <Button title="Complete Setup" onPress={handleCompleteSetup} variant="primary" loading={loading} style={{ flex: 2 }} />
+        <Button title="Back"           onPress={() => setCurrentStep(1)}   variant="secondary" style={{ flex: 1 }} />
+        <Button title="Complete Setup" onPress={handleCompleteSetup}       variant="primary"   loading={loading} style={{ flex: 2 }} />
       </View>
     </View>
   );
