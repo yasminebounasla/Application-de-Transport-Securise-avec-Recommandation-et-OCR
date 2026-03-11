@@ -9,6 +9,7 @@ import { addDriverPreferences, getDriverRating ,
   getDriverProfile,
   getMyDriverProfile,
   updateDriverProfile ,
+  updateDriverLocation ,
 } from "../controllers/driverController.js";
 
 const router = express.Router();
@@ -26,6 +27,6 @@ router.get("/me", authenticate, getMyDriverProfile);
 router.put("/profile", authenticate, updateDriverProfile);
 router.get("/:id", authenticate, getDriverProfile); 
 
-router.patch("/profile/location", authMiddleware, updateDriverLocation);
+router.patch("/profile/location", authenticate, updateDriverLocation);
 
 export default router;
