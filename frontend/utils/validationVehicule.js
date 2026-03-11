@@ -279,24 +279,20 @@ export const validateAllVehicleFields = (vehicleData) => {
 
 export const formatLicensePlateInput = (input, separator = ' ') => {
   if (!input) return '';
-  
+
   const digitsOnly = input.replace(/\D/g, '');
-  
-  const limited = digitsOnly.slice(0, 10);
-  
+  const limited = digitsOnly.slice(0, 11); // 10 → 11
+
   let formatted = '';
-  
-  if (limited.length <= 5) {
 
+  if (limited.length <= 6) {          // 5 → 6
     formatted = limited;
-  } else if (limited.length <= 8) {
-
-    formatted = limited.slice(0, 5) + separator + limited.slice(5);
+  } else if (limited.length <= 9) {   // 8 → 9
+    formatted = limited.slice(0, 6) + separator + limited.slice(6);  // 5 → 6
   } else {
- 
-    formatted = limited.slice(0, 5) + separator + limited.slice(5, 8) + separator + limited.slice(8);
+    formatted = limited.slice(0, 6) + separator + limited.slice(6, 9) + separator + limited.slice(9);  // 5→6, 8→9
   }
-  
+
   return formatted;
 };
 
