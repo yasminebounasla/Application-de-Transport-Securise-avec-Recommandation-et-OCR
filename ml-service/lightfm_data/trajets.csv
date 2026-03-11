@@ -25,7 +25,7 @@ T941,P4,no,yes,yes,yes,no,no,40.64,0.6631,0
 T942,P4,no,yes,yes,yes,no,no,382.43,0.173,1
 T944,P4,no,yes,no,yes,no,no,420.34,0.1599,1
 T945,P4,no,yes,yes,yes,no,no,85.67,0.4829,1
-T947,P4,no,yes,yes,yes,no,no,36.45,0.687,0
+T947,P4,no,yes,yes,yes,no,no,338.83,0.191,0
 T948,P4,no,yes,no,yes,no,no,2.21,0.9731,0
 T949,P4,no,yes,yes,yes,no,no,423.34,0.1589,0
 T950,P5,no,yes,no,yes,no,no,223.97,0.2632,0
@@ -48,7 +48,7 @@ T967,P6,no,yes,no,yes,no,no,437.08,0.1547,0
 T968,P6,no,yes,no,yes,no,no,5.54,0.9352,0
 T969,P6,no,yes,no,yes,no,no,4.07,0.9516,1
 T970,P7,no,yes,yes,yes,no,no,41.38,0.6591,1
-T971,P7,no,yes,yes,yes,no,no,248.14,0.2438,0
+T971,P7,no,yes,yes,yes,no,no,542.9,0.1284,0
 T972,P7,no,yes,yes,yes,no,no,111.4,0.418,1
 T973,P7,no,yes,yes,yes,no,no,111.16,0.4185,1
 T974,P7,no,yes,yes,yes,no,no,452.74,0.1502,1
@@ -74,7 +74,7 @@ T996,P9,yes,yes,no,no,no,yes,89.68,0.4715,1
 T998,P9,yes,yes,no,no,no,yes,65.51,0.5498,0
 T1000,P9,no,no,no,no,no,yes,119.49,0.401,0
 T1002,P10,yes,no,no,no,no,yes,454.82,0.1496,0
-T1003,P10,yes,no,no,no,no,yes,317.45,0.2013,1
+T1003,P10,yes,no,no,no,no,yes,0,1,1
 T1004,P10,yes,yes,no,no,no,yes,230.88,0.2573,1
 T1005,P10,yes,no,no,no,no,yes,247.96,0.2439,0
 T1006,P10,no,yes,no,no,no,yes,22.25,0.7824,1
@@ -126,7 +126,7 @@ T1056,P14,yes,no,no,no,yes,no,4.45,0.9473,0
 T1057,P14,yes,no,no,no,yes,no,39.13,0.6715,0
 T1058,P14,yes,no,no,no,no,no,6.08,0.9294,0
 T1059,P15,yes,no,no,no,yes,no,5.93,0.931,1
-T1060,P15,yes,no,no,no,yes,no,4.33,0.9487,0
+T1060,P15,yes,no,no,no,yes,no,320.51,0.1997,0
 T1062,P15,yes,no,no,no,no,no,230.28,0.2578,1
 T1063,P15,yes,no,no,no,no,no,278.93,0.2229,1
 T1064,P15,yes,no,no,no,yes,no,215.72,0.2705,1
@@ -150,7 +150,7 @@ T1084,P17,yes,no,no,no,yes,no,110.88,0.4191,0
 T1086,P18,yes,no,no,no,yes,no,209.93,0.2759,0
 T1087,P18,yes,no,no,no,no,no,446.43,0.152,1
 T1088,P18,yes,no,no,no,no,no,4.45,0.9473,1
-T1090,P18,yes,no,no,no,no,no,175.33,0.3133,0
+T1090,P18,yes,no,no,no,no,no,145.67,0.3545,0
 T1091,P18,yes,no,no,no,yes,no,189.32,0.297,1
 T1092,P18,yes,no,no,no,no,no,241.02,0.2492,1
 T1093,P18,yes,no,no,no,no,no,118.93,0.4022,1
@@ -287,7 +287,7 @@ T1255,P32,yes,no,no,no,yes,no,445.45,0.1523,1
 T1256,P32,yes,no,no,no,yes,no,2.9,0.965,1
 T1258,P32,yes,no,no,no,no,no,141.75,0.3608,0
 T1259,P33,no,yes,no,yes,no,no,343.25,0.189,1
-T1260,P33,no,yes,yes,yes,no,no,36.45,0.687,1
+T1260,P33,no,yes,yes,yes,no,no,338.83,0.191,1
 T1261,P33,no,yes,no,yes,no,no,183.08,0.3041,1
 T1262,P33,no,yes,no,yes,no,no,202.45,0.2832,1
 T1263,P33,no,yes,no,yes,no,no,213.36,0.2727,0
@@ -357,7 +357,7 @@ T1333,P39,yes,no,no,no,yes,no,65.51,0.5498,0
 T1334,P39,yes,no,no,no,yes,no,335.53,0.1925,1
 T1335,P39,yes,no,no,no,yes,no,543.82,0.1282,1
 T1336,P40,yes,no,no,no,yes,no,241.62,0.2487,0
-T1337,P40,yes,no,no,no,yes,no,416.84,0.161,0
+T1337,P40,yes,no,no,no,yes,no,118.77,0.4025,0
 T1338,P40,yes,no,no,no,yes,no,108.53,0.4243,0
 T1339,P40,yes,no,no,no,yes,no,229.49,0.2585,0
 T1341,P40,yes,no,no,no,yes,no,223.01,0.264,0
@@ -400,7 +400,7 @@ T1385,P44,yes,no,no,no,yes,no,350.39,0.1859,1
 T1386,P44,yes,no,no,no,yes,no,241.62,0.2487,1
 T1387,P44,yes,no,no,no,yes,no,214.63,0.2715,1
 T1388,P44,yes,no,no,no,no,no,417.65,0.1608,1
-T1389,P44,yes,no,no,no,no,no,33.99,0.7018,1
+T1389,P44,yes,no,no,no,no,no,284.66,0.2194,1
 T1390,P44,yes,no,no,no,no,no,91.37,0.4668,1
 T1391,P44,yes,no,no,no,yes,no,86.48,0.4805,0
 T1393,P44,yes,no,no,no,yes,no,225.94,0.2615,0
@@ -445,7 +445,7 @@ T1437,P48,no,yes,no,yes,no,no,422.3,0.1593,0
 T1438,P48,no,yes,yes,yes,no,no,3.86,0.954,1
 T1439,P48,no,yes,no,yes,no,no,22.88,0.7776,1
 T1440,P49,no,yes,yes,yes,no,no,32.26,0.7126,1
-T1442,P49,no,yes,no,yes,no,no,317.45,0.2013,1
+T1442,P49,no,yes,no,yes,no,no,0,1,1
 T1443,P49,no,yes,yes,yes,no,no,345.79,0.1879,1
 T1444,P49,no,yes,yes,yes,no,no,177.57,0.3106,0
 T1445,P49,no,yes,no,yes,no,no,231.77,0.2566,0
@@ -488,7 +488,7 @@ T1487,P52,yes,yes,no,no,no,yes,327.35,0.1964,0
 T1488,P52,no,yes,no,no,no,yes,283.99,0.2198,0
 T1489,P53,yes,no,no,no,no,yes,65.91,0.5483,1
 T1490,P53,yes,yes,no,no,no,yes,85.67,0.4829,1
-T1491,P53,no,no,no,no,no,yes,248.14,0.2438,0
+T1491,P53,no,no,no,no,no,yes,542.9,0.1284,0
 T1492,P53,no,no,no,no,no,yes,108.31,0.4248,1
 T1493,P53,yes,yes,no,no,no,yes,442.54,0.1531,1
 T1494,P53,yes,yes,no,no,no,yes,114.26,0.4118,0
@@ -536,12 +536,12 @@ T1542,P57,yes,no,no,no,no,no,138.35,0.3664,1
 T1543,P57,yes,no,no,no,no,no,455.94,0.1493,1
 T1544,P57,yes,no,no,no,no,no,3.87,0.9539,1
 T1545,P57,yes,no,no,no,yes,no,441.31,0.1535,1
-T1546,P57,yes,no,no,no,yes,no,215.95,0.2703,0
+T1546,P57,yes,no,no,no,yes,no,109.66,0.4218,0
 T1547,P58,yes,no,no,no,no,no,437.76,0.1545,1
 T1548,P58,yes,no,no,no,yes,no,139.09,0.3651,1
 T1549,P58,yes,no,no,no,yes,no,92.87,0.4628,0
 T1550,P58,yes,no,no,no,no,no,241.14,0.2491,1
-T1553,P58,yes,no,no,no,yes,no,36.45,0.687,0
+T1553,P58,yes,no,no,no,yes,no,338.83,0.191,0
 T1555,P58,yes,no,no,no,yes,no,418.79,0.1604,1
 T1556,P58,yes,no,no,no,yes,no,55.95,0.5885,0
 T1559,P58,yes,no,no,no,no,no,444.68,0.1525,0
@@ -555,7 +555,7 @@ T1567,P59,yes,no,no,no,yes,no,198.18,0.2876,1
 T1568,P59,yes,no,no,no,no,no,284.68,0.2194,0
 T1570,P59,yes,no,no,no,yes,no,117.64,0.4048,1
 T1571,P59,yes,no,no,no,yes,no,230.83,0.2574,1
-T1572,P59,yes,no,no,no,no,no,36.45,0.687,0
+T1572,P59,yes,no,no,no,no,no,338.83,0.191,0
 T1573,P59,yes,no,no,no,no,no,90.64,0.4688,0
 T1574,P59,yes,no,no,no,yes,no,5.33,0.9375,1
 T1575,P60,yes,no,no,no,no,no,241.14,0.2491,1
@@ -574,7 +574,7 @@ T1591,P61,no,yes,yes,yes,no,no,218.94,0.2676,0
 T1595,P61,no,yes,yes,yes,no,no,87.39,0.4779,1
 T1597,P61,no,yes,yes,yes,no,no,67.78,0.5413,0
 T1598,P61,no,yes,no,yes,no,no,242.6,0.248,0
-T1599,P62,no,yes,yes,yes,no,no,215.95,0.2703,1
+T1599,P62,no,yes,yes,yes,no,no,109.66,0.4218,1
 T1600,P62,no,yes,no,yes,no,no,227.11,0.2605,0
 T1601,P62,no,yes,no,yes,no,no,653.16,0.1091,0
 T1602,P62,no,yes,no,yes,no,no,198.79,0.287,0
@@ -607,7 +607,7 @@ T1629,P64,no,yes,yes,yes,no,no,437.08,0.1547,1
 T1631,P64,no,yes,no,yes,no,no,245.63,0.2457,1
 T1632,P64,no,yes,no,yes,no,no,247.07,0.2446,1
 T1633,P64,no,yes,no,yes,no,no,29.84,0.7283,1
-T1634,P65,no,no,no,no,no,yes,36.45,0.687,0
+T1634,P65,no,no,no,no,no,yes,338.83,0.191,0
 T1637,P65,yes,yes,no,no,no,yes,5.7,0.9335,0
 T1638,P65,no,yes,no,no,no,yes,189.32,0.297,1
 T1640,P65,no,yes,no,no,no,yes,124.94,0.3904,1
@@ -626,7 +626,7 @@ T1653,P67,yes,yes,no,no,no,yes,326.88,0.1966,0
 T1654,P67,yes,no,no,no,no,yes,71.22,0.529,0
 T1655,P67,yes,yes,no,no,no,yes,328.67,0.1958,1
 T1656,P67,yes,yes,no,no,no,yes,20.83,0.7934,1
-T1657,P67,no,yes,no,no,no,yes,175.33,0.3133,0
+T1657,P67,no,yes,no,no,no,yes,145.67,0.3545,0
 T1658,P67,yes,no,no,no,no,yes,125.22,0.3898,1
 T1659,P67,no,no,no,no,no,yes,436.34,0.1549,0
 T1661,P67,yes,yes,no,no,no,yes,282.01,0.221,1
@@ -647,7 +647,7 @@ T1678,P69,yes,no,no,no,yes,no,61.84,0.564,1
 T1679,P69,yes,no,no,no,yes,no,242.58,0.248,1
 T1680,P69,yes,no,no,no,yes,no,217.73,0.2687,0
 T1681,P69,yes,no,no,no,yes,no,338.09,0.1913,1
-T1683,P69,yes,no,no,no,yes,no,33.99,0.7018,0
+T1683,P69,yes,no,no,no,yes,no,284.66,0.2194,0
 T1685,P69,yes,no,no,no,yes,no,215.22,0.271,1
 T1686,P69,yes,no,no,no,yes,no,65.48,0.5499,0
 T1688,P69,yes,no,no,no,yes,no,117.64,0.4048,1
@@ -704,7 +704,7 @@ T1751,P75,yes,no,no,no,yes,no,331.01,0.1946,0
 T1752,P75,yes,no,no,no,no,no,40.68,0.6629,0
 T1753,P75,yes,no,no,no,no,no,214.23,0.2719,1
 T1754,P75,yes,no,no,no,no,no,325.61,0.1972,0
-T1755,P75,yes,no,no,no,yes,no,59.26,0.5745,1
+T1755,P75,yes,no,no,no,yes,no,346.08,0.1878,1
 T1756,P75,yes,no,no,no,no,no,412.02,0.1626,1
 T1758,P75,yes,no,no,no,no,no,346.65,0.1875,1
 T1759,P75,yes,no,no,no,yes,no,232.3,0.2562,1
@@ -726,7 +726,7 @@ T1776,P77,no,yes,yes,yes,no,no,214.18,0.2719,0
 T1778,P77,no,yes,yes,yes,no,no,38.44,0.6754,0
 T1779,P77,no,yes,no,yes,no,no,204.3,0.2814,0
 T1780,P77,no,yes,yes,yes,no,no,178.4,0.3096,1
-T1782,P78,no,yes,no,yes,no,no,4.33,0.9487,0
+T1782,P78,no,yes,no,yes,no,no,320.51,0.1997,0
 T1783,P78,no,yes,no,yes,no,no,230.69,0.2575,0
 T1784,P78,no,yes,no,yes,no,no,283.83,0.2199,1
 T1785,P78,no,yes,no,yes,no,no,62.29,0.5622,0
@@ -817,7 +817,7 @@ T1878,P165,yes,yes,no,no,no,yes,0.33,0.9959,0
 T1879,P165,yes,yes,no,no,no,yes,2.05,0.975,1
 T1880,P165,yes,no,no,no,no,yes,329.17,0.1955,1
 T1881,P165,yes,yes,no,no,no,yes,283.26,0.2202,1
-T1883,P166,yes,no,no,no,no,yes,416.84,0.161,0
+T1883,P166,yes,no,no,no,no,yes,118.77,0.4025,0
 T1884,P166,no,no,no,no,no,yes,321.15,0.1994,0
 T1885,P166,yes,yes,no,no,no,yes,346.65,0.1875,1
 T1887,P166,no,no,no,no,no,yes,338.35,0.1912,1
@@ -840,7 +840,7 @@ T1906,P168,yes,no,no,no,yes,no,198.91,0.2868,1
 T1908,P168,yes,no,no,no,yes,no,276.55,0.2244,1
 T1910,P168,yes,no,no,no,yes,no,144.36,0.3566,1
 T1911,P168,yes,no,no,no,yes,no,38.81,0.6733,1
-T1913,P168,yes,no,no,no,yes,no,85.62,0.483,0
+T1913,P168,yes,no,no,no,yes,no,232.46,0.256,0
 T1914,P168,yes,no,no,no,yes,no,240.4,0.2497,0
 T1915,P168,yes,no,no,no,yes,no,382.64,0.1729,0
 T1916,P168,yes,no,no,no,yes,no,122.47,0.3951,1
@@ -848,7 +848,7 @@ T1917,P168,yes,no,no,no,yes,no,20.6,0.7952,0
 T1919,P169,yes,no,no,no,yes,no,146.96,0.3525,1
 T1920,P169,yes,no,no,no,yes,no,131.68,0.3779,0
 T1921,P169,yes,no,no,no,yes,no,92.6,0.4635,0
-T1922,P169,yes,no,no,no,yes,no,33.99,0.7018,1
+T1922,P169,yes,no,no,no,yes,no,284.66,0.2194,1
 T1924,P169,yes,no,no,no,yes,no,74.84,0.5167,1
 T1925,P169,yes,no,no,no,yes,no,122.47,0.3951,1
 T1926,P170,yes,no,no,no,no,no,129.57,0.3817,0
@@ -857,7 +857,7 @@ T1928,P170,yes,no,no,no,yes,no,230.88,0.2573,1
 T1929,P170,yes,no,no,no,yes,no,4.62,0.9454,1
 T1930,P170,yes,no,no,no,no,no,241.62,0.2487,0
 T1931,P170,yes,no,no,no,yes,no,279.23,0.2227,0
-T1933,P170,yes,no,no,no,yes,no,36.45,0.687,1
+T1933,P170,yes,no,no,no,yes,no,338.83,0.191,1
 T1934,P170,yes,no,no,no,yes,no,656.64,0.1086,0
 T1935,P170,yes,no,no,no,no,no,338.35,0.1912,1
 T1937,P170,yes,no,no,no,no,no,134.36,0.3732,1
@@ -867,7 +867,7 @@ T1941,P171,yes,no,no,no,no,no,420.08,0.16,0
 T1942,P171,yes,no,no,no,yes,no,239.76,0.2502,0
 T1943,P171,yes,no,no,no,no,no,117.04,0.406,0
 T1944,P171,yes,no,no,no,no,no,74.84,0.5167,1
-T1945,P171,yes,no,no,no,no,no,215.95,0.2703,0
+T1945,P171,yes,no,no,no,no,no,109.66,0.4218,0
 T1946,P171,yes,no,no,no,no,no,200.65,0.2851,0
 T1947,P171,yes,no,no,no,no,no,338.09,0.1913,0
 T1948,P171,yes,no,no,no,no,no,278.04,0.2234,0
@@ -880,7 +880,7 @@ T1954,P172,yes,no,no,no,no,no,106.34,0.4293,1
 T1955,P172,yes,no,no,no,no,no,4.58,0.9459,1
 T1956,P172,yes,no,no,no,yes,no,242.14,0.2483,1
 T1957,P172,yes,no,no,no,yes,no,237.72,0.2518,0
-T1958,P172,yes,no,no,no,yes,no,85.62,0.483,0
+T1958,P172,yes,no,no,no,yes,no,232.46,0.256,0
 T1959,P172,yes,no,no,no,yes,no,4.07,0.9516,1
 T1961,P172,yes,no,no,no,no,no,284.5,0.2195,1
 T1962,P172,yes,no,no,no,yes,no,139.74,0.3641,1
@@ -893,7 +893,7 @@ T1971,P173,yes,no,no,no,yes,no,178.4,0.3096,1
 T1972,P173,yes,no,no,no,no,no,85.57,0.4832,0
 T1973,P173,yes,no,no,no,no,no,0.67,0.9917,1
 T1974,P173,yes,no,no,no,yes,no,229.03,0.2589,0
-T1975,P173,yes,no,no,no,no,no,248.14,0.2438,1
+T1975,P173,yes,no,no,no,no,no,542.9,0.1284,1
 T1976,P173,yes,no,no,no,no,no,243.16,0.2476,1
 T1977,P173,yes,no,no,no,no,no,3.38,0.9595,0
 T1978,P174,yes,no,no,no,no,no,656.21,0.1087,1
@@ -928,7 +928,7 @@ T2017,P177,no,yes,no,yes,no,no,279.9,0.2223,1
 T2018,P177,no,yes,no,yes,no,no,4.45,0.9473,0
 T2019,P177,no,yes,yes,yes,no,no,202.45,0.2832,1
 T2020,P177,no,yes,yes,yes,no,no,124.22,0.3917,1
-T2021,P177,no,yes,no,yes,no,no,416.84,0.161,1
+T2021,P177,no,yes,no,yes,no,no,118.77,0.4025,1
 T2022,P177,no,yes,no,yes,no,no,4,0.9524,0
 T2023,P177,no,yes,yes,yes,no,no,38.44,0.6754,1
 T2024,P177,no,yes,no,yes,no,no,38.93,0.6727,1
@@ -955,7 +955,7 @@ T2045,P179,no,no,no,no,no,yes,202.24,0.2834,0
 T2046,P179,yes,yes,no,no,no,yes,288.61,0.217,1
 T2048,P179,yes,yes,no,no,no,yes,189.76,0.2966,0
 T2049,P179,yes,yes,no,no,no,yes,142.25,0.36,0
-T2050,P179,yes,no,no,no,no,yes,85.62,0.483,0
+T2050,P179,yes,no,no,no,no,yes,232.46,0.256,0
 T2051,P179,yes,yes,no,no,no,yes,546.53,0.1277,1
 T2052,P179,yes,no,no,no,no,yes,239.59,0.2503,1
 T2053,P179,yes,yes,no,no,no,yes,230.9,0.2573,1
@@ -975,7 +975,7 @@ T2068,P180,yes,yes,no,no,no,yes,336.18,0.1922,0
 T2069,P180,yes,no,no,no,no,yes,410.83,0.163,0
 T2070,P180,no,yes,no,no,no,yes,145.72,0.3544,1
 T2071,P181,no,no,no,no,no,yes,230.88,0.2573,1
-T2072,P181,yes,yes,no,no,no,yes,4.33,0.9487,0
+T2072,P181,yes,yes,no,no,no,yes,320.51,0.1997,0
 T2075,P181,yes,yes,no,no,no,yes,62.53,0.5613,1
 T2076,P181,no,no,no,no,no,yes,283.26,0.2202,0
 T2077,P181,yes,yes,no,no,no,yes,457.7,0.1488,1
@@ -991,7 +991,7 @@ T2088,P182,yes,no,no,no,yes,no,328.05,0.1961,0
 T2089,P182,yes,no,no,no,yes,no,220.68,0.2661,0
 T2091,P182,yes,no,no,no,yes,no,324.77,0.1976,0
 T2092,P183,yes,no,no,no,yes,no,541.7,0.1287,1
-T2093,P183,yes,no,no,no,yes,no,215.95,0.2703,0
+T2093,P183,yes,no,no,no,yes,no,109.66,0.4218,0
 T2094,P183,yes,no,no,no,yes,no,141.75,0.3608,1
 T2095,P183,yes,no,no,no,yes,no,229.07,0.2588,1
 T2096,P183,yes,no,no,no,yes,no,5.74,0.9331,0
@@ -1051,10 +1051,10 @@ T2154,P188,yes,no,no,no,yes,no,87.76,0.4769,0
 T2155,P188,yes,no,no,no,yes,no,204.41,0.2813,1
 T2156,P188,yes,no,no,no,no,no,387.07,0.1713,1
 T2157,P188,yes,no,no,no,no,no,66.79,0.545,1
-T2158,P188,yes,no,no,no,no,no,59.26,0.5745,0
+T2158,P188,yes,no,no,no,no,no,346.08,0.1878,0
 T2159,P189,yes,no,no,no,yes,no,89.99,0.4706,0
 T2160,P189,yes,no,no,no,no,no,81.28,0.496,1
-T2162,P189,yes,no,no,no,yes,no,36.45,0.687,0
+T2162,P189,yes,no,no,no,yes,no,338.83,0.191,0
 T2163,P189,yes,no,no,no,yes,no,649.34,0.1097,1
 T2165,P189,yes,no,no,no,yes,no,283.83,0.2199,1
 T2166,P189,yes,no,no,no,yes,no,83.83,0.4883,1
@@ -1064,12 +1064,12 @@ T2170,P190,no,yes,no,yes,no,no,242.83,0.2478,0
 T2171,P190,no,yes,no,yes,no,no,216.58,0.2697,1
 T2172,P190,no,yes,yes,yes,no,no,216.69,0.2696,1
 T2173,P190,no,yes,no,yes,no,no,327.58,0.1963,0
-T2174,P190,no,yes,yes,yes,no,no,175.33,0.3133,0
+T2174,P190,no,yes,yes,yes,no,no,145.67,0.3545,0
 T2175,P190,no,yes,yes,yes,no,no,83.83,0.4883,1
 T2176,P190,no,yes,no,yes,no,no,114.26,0.4118,0
 T2177,P190,no,yes,no,yes,no,no,224.31,0.2629,1
 T2179,P191,no,yes,no,yes,no,no,284.47,0.2195,0
-T2180,P191,no,yes,yes,yes,no,no,175.33,0.3133,1
+T2180,P191,no,yes,yes,yes,no,no,145.67,0.3545,1
 T2181,P191,no,yes,yes,yes,no,no,230.28,0.2578,1
 T2183,P191,no,yes,yes,yes,no,no,324.94,0.1976,0
 T2184,P191,no,yes,yes,yes,no,no,543.12,0.1284,0
@@ -1120,7 +1120,7 @@ T2238,P195,no,yes,no,no,no,yes,222.31,0.2646,1
 T2239,P195,yes,no,no,no,no,yes,34.18,0.7006,0
 T2240,P195,yes,yes,no,no,no,yes,139.53,0.3644,0
 T2241,P195,yes,no,no,no,no,yes,222.52,0.2644,0
-T2242,P196,yes,no,no,no,yes,no,317.45,0.2013,0
+T2242,P196,yes,no,no,no,yes,no,0,1,0
 T2243,P196,yes,no,no,no,yes,no,446.72,0.1519,0
 T2244,P196,yes,no,no,no,yes,no,4.62,0.9454,1
 T2246,P196,yes,no,no,no,yes,no,136.94,0.3688,1
@@ -1170,7 +1170,7 @@ T2295,P199,yes,no,no,no,no,no,0.93,0.9885,1
 T2296,P200,yes,no,no,no,no,no,200.84,0.2849,0
 T2297,P200,yes,no,no,no,no,no,54.82,0.5934,0
 T2298,P200,yes,no,no,no,yes,no,2.05,0.975,1
-T2299,P200,yes,no,no,no,no,no,416.84,0.161,1
+T2299,P200,yes,no,no,no,no,no,118.77,0.4025,1
 T2300,P200,yes,no,no,no,no,no,21.53,0.7879,1
 T2301,P200,yes,no,no,no,yes,no,215.72,0.2705,1
 T2302,P200,yes,no,no,no,no,no,104.94,0.4326,1
@@ -1183,7 +1183,7 @@ T2308,P200,yes,no,no,no,no,no,543.81,0.1282,0
 T2309,P200,yes,no,no,no,yes,no,331.03,0.1946,0
 T2310,P201,yes,no,no,no,yes,no,64.32,0.5543,0
 T2311,P201,yes,no,no,no,no,no,320.14,0.1999,1
-T2312,P201,yes,no,no,no,yes,no,33.99,0.7018,0
+T2312,P201,yes,no,no,no,yes,no,284.66,0.2194,0
 T2313,P201,yes,no,no,no,no,no,4.62,0.9454,1
 T2314,P201,yes,no,no,no,yes,no,326.01,0.197,0
 T2315,P201,yes,no,no,no,no,no,195.97,0.2899,1
@@ -1233,7 +1233,7 @@ T2368,P205,no,yes,no,yes,no,no,220.88,0.2659,0
 T2369,P206,no,yes,yes,yes,no,no,412.02,0.1626,0
 T2370,P206,no,yes,yes,yes,no,no,346.63,0.1875,0
 T2371,P206,no,yes,no,yes,no,no,180.45,0.3072,1
-T2372,P206,no,yes,yes,yes,no,no,248.14,0.2438,0
+T2372,P206,no,yes,yes,yes,no,no,542.9,0.1284,0
 T2373,P206,no,yes,yes,yes,no,no,176.37,0.312,1
 T2374,P206,no,yes,yes,yes,no,no,89.23,0.4727,0
 T2375,P206,no,yes,no,yes,no,no,331.3,0.1945,1
@@ -1289,7 +1289,7 @@ T2429,P211,yes,no,no,no,yes,no,453.62,0.1499,1
 T2430,P211,yes,no,no,no,yes,no,200.79,0.2849,1
 T2432,P211,yes,no,no,no,yes,no,74.92,0.5164,0
 T2433,P211,yes,no,no,no,yes,no,235.26,0.2538,0
-T2434,P211,yes,no,no,no,yes,no,317.45,0.2013,0
+T2434,P211,yes,no,no,no,yes,no,0,1,0
 T2435,P211,yes,no,no,no,yes,no,54.42,0.5951,1
 T2436,P211,yes,no,no,no,yes,no,327.82,0.1962,1
 T2438,P211,yes,no,no,no,yes,no,4.7,0.9445,1
@@ -1365,7 +1365,7 @@ T2515,P218,yes,no,no,no,no,no,71.44,0.5283,1
 T2517,P218,yes,no,no,no,yes,no,326.14,0.197,1
 T2518,P218,yes,no,no,no,no,no,338.09,0.1913,1
 T2519,P218,yes,no,no,no,no,no,421.8,0.1594,0
-T2521,P218,yes,no,no,no,no,no,59.26,0.5745,0
+T2521,P218,yes,no,no,no,no,no,346.08,0.1878,0
 T2522,P218,yes,no,no,no,no,no,150.04,0.3478,0
 T2523,P218,yes,no,no,no,no,no,456.87,0.149,0
 T2524,P218,yes,no,no,no,no,no,289.85,0.2163,1
@@ -1380,7 +1380,7 @@ T2535,P219,no,yes,no,yes,no,no,245.79,0.2456,0
 T2536,P219,no,yes,no,yes,no,no,211.67,0.2743,1
 T2537,P219,no,yes,no,yes,no,no,104.94,0.4326,0
 T2538,P220,no,yes,yes,yes,no,no,432.57,0.1561,0
-T2539,P220,no,yes,no,yes,no,no,59.26,0.5745,1
+T2539,P220,no,yes,no,yes,no,no,346.08,0.1878,1
 T2540,P220,no,yes,yes,yes,no,no,332.17,0.1941,1
 T2541,P220,no,yes,no,yes,no,no,141.36,0.3614,0
 T2542,P220,no,yes,no,yes,no,no,283.26,0.2202,0
@@ -1420,7 +1420,7 @@ T2581,P223,no,yes,no,no,no,yes,200.63,0.2851,1
 T2582,P223,no,no,no,no,no,yes,21.55,0.7878,1
 T2584,P224,yes,no,no,no,no,yes,5.71,0.9334,0
 T2586,P224,no,no,no,no,no,yes,84.53,0.4862,1
-T2587,P224,yes,yes,no,no,no,yes,36.45,0.687,0
+T2587,P224,yes,yes,no,no,no,yes,338.83,0.191,0
 T2588,P224,no,no,no,no,no,yes,225.89,0.2615,0
 T2589,P224,no,no,no,no,no,yes,653.16,0.1091,0
 T2590,P224,yes,yes,no,no,no,yes,336.18,0.1922,0
@@ -1590,7 +1590,7 @@ T2773,P241,yes,no,no,no,yes,no,22.88,0.7776,0
 T2774,P241,yes,no,no,no,no,no,35.97,0.6898,0
 T2775,P241,yes,no,no,no,no,no,38.44,0.6754,1
 T2776,P241,yes,no,no,no,no,no,92.87,0.4628,0
-T2777,P242,yes,no,no,no,yes,no,175.33,0.3133,0
+T2777,P242,yes,no,no,no,yes,no,145.67,0.3545,0
 T2778,P242,yes,no,no,no,yes,no,241.14,0.2491,1
 T2779,P242,yes,no,no,no,no,no,203.11,0.2826,1
 T2780,P242,yes,no,no,no,yes,no,4.45,0.9473,0
@@ -1615,7 +1615,7 @@ T2802,P243,yes,no,no,no,yes,no,63.64,0.5569,1
 T2803,P243,yes,no,no,no,no,no,350.17,0.186,0
 T2804,P243,yes,no,no,no,no,no,204.3,0.2814,1
 T2805,P243,yes,no,no,no,no,no,539.46,0.1291,1
-T2807,P244,yes,no,no,no,no,no,36.45,0.687,0
+T2807,P244,yes,no,no,no,no,no,338.83,0.191,0
 T2808,P244,yes,no,no,no,yes,no,220.44,0.2663,1
 T2809,P244,yes,no,no,no,yes,no,71.44,0.5283,1
 T2810,P244,yes,no,no,no,yes,no,379,0.1743,1
@@ -1655,7 +1655,7 @@ T2846,P247,no,yes,no,yes,no,no,121.97,0.3961,1
 T2847,P247,no,yes,no,yes,no,no,325.61,0.1972,1
 T2848,P247,no,yes,yes,yes,no,no,110.44,0.4201,1
 T2849,P247,no,yes,no,yes,no,no,418.79,0.1604,1
-T2850,P247,no,yes,yes,yes,no,no,59.26,0.5745,0
+T2850,P247,no,yes,yes,yes,no,no,346.08,0.1878,0
 T2851,P248,no,yes,no,yes,no,no,453.14,0.1501,1
 T2852,P248,no,yes,no,yes,no,no,232.43,0.2561,1
 T2853,P248,no,yes,yes,yes,no,no,217.69,0.2687,0
@@ -1683,7 +1683,7 @@ T2882,P250,no,yes,no,yes,no,no,91.01,0.4678,1
 T2883,P251,no,no,no,no,no,yes,88.01,0.4762,1
 T2885,P251,no,yes,no,no,no,yes,436.34,0.1549,0
 T2886,P251,no,no,no,no,no,yes,144.44,0.3564,1
-T2888,P251,no,yes,no,no,no,yes,317.45,0.2013,0
+T2888,P251,no,yes,no,no,no,yes,0,1,0
 T2889,P251,no,yes,no,no,no,yes,335.53,0.1925,1
 T2890,P251,no,no,no,no,no,yes,58.67,0.5769,0
 T2891,P251,yes,no,no,no,no,yes,69.44,0.5353,1
@@ -1701,7 +1701,7 @@ T2902,P252,yes,no,no,no,no,yes,244.42,0.2466,0
 T2903,P252,no,yes,no,no,no,yes,279.9,0.2223,1
 T2905,P252,yes,no,no,no,no,yes,145.72,0.3544,1
 T2906,P252,yes,no,no,no,no,yes,5.92,0.9311,0
-T2907,P252,no,yes,no,no,no,yes,175.33,0.3133,0
+T2907,P252,no,yes,no,no,no,yes,145.67,0.3545,0
 T2908,P252,yes,no,no,no,no,yes,442.41,0.1531,1
 T2909,P253,no,yes,no,no,no,yes,329.37,0.1954,1
 T2910,P253,yes,no,no,no,no,yes,319.74,0.2001,1
@@ -1736,13 +1736,13 @@ T2941,P256,yes,no,no,no,yes,no,4.68,0.9447,1
 T2942,P256,yes,no,no,no,no,no,446.64,0.1519,0
 T2943,P256,yes,no,no,no,no,no,339.46,0.1907,1
 T2944,P256,yes,no,no,no,yes,no,213.09,0.273,1
-T2945,P256,yes,no,no,no,no,no,175.33,0.3133,1
+T2945,P256,yes,no,no,no,no,no,145.67,0.3545,1
 T2947,P256,yes,no,no,no,no,no,38.81,0.6733,1
 T2948,P256,yes,no,no,no,no,no,130.68,0.3797,0
 T2949,P257,yes,no,no,no,no,no,288.87,0.2169,1
 T2950,P257,yes,no,no,no,yes,no,85.92,0.4822,1
 T2951,P257,yes,no,no,no,yes,no,212.4,0.2736,1
-T2952,P257,yes,no,no,no,yes,no,36.45,0.687,0
+T2952,P257,yes,no,no,no,yes,no,338.83,0.191,0
 T2953,P257,yes,no,no,no,no,no,329.37,0.1954,1
 T2957,P258,yes,no,no,no,yes,no,289.14,0.2167,0
 T2958,P258,yes,no,no,no,yes,no,288.61,0.217,1
@@ -1753,8 +1753,8 @@ T2962,P258,yes,no,no,no,no,no,55.24,0.5915,1
 T2963,P258,yes,no,no,no,no,no,5.74,0.9331,1
 T2964,P258,yes,no,no,no,no,no,198.79,0.287,0
 T2965,P258,yes,no,no,no,yes,no,454.82,0.1496,0
-T2966,P258,yes,no,no,no,yes,no,36.45,0.687,1
-T2969,P259,yes,no,no,no,no,no,4.33,0.9487,0
+T2966,P258,yes,no,no,no,yes,no,338.83,0.191,1
+T2969,P259,yes,no,no,no,no,no,320.51,0.1997,0
 T2970,P259,yes,no,no,no,yes,no,456.09,0.1492,0
 T2971,P259,yes,no,no,no,yes,no,442.54,0.1531,1
 T2972,P259,yes,no,no,no,yes,no,345.79,0.1879,1
@@ -1806,7 +1806,7 @@ T3024,P263,no,yes,yes,yes,no,no,382.64,0.1729,0
 T3025,P263,no,yes,no,yes,no,no,4.89,0.9424,1
 T3026,P264,no,yes,yes,yes,no,no,232.46,0.256,1
 T3027,P264,no,yes,no,yes,no,no,241.02,0.2492,0
-T3028,P264,no,yes,no,yes,no,no,416.84,0.161,0
+T3028,P264,no,yes,no,yes,no,no,118.77,0.4025,0
 T3029,P264,no,yes,yes,yes,no,no,3.22,0.9613,0
 T3030,P264,no,yes,yes,yes,no,no,66.48,0.5461,0
 T3031,P264,no,yes,no,yes,no,no,132.21,0.377,1
@@ -1833,7 +1833,7 @@ T3052,P266,yes,yes,no,no,no,yes,116.6,0.4069,0
 T3054,P266,no,yes,no,no,no,yes,144.6,0.3562,1
 T3056,P267,no,yes,no,no,no,yes,124.94,0.3904,1
 T3058,P267,yes,no,no,no,no,yes,432.57,0.1561,0
-T3059,P267,yes,yes,no,no,no,yes,33.99,0.7018,1
+T3059,P267,yes,yes,no,no,no,yes,284.66,0.2194,1
 T3060,P267,yes,yes,no,no,no,yes,122.47,0.3951,0
 T3061,P267,yes,no,no,no,no,yes,174.01,0.3149,1
 T3062,P267,no,yes,no,no,no,yes,39.86,0.6674,1
@@ -1841,7 +1841,7 @@ T3063,P267,no,no,no,no,no,yes,92.12,0.4648,1
 T3064,P267,no,no,no,no,no,yes,109.86,0.4214,1
 T3065,P268,yes,no,no,no,yes,no,4.18,0.9503,0
 T3066,P268,yes,no,no,no,yes,no,221.02,0.2658,1
-T3067,P268,yes,no,no,no,yes,no,317.45,0.2013,1
+T3067,P268,yes,no,no,no,yes,no,0,1,1
 T3068,P268,yes,no,no,no,yes,no,240.99,0.2492,1
 T3069,P268,yes,no,no,no,yes,no,445.8,0.1521,1
 T3070,P268,yes,no,no,no,yes,no,387.07,0.1713,1
@@ -1951,7 +1951,7 @@ T3201,P280,no,no,no,no,no,yes,319.74,0.2001,1
 T3203,P280,yes,yes,no,no,no,yes,289.85,0.2163,1
 T3204,P281,yes,no,no,no,no,yes,67.99,0.5406,1
 T3205,P281,yes,no,no,no,no,yes,650.63,0.1095,0
-T3206,P281,no,no,no,no,no,yes,215.95,0.2703,0
+T3206,P281,no,no,no,no,no,yes,109.66,0.4218,0
 T3207,P281,no,yes,no,no,no,yes,240.53,0.2496,0
 T3208,P281,yes,yes,no,no,no,yes,2.92,0.9648,0
 T3209,P281,yes,yes,no,no,no,yes,50.76,0.6118,0
@@ -1989,7 +1989,7 @@ T3241,P284,yes,no,no,no,no,no,136.94,0.3688,1
 T3242,P284,yes,no,no,no,no,no,241.31,0.249,0
 T3245,P284,yes,no,no,no,no,no,216.43,0.2699,1
 T3246,P284,yes,no,no,no,yes,no,327.82,0.1962,1
-T3247,P284,yes,no,no,no,no,no,36.45,0.687,0
+T3247,P284,yes,no,no,no,no,no,338.83,0.191,0
 T3248,P284,yes,no,no,no,no,no,228.16,0.2596,1
 T3249,P284,yes,no,no,no,yes,no,387.07,0.1713,1
 T3250,P284,yes,no,no,no,yes,no,444.68,0.1525,0
@@ -2008,7 +2008,7 @@ T3264,P286,yes,no,no,no,no,no,231.06,0.2572,1
 T3265,P286,yes,no,no,no,yes,no,21.1,0.7913,1
 T3266,P286,yes,no,no,no,yes,no,329.37,0.1954,0
 T3267,P286,yes,no,no,no,yes,no,1.29,0.9841,1
-T3268,P286,yes,no,no,no,no,no,175.33,0.3133,0
+T3268,P286,yes,no,no,no,no,no,145.67,0.3545,0
 T3269,P286,yes,no,no,no,no,no,409.92,0.1633,1
 T3271,P287,yes,no,no,no,no,no,231.06,0.2572,1
 T3272,P287,yes,no,no,no,no,no,62.63,0.5609,1
@@ -2029,7 +2029,7 @@ T3287,P288,yes,no,no,no,yes,no,226.29,0.2612,1
 T3288,P288,yes,no,no,no,yes,no,213.36,0.2727,0
 T3289,P288,yes,no,no,no,no,no,546.53,0.1277,0
 T3290,P288,yes,no,no,no,no,no,383.69,0.1725,1
-T3291,P288,yes,no,no,no,yes,no,175.33,0.3133,1
+T3291,P288,yes,no,no,no,yes,no,145.67,0.3545,1
 T3292,P288,yes,no,no,no,yes,no,174.01,0.3149,1
 T3293,P289,yes,no,no,no,yes,no,21.18,0.7907,0
 T3294,P289,yes,no,no,no,yes,no,320.4,0.1998,0
@@ -2061,7 +2061,7 @@ T3326,P291,no,yes,yes,yes,no,no,62.62,0.5609,1
 T3327,P291,no,yes,yes,yes,no,no,230.28,0.2578,0
 T3328,P291,no,yes,yes,yes,no,no,5.84,0.932,1
 T3329,P291,no,yes,yes,yes,no,no,341.06,0.19,1
-T3330,P291,no,yes,yes,yes,no,no,36.45,0.687,0
+T3330,P291,no,yes,yes,yes,no,no,338.83,0.191,0
 T3331,P291,no,yes,yes,yes,no,no,209.37,0.2765,0
 T3332,P291,no,yes,yes,yes,no,no,174.9,0.3138,0
 T3333,P291,no,yes,no,yes,no,no,129.37,0.3821,1
@@ -2094,10 +2094,10 @@ T3362,P294,yes,no,no,no,no,yes,240.53,0.2496,1
 T3363,P294,yes,no,no,no,no,yes,233.69,0.255,0
 T3364,P294,no,yes,no,no,no,yes,87.4,0.4779,1
 T3365,P294,no,no,no,no,no,yes,326.01,0.197,1
-T3366,P294,no,no,no,no,no,yes,248.14,0.2438,1
+T3366,P294,no,no,no,no,no,yes,542.9,0.1284,1
 T3367,P294,no,yes,no,no,no,yes,282.31,0.2208,0
 T3368,P294,yes,no,no,no,no,yes,241.34,0.249,1
-T3369,P295,yes,yes,no,no,no,yes,4.33,0.9487,0
+T3369,P295,yes,yes,no,no,no,yes,320.51,0.1997,0
 T3370,P295,yes,no,no,no,no,yes,38.44,0.6754,1
 T3371,P295,yes,yes,no,no,no,yes,4.47,0.9471,1
 T3372,P295,yes,no,no,no,no,yes,338.94,0.191,0
@@ -2168,7 +2168,7 @@ T3448,P303,yes,no,no,no,no,no,244.42,0.2466,1
 T3449,P303,yes,no,no,no,yes,no,656.85,0.1086,0
 T3450,P303,yes,no,no,no,no,no,5.67,0.9338,1
 T3451,P303,yes,no,no,no,no,no,108.53,0.4243,1
-T3452,P303,yes,no,no,no,yes,no,248.14,0.2438,1
+T3452,P303,yes,no,no,no,yes,no,542.9,0.1284,1
 T3453,P303,yes,no,no,no,yes,no,246.7,0.2449,0
 T3454,P304,no,yes,no,yes,no,no,2.9,0.965,1
 T3455,P304,no,yes,yes,yes,no,no,281.02,0.2216,0
@@ -2208,7 +2208,7 @@ T3493,P307,no,yes,yes,yes,no,no,413.3,0.1622,1
 T3495,P307,no,yes,yes,yes,no,no,3.43,0.9589,0
 T3496,P307,no,yes,no,yes,no,no,197.05,0.2888,1
 T3497,P308,no,no,no,no,no,yes,325.61,0.1972,1
-T3498,P308,yes,no,no,no,no,yes,175.33,0.3133,0
+T3498,P308,yes,no,no,no,no,yes,145.67,0.3545,0
 T3501,P308,yes,yes,no,no,no,yes,200.85,0.2848,1
 T3502,P308,no,no,no,no,no,yes,320.6,0.1997,1
 T3503,P308,yes,no,no,no,no,yes,382.44,0.173,1
@@ -2220,7 +2220,7 @@ T3508,P309,yes,no,no,no,no,yes,3.07,0.963,0
 T3509,P309,no,yes,no,no,no,yes,346.92,0.1874,1
 T3510,P309,no,no,no,no,no,yes,138.8,0.3656,0
 T3511,P309,yes,yes,no,no,no,yes,436.57,0.1549,0
-T3512,P309,no,no,no,no,no,yes,59.26,0.5745,0
+T3512,P309,no,no,no,no,no,yes,346.08,0.1878,0
 T3513,P309,no,yes,no,no,no,yes,343.47,0.1889,1
 T3515,P309,yes,yes,no,no,no,yes,85.8,0.4825,0
 T3516,P309,yes,yes,no,no,no,yes,3.22,0.9613,0
@@ -2238,7 +2238,7 @@ T3527,P310,yes,no,no,no,no,yes,345.79,0.1879,1
 T3528,P310,no,no,no,no,no,yes,339.12,0.1909,0
 T3529,P310,no,yes,no,no,no,yes,217.47,0.2689,1
 T3530,P311,yes,no,no,no,yes,no,3.08,0.9629,1
-T3531,P311,yes,no,no,no,yes,no,36.45,0.687,1
+T3531,P311,yes,no,no,no,yes,no,338.83,0.191,1
 T3532,P311,yes,no,no,no,yes,no,87.85,0.4766,1
 T3533,P311,yes,no,no,no,yes,no,323.3,0.1984,1
 T3534,P311,yes,no,no,no,yes,no,436.83,0.1548,1
@@ -2252,7 +2252,7 @@ T3542,P311,yes,no,no,no,yes,no,6.72,0.9225,0
 T3543,P311,yes,no,no,no,yes,no,457.24,0.1489,1
 T3544,P311,yes,no,no,no,yes,no,382.44,0.173,1
 T3545,P312,yes,no,no,no,yes,no,415.58,0.1614,1
-T3546,P312,yes,no,no,no,yes,no,4.33,0.9487,0
+T3546,P312,yes,no,no,no,yes,no,320.51,0.1997,0
 T3547,P312,yes,no,no,no,yes,no,215.72,0.2705,1
 T3548,P312,yes,no,no,no,yes,no,5.7,0.9335,1
 T3549,P312,yes,no,no,no,yes,no,381.08,0.1735,1
@@ -2267,7 +2267,7 @@ T3557,P313,yes,no,no,no,no,no,128.25,0.3842,1
 T3558,P313,yes,no,no,no,no,no,137.68,0.3675,0
 T3559,P313,yes,no,no,no,yes,no,220,0.2667,1
 T3560,P313,yes,no,no,no,yes,no,317.27,0.2014,1
-T3562,P313,yes,no,no,no,yes,no,4.33,0.9487,0
+T3562,P313,yes,no,no,no,yes,no,320.51,0.1997,0
 T3563,P313,yes,no,no,no,no,no,456.87,0.149,0
 T3564,P313,yes,no,no,no,yes,no,199.88,0.2858,1
 T3565,P313,yes,no,no,no,yes,no,278.04,0.2234,1
@@ -2277,7 +2277,7 @@ T3569,P313,yes,no,no,no,yes,no,545.97,0.1278,1
 T3570,P314,yes,no,no,no,no,no,336.18,0.1922,1
 T3571,P314,yes,no,no,no,no,no,179.91,0.3078,1
 T3572,P314,yes,no,no,no,no,no,199.88,0.2858,1
-T3573,P314,yes,no,no,no,yes,no,33.99,0.7018,1
+T3573,P314,yes,no,no,no,yes,no,284.66,0.2194,1
 T3574,P314,yes,no,no,no,yes,no,649.34,0.1097,0
 T3576,P314,yes,no,no,no,no,no,444.68,0.1525,0
 T3578,P314,yes,no,no,no,no,no,656.22,0.1087,1
@@ -2336,7 +2336,7 @@ T3633,P319,no,yes,yes,yes,no,no,178.4,0.3096,0
 T3634,P319,no,yes,yes,yes,no,no,40.71,0.6627,1
 T3635,P319,no,yes,yes,yes,no,no,234.6,0.2543,0
 T3638,P319,no,yes,no,yes,no,no,437.98,0.1544,0
-T3639,P319,no,yes,yes,yes,no,no,4.33,0.9487,1
+T3639,P319,no,yes,yes,yes,no,no,320.51,0.1997,1
 T3640,P319,no,yes,yes,yes,no,no,108.06,0.4254,0
 T3642,P320,no,yes,yes,yes,no,no,20.6,0.7952,1
 T3643,P320,no,yes,no,yes,no,no,71.12,0.5294,0
@@ -2347,7 +2347,7 @@ T3648,P320,no,yes,no,yes,no,no,187.49,0.2991,1
 T3649,P320,no,yes,no,yes,no,no,87.37,0.478,0
 T3650,P321,no,yes,no,yes,no,no,109.49,0.4222,1
 T3651,P321,no,yes,no,yes,no,no,85.92,0.4822,1
-T3652,P321,no,yes,no,yes,no,no,248.14,0.2438,0
+T3652,P321,no,yes,no,yes,no,no,542.9,0.1284,0
 T3653,P321,no,yes,no,yes,no,no,220.44,0.2663,0
 T3654,P321,no,yes,yes,yes,no,no,36.39,0.6873,0
 T3656,P321,no,yes,no,yes,no,no,213.45,0.2726,1
@@ -2411,7 +2411,7 @@ T3725,P327,yes,no,no,no,yes,no,212.5,0.2735,0
 T3728,P328,yes,no,no,no,yes,no,214.35,0.2718,1
 T3729,P328,yes,no,no,no,yes,no,546.11,0.1278,0
 T3731,P328,yes,no,no,no,yes,no,108.14,0.4252,1
-T3732,P328,yes,no,no,no,no,no,175.33,0.3133,0
+T3732,P328,yes,no,no,no,no,no,145.67,0.3545,0
 T3733,P328,yes,no,no,no,no,no,108.31,0.4248,1
 T3734,P328,yes,no,no,no,no,no,5.54,0.9352,1
 T3735,P328,yes,no,no,no,yes,no,332.04,0.1942,0
@@ -2455,7 +2455,7 @@ T3778,P332,yes,no,no,no,yes,no,150.44,0.3472,0
 T3779,P332,yes,no,no,no,no,no,66.8,0.545,0
 T3780,P332,yes,no,no,no,no,no,115.9,0.4084,0
 T3781,P332,yes,no,no,no,no,no,4.58,0.9459,0
-T3782,P332,yes,no,no,no,no,no,175.33,0.3133,0
+T3782,P332,yes,no,no,no,no,no,145.67,0.3545,0
 T3783,P332,yes,no,no,no,no,no,444.68,0.1525,0
 T3785,P332,yes,no,no,no,yes,no,230.59,0.2576,0
 T3786,P332,yes,no,no,no,yes,no,38.93,0.6727,1
@@ -2481,7 +2481,7 @@ T3810,P334,no,yes,no,yes,no,no,442.2,0.1532,1
 T3811,P334,no,yes,yes,yes,no,no,129.57,0.3817,0
 T3812,P334,no,yes,no,yes,no,no,39.86,0.6674,1
 T3813,P334,no,yes,no,yes,no,no,244.42,0.2466,1
-T3814,P334,no,yes,no,yes,no,no,85.62,0.483,0
+T3814,P334,no,yes,no,yes,no,no,232.46,0.256,0
 T3815,P334,no,yes,no,yes,no,no,326.88,0.1966,0
 T3818,P335,no,yes,no,yes,no,no,330.36,0.195,1
 T3819,P335,no,yes,no,yes,no,no,74.22,0.5187,0
@@ -2492,7 +2492,7 @@ T3824,P335,no,yes,yes,yes,no,no,656.85,0.1086,0
 T3826,P335,no,yes,no,yes,no,no,222.02,0.2649,1
 T3827,P336,no,yes,no,no,no,yes,241.02,0.2492,1
 T3828,P336,yes,yes,no,no,no,yes,34.73,0.6973,1
-T3829,P336,no,no,no,no,no,yes,317.45,0.2013,1
+T3829,P336,no,no,no,no,no,yes,0,1,1
 T3830,P336,yes,no,no,no,no,yes,322.92,0.1986,1
 T3831,P336,yes,yes,no,no,no,yes,326.88,0.1966,0
 T3832,P336,no,no,no,no,no,yes,176.37,0.312,1
@@ -2529,7 +2529,7 @@ T3866,P339,yes,no,no,no,yes,no,214.63,0.2715,1
 T3867,P339,yes,no,no,no,yes,no,75.71,0.5138,1
 T3868,P339,yes,no,no,no,yes,no,415.01,0.1616,1
 T3869,P339,yes,no,no,no,yes,no,382.44,0.173,1
-T3870,P340,yes,no,no,no,yes,no,416.84,0.161,0
+T3870,P340,yes,no,no,no,yes,no,118.77,0.4025,0
 T3871,P340,yes,no,no,no,yes,no,437.98,0.1544,0
 T3872,P340,yes,no,no,no,yes,no,280.97,0.2216,0
 T3874,P340,yes,no,no,no,yes,no,229.1,0.2588,1
@@ -2543,7 +2543,7 @@ T3883,P340,yes,no,no,no,yes,no,34.54,0.6984,1
 T3884,P340,yes,no,no,no,yes,no,128.31,0.384,0
 T3885,P341,yes,no,no,no,yes,no,1.6,0.9804,1
 T3886,P341,yes,no,no,no,no,no,4.46,0.9472,0
-T3887,P341,yes,no,no,no,yes,no,59.26,0.5745,1
+T3887,P341,yes,no,no,no,yes,no,346.08,0.1878,1
 T3889,P341,yes,no,no,no,yes,no,446.26,0.152,0
 T3890,P341,yes,no,no,no,yes,no,239.59,0.2503,1
 T3893,P341,yes,no,no,no,yes,no,280.87,0.2217,0
@@ -2574,7 +2574,7 @@ T3921,P343,yes,no,no,no,no,no,174.9,0.3138,0
 T3922,P343,yes,no,no,no,yes,no,231.77,0.2566,1
 T3923,P343,yes,no,no,no,no,no,86.89,0.4794,1
 T3924,P344,yes,no,no,no,no,no,120.17,0.3997,1
-T3925,P344,yes,no,no,no,yes,no,85.62,0.483,1
+T3925,P344,yes,no,no,no,yes,no,232.46,0.256,1
 T3926,P344,yes,no,no,no,no,no,445.45,0.1523,0
 T3927,P344,yes,no,no,no,yes,no,283.12,0.2203,1
 T3928,P344,yes,no,no,no,no,no,110.13,0.4208,0
@@ -2590,11 +2590,11 @@ T3938,P345,yes,no,no,no,no,no,73.24,0.5221,1
 T3939,P345,yes,no,no,no,yes,no,244.49,0.2465,1
 T3940,P345,yes,no,no,no,yes,no,452.74,0.1502,0
 T3941,P345,yes,no,no,no,no,no,185.84,0.3009,0
-T3942,P345,yes,no,no,no,no,no,33.99,0.7018,0
+T3942,P345,yes,no,no,no,no,no,284.66,0.2194,0
 T3943,P345,yes,no,no,no,yes,no,415.58,0.1614,1
 T3944,P345,yes,no,no,no,no,no,289.14,0.2167,0
 T3945,P346,yes,no,no,no,no,no,3.14,0.9622,0
-T3946,P346,yes,no,no,no,no,no,215.95,0.2703,0
+T3946,P346,yes,no,no,no,no,no,109.66,0.4218,0
 T3947,P346,yes,no,no,no,no,no,234.04,0.2547,1
 T3948,P346,yes,no,no,no,yes,no,4.23,0.9498,0
 T3949,P346,yes,no,no,no,yes,no,230.88,0.2573,1
@@ -2693,7 +2693,7 @@ T4060,P356,yes,no,no,no,yes,no,232.95,0.2556,0
 T4061,P356,yes,no,no,no,yes,no,319.87,0.2001,0
 T4063,P356,yes,no,no,no,yes,no,204.3,0.2814,0
 T4064,P356,yes,no,no,no,yes,no,199.86,0.2859,1
-T4065,P357,yes,no,no,no,yes,no,317.45,0.2013,0
+T4065,P357,yes,no,no,no,yes,no,0,1,0
 T4066,P357,yes,no,no,no,no,no,65.65,0.5493,0
 T4067,P357,yes,no,no,no,no,no,6.72,0.9225,1
 T4068,P357,yes,no,no,no,no,no,282.81,0.2205,0
@@ -2706,7 +2706,7 @@ T4074,P357,yes,no,no,no,no,no,60.52,0.5693,0
 T4075,P357,yes,no,no,no,no,no,144.25,0.3567,1
 T4076,P357,yes,no,no,no,yes,no,231.77,0.2566,0
 T4078,P357,yes,no,no,no,yes,no,226.29,0.2612,1
-T4079,P358,yes,no,no,no,yes,no,416.84,0.161,1
+T4079,P358,yes,no,no,no,yes,no,118.77,0.4025,1
 T4081,P358,yes,no,no,no,yes,no,130.47,0.3801,1
 T4083,P358,yes,no,no,no,no,no,236.06,0.2531,1
 T4084,P358,yes,no,no,no,no,no,276.55,0.2244,1
@@ -2728,13 +2728,13 @@ T4103,P360,yes,no,no,no,no,no,330.36,0.195,1
 T4105,P360,yes,no,no,no,yes,no,225.89,0.2615,1
 T4106,P360,yes,no,no,no,yes,no,57.94,0.58,0
 T4107,P360,yes,no,no,no,yes,no,129.57,0.3817,0
-T4108,P360,yes,no,no,no,no,no,4.33,0.9487,0
+T4108,P360,yes,no,no,no,no,no,320.51,0.1997,0
 T4110,P360,yes,no,no,no,yes,no,39.14,0.6715,0
 T4111,P360,yes,no,no,no,no,no,219.81,0.2668,1
 T4112,P360,yes,no,no,no,yes,no,236.63,0.2527,1
 T4113,P361,no,yes,yes,yes,no,no,330.14,0.1951,1
 T4114,P361,no,yes,yes,yes,no,no,250.4,0.2421,1
-T4116,P361,no,yes,no,yes,no,no,59.26,0.5745,0
+T4116,P361,no,yes,no,yes,no,no,346.08,0.1878,0
 T4117,P361,no,yes,no,yes,no,no,421.56,0.1595,1
 T4118,P361,no,yes,no,yes,no,no,234.6,0.2543,1
 T4119,P361,no,yes,no,yes,no,no,225.09,0.2622,0
@@ -2755,7 +2755,7 @@ T4133,P363,no,yes,no,yes,no,no,221.02,0.2658,1
 T4134,P363,no,yes,yes,yes,no,no,188.03,0.2985,0
 T4135,P363,no,yes,yes,yes,no,no,112.85,0.4148,0
 T4136,P363,no,yes,yes,yes,no,no,241.14,0.2491,1
-T4137,P363,no,yes,no,yes,no,no,175.33,0.3133,0
+T4137,P363,no,yes,no,yes,no,no,145.67,0.3545,0
 T4138,P363,no,yes,yes,yes,no,no,241.31,0.249,0
 T4139,P363,no,yes,no,yes,no,no,4.18,0.9503,1
 T4140,P363,no,yes,yes,yes,no,no,142.04,0.3603,1
@@ -2892,7 +2892,7 @@ T4288,P377,no,yes,no,yes,no,no,215.61,0.2706,0
 T4289,P377,no,yes,yes,yes,no,no,229.35,0.2586,0
 T4290,P377,no,yes,no,yes,no,no,185.84,0.3009,0
 T4291,P377,no,yes,no,yes,no,no,382.64,0.1729,0
-T4292,P377,no,yes,no,yes,no,no,4.33,0.9487,0
+T4292,P377,no,yes,no,yes,no,no,320.51,0.1997,0
 T4293,P377,no,yes,no,yes,no,no,329.37,0.1954,1
 T4294,P377,no,yes,yes,yes,no,no,4.62,0.9454,1
 T4295,P377,no,yes,no,yes,no,no,230.83,0.2574,1
@@ -2906,7 +2906,7 @@ T4304,P378,no,yes,yes,yes,no,no,105.21,0.4319,1
 T4306,P378,no,yes,no,yes,no,no,221.99,0.2649,1
 T4307,P378,no,yes,no,yes,no,no,29.83,0.7284,0
 T4308,P378,no,yes,no,yes,no,no,214.63,0.2715,1
-T4309,P378,no,yes,yes,yes,no,no,36.45,0.687,0
+T4309,P378,no,yes,yes,yes,no,no,338.83,0.191,0
 T4311,P378,no,yes,yes,yes,no,no,55.59,0.59,1
 T4313,P378,no,yes,yes,yes,no,no,144.44,0.3564,1
 T4314,P378,no,yes,no,yes,no,no,223.91,0.2632,0
