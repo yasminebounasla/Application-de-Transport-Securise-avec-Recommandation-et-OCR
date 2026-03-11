@@ -57,7 +57,7 @@ export default function FeedbackScreen() {
       });
       setSubmitted(true);
       // Retour auto après 2s
-      setTimeout(() => router.replace('../(passengerTabs)/PassengerHomeScreen.tsx'), 2000);
+      setTimeout(() => router.replace('../(passengerTabs)/PassengerHomeScreen'), 2000);
     } catch (error) {
       Alert.alert('Erreur', "Impossible de soumettre votre avis. Réessayez.");
     } finally {
@@ -66,7 +66,7 @@ export default function FeedbackScreen() {
   };
 
   const handleSkip = () => {
-    router.replace('../(passengerTabs)/PassengerHomeScreen.tsx');
+    router.replace('../(passengerTabs)/PassengerHomeScreen');
   };
 
   // Écran de confirmation après soumission

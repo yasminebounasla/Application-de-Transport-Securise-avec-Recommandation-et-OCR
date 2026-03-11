@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from './AuthContext';
 import { ToastData } from '../components/NotifToast';
 import { API_URL } from '../services/api';
+import FeedbackModal from '../components/FeedbackModal';
 
 const SOCKET_URL = (process.env.EXPO_PUBLIC_API_URL_SANS_API || API_URL.replace(/\/api$/, ''));
 
@@ -27,6 +28,7 @@ type NotificationContextType = {
   clearNotifications: () => void;
   markAllAsRead: () => void;
   hideToast: () => void;
+  openFeedbackModal: (trajetId: number) => void; // pour le test
 };
 
 const NotificationContext = createContext<NotificationContextType | undefined>(undefined);
@@ -47,6 +49,10 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [currentToast, setCurrentToast] = useState<ToastData | null>(null);
   const { user } = useAuth();
+
+  const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
+  const [feedbackTrajetId, setFeedbackTrajetId] = useState<number | null>(null);
+
 
   const storageKey    = user?.id ? `app_notifications_${user.id}` : null;
   const unreadKey     = user?.id ? `app_notifications_${user.id}_unread` : null;
@@ -202,7 +208,9 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
         addNotif(data.title || '🚗 Trajet démarré', data.message || 'Votre trajet a démarré !', { rideId: data.rideId });
       });
       newSocket.on('rideCompleted', (data) => {
-        addNotif(data.title || '🏁 Trajet terminé', data.message || 'Votre trajet est terminé.', { rideId: data.rideId });
+        // ouvre le modal feedback
+        setFeedbackTrajetId(data.rideId ?? null);
+        setFeedbackModalVisible(true);
       });
     }
 
@@ -227,12 +235,27 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
     return () => { newSocket.disconnect(); };
   }, [user?.id, user?.role, addNotif]);
 
+  const openFeedbackModal = (trajetId: number) => {
+    console.log('🔥 openFeedbackModal appelé avec:', trajetId);
+    setFeedbackTrajetId(trajetId);
+    setFeedbackModalVisible(true);
+  };
+
   return (
     <NotificationContext.Provider value={{
       notifications, unreadCount, socket, currentToast,
       clearNotifications, markAllAsRead, hideToast: () => setCurrentToast(null)
+      , openFeedbackModal
     }}>
       {children}
+      <FeedbackModal
+        visible={feedbackModalVisible}
+        trajetId={feedbackTrajetId}
+        onClose={() => {
+          setFeedbackModalVisible(false);
+          setFeedbackTrajetId(null);
+        }}
+      />
     </NotificationContext.Provider>
   );
 };

@@ -8,11 +8,13 @@ import {
   ActivityIndicator,
   RefreshControl,
   Image,
-  Modal,
+  Modal
 } from 'react-native';
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../services/api';
+
+
 
 export default function PassengerProfileScreen() {
   const [profile, setProfile]          = useState(null);
