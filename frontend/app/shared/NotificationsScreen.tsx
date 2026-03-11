@@ -42,12 +42,12 @@ const CATEGORY = (title: string) => {
   return { color: '#F59E0B', bg: '#FFFBEB', icon: 'alert-circle' as const };
 };
 
-// Détermine le bon tab selon le titre de la notif
+// ✅ FIX : On s'assure que le retour correspond aux clés de l'ActivityScreen
 const getTabFromTitle = (title: string): string => {
   const t = title.toLowerCase();
   if (t.includes('terminé') || t.includes('completed')) return 'completed';
   if (t.includes('annulé') || t.includes('refus')) return 'cancelled';
-  return 'pending'; // demande, confirmé, démarré, etc.
+  return 'pending'; 
 };
 
 const AVATAR_COLORS = ['#6366F1', '#EC4899', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6'];
@@ -100,15 +100,15 @@ export default function NotificationsScreen() {
     if (unread.length > 0) markAllAsRead();
   }, [notifications, markAllAsRead]));
 
-  // ✅ Navigation vers Activity avec rideId + bon tab
   const handleNotifPress = (notif: Notification) => {
-    if (!notif.rideId) return;
-    const tab = getTabFromTitle(notif.title);
-    const route = user?.role === 'driver'
-      ? '../(driverTabs)/Activity'
-      : '../(passengerTabs)/Activity';
-    router.push({ pathname: route as any, params: { rideId: String(notif.rideId), tab } });
-  };
+  if (!notif.rideId) return;
+  const tab = getTabFromTitle(notif.title);
+  console.log('🟢 NAVIGATE rideId:', notif.rideId, 'tab:', tab); // ← AJOUTE
+  const route = user?.role === 'driver'
+    ? '/(driverTabs)/Activity'
+    : '/(passengerTabs)/Activity';
+  router.push({ pathname: route as any, params: { rideId: String(notif.rideId), tab } });
+};
 
   const renderNotif = (notif: Notification, i: number, isNew: boolean) => {
     const cat = CATEGORY(notif.title);
@@ -196,14 +196,14 @@ export default function NotificationsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container:    { flex: 1, backgroundColor: '#fff' },
+  container:     { flex: 1, backgroundColor: '#fff' },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 18, paddingTop: 58, paddingBottom: 14,
     borderBottomWidth: 1, borderBottomColor: '#F2F2F2',
   },
   headerTitle:     { fontSize: 22, fontWeight: '800', color: '#111', letterSpacing: -0.4 },
-  clearBtn:        { fontSize: 13, color: '#BBB', fontWeight: '500' },
+  clearBtn:         { fontSize: 13, color: '#BBB', fontWeight: '500' },
   sectionHeader: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 18, paddingTop: 16, paddingBottom: 6, gap: 8,
@@ -218,12 +218,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18, paddingVertical: 13,
     borderBottomWidth: 1, borderBottomColor: '#F7F7F7',
   },
-  rowNew:         { backgroundColor: '#FFF8F8' },
-  newDot:         { width: 7, height: 7, borderRadius: 4, backgroundColor: '#EF4444', marginRight: 8 },
+  rowNew:          { backgroundColor: '#FFF8F8' },
+  newDot:          { width: 7, height: 7, borderRadius: 4, backgroundColor: '#EF4444', marginRight: 8 },
   avatarWrapper:  { position: 'relative', marginRight: 13 },
-  avatar:         { width: 48, height: 48, borderRadius: 24 },
+  avatar:          { width: 48, height: 48, borderRadius: 24 },
   avatarFallback: { justifyContent: 'center', alignItems: 'center' },
-  initials:       { color: '#fff', fontSize: 16, fontWeight: '700' },
+  initials:        { color: '#fff', fontSize: 16, fontWeight: '700' },
   badge: {
     position: 'absolute', bottom: 0, right: -1,
     width: 17, height: 17, borderRadius: 9,
@@ -233,8 +233,8 @@ const styles = StyleSheet.create({
   content:  { flex: 1 },
   topRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 },
   title:    { fontSize: 14, fontWeight: '700', color: '#111', flex: 1 },
-  time:     { fontSize: 12, color: '#BBB', marginLeft: 8 },
-  msg:      { fontSize: 13, color: '#666', lineHeight: 18 },
+  time:      { fontSize: 12, color: '#BBB', marginLeft: 8 },
+  msg:       { fontSize: 13, color: '#666', lineHeight: 18 },
   tapHint:  { fontSize: 11, color: '#3B82F6', marginTop: 4, fontWeight: '600' },
   empty:    { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10, paddingBottom: 80 },
   emptyIconWrap: {

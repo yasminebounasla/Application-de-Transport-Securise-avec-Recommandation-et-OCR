@@ -1,14 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  RefreshControl,
-  ActivityIndicator,
-  TouchableOpacity,
-  TextInput,
-  Animated,
+  View, Text, StyleSheet, FlatList, RefreshControl,
+  ActivityIndicator, TouchableOpacity, TextInput, Animated,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams } from 'expo-router';
@@ -20,33 +13,63 @@ const CATEGORIES = [
   { key: 'pending', label: 'Pending' },
   { key: 'cancelled', label: 'Cancelled' },
 ];
-
 const PRICE_FILTERS = [
   { key: 'none', label: 'Price: none' },
   { key: 'asc', label: 'Price: low to high' },
   { key: 'desc', label: 'Price: high to low' },
 ];
-
 const NAME_FILTERS = [
   { key: 'none', label: 'Name: none' },
   { key: 'az', label: 'Name: A-Z' },
   { key: 'za', label: 'Name: Z-A' },
 ];
-
 const STATUS_TO_TAB: Record<string, string> = {
-  COMPLETED:              'completed',
-  PENDING:                'pending',
-  ACCEPTED:               'pending',
-  IN_PROGRESS:            'pending',
+  COMPLETED: 'completed',
+  PENDING: 'pending',
+  ACCEPTED: 'pending',
+  IN_PROGRESS: 'pending',
   CANCELLED_BY_PASSENGER: 'cancelled',
-  CANCELLED_BY_DRIVER:    'cancelled',
+  CANCELLED_BY_DRIVER: 'cancelled',
 };
+
+function HighlightCard({ highlighted, children }: { highlighted: boolean; children: React.ReactNode }) {
+  const anim = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (!highlighted) { anim.setValue(0); return; }
+    Animated.sequence([
+      Animated.timing(anim, { toValue: 1, duration: 300, useNativeDriver: false }),
+      Animated.timing(anim, { toValue: 0, duration: 300, useNativeDriver: false }),
+      Animated.timing(anim, { toValue: 1, duration: 300, useNativeDriver: false }),
+      Animated.timing(anim, { toValue: 0, duration: 300, useNativeDriver: false }),
+      Animated.timing(anim, { toValue: 1, duration: 300, useNativeDriver: false }),
+      Animated.delay(1500),
+      Animated.timing(anim, { toValue: 0, duration: 800, useNativeDriver: false }),
+    ]).start();
+  }, [highlighted]);
+  const bgColor = anim.interpolate({ inputRange: [0, 1], outputRange: ['#FFFFFF', '#FFF3CD'] });
+  const borderColor = anim.interpolate({ inputRange: [0, 1], outputRange: ['#E5E7EB', '#F59E0B'] });
+  return (
+    <Animated.View style={[styles.rideCard, { backgroundColor: bgColor, borderColor }]}>
+      {children}
+    </Animated.View>
+  );
+}
+
+function StatCard({ icon, label, value }: { icon: string; label: string; value: string | number }) {
+  return (
+    <View style={styles.statCard}>
+      <MaterialIcons name={icon as any} size={20} color="#111" />
+      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+    </View>
+  );
+}
 
 export default function ActivityScreen() {
   const { user } = useAuth();
   const params = useLocalSearchParams<{ rideId?: string; tab?: string }>();
 
-  const [activity, setActivity] = useState([]);
+  const [activity, setActivity] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState('');
@@ -57,46 +80,50 @@ export default function ActivityScreen() {
   const [nameQuery, setNameQuery] = useState('');
   const [highlightedId, setHighlightedId] = useState<number | null>(null);
   const flatListRef = useRef<FlatList>(null);
+  const pendingHighlight = useRef<{ rideId: number; tab: string } | null>(null);
 
   const loadActivity = useCallback(async () => {
-    if (!user?.id) {
-      setError('Utilisateur introuvable.');
-      setActivity([]);
-      setLoading(false);
-      return;
-    }
+    if (!user?.id) { setLoading(false); return; }
     try {
       setError('');
       const response = await api.get(`/rides/activity/passenger/${user.id}`);
       setActivity(response?.data?.data || []);
     } catch (err) {
-      console.error('Erreur load passenger activity:', err?.response?.data || err?.message);
       setError("Impossible de charger l'activite.");
-      setActivity([]);
     } finally {
       setLoading(false);
     }
   }, [user?.id]);
 
-  useEffect(() => {
-    loadActivity();
-  }, [loadActivity]);
+  useEffect(() => { loadActivity(); }, [loadActivity]);
 
+  // Step 1 : quand les params changent, sauvegarder la cible et switcher le tab
   useEffect(() => {
-    if (!params.rideId || activity.length === 0) return;
+    if (!params.rideId) return;
+    const rideId = parseInt(params.rideId as string);
+    const tab = (params.tab as string) || 'pending';
+    pendingHighlight.current = { rideId, tab };
+    setActiveCategory(tab);
+  }, [params.rideId, params.tab]);
 
-    const rideId = parseInt(params.rideId);
+  // Step 2 : quand activity est chargé et qu'on a un highlight en attente, appliquer
+  useEffect(() => {
+    if (activity.length === 0) return;
+    if (!pendingHighlight.current) return;
+
+    const { rideId, tab } = pendingHighlight.current;
     const ride = activity.find((r: any) => r.rideId === rideId);
     if (!ride) return;
 
-    const correctTab = params.tab || STATUS_TO_TAB[(ride as any).status] || 'pending';
-    setActiveCategory(correctTab);
+    pendingHighlight.current = null;
+
+    setActiveCategory(tab);
     setHighlightedId(rideId);
 
     setTimeout(() => {
       const tabRides = activity.filter((r: any) => {
-        if (correctTab === 'completed') return r.status === 'COMPLETED';
-        if (correctTab === 'pending') return ['PENDING', 'ACCEPTED', 'IN_PROGRESS'].includes(r.status);
+        if (tab === 'completed') return r.status === 'COMPLETED';
+        if (tab === 'pending') return ['PENDING', 'ACCEPTED', 'IN_PROGRESS'].includes(r.status);
         return ['CANCELLED_BY_PASSENGER', 'CANCELLED_BY_DRIVER'].includes(r.status);
       });
       const index = tabRides.findIndex((r: any) => r.rideId === rideId);
@@ -105,32 +132,23 @@ export default function ActivityScreen() {
       }
     }, 400);
 
-    setTimeout(() => setHighlightedId(null), 4000);
-  }, [params.rideId, activity]);
-
-  const categorized = useMemo(() => {
-    const completed = activity.filter((ride: any) => ride.status === 'COMPLETED');
-    const pending = activity.filter((ride: any) =>
-      ['PENDING', 'ACCEPTED', 'IN_PROGRESS'].includes(ride.status)
-    );
-    const cancelled = activity.filter((ride: any) =>
-      ['CANCELLED_BY_PASSENGER', 'CANCELLED_BY_DRIVER'].includes(ride.status)
-    );
-    return { completed, pending, cancelled };
+    setTimeout(() => setHighlightedId(null), 4500);
   }, [activity]);
+
+  const categorized = useMemo(() => ({
+    completed: activity.filter((r: any) => r.status === 'COMPLETED'),
+    pending: activity.filter((r: any) => ['PENDING', 'ACCEPTED', 'IN_PROGRESS'].includes(r.status)),
+    cancelled: activity.filter((r: any) => ['CANCELLED_BY_PASSENGER', 'CANCELLED_BY_DRIVER'].includes(r.status)),
+  }), [activity]);
 
   const stats = useMemo(() => {
     const total = activity.length;
-    const completed = activity.filter((ride: any) => ride.status === 'COMPLETED').length;
-    const pending = activity.filter((ride: any) =>
-      ['PENDING', 'ACCEPTED', 'IN_PROGRESS'].includes(ride.status)
-    ).length;
-    const cancelled = activity.filter((ride: any) =>
-      ['CANCELLED_BY_PASSENGER', 'CANCELLED_BY_DRIVER'].includes(ride.status)
-    ).length;
+    const completed = categorized.completed.length;
+    const pending = categorized.pending.length;
+    const cancelled = categorized.cancelled.length;
     const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
     return { total, completed, pending, cancelled, completionRate };
-  }, [activity]);
+  }, [activity, categorized]);
 
   const visibleRides = useMemo(() => {
     let rides: any[] = (categorized as any)[activeCategory] || [];
@@ -139,38 +157,17 @@ export default function ActivityScreen() {
       rides = rides.filter((ride: any) => {
         const d = ride.driver || {};
         const p = ride.passenger || {};
-        const driverName = `${d.prenom || ''} ${d.nom || ''}`.toLowerCase();
-        const passengerName = `${p.prenom || ''} ${p.nom || ''}`.toLowerCase();
-        return driverName.includes(q) || passengerName.includes(q);
+        return `${d.prenom || ''} ${d.nom || ''}`.toLowerCase().includes(q)
+          || `${p.prenom || ''} ${p.nom || ''}`.toLowerCase().includes(q);
       });
     }
     rides = [...rides];
-    if (nameFilter === 'az') {
-      rides.sort((a: any, b: any) => {
-        const aName = `${a.driver?.prenom || ''} ${a.driver?.nom || ''}`.trim();
-        const bName = `${b.driver?.prenom || ''} ${b.driver?.nom || ''}`.trim();
-        return aName.localeCompare(bName);
-      });
-    } else if (nameFilter === 'za') {
-      rides.sort((a: any, b: any) => {
-        const aName = `${a.driver?.prenom || ''} ${a.driver?.nom || ''}`.trim();
-        const bName = `${b.driver?.prenom || ''} ${b.driver?.nom || ''}`.trim();
-        return bName.localeCompare(aName);
-      });
-    }
-    if (priceFilter === 'asc') {
-      rides.sort((a: any, b: any) => (Number(a.prix) || 0) - (Number(b.prix) || 0));
-    } else if (priceFilter === 'desc') {
-      rides.sort((a: any, b: any) => (Number(b.prix) || 0) - (Number(a.prix) || 0));
-    }
+    if (nameFilter === 'az') rides.sort((a: any, b: any) => `${a.driver?.prenom || ''}`.localeCompare(`${b.driver?.prenom || ''}`));
+    if (nameFilter === 'za') rides.sort((a: any, b: any) => `${b.driver?.prenom || ''}`.localeCompare(`${a.driver?.prenom || ''}`));
+    if (priceFilter === 'asc') rides.sort((a: any, b: any) => (Number(a.prix) || 0) - (Number(b.prix) || 0));
+    if (priceFilter === 'desc') rides.sort((a: any, b: any) => (Number(b.prix) || 0) - (Number(a.prix) || 0));
     return rides;
   }, [activeCategory, categorized, nameFilter, priceFilter, nameQuery]);
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await loadActivity();
-    setRefreshing(false);
-  };
 
   const getStatusBadgeStyle = (status: string) => {
     if (status === 'COMPLETED') return styles.completedBadge;
@@ -185,11 +182,15 @@ export default function ActivityScreen() {
     return status;
   };
 
+  const cycleFilter = (current: string, values: { key: string; label: string }[]) => {
+    const idx = values.findIndex((v) => v.key === current);
+    return values[idx === values.length - 1 ? 0 : idx + 1].key;
+  };
+
   const renderItem = ({ item }: { item: any }) => {
     const passenger = item.passenger || {};
     const driver = item.driver || {};
-    const passengerName =
-      `${passenger.prenom || user?.firstName || ''} ${passenger.nom || user?.familyName || ''}`.trim() || 'N/A';
+    const passengerName = `${passenger.prenom || user?.firstName || ''} ${passenger.nom || user?.familyName || ''}`.trim() || 'N/A';
     const driverName = `${driver.prenom || ''} ${driver.nom || ''}`.trim() || 'N/A';
     const dateLabel = item.dateDepart ? new Date(item.dateDepart).toLocaleDateString() : 'N/A';
     const timeLabel = item.heureDepart || 'N/A';
@@ -206,54 +207,22 @@ export default function ActivityScreen() {
             <Text style={styles.statusText}>{getStatusLabel(item.status)}</Text>
           </View>
         </View>
-
         {isHighlighted && (
           <View style={styles.highlightBanner}>
             <MaterialIcons name="notifications-active" size={13} color="#92400E" />
             <Text style={styles.highlightText}>Trajet concerné par votre notification</Text>
           </View>
         )}
-
-        <View style={styles.detailRow}>
-          <MaterialIcons name="event" size={18} color="#444" />
-          <Text style={styles.detailText}>Date: {dateLabel}</Text>
-        </View>
-        <View style={styles.detailRow}>
-          <MaterialIcons name="schedule" size={18} color="#444" />
-          <Text style={styles.detailText}>Heure: {timeLabel}</Text>
-        </View>
-        <View style={styles.detailRow}>
-          <MaterialIcons name="my-location" size={18} color="#444" />
-          <Text style={styles.detailText}>Depart: {start}</Text>
-        </View>
-        <View style={styles.detailRow}>
-          <MaterialIcons name="location-on" size={18} color="#444" />
-          <Text style={styles.detailText}>Arrivee: {end}</Text>
-        </View>
-        <View style={styles.detailRow}>
-          <MaterialIcons name="badge" size={18} color="#444" />
-          <Text style={styles.detailText}>Driver: {driverName}</Text>
-        </View>
-        <View style={styles.detailRow}>
-          <MaterialIcons name="person" size={18} color="#444" />
-          <Text style={styles.detailText}>Passenger: {passengerName}</Text>
-        </View>
-        <View style={styles.detailRow}>
-          <MaterialIcons name="payments" size={18} color="#444" />
-          <Text style={styles.detailText}>Prix: {price.toFixed(2)} DA</Text>
-        </View>
+        <View style={styles.detailRow}><MaterialIcons name="event" size={18} color="#444" /><Text style={styles.detailText}>Date: {dateLabel}</Text></View>
+        <View style={styles.detailRow}><MaterialIcons name="schedule" size={18} color="#444" /><Text style={styles.detailText}>Heure: {timeLabel}</Text></View>
+        <View style={styles.detailRow}><MaterialIcons name="my-location" size={18} color="#444" /><Text style={styles.detailText}>Depart: {start}</Text></View>
+        <View style={styles.detailRow}><MaterialIcons name="location-on" size={18} color="#444" /><Text style={styles.detailText}>Arrivee: {end}</Text></View>
+        <View style={styles.detailRow}><MaterialIcons name="badge" size={18} color="#444" /><Text style={styles.detailText}>Driver: {driverName}</Text></View>
+        <View style={styles.detailRow}><MaterialIcons name="person" size={18} color="#444" /><Text style={styles.detailText}>Passenger: {passengerName}</Text></View>
+        <View style={styles.detailRow}><MaterialIcons name="payments" size={18} color="#444" /><Text style={styles.detailText}>Prix: {price.toFixed(2)} DA</Text></View>
       </HighlightCard>
     );
   };
-
-  const cycleFilter = (current: string, values: { key: string; label: string }[]) => {
-    const idx = values.findIndex((v) => v.key === current);
-    const nextIdx = idx === values.length - 1 ? 0 : idx + 1;
-    return values[nextIdx].key;
-  };
-
-  const currentPriceLabel = PRICE_FILTERS.find((f) => f.key === priceFilter)?.label || 'Price';
-  const currentNameLabel = NAME_FILTERS.find((f) => f.key === nameFilter)?.label || 'Name';
 
   if (loading && !refreshing) {
     return (
@@ -285,10 +254,7 @@ export default function ActivityScreen() {
               {CATEGORIES.map((category) => (
                 <TouchableOpacity
                   key={category.key}
-                  style={[
-                    styles.categoryButton,
-                    activeCategory === category.key && styles.categoryButtonActive,
-                  ]}
+                  style={[styles.categoryButton, activeCategory === category.key && styles.categoryButtonActive]}
                   onPress={() => setActiveCategory(category.key)}
                 >
                   <Text style={[styles.categoryText, activeCategory === category.key && styles.categoryTextActive]}>
@@ -308,19 +274,15 @@ export default function ActivityScreen() {
                 <TextInput style={styles.input} value={nameQuery} onChangeText={setNameQuery} placeholder="Filtrer par nom..." placeholderTextColor="#999" />
                 <View style={styles.filterButtonsRow}>
                   <TouchableOpacity style={styles.filterOptionButton} onPress={() => setPriceFilter((v) => cycleFilter(v, PRICE_FILTERS))}>
-                    <Text style={styles.filterOptionText}>{currentPriceLabel}</Text>
+                    <Text style={styles.filterOptionText}>{PRICE_FILTERS.find(f => f.key === priceFilter)?.label}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={styles.filterOptionButton} onPress={() => setNameFilter((v) => cycleFilter(v, NAME_FILTERS))}>
-                    <Text style={styles.filterOptionText}>{currentNameLabel}</Text>
+                    <Text style={styles.filterOptionText}>{NAME_FILTERS.find(f => f.key === nameFilter)?.label}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
             )}
-            {!!error && (
-              <View style={styles.errorBox}>
-                <Text style={styles.errorText}>{error}</Text>
-              </View>
-            )}
+            {!!error && <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View>}
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Liste trajets</Text>
               <Text style={styles.sectionCount}>{visibleRides.length}</Text>
@@ -335,44 +297,8 @@ export default function ActivityScreen() {
           </View>
         }
         contentContainerStyle={styles.listContainer}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} colors={['#000']} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await loadActivity(); setRefreshing(false); }} colors={['#000']} />}
       />
-    </View>
-  );
-}
-
-function HighlightCard({ highlighted, children }: { highlighted: boolean; children: React.ReactNode }) {
-  const anim = useRef(new Animated.Value(0)).current;
-
-  useEffect(() => {
-    if (!highlighted) return;
-    Animated.sequence([
-      Animated.timing(anim, { toValue: 1, duration: 300, useNativeDriver: false }),
-      Animated.timing(anim, { toValue: 0, duration: 300, useNativeDriver: false }),
-      Animated.timing(anim, { toValue: 1, duration: 300, useNativeDriver: false }),
-      Animated.timing(anim, { toValue: 0, duration: 300, useNativeDriver: false }),
-      Animated.timing(anim, { toValue: 1, duration: 300, useNativeDriver: false }),
-      Animated.delay(1500),
-      Animated.timing(anim, { toValue: 0, duration: 600, useNativeDriver: false }),
-    ]).start();
-  }, [highlighted]);
-
-  const bgColor = anim.interpolate({ inputRange: [0, 1], outputRange: ['#FFFFFF', '#FFF3CD'] });
-  const borderColor = anim.interpolate({ inputRange: [0, 1], outputRange: ['#E5E7EB', '#F59E0B'] });
-
-  return (
-    <Animated.View style={[styles.rideCard, { backgroundColor: bgColor, borderColor }]}>
-      {children}
-    </Animated.View>
-  );
-}
-
-function StatCard({ icon, label, value }: { icon: string; label: string; value: string | number }) {
-  return (
-    <View style={styles.statCard}>
-      <MaterialIcons name={icon as any} size={20} color="#111" />
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
     </View>
   );
 }
