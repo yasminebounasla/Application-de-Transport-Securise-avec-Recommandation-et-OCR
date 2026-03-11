@@ -259,7 +259,7 @@ export default function MapScreen() {
     if (!selectedLocation) return;
     setSavingAddress(true);
     try {
-      await api.patch('/drivers/location', {
+      await api.patch('/drivers/profile/location', {
         latitude:  selectedLocation.latitude,
         longitude: selectedLocation.longitude,
       });
