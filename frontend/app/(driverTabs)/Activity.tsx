@@ -8,14 +8,10 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   TextInput,
-  // ---AJOUTÉ---
   Animated,
-  // ---FIN AJOUTÉ---
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-// ---AJOUTÉ---
 import { useLocalSearchParams } from 'expo-router';
-// ---FIN AJOUTÉ---
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
@@ -37,8 +33,6 @@ const NAME_FILTERS = [
   { key: 'za', label: 'Name: Z-A' },
 ];
 
-// ---AJOUTÉ---
-// Map status → bon tab pour le switch automatique
 const STATUS_TO_TAB: Record<string, string> = {
   COMPLETED:              'completed',
   PENDING:                'pending',
@@ -47,15 +41,10 @@ const STATUS_TO_TAB: Record<string, string> = {
   CANCELLED_BY_PASSENGER: 'cancelled',
   CANCELLED_BY_DRIVER:    'cancelled',
 };
-// ---FIN AJOUTÉ---
 
 export default function DriverActivityScreen() {
   const { user } = useAuth();
-
-  // ---AJOUTÉ---
-  // Récupère rideId + tab envoyés depuis NotificationsScreen via router.push
   const params = useLocalSearchParams<{ rideId?: string; tab?: string }>();
-  // ---FIN AJOUTÉ---
 
   const [activity, setActivity] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,13 +55,8 @@ export default function DriverActivityScreen() {
   const [priceFilter, setPriceFilter] = useState('none');
   const [nameFilter, setNameFilter] = useState('none');
   const [nameQuery, setNameQuery] = useState('');
-
-  // ---AJOUTÉ---
-  // State pour savoir quelle card est en cours de highlight
   const [highlightedId, setHighlightedId] = useState<number | null>(null);
-  // Ref sur la FlatList pour pouvoir faire scrollToIndex
   const flatListRef = useRef<FlatList>(null);
-  // ---FIN AJOUTÉ---
 
   const loadActivity = useCallback(async () => {
     if (!user?.id) {
@@ -81,7 +65,6 @@ export default function DriverActivityScreen() {
       setLoading(false);
       return;
     }
-
     try {
       setError('');
       const response = await api.get(`/rides/activity/driver/${user.id}`);
@@ -99,8 +82,6 @@ export default function DriverActivityScreen() {
     loadActivity();
   }, [loadActivity]);
 
-  // ---AJOUTÉ---
-  // Quand on arrive depuis une notification : switch tab + scroll + highlight
   useEffect(() => {
     if (!params.rideId || activity.length === 0) return;
 
@@ -108,20 +89,14 @@ export default function DriverActivityScreen() {
     const ride = activity.find((r: any) => r.rideId === rideId);
     if (!ride) return;
 
-    // Déterminer le bon tab selon le status du trajet
     const correctTab = params.tab || STATUS_TO_TAB[ride.status] || 'pending';
-
-    // Switch automatique vers le bon tab
     setActiveCategory(correctTab);
-
-    // Activer le highlight sur cette card
     setHighlightedId(rideId);
 
-    // Scroll vers la card après un court délai (le temps que la liste se re-render)
     setTimeout(() => {
       const tabRides = activity.filter((r: any) => {
         if (correctTab === 'completed') return r.status === 'COMPLETED';
-        if (correctTab === 'pending')   return ['PENDING', 'ACCEPTED', 'IN_PROGRESS'].includes(r.status);
+        if (correctTab === 'pending') return ['PENDING', 'ACCEPTED', 'IN_PROGRESS'].includes(r.status);
         return ['CANCELLED_BY_PASSENGER', 'CANCELLED_BY_DRIVER'].includes(r.status);
       });
       const index = tabRides.findIndex((r: any) => r.rideId === rideId);
@@ -130,11 +105,8 @@ export default function DriverActivityScreen() {
       }
     }, 400);
 
-    // Retirer le highlight après 4 secondes
     setTimeout(() => setHighlightedId(null), 4000);
-
   }, [params.rideId, activity]);
-  // ---FIN AJOUTÉ---
 
   const categorized = useMemo(() => {
     const completed = activity.filter((ride: any) => ride.status === 'COMPLETED');
@@ -144,7 +116,6 @@ export default function DriverActivityScreen() {
     const cancelled = activity.filter((ride: any) =>
       ['CANCELLED_BY_PASSENGER', 'CANCELLED_BY_DRIVER'].includes(ride.status)
     );
-
     return { completed, pending, cancelled };
   }, [activity]);
 
@@ -158,13 +129,11 @@ export default function DriverActivityScreen() {
       ['CANCELLED_BY_PASSENGER', 'CANCELLED_BY_DRIVER'].includes(ride.status)
     ).length;
     const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
-
     return { total, completed, pending, cancelled, completionRate };
   }, [activity]);
 
   const visibleRides = useMemo(() => {
     let rides: any[] = (categorized as any)[activeCategory] || [];
-
     if (nameQuery.trim()) {
       const q = nameQuery.trim().toLowerCase();
       rides = rides.filter((ride: any) => {
@@ -173,9 +142,7 @@ export default function DriverActivityScreen() {
         return name.includes(q);
       });
     }
-
     rides = [...rides];
-
     if (nameFilter === 'az') {
       rides.sort((a: any, b: any) => {
         const aName = `${a.passenger?.prenom || ''} ${a.passenger?.nom || ''}`.trim();
@@ -189,13 +156,11 @@ export default function DriverActivityScreen() {
         return bName.localeCompare(aName);
       });
     }
-
     if (priceFilter === 'asc') {
       rides.sort((a: any, b: any) => (Number(a.prix) || 0) - (Number(b.prix) || 0));
     } else if (priceFilter === 'desc') {
       rides.sort((a: any, b: any) => (Number(b.prix) || 0) - (Number(a.prix) || 0));
     }
-
     return rides;
   }, [activeCategory, categorized, nameFilter, priceFilter, nameQuery]);
 
@@ -231,16 +196,10 @@ export default function DriverActivityScreen() {
     const start = item.startAddress || item.depart || 'N/A';
     const end = item.endAddress || item.destination || 'N/A';
     const price = Number(item.prix) || 0;
-
-    // ---AJOUTÉ---
     const isHighlighted = item.rideId === highlightedId;
-    // ---FIN AJOUTÉ---
 
     return (
-      // ---AJOUTÉ---
-      // HighlightCard gère l'animation flash jaune autour de la card
       <HighlightCard highlighted={isHighlighted}>
-      // ---FIN AJOUTÉ---
         <View style={styles.rideHeader}>
           <Text style={styles.rideId}>Trip #{item.rideId}</Text>
           <View style={[styles.statusBadge, getStatusBadgeStyle(item.status)]}>
@@ -255,14 +214,12 @@ export default function DriverActivityScreen() {
           </View>
         </View>
 
-        {/* ---AJOUTÉ--- Bannière visible uniquement sur la card concernée */}
         {isHighlighted && (
           <View style={styles.highlightBanner}>
             <MaterialIcons name="notifications-active" size={13} color="#92400E" />
             <Text style={styles.highlightText}>Trajet concerné par votre notification</Text>
           </View>
         )}
-        {/* ---FIN AJOUTÉ--- */}
 
         <View style={styles.detailRow}>
           <MaterialIcons name="event" size={18} color="#444" />
@@ -292,9 +249,7 @@ export default function DriverActivityScreen() {
           <MaterialIcons name="payments" size={18} color="#444" />
           <Text style={styles.detailText}>Prix: {price.toFixed(2)} DA</Text>
         </View>
-      // ---AJOUTÉ---
       </HighlightCard>
-      // ---FIN AJOUTÉ---
     );
   };
 
@@ -319,10 +274,8 @@ export default function DriverActivityScreen() {
   return (
     <View style={styles.container}>
       <FlatList
-        // ---AJOUTÉ---
         ref={flatListRef}
-        onScrollToIndexFailed={() => {}} // évite le crash si index hors écran
-        // ---FIN AJOUTÉ---
+        onScrollToIndexFailed={() => {}}
         data={visibleRides}
         keyExtractor={(item: any) => String(item.rideId)}
         renderItem={renderRide}
@@ -384,7 +337,6 @@ export default function DriverActivityScreen() {
                   >
                     <Text style={styles.filterOptionText}>{currentPriceLabel}</Text>
                   </TouchableOpacity>
-
                   <TouchableOpacity
                     style={styles.filterOptionButton}
                     onPress={() => setNameFilter((v) => cycleFilter(v, NAME_FILTERS))}
@@ -427,14 +379,11 @@ export default function DriverActivityScreen() {
   );
 }
 
-// ---AJOUTÉ---
-// Composant wrapper qui gère l'animation flash jaune sur la card
 function HighlightCard({ highlighted, children }: { highlighted: boolean; children: React.ReactNode }) {
   const anim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     if (!highlighted) return;
-    // Flash 3x puis fade out
     Animated.sequence([
       Animated.timing(anim, { toValue: 1, duration: 300, useNativeDriver: false }),
       Animated.timing(anim, { toValue: 0, duration: 300, useNativeDriver: false }),
@@ -448,12 +397,12 @@ function HighlightCard({ highlighted, children }: { highlighted: boolean; childr
 
   const bgColor = anim.interpolate({
     inputRange:  [0, 1],
-    outputRange: ['#FFFFFF', '#FFF3CD'], // blanc → jaune doux
+    outputRange: ['#FFFFFF', '#FFF3CD'],
   });
 
   const borderColor = anim.interpolate({
     inputRange:  [0, 1],
-    outputRange: ['#E5E7EB', '#F59E0B'], // gris → orange
+    outputRange: ['#E5E7EB', '#F59E0B'],
   });
 
   return (
@@ -462,7 +411,6 @@ function HighlightCard({ highlighted, children }: { highlighted: boolean; childr
     </Animated.View>
   );
 }
-// ---FIN AJOUTÉ---
 
 function StatCard({ icon, label, value }: { icon: string; label: string; value: string | number }) {
   return (
@@ -475,272 +423,49 @@ function StatCard({ icon, label, value }: { icon: string; label: string; value: 
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F5F5',
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-    padding: 16,
-    paddingBottom: 6,
-  },
-  statCard: {
-    width: '31%',
-    backgroundColor: '#FFF',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#ECECEC',
-    paddingVertical: 14,
-    alignItems: 'center',
-  },
-  statValue: {
-    marginTop: 6,
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#111',
-  },
-  statLabel: {
-    marginTop: 2,
-    fontSize: 12,
-    color: '#666',
-    fontWeight: '600',
-  },
-  sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    marginTop: 6,
-    marginBottom: 8,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#111',
-  },
-  sectionCount: {
-    minWidth: 30,
-    height: 30,
-    borderRadius: 15,
-    backgroundColor: '#111',
-    color: '#FFF',
-    textAlign: 'center',
-    textAlignVertical: 'center',
-    fontWeight: '700',
-    fontSize: 13,
-    overflow: 'hidden',
-    paddingTop: 6,
-  },
-  listContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 32,
-    flexGrow: 1,
-  },
-  categoriesRow: {
-    flexDirection: 'row',
-    marginTop: 8,
-    gap: 8,
-  },
-  categoryButton: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 10,
-    borderRadius: 10,
-    backgroundColor: '#FFF',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  categoryButtonActive: {
-    backgroundColor: '#111',
-    borderColor: '#111',
-  },
-  categoryText: {
-    color: '#111',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  categoryTextActive: {
-    color: '#FFF',
-  },
-  filtersHeader: {
-    marginTop: 10,
-  },
-  filterToggleButton: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#FFF',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  filterToggleText: {
-    color: '#111',
-    fontWeight: '600',
-    fontSize: 13,
-  },
-  filtersPanel: {
-    marginTop: 8,
-    backgroundColor: '#FFF',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    padding: 12,
-    gap: 10,
-  },
-  input: {
-    height: 42,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    color: '#111',
-    backgroundColor: '#FAFAFA',
-    fontSize: 14,
-  },
-  filterButtonsRow: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  filterOptionButton: {
-    flex: 1,
-    backgroundColor: '#F9FAFB',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    paddingVertical: 10,
-    paddingHorizontal: 10,
-  },
-  filterOptionText: {
-    color: '#111',
-    fontWeight: '600',
-    fontSize: 12,
-    textAlign: 'center',
-  },
-  rideCard: {
-    backgroundColor: '#FFF',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 12,
-  },
-  rideHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  rideId: {
-    color: '#111',
-    fontWeight: '700',
-    fontSize: 14,
-  },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: 10,
-  },
-  completedBadge: {
-    backgroundColor: '#D1FAE5',
-  },
-  pendingBadge: {
-    backgroundColor: '#DBEAFE',
-  },
-  acceptedBadge: {
-    backgroundColor: '#DCFCE7',
-  },
-  cancelledDriverBadge: {
-    backgroundColor: '#FEE2E2',
-  },
-  cancelledPassengerBadge: {
-    backgroundColor: '#FFEDD5',
-  },
-  statusText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#111',
-  },
-  acceptedText: {
-    color: '#166534',
-  },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-    gap: 8,
-  },
-  detailText: {
-    flex: 1,
-    color: '#333',
-    fontSize: 13,
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 15,
-    color: '#666',
-  },
-  emptyContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 40,
-  },
-  emptyIcon: {
-    fontSize: 28,
-    marginBottom: 12,
-  },
-  emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#666',
-    marginBottom: 8,
-  },
-  emptySubText: {
-    fontSize: 14,
-    color: '#999',
-  },
-  errorBox: {
-    marginTop: 4,
-    marginBottom: 8,
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    backgroundColor: '#FFF1F1',
-    borderWidth: 1,
-    borderColor: '#FFCACA',
-  },
-  errorText: {
-    color: '#B42318',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  // ---AJOUTÉ---
-  highlightBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#FEF3C7',
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    marginBottom: 10,
-  },
-  highlightText: {
-    fontSize: 11,
-    color: '#92400E',
-    fontWeight: '700',
-    flex: 1,
-  },
-  // ---FIN AJOUTÉ---
+  container: { flex: 1, backgroundColor: '#F5F5F5' },
+  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, padding: 16, paddingBottom: 6 },
+  statCard: { width: '31%', backgroundColor: '#FFF', borderRadius: 12, borderWidth: 1, borderColor: '#ECECEC', paddingVertical: 14, alignItems: 'center' },
+  statValue: { marginTop: 6, fontSize: 20, fontWeight: '700', color: '#111' },
+  statLabel: { marginTop: 2, fontSize: 12, color: '#666', fontWeight: '600' },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginTop: 6, marginBottom: 8 },
+  sectionTitle: { fontSize: 18, fontWeight: '700', color: '#111' },
+  sectionCount: { minWidth: 30, height: 30, borderRadius: 15, backgroundColor: '#111', color: '#FFF', textAlign: 'center', textAlignVertical: 'center', fontWeight: '700', fontSize: 13, overflow: 'hidden', paddingTop: 6 },
+  listContainer: { paddingHorizontal: 16, paddingBottom: 32, flexGrow: 1 },
+  categoriesRow: { flexDirection: 'row', marginTop: 8, gap: 8 },
+  categoryButton: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 10, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E5E7EB' },
+  categoryButtonActive: { backgroundColor: '#111', borderColor: '#111' },
+  categoryText: { color: '#111', fontSize: 13, fontWeight: '600' },
+  categoryTextActive: { color: '#FFF' },
+  filtersHeader: { marginTop: 10 },
+  filterToggleButton: { alignSelf: 'flex-start', backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  filterToggleText: { color: '#111', fontWeight: '600', fontSize: 13 },
+  filtersPanel: { marginTop: 8, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, padding: 12, gap: 10 },
+  input: { height: 42, borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10, paddingHorizontal: 12, color: '#111', backgroundColor: '#FAFAFA', fontSize: 14 },
+  filterButtonsRow: { flexDirection: 'row', gap: 8 },
+  filterOptionButton: { flex: 1, backgroundColor: '#F9FAFB', borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB', paddingVertical: 10, paddingHorizontal: 10 },
+  filterOptionText: { color: '#111', fontWeight: '600', fontSize: 12, textAlign: 'center' },
+  rideCard: { backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 14, padding: 14, marginBottom: 12 },
+  rideHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  rideId: { color: '#111', fontWeight: '700', fontSize: 14 },
+  statusBadge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
+  completedBadge: { backgroundColor: '#D1FAE5' },
+  pendingBadge: { backgroundColor: '#DBEAFE' },
+  acceptedBadge: { backgroundColor: '#DCFCE7' },
+  cancelledDriverBadge: { backgroundColor: '#FEE2E2' },
+  cancelledPassengerBadge: { backgroundColor: '#FFEDD5' },
+  statusText: { fontSize: 11, fontWeight: '700', color: '#111' },
+  acceptedText: { color: '#166534' },
+  detailRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 },
+  detailText: { flex: 1, color: '#333', fontSize: 13 },
+  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { marginTop: 12, fontSize: 15, color: '#666' },
+  emptyContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
+  emptyIcon: { fontSize: 28, marginBottom: 12 },
+  emptyText: { fontSize: 18, fontWeight: '600', color: '#666', marginBottom: 8 },
+  emptySubText: { fontSize: 14, color: '#999' },
+  errorBox: { marginTop: 4, marginBottom: 8, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 12, backgroundColor: '#FFF1F1', borderWidth: 1, borderColor: '#FFCACA' },
+  errorText: { color: '#B42318', fontSize: 13, fontWeight: '600' },
+  highlightBanner: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FEF3C7', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 10 },
+  highlightText: { fontSize: 11, color: '#92400E', fontWeight: '700', flex: 1 },
 });
