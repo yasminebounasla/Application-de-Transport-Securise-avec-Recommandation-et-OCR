@@ -3,9 +3,10 @@ import {
   View, Text, ScrollView, TouchableOpacity,
   StyleSheet, StatusBar, Image,
 } from 'react-native';
-import { Stack, useFocusEffect } from 'expo-router';
+import { Stack, useFocusEffect, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useNotifications } from '../../context/NotificationContext';
+import { useAuth } from '../../context/AuthContext';
 
 type Notification = {
   title: string;
@@ -15,6 +16,7 @@ type Notification = {
   photoUrl?: string;
   prenom?: string;
   nom?: string;
+  rideId?: number;
 };
 
 const getRelativeTime = (timestamp: number) => {
@@ -38,6 +40,14 @@ const CATEGORY = (title: string) => {
   if (title.includes('terminé') || title.includes('arrivé'))
     return { color: '#8B5CF6', bg: '#F5F3FF', icon: 'flag' as const };
   return { color: '#F59E0B', bg: '#FFFBEB', icon: 'alert-circle' as const };
+};
+
+// Détermine le bon tab selon le titre de la notif
+const getTabFromTitle = (title: string): string => {
+  const t = title.toLowerCase();
+  if (t.includes('terminé') || t.includes('completed')) return 'completed';
+  if (t.includes('annulé') || t.includes('refus')) return 'cancelled';
+  return 'pending'; // demande, confirmé, démarré, etc.
 };
 
 const AVATAR_COLORS = ['#6366F1', '#EC4899', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6'];
@@ -68,52 +78,49 @@ function NotifAvatar({ notif, cat }: { notif: Notification; cat: ReturnType<type
 
 export default function NotificationsScreen() {
   const { notifications, clearNotifications, markAllAsRead } = useNotifications();
+  const { user } = useAuth();
 
   const [newNotifs, setNewNotifs] = useState<Notification[]>([]);
   const [oldNotifs, setOldNotifs] = useState<Notification[]>([]);
-
-  // ✅ FIX DEFINITIF : ref pour bloquer les re-renders après markAllAsRead
-  // useFocusEffect se déclenche 2x :
-  //   1er appel → isRead=false → on snapshot → on appelle markAllAsRead
-  //   2e appel  → isRead=true (causé par le re-render de markAllAsRead) → BLOQUÉ par snapshotDone
   const snapshotDone = useRef(false);
 
-  useFocusEffect(
-    useCallback(() => {
-      // Reset au montage de l'écran (chaque nouvelle visite)
-      snapshotDone.current = false;
+  useFocusEffect(useCallback(() => {
+    snapshotDone.current = false;
+    return () => { snapshotDone.current = false; };
+  }, []));
 
-      return () => {
-        // Cleanup quand on quitte l'écran
-        snapshotDone.current = false;
-      };
-    }, [])
-  );
+  useFocusEffect(useCallback(() => {
+    if (snapshotDone.current) return;
+    if (notifications.length === 0) return;
+    snapshotDone.current = true;
+    const unread = notifications.filter(n => n.isRead === false);
+    const read   = notifications.filter(n => n.isRead !== false);
+    setNewNotifs(unread);
+    setOldNotifs(read);
+    if (unread.length > 0) markAllAsRead();
+  }, [notifications, markAllAsRead]));
 
-  useFocusEffect(
-    useCallback(() => {
-      // ✅ Si snapshot déjà fait → ignorer les re-renders suivants
-      if (snapshotDone.current) return;
-      if (notifications.length === 0) return;
-
-      // Marquer comme fait AVANT markAllAsRead pour bloquer le 2e appel
-      snapshotDone.current = true;
-
-      const unread = notifications.filter(n => n.isRead === false);
-      const read   = notifications.filter(n => n.isRead !== false);
-
-      setNewNotifs(unread);
-      setOldNotifs(read);
-
-      if (unread.length > 0) markAllAsRead();
-
-    }, [notifications, markAllAsRead])
-  );
+  // ✅ Navigation vers Activity avec rideId + bon tab
+  const handleNotifPress = (notif: Notification) => {
+    if (!notif.rideId) return;
+    const tab = getTabFromTitle(notif.title);
+    const route = user?.role === 'driver'
+      ? '../(driverTabs)/Activity'
+      : '../(passengerTabs)/Activity';
+    router.push({ pathname: route as any, params: { rideId: String(notif.rideId), tab } });
+  };
 
   const renderNotif = (notif: Notification, i: number, isNew: boolean) => {
     const cat = CATEGORY(notif.title);
+    const tappable = !!notif.rideId;
     return (
-      <View key={i} style={[styles.row, isNew && styles.rowNew]}>
+      <TouchableOpacity
+        key={i}
+        style={[styles.row, isNew && styles.rowNew]}
+        onPress={() => handleNotifPress(notif)}
+        activeOpacity={tappable ? 0.7 : 1}
+        disabled={!tappable}
+      >
         {isNew && <View style={styles.newDot} />}
         <NotifAvatar notif={notif} cat={cat} />
         <View style={styles.content}>
@@ -124,8 +131,11 @@ export default function NotificationsScreen() {
             </Text>
           </View>
           <Text style={styles.msg} numberOfLines={2}>{notif.message}</Text>
+          {tappable && (
+            <Text style={styles.tapHint}>Voir le trajet →</Text>
+          )}
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -225,6 +235,7 @@ const styles = StyleSheet.create({
   title:    { fontSize: 14, fontWeight: '700', color: '#111', flex: 1 },
   time:     { fontSize: 12, color: '#BBB', marginLeft: 8 },
   msg:      { fontSize: 13, color: '#666', lineHeight: 18 },
+  tapHint:  { fontSize: 11, color: '#3B82F6', marginTop: 4, fontWeight: '600' },
   empty:    { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10, paddingBottom: 80 },
   emptyIconWrap: {
     width: 80, height: 80, borderRadius: 40, backgroundColor: '#F7F7F7',

@@ -7,6 +7,7 @@ import { RideProvider } from '../context/RideContext';
 import { NotificationProvider, useNotifications } from '../context/NotificationContext';
 import NotifToast from '../components/NotifToast';
 import '../global.css';
+import ReminderModal from './shared/ReminderModel';
 
 function ToastManager() {
   const { currentToast, hideToast } = useNotifications();
@@ -44,6 +45,7 @@ function AppContent() {
               <Stack.Screen name="shared/MapScreen" options={{ title: 'Map' }} />
             </Stack>
             <ToastManager />
+            <ReminderModal />
           </SafeAreaProvider>
         </RideProvider>
       </LocationProvider>

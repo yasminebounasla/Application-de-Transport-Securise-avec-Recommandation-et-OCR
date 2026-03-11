@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,8 +8,14 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   TextInput,
+  // ---AJOUTÉ---
+  Animated,
+  // ---FIN AJOUTÉ---
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
+// ---AJOUTÉ---
+import { useLocalSearchParams } from 'expo-router';
+// ---FIN AJOUTÉ---
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
@@ -31,8 +37,26 @@ const NAME_FILTERS = [
   { key: 'za', label: 'Name: Z-A' },
 ];
 
+// ---AJOUTÉ---
+// Map status → bon tab pour le switch automatique
+const STATUS_TO_TAB: Record<string, string> = {
+  COMPLETED:              'completed',
+  PENDING:                'pending',
+  ACCEPTED:               'pending',
+  IN_PROGRESS:            'pending',
+  CANCELLED_BY_PASSENGER: 'cancelled',
+  CANCELLED_BY_DRIVER:    'cancelled',
+};
+// ---FIN AJOUTÉ---
+
 export default function DriverActivityScreen() {
   const { user } = useAuth();
+
+  // ---AJOUTÉ---
+  // Récupère rideId + tab envoyés depuis NotificationsScreen via router.push
+  const params = useLocalSearchParams<{ rideId?: string; tab?: string }>();
+  // ---FIN AJOUTÉ---
+
   const [activity, setActivity] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -42,6 +66,13 @@ export default function DriverActivityScreen() {
   const [priceFilter, setPriceFilter] = useState('none');
   const [nameFilter, setNameFilter] = useState('none');
   const [nameQuery, setNameQuery] = useState('');
+
+  // ---AJOUTÉ---
+  // State pour savoir quelle card est en cours de highlight
+  const [highlightedId, setHighlightedId] = useState<number | null>(null);
+  // Ref sur la FlatList pour pouvoir faire scrollToIndex
+  const flatListRef = useRef<FlatList>(null);
+  // ---FIN AJOUTÉ---
 
   const loadActivity = useCallback(async () => {
     if (!user?.id) {
@@ -67,6 +98,43 @@ export default function DriverActivityScreen() {
   useEffect(() => {
     loadActivity();
   }, [loadActivity]);
+
+  // ---AJOUTÉ---
+  // Quand on arrive depuis une notification : switch tab + scroll + highlight
+  useEffect(() => {
+    if (!params.rideId || activity.length === 0) return;
+
+    const rideId = parseInt(params.rideId);
+    const ride = activity.find((r: any) => r.rideId === rideId);
+    if (!ride) return;
+
+    // Déterminer le bon tab selon le status du trajet
+    const correctTab = params.tab || STATUS_TO_TAB[ride.status] || 'pending';
+
+    // Switch automatique vers le bon tab
+    setActiveCategory(correctTab);
+
+    // Activer le highlight sur cette card
+    setHighlightedId(rideId);
+
+    // Scroll vers la card après un court délai (le temps que la liste se re-render)
+    setTimeout(() => {
+      const tabRides = activity.filter((r: any) => {
+        if (correctTab === 'completed') return r.status === 'COMPLETED';
+        if (correctTab === 'pending')   return ['PENDING', 'ACCEPTED', 'IN_PROGRESS'].includes(r.status);
+        return ['CANCELLED_BY_PASSENGER', 'CANCELLED_BY_DRIVER'].includes(r.status);
+      });
+      const index = tabRides.findIndex((r: any) => r.rideId === rideId);
+      if (index >= 0) {
+        flatListRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.3 });
+      }
+    }, 400);
+
+    // Retirer le highlight après 4 secondes
+    setTimeout(() => setHighlightedId(null), 4000);
+
+  }, [params.rideId, activity]);
+  // ---FIN AJOUTÉ---
 
   const categorized = useMemo(() => {
     const completed = activity.filter((ride: any) => ride.status === 'COMPLETED');
@@ -164,8 +232,15 @@ export default function DriverActivityScreen() {
     const end = item.endAddress || item.destination || 'N/A';
     const price = Number(item.prix) || 0;
 
+    // ---AJOUTÉ---
+    const isHighlighted = item.rideId === highlightedId;
+    // ---FIN AJOUTÉ---
+
     return (
-      <View style={styles.rideCard}>
+      // ---AJOUTÉ---
+      // HighlightCard gère l'animation flash jaune autour de la card
+      <HighlightCard highlighted={isHighlighted}>
+      // ---FIN AJOUTÉ---
         <View style={styles.rideHeader}>
           <Text style={styles.rideId}>Trip #{item.rideId}</Text>
           <View style={[styles.statusBadge, getStatusBadgeStyle(item.status)]}>
@@ -179,6 +254,15 @@ export default function DriverActivityScreen() {
             </Text>
           </View>
         </View>
+
+        {/* ---AJOUTÉ--- Bannière visible uniquement sur la card concernée */}
+        {isHighlighted && (
+          <View style={styles.highlightBanner}>
+            <MaterialIcons name="notifications-active" size={13} color="#92400E" />
+            <Text style={styles.highlightText}>Trajet concerné par votre notification</Text>
+          </View>
+        )}
+        {/* ---FIN AJOUTÉ--- */}
 
         <View style={styles.detailRow}>
           <MaterialIcons name="event" size={18} color="#444" />
@@ -208,7 +292,9 @@ export default function DriverActivityScreen() {
           <MaterialIcons name="payments" size={18} color="#444" />
           <Text style={styles.detailText}>Prix: {price.toFixed(2)} DA</Text>
         </View>
-      </View>
+      // ---AJOUTÉ---
+      </HighlightCard>
+      // ---FIN AJOUTÉ---
     );
   };
 
@@ -233,6 +319,10 @@ export default function DriverActivityScreen() {
   return (
     <View style={styles.container}>
       <FlatList
+        // ---AJOUTÉ---
+        ref={flatListRef}
+        onScrollToIndexFailed={() => {}} // évite le crash si index hors écran
+        // ---FIN AJOUTÉ---
         data={visibleRides}
         keyExtractor={(item: any) => String(item.rideId)}
         renderItem={renderRide}
@@ -336,6 +426,43 @@ export default function DriverActivityScreen() {
     </View>
   );
 }
+
+// ---AJOUTÉ---
+// Composant wrapper qui gère l'animation flash jaune sur la card
+function HighlightCard({ highlighted, children }: { highlighted: boolean; children: React.ReactNode }) {
+  const anim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    if (!highlighted) return;
+    // Flash 3x puis fade out
+    Animated.sequence([
+      Animated.timing(anim, { toValue: 1, duration: 300, useNativeDriver: false }),
+      Animated.timing(anim, { toValue: 0, duration: 300, useNativeDriver: false }),
+      Animated.timing(anim, { toValue: 1, duration: 300, useNativeDriver: false }),
+      Animated.timing(anim, { toValue: 0, duration: 300, useNativeDriver: false }),
+      Animated.timing(anim, { toValue: 1, duration: 300, useNativeDriver: false }),
+      Animated.delay(1500),
+      Animated.timing(anim, { toValue: 0, duration: 600, useNativeDriver: false }),
+    ]).start();
+  }, [highlighted]);
+
+  const bgColor = anim.interpolate({
+    inputRange:  [0, 1],
+    outputRange: ['#FFFFFF', '#FFF3CD'], // blanc → jaune doux
+  });
+
+  const borderColor = anim.interpolate({
+    inputRange:  [0, 1],
+    outputRange: ['#E5E7EB', '#F59E0B'], // gris → orange
+  });
+
+  return (
+    <Animated.View style={[styles.rideCard, { backgroundColor: bgColor, borderColor }]}>
+      {children}
+    </Animated.View>
+  );
+}
+// ---FIN AJOUTÉ---
 
 function StatCard({ icon, label, value }: { icon: string; label: string; value: string | number }) {
   return (
@@ -598,4 +725,22 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
+  // ---AJOUTÉ---
+  highlightBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#FEF3C7',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    marginBottom: 10,
+  },
+  highlightText: {
+    fontSize: 11,
+    color: '#92400E',
+    fontWeight: '700',
+    flex: 1,
+  },
+  // ---FIN AJOUTÉ---
 });
