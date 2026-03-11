@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
   StyleSheet, StatusBar, Image,
@@ -72,14 +72,33 @@ export default function NotificationsScreen() {
   const [newNotifs, setNewNotifs] = useState<Notification[]>([]);
   const [oldNotifs, setOldNotifs] = useState<Notification[]>([]);
 
-  // ✅ FIX FINAL :
-  // - isRead=false  → notif jamais vue → NOUVELLE (rouge)
-  // - isRead=true   → déjà vue → PRÉCÉDENTE (gris)
-  // - markAllAsRead sauvegarde isRead=true dans le cache AsyncStorage
-  // - Au redémarrage de l'app → cache chargé avec isRead=true → tout précédent ✅
-  // - Nouvelle notif reçue socket → isRead=false → rouge ✅
+  // ✅ FIX DEFINITIF : ref pour bloquer les re-renders après markAllAsRead
+  // useFocusEffect se déclenche 2x :
+  //   1er appel → isRead=false → on snapshot → on appelle markAllAsRead
+  //   2e appel  → isRead=true (causé par le re-render de markAllAsRead) → BLOQUÉ par snapshotDone
+  const snapshotDone = useRef(false);
+
   useFocusEffect(
     useCallback(() => {
+      // Reset au montage de l'écran (chaque nouvelle visite)
+      snapshotDone.current = false;
+
+      return () => {
+        // Cleanup quand on quitte l'écran
+        snapshotDone.current = false;
+      };
+    }, [])
+  );
+
+  useFocusEffect(
+    useCallback(() => {
+      // ✅ Si snapshot déjà fait → ignorer les re-renders suivants
+      if (snapshotDone.current) return;
+      if (notifications.length === 0) return;
+
+      // Marquer comme fait AVANT markAllAsRead pour bloquer le 2e appel
+      snapshotDone.current = true;
+
       const unread = notifications.filter(n => n.isRead === false);
       const read   = notifications.filter(n => n.isRead !== false);
 
@@ -117,7 +136,6 @@ export default function NotificationsScreen() {
       <Stack.Screen options={{ headerShown: false }} />
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
       <View style={styles.container}>
-
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Notifications</Text>
           {!allEmpty && (
@@ -188,7 +206,7 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 18, paddingVertical: 13,
-        borderBottomWidth: 1, borderBottomColor: '#F7F7F7',
+    borderBottomWidth: 1, borderBottomColor: '#F7F7F7',
   },
   rowNew:         { backgroundColor: '#FFF8F8' },
   newDot:         { width: 7, height: 7, borderRadius: 4, backgroundColor: '#EF4444', marginRight: 8 },

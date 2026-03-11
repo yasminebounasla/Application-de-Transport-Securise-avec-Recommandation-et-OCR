@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useRef, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from './AuthContext';
@@ -48,97 +48,82 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
   const [currentToast, setCurrentToast] = useState<ToastData | null>(null);
   const { user } = useAuth();
 
-  const storageKey = user?.id ? `app_notifications_${user.id}` : null;
+  const storageKey    = user?.id ? `app_notifications_${user.id}` : null;
+  const unreadKey     = user?.id ? `app_notifications_${user.id}_unread` : null;
 
-  // ── 1. Reset au logout + chargement cache au login ──────────────────────────
+  // ── 1. Chargement au login ──────────────────────────────────────────────────
   useEffect(() => {
     if (!user) {
       setNotifications([]);
       setUnreadCount(0);
       return;
     }
-
-    const loadLocalCache = async () => {
-      if (!storageKey) return;
+    const load = async () => {
+      if (!storageKey || !unreadKey) return;
       try {
         const cached = await AsyncStorage.getItem(storageKey);
-        const unread = await AsyncStorage.getItem(`${storageKey}_unread`);
+        const unread = await AsyncStorage.getItem(unreadKey);
+        // ✅ unreadCount depuis le cache — source de vérité pour le badge
+        const count = unread ? parseInt(unread) : 0;
         if (cached) {
-          // ✅ Le cache contient déjà le bon isRead (sauvegardé par markAllAsRead)
-          setNotifications(JSON.parse(cached));
-          setUnreadCount(unread ? parseInt(unread) : 0);
+          const parsed: Notification[] = JSON.parse(cached);
+          // ✅ FIX DEFINITIF : on remet isRead=false sur les N premières
+          // selon le unreadCount sauvegardé — jamais perdu entre sessions
+          const withCorrectRead = parsed.map((n, i) => ({
+            ...n,
+            isRead: i < count ? false : true,
+          }));
+          setNotifications(withCorrectRead);
         }
-      } catch (e) {
-        console.error("Erreur cache local:", e);
-      }
+        setUnreadCount(count);
+      } catch (e) { console.error('Cache load error:', e); }
     };
+    load();
+  }, [user?.id]);
 
-    loadLocalCache();
-  }, [user?.id, storageKey]);
-
-  // ── 2. Sync BD — appelé UNE SEULE FOIS au login, pas au focus ──────────────
-  // ✅ FIX PRINCIPAL : fetchFromDB est appelé uniquement quand user.id change
-  // (login/logout), jamais au focus de l'écran notifs.
-  // Résultat : isRead en mémoire locale fait foi, pas la BD.
+  // ── 2. Fetch BD au login ────────────────────────────────────────────────────
   const fetchFromDB = useCallback(async (retryCount = 0) => {
-    if (!user?.id || !storageKey) return;
+    if (!user?.id || !storageKey || !unreadKey) return;
     try {
       const token = await AsyncStorage.getItem('token');
       if (!token) {
         if (retryCount < 3) setTimeout(() => fetchFromDB(retryCount + 1), 1000);
         return;
       }
-
       const response = await fetch(`${API_URL}/notifications`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
-
       if (response.ok) {
         const { data, unreadCount: serverUnread } = await response.json();
-
-        const normalized: Notification[] = data.map((n: any) => ({
+        const normalized: Notification[] = data.map((n: any, i: number) => ({
           id:        n.id,
           title:     n.title,
           message:   n.message,
           timestamp: new Date(n.createdAt).getTime(),
-          isRead:    n.isRead,  // valeur BD
+          // ✅ isRead basé sur la position ET serverUnread — pas sur n.isRead de la BD
+          isRead:    i < serverUnread ? false : true,
           rideId:    n.data?.rideId,
           prenom:    n.data?.passenger?.prenom || n.data?.driver?.prenom,
           nom:       n.data?.passenger?.nom    || n.data?.driver?.nom,
         }));
 
-        // ✅ FIX : merge avec le cache local existant
-        // Si une notif est isRead=false dans le cache local → on garde false
-        // même si la BD dit true (cas : notif reçue par socket avant fetchFromDB)
-        const cachedRaw = await AsyncStorage.getItem(storageKey);
-        const cached: Notification[] = cachedRaw ? JSON.parse(cachedRaw) : [];
-        const localUnreadIds = new Set(
-          cached.filter(n => n.isRead === false && n.id).map(n => n.id)
-        );
+        // Garder en mémoire les notifs socket non encore en BD (sans id)
+        setNotifications(prev => {
+          const socketOnlyNotifs = prev.filter(n => !n.id && n.isRead === false);
+          const merged = [...socketOnlyNotifs, ...normalized];
+          AsyncStorage.setItem(storageKey, JSON.stringify(merged));
+          return merged;
+        });
 
-        const merged = normalized.map(n => ({
-          ...n,
-          isRead: localUnreadIds.has(n.id) ? false : n.isRead,
-        }));
-
-        // unreadCount : max entre serveur et cache local
-        const localUnread = parseInt(await AsyncStorage.getItem(`${storageKey}_unread`) || '0');
-        const finalUnread = Math.max(serverUnread, localUnread);
-
-        setNotifications(merged);
-        setUnreadCount(finalUnread);
-        await AsyncStorage.setItem(storageKey, JSON.stringify(merged));
-        await AsyncStorage.setItem(`${storageKey}_unread`, String(finalUnread));
+        setUnreadCount(serverUnread);
+        await AsyncStorage.setItem(unreadKey, String(serverUnread));
       }
-    } catch (e) {
-      console.error('Erreur fetch DB notifications:', e);
-    }
-  }, [user?.id, storageKey]);
+    } catch (e) { console.error('fetchFromDB error:', e); }
+  }, [user?.id, storageKey, unreadKey]);
 
-  // ✅ Appel UNIQUEMENT au login (user.id change), jamais au focus
   useEffect(() => {
     if (user?.id) fetchFromDB();
-  }, [user?.id]);  // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user?.id]);
 
   // ── 3. Actions ──────────────────────────────────────────────────────────────
   const addNotif = useCallback(async (title: string, message: string, extra?: Partial<Notification>) => {
@@ -152,27 +137,26 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
 
     setUnreadCount(prev => {
       const next = prev + 1;
-      if (storageKey) AsyncStorage.setItem(`${storageKey}_unread`, String(next));
+      // ✅ Sauvegarder le nouveau unreadCount immédiatement
+      if (unreadKey) AsyncStorage.setItem(unreadKey, String(next));
       return next;
     });
 
     const { color, icon } = CATEGORY_TOAST(title);
     setCurrentToast({ title, message, color, icon });
-  }, [storageKey]);
+  }, [storageKey, unreadKey]);
 
   const markAllAsRead = useCallback(async () => {
-    // ✅ FIX : mettre isRead=true en mémoire ET dans le cache local
-    // On capture les notifs actuelles pour les sauvegarder correctement
     setUnreadCount(0);
+    // ✅ FIX : mettre isRead=true en mémoire
     setNotifications(prev => {
       const updated = prev.map(n => ({ ...n, isRead: true }));
-      // Sauvegarder le cache avec isRead=true
       if (storageKey) AsyncStorage.setItem(storageKey, JSON.stringify(updated));
       return updated;
     });
-    if (storageKey) await AsyncStorage.setItem(`${storageKey}_unread`, '0');
+    // ✅ Sauvegarder unreadCount=0 — clé du fix
+    if (unreadKey) await AsyncStorage.setItem(unreadKey, '0');
 
-    // Appel BD en arrière-plan (non bloquant)
     try {
       const token = await AsyncStorage.getItem('token');
       fetch(`${API_URL}/notifications/read-all`, {
@@ -180,15 +164,13 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
         headers: { 'Authorization': `Bearer ${token}` },
       });
     } catch (e) { console.error(e); }
-  }, [storageKey]);
+  }, [storageKey, unreadKey]);
 
   const clearNotifications = async () => {
     setNotifications([]);
     setUnreadCount(0);
-    if (storageKey) {
-      await AsyncStorage.removeItem(storageKey);
-      await AsyncStorage.removeItem(`${storageKey}_unread`);
-    }
+    if (storageKey) await AsyncStorage.removeItem(storageKey);
+    if (unreadKey)  await AsyncStorage.removeItem(unreadKey);
     try {
       const token = await AsyncStorage.getItem('token');
       await fetch(`${API_URL}/notifications`, {
@@ -201,11 +183,7 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
   // ── 4. Socket.IO ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!user?.id) return;
-
-    const newSocket = io(SOCKET_URL, {
-      transports: ['websocket'],
-      reconnection: true,
-    });
+    const newSocket = io(SOCKET_URL, { transports: ['websocket'], reconnection: true });
 
     newSocket.on('connect', () => {
       console.log('🔌 Socket connecté:', newSocket.id);
@@ -233,10 +211,10 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
         addNotif('🚗 Nouvelle demande', `${data.passenger?.prenom} sollicite un trajet`, { rideId: data.rideId, prenom: data.passenger?.prenom, nom: data.passenger?.nom });
       });
       newSocket.on('rideCancelledByPassenger', (data) => {
-        addNotif(data.title || '❌ Trajet annulé', data.message || `${data.passenger?.prenom} a annulé le trajet.`, { rideId: data.rideId, prenom: data.passenger?.prenom, nom: data.passenger?.nom });
+        addNotif(data.title || '❌ Trajet annulé', data.message || `${data.passenger?.prenom} a annulé.`, { rideId: data.rideId, prenom: data.passenger?.prenom, nom: data.passenger?.nom });
       });
       newSocket.on('newFeedback', (data) => {
-        addNotif(data.title || '⭐ Nouvel avis reçu', data.message || `${data.passengerName} vous a donné une note.`, { rideId: data.trajetId });
+        addNotif(data.title || '⭐ Nouvel avis reçu', data.message || `${data.passengerName} vous a noté.`, { rideId: data.trajetId });
       });
     }
 
