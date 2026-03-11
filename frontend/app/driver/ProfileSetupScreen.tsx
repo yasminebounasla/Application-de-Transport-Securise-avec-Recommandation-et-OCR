@@ -1,15 +1,21 @@
-import { View, Text, ScrollView, TouchableOpacity, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  ScrollView,
+  TouchableOpacity,
+  Alert,
+  StyleSheet,
+  TextInput,
+  KeyboardTypeOptions ,
+} from 'react-native';
 import { useState } from 'react';
 import { Stack, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import Input from '../../components/Input';
-import Button from '../../components/Button';
 import api from '../../services/api';
 
 import {
   VALID_CAR_BRANDS,
   VALID_COLORS,
-  CAR_BRANDS_WITH_MODELS,
   validateBrand,
   validateModel,
   validateLicensePlate,
@@ -19,45 +25,77 @@ import {
   formatLicensePlateInput,
 } from '../../utils/validationVehicule';
 
-// ─────────────────────────────────────────────
-// PREFERENCE ITEM
-// ─────────────────────────────────────────────
-function PreferenceItem({ icon, label, value, onToggle }) {
+interface FieldProps {
+  label: string;
+  value: string;
+  onChangeText: (text: string) => void;
+  placeholder?: string;
+  keyboardType?: KeyboardTypeOptions;
+  error?: string;
+}
+// ── Field ─────────────────────────────────────────────────────────────────────
+function Field({ label, value, onChangeText, placeholder, keyboardType = 'default', error }: FieldProps) {
+  const [focused, setFocused] = useState(false);
   return (
-    <TouchableOpacity
-      onPress={onToggle}
-      activeOpacity={0.7}
-      style={{
-        flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-        paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
-      }}
-    >
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-        <Ionicons name={icon} size={18} color="#666" />
-        <Text style={{ fontSize: 15, color: '#111' }}>{label}</Text>
+    <View style={s.fieldWrap}>
+      <Text style={s.label}>{label}</Text>
+      <View style={[s.inputBox, focused && s.inputBoxFocused, error && s.inputBoxError]}>
+        <TextInput
+          value={value}
+          onChangeText={onChangeText}
+          placeholder={placeholder}
+          placeholderTextColor="#999"
+          keyboardType={keyboardType}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
+          style={s.inputText}
+        />
       </View>
-      <View style={{
-        width: 46, height: 26, borderRadius: 13,
-        backgroundColor: value ? '#111' : '#E5E7EB',
-        padding: 3, justifyContent: 'center',
-      }}>
-        <View style={{
-          width: 20, height: 20, borderRadius: 10, backgroundColor: '#fff',
-          alignSelf: value ? 'flex-end' : 'flex-start',
-        }} />
+      {!!error && <Text style={s.errorText}>{error}</Text>}
+    </View>
+  );
+}
+
+// ── Suggestion list ───────────────────────────────────────────────────────────
+function SuggestionList({ items, onSelect }) {
+  if (!items.length) return null;
+  return (
+    <View style={s.suggestionBox}>
+      {items.map((item, i) => (
+        <TouchableOpacity
+          key={i}
+          onPress={() => onSelect(item)}
+          style={[s.suggestionRow, i < items.length - 1 && s.suggestionDivider]}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="search-outline" size={14} color="#999" style={{ marginRight: 8 }} />
+          <Text style={s.suggestionText}>{item}</Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
+
+// ── Toggle row ────────────────────────────────────────────────────────────────
+function ToggleRow({ icon, label, value, onToggle }) {
+  return (
+    <TouchableOpacity onPress={onToggle} activeOpacity={0.7} style={s.toggleRow}>
+      <View style={[s.toggleIcon, value && s.toggleIconActive]}>
+        <Ionicons name={icon} size={16} color={value ? '#fff' : '#888'} />
+      </View>
+      <Text style={s.toggleLabel}>{label}</Text>
+      <View style={[s.track, value && s.trackActive]}>
+        <View style={[s.thumb, value && s.thumbActive]} />
       </View>
     </TouchableOpacity>
   );
 }
 
-// ─────────────────────────────────────────────
-// MAIN SCREEN
-// ─────────────────────────────────────────────
+// ── Main ──────────────────────────────────────────────────────────────────────
 export default function ProfileSetupScreen() {
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading]         = useState(false);
 
-  // Vehicle data
   const [vehicleData, setVehicleData] = useState({
     marque:  '',
     modele:  '',
@@ -65,7 +103,6 @@ export default function ProfileSetupScreen() {
     couleur: '',
   });
 
-  // Preferences data
   const [preferences, setPreferences] = useState({
     talkative:       false,
     radio_on:        false,
@@ -78,7 +115,6 @@ export default function ProfileSetupScreen() {
     works_night:     false,
   });
 
-  // Errors state
   const [errors, setErrors] = useState({
     marque:  '',
     modele:  '',
@@ -86,25 +122,19 @@ export default function ProfileSetupScreen() {
     couleur: '',
   });
 
-  // Suggestions for autocomplete
   const [brandSuggestions, setBrandSuggestions] = useState([]);
   const [modelSuggestions, setModelSuggestions] = useState([]);
   const [colorSuggestions, setColorSuggestions] = useState([]);
 
-  const togglePreference = (key) => {
-    setPreferences(prev => ({ ...prev, [key]: !prev[key] }));
-  };
+  const toggle = (key) => setPreferences(p => ({ ...p, [key]: !p[key] }));
 
   const handleBrandChange = (text) => {
     setVehicleData({ ...vehicleData, marque: text });
-    if (text.trim().length > 0) {
-      const filtered = VALID_CAR_BRANDS.filter(brand =>
-        brand.toLowerCase().includes(text.toLowerCase())
-      ).slice(0, 5);
-      setBrandSuggestions(filtered);
-    } else {
-      setBrandSuggestions([]);
-    }
+    setBrandSuggestions(
+      text.trim().length > 0
+        ? VALID_CAR_BRANDS.filter(b => b.toLowerCase().includes(text.toLowerCase())).slice(0, 5)
+        : []
+    );
     setErrors({ ...errors, marque: validateBrand(text) });
   };
 
@@ -113,67 +143,46 @@ export default function ProfileSetupScreen() {
     setBrandSuggestions([]);
     setErrors({ ...errors, marque: '' });
     const models = getModelsForBrand(brand);
-    if (models.length > 0) setModelSuggestions(models);
+    if (models.length) setModelSuggestions(models);
   };
 
   const handleModelChange = (text) => {
     setVehicleData({ ...vehicleData, modele: text });
-    const availableModels = getModelsForBrand(vehicleData.marque);
-    if (text.trim().length > 0 && availableModels.length > 0) {
-      const filtered = availableModels.filter(model =>
-        model.toLowerCase().includes(text.toLowerCase())
-      ).slice(0, 5);
-      setModelSuggestions(filtered);
-    } else {
-      setModelSuggestions([]);
-    }
+    const avail = getModelsForBrand(vehicleData.marque);
+    setModelSuggestions(
+      text.trim().length > 0 && avail.length
+        ? avail.filter(m => m.toLowerCase().includes(text.toLowerCase())).slice(0, 5)
+        : []
+    );
     setErrors({ ...errors, modele: validateModel(text, vehicleData.marque) });
-  };
-
-  const selectModel = (model) => {
-    setVehicleData({ ...vehicleData, modele: model });
-    setModelSuggestions([]);
-    setErrors({ ...errors, modele: '' });
   };
 
   const handleColorChange = (text) => {
     setVehicleData({ ...vehicleData, couleur: text });
-    if (text.trim().length > 0) {
-      const filtered = VALID_COLORS.filter(color =>
-        color.toLowerCase().includes(text.toLowerCase())
-      ).slice(0, 5);
-      setColorSuggestions(filtered);
-    } else {
-      setColorSuggestions([]);
-    }
+    setColorSuggestions(
+      text.trim().length > 0
+        ? VALID_COLORS.filter(c => c.toLowerCase().includes(text.toLowerCase())).slice(0, 5)
+        : []
+    );
     setErrors({ ...errors, couleur: validateColor(text) });
   };
 
-  const selectColor = (color) => {
-    setVehicleData({ ...vehicleData, couleur: color });
-    setColorSuggestions([]);
-    setErrors({ ...errors, couleur: '' });
-  };
-
   const handleLicensePlateChange = (text) => {
-    const formatted  = formatLicensePlateInput(text, ' ');
+    const formatted = formatLicensePlateInput(text, ' ');
     setVehicleData({ ...vehicleData, plaque: formatted });
-    const digitsOnly = formatted.replace(/\D/g, '');
-    if (digitsOnly.length === 10 || digitsOnly.length === 0) {
-      setErrors({ ...errors, plaque: validateLicensePlate(formatted) });
-    } else {
-      setErrors({ ...errors, plaque: '' });
-    }
-  };
-
-  const validateVehicleForm = () => {
-    const newErrors = validateAllVehicleFields(vehicleData);
-    setErrors(newErrors);
-    return Object.values(newErrors).every(error => error === '');
+    const digits = formatted.replace(/\D/g, '');
+    setErrors({
+      ...errors,
+      plaque: digits.length === 10 || digits.length === 0
+        ? validateLicensePlate(formatted)
+        : '',
+    });
   };
 
   const handleNextStep = async () => {
-    if (!validateVehicleForm()) return;
+    const newErrors = validateAllVehicleFields(vehicleData);
+    setErrors(newErrors);
+    if (!Object.values(newErrors).every(e => e === '')) return;
     setLoading(true);
     try {
       await api.post('/drivers/vehicle', {
@@ -183,8 +192,8 @@ export default function ProfileSetupScreen() {
         couleur: vehicleData.couleur || null,
       });
       setCurrentStep(2);
-    } catch (error) {
-      Alert.alert('Error', error.response?.data?.message || 'Failed to save vehicle');
+    } catch (err) {
+      Alert.alert('Error', err.response?.data?.message || 'Failed to save vehicle');
     } finally {
       setLoading(false);
     }
@@ -195,198 +204,337 @@ export default function ProfileSetupScreen() {
     try {
       await api.put('/drivers/preferences', preferences);
       Alert.alert(
-        'Success!',
-        'Your profile is complete. You can now start offering rides!',
-        [{ text: 'OK', onPress: () => router.replace('/(driverTabs)/DriverHomeScreen') }]
+        'Profile complete!',
+        'You can now start offering rides.',
+        [{ text: "Let's go", onPress: () => router.replace('/(driverTabs)/DriverHomeScreen') }]
       );
-    } catch (error) {
-      Alert.alert('Error', error.response?.data?.message || 'Failed to save preferences');
+    } catch (err) {
+      Alert.alert('Error', err.response?.data?.message || 'Failed to save preferences');
     } finally {
       setLoading(false);
     }
   };
 
-  // ── Step indicator ──────────────────────────
-  const renderStepIndicator = () => (
-    <View className="flex-row items-center justify-center mb-8">
-      <View className="items-center">
-        <View className={`w-10 h-10 rounded-full items-center justify-center ${currentStep >= 1 ? 'bg-black' : 'bg-gray-300'}`}>
-          {currentStep > 1 ? (
-            <Ionicons name="checkmark" size={24} color="white" />
-          ) : (
-            <Text className={`font-bold ${currentStep === 1 ? 'text-white' : 'text-gray-500'}`}>1</Text>
-          )}
-        </View>
-        <Text className="text-xs text-gray-600 mt-1">Vehicle</Text>
-      </View>
-
-      <View className={`w-16 h-1 mx-2 ${currentStep >= 2 ? 'bg-black' : 'bg-gray-300'}`} />
-
-      <View className="items-center">
-        <View className={`w-10 h-10 rounded-full items-center justify-center ${currentStep >= 2 ? 'bg-black' : 'bg-gray-300'}`}>
-          <Text className={`font-bold ${currentStep === 2 ? 'text-white' : 'text-gray-500'}`}>2</Text>
-        </View>
-        <Text className="text-xs text-gray-600 mt-1">Preferences</Text>
-      </View>
-    </View>
-  );
-
-  // ── Step 1: Vehicle ─────────────────────────
+  // ── Step 1 ────────────────────────────────────────────────────────────────
   const renderVehicleForm = () => (
     <View>
-      <Text className="text-3xl font-bold text-black mb-2">Add Your Vehicle</Text>
-      <Text className="text-gray-500 mb-6">Tell us about the car you'll be driving</Text>
+      <View style={s.headerWrap}>
+        <View style={s.headerBadge}>
+          <Ionicons name="car-sport-outline" size={20} color="#fff" />
+        </View>
+        <Text style={s.headerTitle}>Your Vehicle</Text>
+        <Text style={s.headerSub}>Tell us about the car you'll be driving</Text>
+      </View>
 
-      {/* Brand */}
-      <View style={{ marginBottom: 16 }}>
-        <Input
+      <View style={s.card}>
+        <Field
           label="Brand *"
           value={vehicleData.marque}
           onChangeText={handleBrandChange}
-          placeholder="e.g. Peugeot, Toyota, Mercedes"
+          placeholder="Peugeot, Toyota, Mercedes..."
           error={errors.marque}
         />
-        {brandSuggestions.length > 0 && (
-          <View className="bg-white border border-gray-300 rounded-lg mt-1 shadow-sm">
-            {brandSuggestions.map((brand, index) => (
-              <TouchableOpacity
-                key={index}
-                onPress={() => selectBrand(brand)}
-                className="px-4 py-3 border-b border-gray-100"
-                activeOpacity={0.7}
-              >
-                <Text className="text-base text-black">{brand}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-      </View>
+        <SuggestionList items={brandSuggestions} onSelect={selectBrand} />
 
-      {/* Model */}
-      <View style={{ marginBottom: 16 }}>
-        <Input
+        <Field
           label="Model"
           value={vehicleData.modele}
           onChangeText={handleModelChange}
-          placeholder="e.g. 308, Corolla, C-Class"
+          placeholder="308, Corolla, C-Class..."
           error={errors.modele}
         />
-        {modelSuggestions.length > 0 && (
-          <View className="bg-white border border-gray-300 rounded-lg mt-1 shadow-sm">
-            {modelSuggestions.map((model, index) => (
-              <TouchableOpacity
-                key={index}
-                onPress={() => selectModel(model)}
-                className="px-4 py-3 border-b border-gray-100"
-                activeOpacity={0.7}
-              >
-                <Text className="text-base text-black">{model}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
-      </View>
+        <SuggestionList
+          items={modelSuggestions}
+          onSelect={(m) => {
+            setVehicleData({ ...vehicleData, modele: m });
+            setModelSuggestions([]);
+            setErrors({ ...errors, modele: '' });
+          }}
+        />
 
-      {/* License Plate */}
-      <Input
-        label="License Plate *"
-        value={vehicleData.plaque}
-        onChangeText={handleLicensePlateChange}
-        placeholder="12345 126 16"
-        keyboardType="numeric"
-        error={errors.plaque}
-        style={{ marginBottom: 16 }}
-      />
+        <Field
+          label="License Plate *"
+          value={vehicleData.plaque}
+          onChangeText={handleLicensePlateChange}
+          placeholder="12345 126 16"
+          keyboardType="numeric"
+          error={errors.plaque}
+        />
 
-      {/* Color */}
-      <View style={{ marginBottom: 24 }}>
-        <Input
+        <Field
           label="Color"
           value={vehicleData.couleur}
           onChangeText={handleColorChange}
-          placeholder="e.g. Black, White, Red"
+          placeholder="Black, White, Red..."
           error={errors.couleur}
         />
-        {colorSuggestions.length > 0 && (
-          <View className="bg-white border border-gray-300 rounded-lg mt-1 shadow-sm">
-            {colorSuggestions.map((color, index) => (
-              <TouchableOpacity
-                key={index}
-                onPress={() => selectColor(color)}
-                className="px-4 py-3 border-b border-gray-100"
-                activeOpacity={0.7}
-              >
-                <Text className="text-base text-black">{color}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        )}
+        <SuggestionList
+          items={colorSuggestions}
+          onSelect={(c) => {
+            setVehicleData({ ...vehicleData, couleur: c });
+            setColorSuggestions([]);
+            setErrors({ ...errors, couleur: '' });
+          }}
+        />
       </View>
 
-      <Button
-        title="Next Step"
+      <TouchableOpacity
+        style={[s.cta, loading && s.ctaDisabled]}
         onPress={handleNextStep}
-        variant="primary"
-        loading={loading}
-        style={{ marginBottom: 0 }}
-      />
+        disabled={loading}
+        activeOpacity={0.85}
+      >
+        <Text style={s.ctaText}>{loading ? 'Saving...' : 'Continue'}</Text>
+        <Ionicons name="arrow-forward" size={18} color="#fff" />
+      </TouchableOpacity>
     </View>
   );
 
-  // ── Step 2: Preferences ─────────────────────
+  // ── Step 2 ────────────────────────────────────────────────────────────────
   const renderPreferencesForm = () => (
     <View>
-      <Text className="text-3xl font-bold text-black mb-2">Your Preferences</Text>
-      <Text className="text-gray-500 mb-6">Help passengers know what to expect</Text>
-
-      {/* Preferences card */}
-      <View style={{
-        backgroundColor: '#fff', borderRadius: 16,
-        borderWidth: 1, borderColor: '#F0F0F0',
-        paddingHorizontal: 16, marginBottom: 16,
-      }}>
-        <Text style={{ fontSize: 16, fontWeight: '800', color: '#111', paddingTop: 16, paddingBottom: 8 }}>
-          Preferences
-        </Text>
-        <PreferenceItem icon="chatbubbles-outline"   label="Talkative"       value={preferences.talkative}       onToggle={() => togglePreference('talkative')} />
-        <PreferenceItem icon="musical-notes-outline" label="Radio On"        value={preferences.radio_on}        onToggle={() => togglePreference('radio_on')} />
-        <PreferenceItem icon="flame-outline"         label="Smoking Allowed" value={preferences.smoking_allowed} onToggle={() => togglePreference('smoking_allowed')} />
-        <PreferenceItem icon="paw-outline"           label="Pets Allowed"    value={preferences.pets_allowed}    onToggle={() => togglePreference('pets_allowed')} />
-        <PreferenceItem icon="car-sport-outline"     label="Large Car"       value={preferences.car_big}         onToggle={() => togglePreference('car_big')} />
+      <View style={s.headerWrap}>
+        <View style={[s.headerBadge, { backgroundColor: '#000000' }]}>
+          <Ionicons name="options-outline" size={20} color="#fff" />
+        </View>
+        <Text style={s.headerTitle}>Your Style</Text>
+        <Text style={s.headerSub}>Help passengers know what to expect</Text>
       </View>
 
-      {/* Working Hours card */}
-      <View style={{
-        backgroundColor: '#fff', borderRadius: 16,
-        borderWidth: 1, borderColor: '#F0F0F0',
-        paddingHorizontal: 16, marginBottom: 32,
-      }}>
-        <Text style={{ fontSize: 16, fontWeight: '800', color: '#111', paddingTop: 16, paddingBottom: 8 }}>
-          Working Hours
-        </Text>
-        <PreferenceItem icon="sunny-outline"        label="Morning (6am–12pm)"   value={preferences.works_morning}   onToggle={() => togglePreference('works_morning')} />
-        <PreferenceItem icon="partly-sunny-outline" label="Afternoon (12pm–6pm)" value={preferences.works_afternoon} onToggle={() => togglePreference('works_afternoon')} />
-        <PreferenceItem icon="moon-outline"         label="Evening (6pm–10pm)"   value={preferences.works_evening}   onToggle={() => togglePreference('works_evening')} />
-        <PreferenceItem icon="cloudy-night-outline" label="Night (10pm–6am)"     value={preferences.works_night}     onToggle={() => togglePreference('works_night')} />
+      <Text style={s.sectionLabel}>RIDE STYLE</Text>
+      <View style={s.card}>
+        <ToggleRow icon="chatbubbles-outline"   label="Talkative"       value={preferences.talkative}       onToggle={() => toggle('talkative')} />
+        <ToggleRow icon="musical-notes-outline" label="Radio on"        value={preferences.radio_on}        onToggle={() => toggle('radio_on')} />
+        <ToggleRow icon="flame-outline"         label="Smoking allowed" value={preferences.smoking_allowed} onToggle={() => toggle('smoking_allowed')} />
+        <ToggleRow icon="paw-outline"           label="Pets welcome"    value={preferences.pets_allowed}    onToggle={() => toggle('pets_allowed')} />
+        <ToggleRow icon="car-sport-outline"     label="Large car"       value={preferences.car_big}         onToggle={() => toggle('car_big')} />
       </View>
 
-      <View className="flex-row gap-3">
-        <Button title="Back"           onPress={() => setCurrentStep(1)}   variant="secondary" style={{ flex: 1 }} />
-        <Button title="Complete Setup" onPress={handleCompleteSetup}       variant="primary"   loading={loading} style={{ flex: 2 }} />
+      <Text style={s.sectionLabel}>WORKING HOURS</Text>
+      <View style={s.card}>
+        <ToggleRow icon="sunny-outline"        label="Morning  6am – 12pm"  value={preferences.works_morning}   onToggle={() => toggle('works_morning')} />
+        <ToggleRow icon="partly-sunny-outline" label="Afternoon 12pm – 6pm" value={preferences.works_afternoon} onToggle={() => toggle('works_afternoon')} />
+        <ToggleRow icon="moon-outline"         label="Evening  6pm – 10pm"  value={preferences.works_evening}   onToggle={() => toggle('works_evening')} />
+        <ToggleRow icon="cloudy-night-outline" label="Night  10pm – 6am"    value={preferences.works_night}     onToggle={() => toggle('works_night')} />
+      </View>
+
+      <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+        <TouchableOpacity style={s.ctaBack} onPress={() => setCurrentStep(1)} activeOpacity={0.7}>
+          <Ionicons name="arrow-back" size={18} color="#111" />
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[s.cta, { flex: 1 }, loading && s.ctaDisabled]}
+          onPress={handleCompleteSetup}
+          disabled={loading}
+          activeOpacity={0.85}
+        >
+          <Text style={s.ctaText}>{loading ? 'Saving...' : 'Complete setup'}</Text>
+          <Ionicons name="checkmark" size={18} color="#fff" />
+        </TouchableOpacity>
       </View>
     </View>
   );
 
   return (
     <>
-      <Stack.Screen options={{ title: 'Complete Your Profile', headerBackVisible: false }} />
-      <ScrollView className="flex-1 bg-white">
-        <View className="px-6 py-8">
-          {renderStepIndicator()}
-          {currentStep === 1 ? renderVehicleForm() : renderPreferencesForm()}
-          <View className="h-8" />
-        </View>
+      <Stack.Screen options={{ title: '', headerBackVisible: false, headerShadowVisible: false }} />
+      <ScrollView
+        style={s.screen}
+        contentContainerStyle={{ padding: 24, paddingBottom: 48 }}
+        keyboardShouldPersistTaps="handled"
+      >
+        {currentStep === 1 ? renderVehicleForm() : renderPreferencesForm()}
       </ScrollView>
     </>
   );
 }
+
+// ── Styles ────────────────────────────────────────────────────────────────────
+const s = StyleSheet.create({
+  screen: {
+    flex:            1,
+    backgroundColor: '#F8F8F8',
+  },
+  headerWrap: {
+    alignItems:   'center',
+    marginBottom: 28,
+  },
+  headerBadge: {
+    width:           52,
+    height:          52,
+    borderRadius:    26,
+    backgroundColor: '#111',
+    alignItems:      'center',
+    justifyContent:  'center',
+    marginBottom:    14,
+  },
+  headerTitle: {
+    fontSize:      26,
+    fontWeight:    '800',
+    color:         '#111',
+    marginBottom:  6,
+    letterSpacing: -0.5,
+  },
+  headerSub: {
+    fontSize:  14,
+    color:     '#888',
+    textAlign: 'center',
+  },
+  card: {
+    backgroundColor:   '#fff',
+    borderRadius:      20,
+    paddingHorizontal: 20,
+    paddingVertical:   8,
+    marginBottom:      20,
+    shadowColor:       '#000',
+    shadowOpacity:     0.06,
+    shadowRadius:      12,
+    shadowOffset:      { width: 0, height: 4 },
+    elevation:         3,
+  },
+  sectionLabel: {
+    fontSize:      11,
+    fontWeight:    '700',
+    color:         '#aaa',
+    letterSpacing: 1.2,
+    marginBottom:  8,
+    marginLeft:    4,
+  },
+  fieldWrap: {
+    marginVertical: 10,
+  },
+  label: {
+    fontSize:      12,
+    fontWeight:    '700',
+    color:         '#555',
+    marginBottom:  6,
+    letterSpacing: 0.3,
+  },
+  inputBox: {
+    backgroundColor:   '#F7F7F7',
+    borderRadius:      12,
+    borderWidth:       1.5,
+    borderColor:       '#EBEBEB',
+    paddingHorizontal: 14,
+    paddingVertical:   12,
+  },
+  inputBoxFocused: {
+    borderColor:     '#111',
+    backgroundColor: '#fff',
+  },
+  inputBoxError: {
+    borderColor: '#EF4444',
+  },
+  inputText: {
+    fontSize: 15,
+    color:    '#111',
+  },
+  errorText: {
+    fontSize:  12,
+    color:     '#EF4444',
+    marginTop: 4,
+  },
+  suggestionBox: {
+    backgroundColor: '#fff',
+    borderRadius:    12,
+    borderWidth:     1,
+    borderColor:     '#EBEBEB',
+    marginTop:       -6,
+    marginBottom:    8,
+    overflow:        'hidden',
+    shadowColor:     '#000',
+    shadowOpacity:   0.05,
+    shadowRadius:    8,
+    elevation:       2,
+  },
+  suggestionRow: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    paddingHorizontal: 14,
+    paddingVertical:   12,
+  },
+  suggestionDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: '#F5F5F5',
+  },
+  suggestionText: {
+    fontSize:   14,
+    color:      '#333',
+    fontWeight: '500',
+  },
+  toggleRow: {
+    flexDirection:     'row',
+    alignItems:        'center',
+    paddingVertical:   14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F5F5F5',
+  },
+  toggleIcon: {
+    width:           32,
+    height:          32,
+    borderRadius:    10,
+    backgroundColor: '#F0F0F0',
+    alignItems:      'center',
+    justifyContent:  'center',
+    marginRight:     12,
+  },
+  toggleIconActive: {
+    backgroundColor: '#111',
+  },
+  toggleLabel: {
+    flex:       1,
+    fontSize:   15,
+    color:      '#222',
+    fontWeight: '500',
+  },
+  track: {
+    width:           44,
+    height:          24,
+    borderRadius:    12,
+    backgroundColor: '#E5E7EB',
+    padding:         2,
+    justifyContent:  'center',
+  },
+  trackActive: {
+    backgroundColor: '#111',
+  },
+  thumb: {
+    width:        20,
+    height:       20,
+    borderRadius: 10,
+    backgroundColor: '#fff',
+    alignSelf:    'flex-start',
+    shadowColor:  '#000',
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation:    2,
+  },
+  thumbActive: {
+    alignSelf: 'flex-end',
+  },
+  cta: {
+    flexDirection:   'row',
+    alignItems:      'center',
+    justifyContent:  'center',
+    gap:             8,
+    backgroundColor: '#111',
+    borderRadius:    16,
+    paddingVertical: 16,
+  },
+  ctaDisabled: {
+    backgroundColor: '#999',
+  },
+  ctaText: {
+    color:      '#fff',
+    fontSize:   16,
+    fontWeight: '700',
+  },
+  ctaBack: {
+    width:           52,
+    height:          52,
+    borderRadius:    16,
+    backgroundColor: '#F0F0F0',
+    alignItems:      'center',
+    justifyContent:  'center',
+  },
+});
