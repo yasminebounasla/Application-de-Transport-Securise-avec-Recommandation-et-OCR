@@ -323,93 +323,89 @@ export const getDriverProfile = async (req, res) => {
 
   try {
     const driver = await prisma.driver.findUnique({
-      where: { id: parseInt(id) },
+      where:   { id: parseInt(id) },
       include: {
         vehicules: {
           select: {
-            id: true,
-            marque: true,
-            modele: true,
-            annee: true,
-            nbPlaces: true,
-            plaque: true,
-            couleur: true,
+            id:        true,
+            marque:    true,
+            modele:    true,
+            annee:     true,
+            nbPlaces:  true,
+            plaque:    true,
+            couleur:   true,
             createdAt: true,
           },
         },
         trajets: {
-          where: { 
-            status: 'COMPLETED'
-          },
-          include: {
-            evaluation: true  
-          },
-          orderBy: {
-            completedAt: 'desc',
-          },
-          take: 5,
+          where:   { status: "COMPLETED" },
+          include: { evaluation: true },
+          orderBy: { completedAt: "desc" },
+          take:    5,
         },
       },
     });
 
     if (!driver) {
-      return res.status(404).json({ 
-        message: "Driver not found." 
+      return res.status(404).json({
+        message: "Driver not found.",
       });
     }
 
     const stats = {
-      avgRating: parseFloat((driver.avgRating || 0).toFixed(1)),
-      ratingsCount: driver.ratingsCount || 0,
+      avgRating:      parseFloat((driver.avgRating || 0).toFixed(1)),
+      ratingsCount:   driver.ratingsCount || 0,
       completedRides: driver.trajets.length,
     };
 
     const recentFeedbacks = driver.trajets
-      .filter(t => t.evaluation)  
-      .map(t => ({
-        rating: t.evaluation.rating,
+      .filter((t) => t.evaluation)
+      .map((t) => ({
+        rating:  t.evaluation.rating,
         comment: t.evaluation.comment,
-        date: t.evaluation.createdAt,
+        date:    t.evaluation.createdAt,
       }));
 
     const preferences = {
-      fumeur: driver.fumeur,
-      talkative: driver.talkative,
-      radio_on: driver.radio_on,
+      talkative:       driver.talkative,
+      radio_on:        driver.radio_on,
       smoking_allowed: driver.smoking_allowed,
-      pets_allowed: driver.pets_allowed,
-      car_big: driver.car_big,
-      works_morning: driver.works_morning,
+      pets_allowed:    driver.pets_allowed,
+      car_big:         driver.car_big,
+      works_morning:   driver.works_morning,
       works_afternoon: driver.works_afternoon,
-      works_evening: driver.works_evening,
-      works_night: driver.works_night,
+      works_evening:   driver.works_evening,
+      works_night:     driver.works_night,
     };
 
-    const { 
-      password, 
-      hasAcceptedPhotoStorage, 
-      trajets, 
-      email, 
+    const {
+      password,
+      hasAcceptedPhotoStorage,
+      trajets,
+      email,
       numTel,
-      ...driverData 
+      latitude,    // 🔒 jamais exposé au passager
+      longitude,   // 🔒 jamais exposé au passager
+      ...driverData
     } = driver;
 
     res.status(200).json({
       message: "Driver profile retrieved successfully.",
       data: {
         ...driverData,
-        vehicules: driver.vehicules,
+        vehicules:       driver.vehicules,
         preferences,
         stats,
         recentFeedbacks: [],
-        feedbackNote: "For all feedbacks, use GET /api/feedback/my-feedbacks"  
+        feedbackNote:    "For all feedbacks, use GET /api/feedback/my-feedbacks",
       },
     });
+
   } catch (err) {
     console.error("Error retrieving driver profile:", err);
     res.status(500).json({
       message: "Failed to retrieve driver profile.",
-      error: err.message,
+      error:   err.message,
     });
   }
 };
