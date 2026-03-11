@@ -1,5 +1,6 @@
 import { prisma } from "../config/prisma.js";
 import { getIO } from '../socket/socket.js';
+import { extractWilayaFromPlaque } from "../utils/algerianPlaque.js";
 
 export const addDriverPreferences = async (req, res) => {
   // On prend l'ID directement depuis le token
@@ -92,46 +93,63 @@ export const getDriverRating = async (req, res) => {
  * @route   POST /api/drivers/vehicle
  * @desc    Ajouter un véhicule
  */
+
+// ── Add vehicle + auto-fill wilaya ────────────────────────────────────────────
 export const addVehicle = async (req, res) => {
   const driverId = req.user.driverId;
-  
+
   if (!driverId) {
-    return res.status(403).json({ 
-      message: "Access restricted to drivers only." 
-    });
+    return res.status(403).json({ message: "Access restricted to drivers only." });
   }
 
   try {
     const { marque, modele, annee, nbPlaces, plaque, couleur } = req.body;
 
     if (!marque) {
-      return res.status(400).json({ 
-        message: "Vehicle brand (marque) is required." 
-      });
+      return res.status(400).json({ message: "Vehicle brand (marque) is required." });
     }
 
+    // ── ✅ Extraire wilaya depuis la plaque ──────────────────────────────────
+    let wilayaInfo = null;
+    if (plaque) {
+      wilayaInfo = extractWilayaFromPlaque(plaque);
+      console.log("[addVehicle] plaque:", plaque, "→ wilaya:", wilayaInfo);
+    }
+
+    // Créer le véhicule
     const vehicle = await prisma.vehicule.create({
       data: {
         driverId,
         marque,
-        modele: modele || null,
-        annee: annee ? parseInt(annee) : null,
+        modele:   modele   || null,
+        annee:    annee    ? parseInt(annee)    : null,
         nbPlaces: nbPlaces ? parseInt(nbPlaces) : null,
-        plaque: plaque || null,
-        couleur: couleur || null,
+        plaque:   plaque   || null,
+        couleur:  couleur  || null,
       },
     });
 
+    // ── ✅ Mettre à jour wilaya + coords du driver automatiquement ────────────
+    if (wilayaInfo) {
+      await prisma.driver.update({
+        where: { id: driverId },
+        data: {
+          wilaya:    wilayaInfo.nom,
+          latitude:  wilayaInfo.lat,
+          longitude: wilayaInfo.lng,
+        },
+      });
+      console.log("[addVehicle] Driver wilaya updated:", wilayaInfo.nom);
+    }
+
     res.status(201).json({
       message: "Vehicle added successfully.",
-      data: vehicle,
+      data:    vehicle,
+      wilaya:  wilayaInfo ? wilayaInfo.nom : null,
     });
   } catch (err) {
     console.error("Error adding vehicle:", err);
-    res.status(500).json({
-      message: "Failed to add vehicle.",
-      error: err.message,
-    });
+    res.status(500).json({ message: "Failed to add vehicle.", error: err.message });
   }
 };
 
