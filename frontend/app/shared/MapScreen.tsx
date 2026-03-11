@@ -75,9 +75,9 @@ export default function MapScreen() {
   } = useContext(LocationContext);
 
   const [selectedLocation, setSelectedLocation] = useState(null);
-  const [selectedAddress, setSelectedAddress] = useState("");
-  const [loadingAddress, setLoadingAddress]   = useState(false);
-  const [savingAddress, setSavingAddress]     = useState(false);
+  const [selectedAddress, setSelectedAddress]   = useState("");
+  const [loadingAddress, setLoadingAddress]     = useState(false);
+  const [savingAddress, setSavingAddress]       = useState(false);
 
   const [routeCoordinates, setRouteCoordinates] = useState([]);
   const [loadingRoute, setLoadingRoute]         = useState(false);
@@ -91,12 +91,11 @@ export default function MapScreen() {
   const mapRef          = useRef(null);
   const debounceTimeout = useRef(null);
 
-  // ── Shared locate helper ─────────────────────
   const goToCurrentLocation = () => {
     if (!currentLocation || !mapRef.current) return;
     mapRef.current.animateToRegion({
-      latitude:      currentLocation.latitude,
-      longitude:     currentLocation.longitude,
+      latitude:       currentLocation.latitude,
+      longitude:      currentLocation.longitude,
       latitudeDelta:  0.01,
       longitudeDelta: 0.01,
     }, 500);
@@ -117,7 +116,7 @@ export default function MapScreen() {
       const endLngNum   = parseCoord(endLng);
       if (startLatNum && startLngNum && endLatNum && endLngNum) {
         setStartLocation({ latitude: startLatNum, longitude: startLngNum });
-        setEndLocation({ latitude: endLatNum,   longitude: endLngNum });
+        setEndLocation({ latitude: endLatNum, longitude: endLngNum });
       }
     }
   }, [selectionType, startLocation, endLocation, startLat, startLng, endLat, endLng]);
@@ -171,11 +170,11 @@ export default function MapScreen() {
         const { price } = calculatePrice(distKm, durMin);
         setEstimatedPrice(price);
         if (rideId && rideId !== "" && rideId !== "undefined") {
-         try {
+          try {
             await api.patch(`/ridesDem/${rideId}/price`, { prix: price });
-         } catch (e) {
-           console.warn('⚠️ Price update skipped:', e.message);
-         }
+          } catch (e) {
+            console.warn('⚠️ Price update skipped:', e.message);
+          }
         }
         if (mapRef.current && coords.length > 0) {
           mapRef.current.fitToCoordinates(coords, {
@@ -251,6 +250,25 @@ export default function MapScreen() {
     } catch (e) {
       console.error("❌ Error saving address:", e);
       Alert.alert("Error", "Failed to save address. Please try again.");
+    } finally {
+      setSavingAddress(false);
+    }
+  };
+
+  const handleConfirmWorkZone = async () => {
+    if (!selectedLocation) return;
+    setSavingAddress(true);
+    try {
+      await api.patch('/drivers/location', {
+        latitude:  selectedLocation.latitude,
+        longitude: selectedLocation.longitude,
+      });
+      router.replace('/(driverTabs)/DriverHomeScreen');
+    } catch (e) {
+      Alert.alert(
+        'Location mismatch',
+        e.response?.data?.detail || e.response?.data?.message || 'Location does not match your wilaya.'
+      );
     } finally {
       setSavingAddress(false);
     }
@@ -349,6 +367,59 @@ export default function MapScreen() {
     );
   }
 
+  // ── MODE: work_zone ──────────────────────────
+  if (selectionType === "work_zone") {
+    return (
+      <View style={styles.container}>
+        <MapView
+          ref={mapRef}
+          style={StyleSheet.absoluteFillObject}
+          initialRegion={getInitialRegion()}
+          showsUserLocation
+          showsMyLocationButton={false}
+          onPress={handleMapPress}
+        >
+          {selectedLocation?.latitude && selectedLocation?.longitude && (
+            <Marker coordinate={selectedLocation} draggable onDragEnd={handleMarkerDragEnd} />
+          )}
+        </MapView>
+
+        <TouchableOpacity style={styles.locationButton} onPress={goToCurrentLocation} activeOpacity={0.8}>
+          <Ionicons name="locate" size={20} color="#007AFF" />
+        </TouchableOpacity>
+
+        <View style={styles.bottomSheetFixed}>
+          <View style={styles.dragHandle} />
+          <Text style={styles.title}>My work zone</Text>
+          <Text style={{ fontSize: 13, color: '#888', marginBottom: 8 }}>
+            Pin your usual working area — must match your vehicle's wilaya.
+          </Text>
+          {loadingAddress ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color="#666" />
+              <Text style={styles.loadingText}>Loading address...</Text>
+            </View>
+          ) : (
+            <Text style={styles.address} numberOfLines={2}>
+              {selectedAddress || 'Tap or drag pin on map'}
+            </Text>
+          )}
+          <TouchableOpacity
+            style={[styles.confirmBtn, (!selectedLocation || loadingAddress || savingAddress) && styles.confirmBtnDisabled]}
+            onPress={handleConfirmWorkZone}
+            disabled={!selectedLocation || loadingAddress || savingAddress}
+            activeOpacity={0.8}
+          >
+            {savingAddress
+              ? <ActivityIndicator size="small" color="#fff" />
+              : <Text style={styles.confirmText}>Save & finish</Text>
+            }
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
   // ── MODE: route ──────────────────────────────
   if (selectionType === "route") {
     return (
@@ -371,7 +442,6 @@ export default function MapScreen() {
           )}
         </MapView>
 
-        {/* ── Top address card ── */}
         <View style={routeStyles.topCard}>
           <View style={routeStyles.addressRow}>
             <View style={routeStyles.dotGreen} />
@@ -396,7 +466,6 @@ export default function MapScreen() {
               </View>
             ) : (
               <>
-                {/* ── Price hero ── */}
                 {estimatedPrice !== null && (
                   <View style={routeStyles.priceRow}>
                     <View>
@@ -421,7 +490,6 @@ export default function MapScreen() {
                   </View>
                 )}
 
-                {/* ── Find drivers CTA ── */}
                 <TouchableOpacity
                   style={routeStyles.ctaButton}
                   onPress={() => router.push({
@@ -441,7 +509,6 @@ export default function MapScreen() {
                   </View>
                 </TouchableOpacity>
 
-                {/* ── Cancel ── */}
                 <TouchableOpacity style={routeStyles.cancelButton} onPress={handleCancelRide} activeOpacity={0.7}>
                   <Text style={routeStyles.cancelText}>Cancel ride</Text>
                 </TouchableOpacity>
@@ -450,7 +517,6 @@ export default function MapScreen() {
           </View>
         )}
 
-        {/* ── Cancel confirmation modal ── */}
         <Modal
           visible={showCancelModal}
           transparent
