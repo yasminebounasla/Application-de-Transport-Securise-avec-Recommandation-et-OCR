@@ -569,6 +569,56 @@ export const updateDriverProfile = async (req, res) => {
   }
 };
 
+// ── ✅ Update location (zone de travail précise) ───────────────────────────────
+export const updateDriverLocation = async (req, res) => {
+  const driverId = req.user.driverId;
+
+  if (!driverId) {
+    return res.status(403).json({ message: "Access restricted to drivers only." });
+  }
+
+  try {
+    const { latitude, longitude } = req.body;
+
+    if (!latitude || !longitude) {
+      return res.status(400).json({ message: "latitude et longitude sont requis." });
+    }
+
+    // Récupère la wilaya actuelle du driver (depuis son matricule)
+    const driver = await prisma.driver.findUnique({
+      where:  { id: driverId },
+      select: { wilaya: true },
+    });
+
+    if (!driver) {
+      return res.status(404).json({ message: "Driver not found." });
+    }
+
+    // Sauvegarde les coordonnées précises
+    await prisma.driver.update({
+      where: { id: driverId },
+      data: {
+        latitude:  parseFloat(latitude),
+        longitude: parseFloat(longitude),
+      },
+    });
+
+    console.log("[updateDriverLocation] Driver", driverId, "→ lat:", latitude, "lng:", longitude);
+
+    res.status(200).json({
+      message: "Location updated successfully.",
+      data: {
+        wilaya:    driver.wilaya,
+        latitude:  parseFloat(latitude),
+        longitude: parseFloat(longitude),
+      },
+    });
+  } catch (err) {
+    console.error("Error updating driver location:", err);
+    res.status(500).json({ message: "Failed to update location.", error: err.message });
+  }
+};
+
 export const notifySelectedDrivers = async (req, res) => {
   const passengerId = req.user.passengerId;
 
