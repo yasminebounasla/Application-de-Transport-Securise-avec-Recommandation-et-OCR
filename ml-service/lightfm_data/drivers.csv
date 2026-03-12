@@ -31,7 +31,7 @@ D30,no,no,yes,yes,yes,female,2.4,no,yes,no,yes,35.6585,0.651332
 D61,yes,yes,yes,yes,yes,male,2.3,no,no,yes,yes,36.893907,7.812141
 D62,yes,yes,no,no,yes,female,2.9,yes,yes,no,no,36.803385,3.073828
 D63,no,yes,yes,yes,no,male,2.0,no,no,yes,yes,36.929394,7.762481
-D1,no,no,no,no,no,male,2.6,no,no,no,no,36.7538,3.0588
+D1,no,no,no,no,yes,male,2.6,yes,no,yes,yes,36.7538,3.0588
 D65,no,no,yes,yes,yes,male,2.7,yes,yes,no,no,36.911127,7.760756
 D66,yes,no,no,yes,no,female,2.4,yes,no,no,no,36.766096,4.039414
 D67,no,no,no,no,yes,male,3.4,no,yes,yes,yes,36.150962,5.436242

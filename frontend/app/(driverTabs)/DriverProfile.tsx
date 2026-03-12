@@ -36,7 +36,7 @@ export default function DriverProfileScreen() {
       setProfile({
         ...data,
         allVehicles:     data.vehicules || [],
-        workZoneAddress: data.wilaya || null,
+        workZoneAddress: data.workZoneAddress || data.wilaya || null,
         talkative:       prefs.talkative,
         radio_on:        prefs.radio_on,
         smoking_allowed: prefs.smoking_allowed,
