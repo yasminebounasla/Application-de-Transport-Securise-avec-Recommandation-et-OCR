@@ -25,64 +25,11 @@ def haversine(lat1, lng1, lat2, lng2) -> float:
 
 # ── SCORE DISTANCE selon délai ────────────────────────────────────────────────
 def score_distance(distance_km: float, hours_until_departure: float) -> float:
-    """
-    Plus le départ est imminent, plus on exige un driver proche.
-    Formule : 1 / (1 + distance / reference)
-    → 0.0 si très loin, → 1.0 si très proche
-    """
-    if   hours_until_departure < 2:   reference_km = 15   # départ immédiat → très proche
-    elif hours_until_departure < 24:  reference_km = 40   # aujourd'hui → assez proche
-    elif hours_until_departure < 168: reference_km = 60   # cette semaine → flexible
-    else:                             reference_km = 80   # planifié → large rayon
+    if   hours_until_departure < 2:   reference_km = 15
+    elif hours_until_departure < 24:  reference_km = 40
+    elif hours_until_departure < 168: reference_km = 60
+    else:                             reference_km = 80
     return 1 / (1 + distance_km / reference_km)
-
-
-# ── PÉNALITÉ GÉOGRAPHIQUE SOUPLE ──────────────────────────────────────────────
-def geo_penalty(distance_km: float, hours_until_departure: float) -> float:
-    """
-    Pénalise les drivers éloignés selon l'urgence du trajet.
-    Maximum absolu : 100km — au-delà on pénalise fortement dans tous les cas.
-    Retourne un multiplicateur entre 0.05 et 1.0.
-
-    Logique :
-    - Départ immédiat (< 2h)   : max toléré ~20km
-    - Départ aujourd'hui       : max toléré ~40km
-    - Départ cette semaine     : max toléré ~70km
-    - Trajet planifié          : max toléré ~100km
-    - Au-delà de 100km         : toujours fortement pénalisé
-    """
-    # ── Règle absolue : > 100km = pénalité forte peu importe le délai ────────
-    if distance_km > 100:
-        if distance_km > 80: return 0.05   # Constantine → Alger (~270km) : quasi éliminé
-        return 0.10
-
-    # ── Départ immédiat (< 2h) ────────────────────────────────────────────────
-    if hours_until_departure < 2:
-        if distance_km > 50:  return 0.10
-        if distance_km > 30:  return 0.25
-        if distance_km > 20:  return 0.50
-        return 1.0
-
-    # ── Départ aujourd'hui (2h – 24h) ─────────────────────────────────────────
-    elif hours_until_departure < 24:
-        if distance_km > 80:  return 0.10
-        if distance_km > 60:  return 0.30
-        if distance_km > 40:  return 0.60
-        return 1.0
-
-    # ── Départ cette semaine (1j – 7j) ────────────────────────────────────────
-    elif hours_until_departure < 168:
-        if distance_km > 100: return 0.10   # déjà géré au-dessus mais sécurité
-        if distance_km > 80:  return 0.30
-        if distance_km > 70:  return 0.60
-        return 1.0
-
-    # ── Trajet planifié longtemps à l'avance (> 7j) ───────────────────────────
-    else:
-        if distance_km > 100: return 0.10   # déjà géré au-dessus mais sécurité
-        if distance_km > 85:  return 0.40
-        if distance_km > 70:  return 0.70
-        return 1.0
 
 
 # ── SCORE HEURE DE TRAVAIL ────────────────────────────────────────────────────
@@ -210,9 +157,6 @@ class Recommender:
             return None
 
         db = distance_bucket(distance_km)
-
-        # work_hour_match en fonction de l'heure de départ réelle
-        # (on ne peut pas le calculer par driver ici, on met une valeur neutre)
         features = [
             f"quiet_ride:{preferences.get('quiet_ride', 'no')}",
             f"radio_ok:{preferences.get('radio_ok', 'no')}",
@@ -301,44 +245,31 @@ async def get_recommendations(
     if not all_drivers:
         return []
 
-    # ── Calcul LightFM UNE SEULE FOIS (distance neutre pour embeddings) ──────
-    # On utilise une distance médiane pour les features LightFM car LightFM
-    # apprend les préférences globales, pas la distance spécifique à chaque driver
-    median_dist = 30.0
-    user_feat_matrix = recommender.build_user_features_for_new_trajet(
-        preferences, median_dist, hours_until_departure, departure_hour
-    )
-    lightfm_scores = {}
-    if user_feat_matrix is not None:
-        lightfm_scores = recommender.predict_cold_start(user_feat_matrix)
-        print(f"   ✅ LightFM scores calculés pour {len(lightfm_scores)} drivers")
-    else:
-        print(f"   ⚠️  LightFM non disponible → fallback sur critères contextuels")
-
-    # ── Scoring final pour chaque driver ────────────────────────────────────
-    scored_drivers = []
-
+    # ── Scoring final ────────────────────────────────────────────────────────
     for driver in all_drivers:
         driver_id = f"D{driver['id']}"
 
-        # 1. Distance réelle de CE driver vers le point de départ
+        # 1. Distance réelle de CE driver
         dist_km    = 50.0
         dist_score = 0.5
-        penalty    = 1.0
-
         if start_lat and start_lng and driver.get("latitude") and driver.get("longitude"):
             try:
                 dist_km    = haversine(driver["latitude"], driver["longitude"], start_lat, start_lng)
                 dist_score = score_distance(dist_km, hours_until_departure)
-                penalty    = geo_penalty(dist_km, hours_until_departure)
                 driver["distance_km"] = round(dist_km, 1)
             except Exception:
                 pass
 
-        # 2. LightFM score (appris depuis les interactions passées)
-        lightfm_score = max(0.0, lightfm_scores.get(driver_id, 0.0))
+        # 2. LightFM avec vraie distance de CE driver
+        lightfm_score    = 0.0
+        user_feat_matrix = recommender.build_user_features_for_new_trajet(
+            preferences, dist_km, hours_until_departure, departure_hour
+        )
+        if user_feat_matrix is not None:
+            scores        = recommender.predict_cold_start(user_feat_matrix)
+            lightfm_score = max(0.0, scores.get(driver_id, 0.0))
 
-        # 3. Matching préférences
+        # 3. Préférences
         pref_score = calculate_match_score(driver, preferences)
 
         # 4. Heure de travail
@@ -348,69 +279,41 @@ async def get_recommendations(
         avg_rating   = driver.get("avgRating") or 4.0
         rating_score = (avg_rating - 1) / 4
 
-        # ── Score final avec poids rééquilibrés ──────────────────────────────
-        # LightFM : 45% (apprentissage collectif des préférences)
-        # Préférences : 20% (matching direct passager ↔ driver)
-        # Distance : 25% (proximité géographique — critique pour UX)
-        # Heure : 05% (disponibilité horaire)
-        # Rating : 05% (qualité historique)
-        if lightfm_scores:
+        # Score final
+        if user_feat_matrix is not None:
             final_score = (
-                0.45 * lightfm_score +
-                0.20 * pref_score    +
-                0.25 * dist_score    +
-                0.05 * work_score    +
+                0.50 * lightfm_score +
+                0.15 * pref_score    +
+                0.20 * dist_score    +
+                0.10 * work_score    +
                 0.05 * rating_score
             )
         else:
-            # Fallback si LightFM non disponible
             final_score = (
                 0.40 * pref_score  +
                 0.35 * dist_score  +
-                0.15 * work_score  +
+                0.25 * work_score  +
                 0.10 * rating_score
             )
 
-        # ── Pénalité géographique souple ─────────────────────────────────────
-        # Multiplie le score final par un facteur entre 0.1 et 1.0
-        # selon la distance et l'urgence du trajet
-        # Ex: driver à 270km pour départ dans 1h → score × 0.10
-        final_score *= penalty
-
-        if penalty < 1.0:
-            print(f"   📍 Driver {driver['id']} ({dist_km:.0f}km) → pénalité ×{penalty}")
-
-        # ── Diversification ───────────────────────────────────────────────────
-        # Réduire légèrement le score si passager a déjà beaucoup pris ce driver
-        # → encourage la découverte de nouveaux profils compatibles
+        # ── DIVERSIFICATION ───────────────────────────────────────────────
         nb_trajets_ensemble = interaction_counts.get(str(driver["id"]), 0)
         if nb_trajets_ensemble >= 5:
             final_score *= 0.80
-            print(f"   🔄 Driver {driver['id']}: {nb_trajets_ensemble} trajets → ×0.80")
+            print(f"   🔄 Driver {driver['id']}: {nb_trajets_ensemble} trajets → score ×0.80")
         elif nb_trajets_ensemble >= 3:
             final_score *= 0.90
+            print(f"   🔄 Driver {driver['id']}: {nb_trajets_ensemble} trajets → score ×0.90")
 
         driver["final_score"] = round(final_score, 4)
         driver["work_match"]  = work_score == 1.0
         driver["dist_score"]  = round(dist_score, 3)
-        driver["geo_penalty"] = penalty
-
-        scored_drivers.append(driver)
 
     # ── Trier et retourner ───────────────────────────────────────────────────
-    scored_drivers.sort(key=lambda d: d.get("final_score", 0), reverse=True)
+    all_drivers.sort(key=lambda d: d.get("final_score", 0), reverse=True)
 
-    # Debug : afficher le top 10 avec distances
-    print(f"\n   📊 Top 10 scores :")
-    for d in scored_drivers[:10]:
-        print(f"      Driver {d['id']} | dist: {d.get('distance_km', '?')}km "
-              f"| penalty: {d.get('geo_penalty', 1):.2f} "
-              f"| score: {d.get('final_score', 0):.4f}")
-
-    # Nettoyer les champs internes avant de retourner
-    for driver in scored_drivers:
+    for driver in all_drivers:
         driver.pop("final_score", None)
-        driver.pop("geo_penalty", None)
 
-    print(f"\n✅ Top {min(top_n, len(scored_drivers))} drivers retournés")
-    return scored_drivers[:top_n]
+    print(f"✅ Top {min(top_n, len(all_drivers))} drivers retournés")
+    return all_drivers[:top_n]
