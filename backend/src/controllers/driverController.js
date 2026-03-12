@@ -596,12 +596,16 @@ export const updateDriverLocation = async (req, res) => {
     }
 
     // ✅ Reverse geocode
-    const address          = await reverseGeocode(latitude, longitude);
-    const wilayaFromCoords = extractWilayaFromAddress(address);
+    const addressObj = await reverseGeocode(latitude, longitude);
+    console.log('[location] addressObj:', JSON.stringify(addressObj));
 
-    console.log("[location] address.state :", address?.state);
-    console.log("[location] wilaya trouvée:", wilayaFromCoords?.nom);
-    console.log("[location] driver.wilaya :", driver.wilaya);
+    const wilayaFromCoords = extractWilayaFromAddress(addressObj);
+    console.log('[location] wilayaFromCoords:', wilayaFromCoords);
+    console.log('[location] driver.wilaya:', driver.wilaya);
+
+    const city = addressObj?.city || addressObj?.town || addressObj?.village || addressObj?.suburb || null;
+    const workZoneAddress = city ? `${city}, ${wilayaFromCoords?.nom || ''}` : (wilayaFromCoords?.nom || null);
+
 
     // ✅ Validation
     if (!wilayaFromCoords || wilayaFromCoords.nom.toLowerCase() !== driver.wilaya.toLowerCase()) {
@@ -613,7 +617,11 @@ export const updateDriverLocation = async (req, res) => {
 
     await prisma.driver.update({
       where: { id: driverId },
-      data:  { latitude: parseFloat(latitude), longitude: parseFloat(longitude) },
+      data: {
+        latitude:        parseFloat(latitude),
+        longitude:       parseFloat(longitude),
+        workZoneAddress: workZoneAddress,
+      },
     });
 
     res.status(200).json({
@@ -622,6 +630,7 @@ export const updateDriverLocation = async (req, res) => {
         wilaya:    driver.wilaya,
         latitude:  parseFloat(latitude),
         longitude: parseFloat(longitude),
+        workZoneAddress: workZoneAddress,
       },
     });
 

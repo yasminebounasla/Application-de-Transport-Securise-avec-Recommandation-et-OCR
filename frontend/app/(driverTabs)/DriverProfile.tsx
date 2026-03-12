@@ -36,6 +36,7 @@ export default function DriverProfileScreen() {
       setProfile({
         ...data,
         allVehicles:     data.vehicules || [],
+        workZoneAddress: data.workZoneAddress || data.wilaya || null,
         talkative:       prefs.talkative,
         radio_on:        prefs.radio_on,
         smoking_allowed: prefs.smoking_allowed,
@@ -188,6 +189,7 @@ export default function DriverProfileScreen() {
         }}>
           <InfoRow icon="person-outline"      label="First Name" value={profile.prenom} />
           <InfoRow icon="person-outline"      label="Last Name"  value={profile.nom} />
+          <InfoRow icon="location-outline"    label="Work Zone"  value={profile.workZoneAddress || profile.wilaya || '—'} last/>
           <InfoRow icon="mail-outline"        label="Email"      value={profile.email} />
           <InfoRow icon="call-outline"        label="Phone"      value={profile.numTel} />
           <InfoRow icon="calendar-outline"    label="Age"        value={profile.age?.toString()} />
