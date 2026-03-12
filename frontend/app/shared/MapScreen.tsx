@@ -62,6 +62,7 @@ export default function MapScreen() {
     endLng,
     targetKey:   _targetKey,
     targetLabel: _targetLabel,
+    fromOnboarding,   
   } = useLocalSearchParams();
   const targetKey   = (Array.isArray(_targetKey)   ? _targetKey[0]   : _targetKey)   as string;
   const targetLabel = (Array.isArray(_targetLabel)  ? _targetLabel[0] : _targetLabel) as string;
@@ -254,7 +255,8 @@ export default function MapScreen() {
       setSavingAddress(false);
     }
   };
-
+   
+  // ── ✅ FIXED: fromOnboarding → router.back() pour retourner au step 3 ─────
   const handleConfirmWorkZone = async () => {
     if (!selectedLocation) return;
     setSavingAddress(true);
@@ -263,7 +265,11 @@ export default function MapScreen() {
         latitude:  selectedLocation.latitude,
         longitude: selectedLocation.longitude,
       });
-      router.replace('/(driverTabs)/DriverHomeScreen');
+      if (fromOnboarding === 'true') {
+        router.back();                                      // ← retour → step 3 (Your Style)
+      } else {
+        router.replace('/(driverTabs)/DriverHomeScreen');   // ← flow normal
+      }
     } catch (e) {
       Alert.alert(
         'Location mismatch',
