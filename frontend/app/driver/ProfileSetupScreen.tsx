@@ -9,11 +9,12 @@ import {
   ActivityIndicator,
   KeyboardTypeOptions,
 } from 'react-native';
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Stack, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import api from '../../services/api';
+import { useFocusEffect } from '@react-navigation/native';
 
 import {
   VALID_CAR_BRANDS,
@@ -120,6 +121,7 @@ export default function ProfileSetupScreen() {
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading]         = useState(false);
   const [gpsLoading, setGpsLoading]   = useState(false);
+  const [workZoneDone, setWorkZoneDone] = useState(false);
 
   const [vehicleData, setVehicleData] = useState({
     marque:  '',
@@ -150,6 +152,17 @@ export default function ProfileSetupScreen() {
   const [brandSuggestions, setBrandSuggestions] = useState<string[]>([]);
   const [modelSuggestions, setModelSuggestions] = useState<string[]>([]);
   const [colorSuggestions, setColorSuggestions] = useState<string[]>([]);
+
+   
+  // ── ✅ Quand on revient de MapScreen → avance au step 3 ───────────────────
+  useFocusEffect(
+    useCallback(() => {
+      if (currentStep === 2 && workZoneDone) {
+        setWorkZoneDone(false);
+        setCurrentStep(3);
+      }
+    }, [currentStep, workZoneDone])
+  );
 
   const toggle = (key: string) => setPreferences((p: any) => ({ ...p, [key]: !p[key] }));
 
@@ -253,9 +266,10 @@ export default function ProfileSetupScreen() {
 
   // ── Step 2: Work zone — Map ───────────────────────────────────────────────
   const handleSetOnMap = () => {
+    setWorkZoneDone(true);      
     router.push({
       pathname: '/shared/MapScreen',
-      params:   { selectionType: 'work_zone' },
+      params: { selectionType: 'work_zone', fromOnboarding: 'true' }, // ← fromOnboarding ajouté
     });
     // MapScreen appellera router.replace('/(driverTabs)/DriverHomeScreen') directement
     // donc on ne revient pas à step 3 depuis la map
