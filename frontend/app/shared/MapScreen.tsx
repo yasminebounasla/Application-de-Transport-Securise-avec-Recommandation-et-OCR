@@ -265,6 +265,7 @@ export default function MapScreen() {
       await api.patch('/drivers/profile/location', {
         latitude:  selectedLocation.latitude,
         longitude: selectedLocation.longitude,
+        address:   selectedAddress, 
       });
       if (fromOnboarding === 'true') {
         router.back();                                      // ← retour → step 3 (Your Style)

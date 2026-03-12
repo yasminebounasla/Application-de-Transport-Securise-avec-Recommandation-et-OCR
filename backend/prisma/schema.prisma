@@ -37,6 +37,7 @@ model Driver {
   wilaya                  String
   latitude                Float?
   longitude               Float?
+  workZoneAddress         String?  // Reverse-geocoded address of driver's work zone (city, wilaya) — stored for UI display to avoid repeated API calls
 
   talkative       Boolean @default(false)
   radio_on        Boolean @default(false)
