@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
   KeyboardTypeOptions,
 } from 'react-native';
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { Stack, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
@@ -121,7 +121,7 @@ export default function ProfileSetupScreen() {
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading]         = useState(false);
   const [gpsLoading, setGpsLoading]   = useState(false);
-  const [workZoneDone, setWorkZoneDone] = useState(false);
+  const workZoneDoneRef = useRef(false);
 
   const [vehicleData, setVehicleData] = useState({
     marque:  '',
@@ -155,13 +155,14 @@ export default function ProfileSetupScreen() {
 
    
   // ── ✅ Quand on revient de MapScreen → avance au step 3 ───────────────────
+ // ✅ useFocusEffect — useRef ne cause pas de re-render
   useFocusEffect(
     useCallback(() => {
-      if (currentStep === 2 && workZoneDone) {
-        setWorkZoneDone(false);
-        setCurrentStep(3);
-      }
-    }, [currentStep, workZoneDone])
+     if (currentStep === 2 && workZoneDoneRef.current) {
+       workZoneDoneRef.current = false;
+       setCurrentStep(3);
+     }
+    }, [currentStep])
   );
 
   const toggle = (key: string) => setPreferences((p: any) => ({ ...p, [key]: !p[key] }));
@@ -266,14 +267,11 @@ export default function ProfileSetupScreen() {
 
   // ── Step 2: Work zone — Map ───────────────────────────────────────────────
   const handleSetOnMap = () => {
-    setWorkZoneDone(true);      
-    router.push({
-      pathname: '/shared/MapScreen',
-      params: { selectionType: 'work_zone', fromOnboarding: 'true' }, // ← fromOnboarding ajouté
+   workZoneDoneRef.current = true;   // ← ref, pas de re-render
+   router.push({
+     pathname: '/shared/MapScreen',
+     params:   { selectionType: 'work_zone', fromOnboarding: 'true' },
     });
-    // MapScreen appellera router.replace('/(driverTabs)/DriverHomeScreen') directement
-    // donc on ne revient pas à step 3 depuis la map
-    // Si tu veux revenir au step 3 après la map, change le comportement dans MapScreen
   };
 
   // ── Step 3 submit: Preferences ────────────────────────────────────────────
