@@ -443,7 +443,12 @@ export default function MapScreen() {
             <Text style={wzStyles.errorMsg}>{mismatchMsg}</Text>
             <TouchableOpacity
               style={wzStyles.errorBtn}
-              onPress={() => setMismatchMsg('')}
+              onPress={() => {
+               setMismatchMsg('');
+               setSelectedLocation(null);
+               setSelectedAddress('');
+               setSavingAddress(false);
+              }}
               activeOpacity={0.85}
             >
               <Text style={wzStyles.errorBtnText}>Got it</Text>
