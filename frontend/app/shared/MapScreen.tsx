@@ -888,7 +888,7 @@ const styles = StyleSheet.create({
   locationButton: {
   position: 'absolute',
   right: 16,
-  bottom: 210,
+  bottom: 110,
   width: 44, height: 44, borderRadius: 22,
   backgroundColor: '#fff',
   justifyContent: 'center', alignItems: 'center',
@@ -1205,10 +1205,10 @@ const wzStyles = StyleSheet.create({
   cta: {
     alignItems:      'center',
     justifyContent:  'center',
-    backgroundColor: '#294190',
+    backgroundColor: '#0a3980',
     borderRadius:    50,  
     paddingVertical: 14,        
-    paddingHorizontal: 140,     
+    paddingHorizontal: 170,     
     alignSelf:       'center',  
   },
   ctaDisabled: {

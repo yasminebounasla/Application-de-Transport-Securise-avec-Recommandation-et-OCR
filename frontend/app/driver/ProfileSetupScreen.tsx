@@ -8,6 +8,7 @@ import {
   TextInput,
   ActivityIndicator,
   KeyboardTypeOptions,
+  Modal,
 } from 'react-native';
 import { useState, useCallback, useRef } from 'react';
 import { Stack, router } from 'expo-router';
@@ -152,6 +153,7 @@ export default function ProfileSetupScreen() {
   const [brandSuggestions, setBrandSuggestions] = useState<string[]>([]);
   const [modelSuggestions, setModelSuggestions] = useState<string[]>([]);
   const [colorSuggestions, setColorSuggestions] = useState<string[]>([]);
+  const [showDoneModal, setShowDoneModal] = useState(false);
 
    
   // ── ✅ Quand on revient de MapScreen → avance au step 3 ───────────────────
@@ -279,11 +281,7 @@ export default function ProfileSetupScreen() {
     setLoading(true);
     try {
       await api.put('/drivers/preferences', preferences);
-      Alert.alert(
-        'All done!',
-        'Your profile is complete. Time to start driving!',
-        [{ text: "Let's go 🚗", onPress: () => router.replace('/(driverTabs)/DriverHomeScreen') }]
-      );
+      setShowDoneModal(true);
     } catch (err: any) {
       Alert.alert('Error', err.response?.data?.message || 'Failed to save preferences');
     } finally {
@@ -407,7 +405,7 @@ export default function ProfileSetupScreen() {
     </View>
   );
 
-  return (
+ return (
     <>
       <Stack.Screen options={{ title: 'Complete your profile', headerBackVisible: false, headerShadowVisible: false }} />
       <ScrollView
@@ -419,6 +417,30 @@ export default function ProfileSetupScreen() {
         {currentStep === 2 && renderWorkZoneForm()}
         {currentStep === 3 && renderPreferencesForm()}
       </ScrollView>
+
+      <Modal visible={showDoneModal} transparent animationType="fade">
+        <View style={doneStyles.overlay}>
+          <View style={doneStyles.card}>
+            <View style={doneStyles.iconCircle}>
+              <Ionicons name="checkmark" size={28} color="#294190" />
+            </View>
+            <Text style={doneStyles.title}>All done!</Text>
+            <Text style={doneStyles.subtitle}>
+              Your profile is complete.{'\n'}Time to start driving!
+            </Text>
+            <TouchableOpacity
+              style={doneStyles.btn}
+              onPress={() => {
+                setShowDoneModal(false);
+                router.replace('/(driverTabs)/DriverHomeScreen');
+              }}
+              activeOpacity={0.85}
+            >
+              <Text style={doneStyles.btnText}>Let's go </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </>
   );
 }
@@ -633,4 +655,62 @@ const s = StyleSheet.create({
   optionTitle:       { fontSize: 15, fontWeight: '700', color: '#111', marginBottom: 2 },
   optionSubtitle:    { fontSize: 12, color: '#888' },
   optionDivider:     { height: 1, backgroundColor: '#F5F5F5' },
+});
+
+const doneStyles = StyleSheet.create({
+  overlay: {
+    flex:            1,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+    alignItems:      'center',
+    justifyContent:  'center',
+    paddingHorizontal: 32,
+  },
+  card: {
+    backgroundColor:  '#fff',
+    borderRadius:     24,
+    paddingHorizontal: 28,
+    paddingVertical:  32,
+    alignItems:       'center',
+    width:            '100%',
+    shadowColor:      '#000',
+    shadowOpacity:    0.12,
+    shadowRadius:     20,
+    elevation:        10,
+  },
+  iconCircle: {
+    width:           64,
+    height:          64,
+    borderRadius:    32,
+    backgroundColor: '#EEF1FB',
+    alignItems:      'center',
+    justifyContent:  'center',
+    marginBottom:    20,
+  },
+  title: {
+    fontSize:      22,
+    fontWeight:    '800',
+    color:         '#111',
+    marginBottom:  10,
+    letterSpacing: -0.5,
+  },
+  subtitle: {
+  fontSize:     13,      // ← réduit
+  color:        '#888',
+  textAlign:    'center',
+  lineHeight:   20,      // ← réduit
+  marginBottom: 20,      // ← réduit
+  },
+  btn: {
+    backgroundColor: '#294190',
+    borderRadius:    14,
+    paddingVertical:   13,    // ← réduit
+    paddingHorizontal: 32,  
+    alignItems:      'center',
+    width:           '100%',
+  },
+  btnText: {
+    color:      '#fff',
+    fontSize:   16,
+    fontWeight: '700',
+  },
 });
