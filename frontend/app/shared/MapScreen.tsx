@@ -88,6 +88,7 @@ export default function MapScreen() {
   const [estimatedPrice, setEstimatedPrice]     = useState<number | null>(null);
   const [showLocationError, setShowLocationError] = useState(false);
   const [showCancelModal, setShowCancelModal]   = useState(false);
+  const [mismatchMsg, setMismatchMsg] = useState('');
 
   const mapRef          = useRef(null);
   const debounceTimeout = useRef(null);
@@ -271,12 +272,9 @@ export default function MapScreen() {
         router.replace('/(driverTabs)/DriverHomeScreen');   // ← flow normal
       }
     } catch (e) {
-      Alert.alert(
-        'Location mismatch',
-        e.response?.data?.detail || e.response?.data?.message || 'Location does not match your wilaya.'
+     setMismatchMsg(
+       e.response?.data?.detail || e.response?.data?.message || 'Location does not match your wilaya.'
       );
-    } finally {
-      setSavingAddress(false);
     }
   };
 
@@ -373,8 +371,8 @@ export default function MapScreen() {
     );
   }
 
-// ── MODE: work_zone ──────────────────────────
-if (selectionType === "work_zone") {
+ // ── MODE: work_zone ──────────────────────────
+ if (selectionType === "work_zone") {
   return (
     <View style={styles.container}>
       <MapView
@@ -433,9 +431,30 @@ if (selectionType === "work_zone") {
           )}
         </TouchableOpacity>
       </View>
+
+      {/* ← Modal ici */}
+      <Modal visible={!!mismatchMsg} transparent animationType="fade">
+        <View style={wzStyles.errorOverlay}>
+          <View style={wzStyles.errorCard}>
+            <View style={wzStyles.errorIconCircle}>
+              <Ionicons name="location-outline" size={26} color="#EF4444" />
+            </View>
+            <Text style={wzStyles.errorTitle}>Location mismatch</Text>
+            <Text style={wzStyles.errorMsg}>{mismatchMsg}</Text>
+            <TouchableOpacity
+              style={wzStyles.errorBtn}
+              onPress={() => setMismatchMsg('')}
+              activeOpacity={0.85}
+            >
+              <Text style={wzStyles.errorBtnText}>Got it</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
     </View>
   );
-}
+ }
  
   // ── MODE: route ──────────────────────────────
   if (selectionType === "route") {
@@ -1220,4 +1239,59 @@ const wzStyles = StyleSheet.create({
     fontWeight:    '700',
     letterSpacing: -0.2,
   },
+  errorOverlay: {
+  flex:              1,
+  backgroundColor:   'rgba(0,0,0,0.45)',
+  alignItems:        'center',
+  justifyContent:    'center',
+  paddingHorizontal: 32,
+},
+errorCard: {
+  backgroundColor:   '#fff',
+  borderRadius:      24,
+  paddingHorizontal: 24,
+  paddingVertical:   28,
+  alignItems:        'center',
+  width:             '100%',
+  shadowColor:       '#000',
+  shadowOpacity:     0.12,
+  shadowRadius:      20,
+  elevation:         10,
+},
+errorIconCircle: {
+  width:           56,
+  height:          56,
+  borderRadius:    28,
+  backgroundColor: '#FEE2E2',
+  alignItems:      'center',
+  justifyContent:  'center',
+  marginBottom:    16,
+},
+errorTitle: {
+  fontSize:      18,
+  fontWeight:    '800',
+  color:         '#111',
+  marginBottom:  8,
+  letterSpacing: -0.3,
+},
+errorMsg: {
+  fontSize:     12,      // ← réduit
+  color:        '#888',
+  textAlign:    'center',
+  lineHeight:   18,      // ← réduit
+  marginBottom: 20,      // ← réduit
+},
+errorBtn: {
+  backgroundColor:   '#FEE2E2',
+  borderRadius:      14,
+  paddingVertical:   14,    // ← plus tall
+  paddingHorizontal: 70,    // ← plus large
+  width:             '100%', // ← full width
+  alignItems:        'center',
+},
+errorBtnText: {
+  color:      '#EF4444',
+  fontSize:   16,        // ← plus grand
+  fontWeight: '700',
+},
 });

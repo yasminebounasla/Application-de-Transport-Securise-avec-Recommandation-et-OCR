@@ -367,7 +367,7 @@ export default function ProfileSetupScreen() {
         <View style={[s.headerBadge, { backgroundColor: '#111' }]}>
           <Ionicons name="options-outline" size={20} color="#fff" />
         </View>
-        <Text style={s.headerTitle}>Your Style</Text>
+        <Text style={s.headerTitle}>Your Preferences</Text>
         <Text style={s.headerSub}>Help passengers know what to expect</Text>
       </View>
 
