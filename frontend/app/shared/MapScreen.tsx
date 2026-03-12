@@ -374,65 +374,69 @@ export default function MapScreen() {
   }
 
 // ── MODE: work_zone ──────────────────────────
-  if (selectionType === "work_zone") {
-    return (
-      <View style={styles.container}>
-        <MapView
-          ref={mapRef}
-          style={StyleSheet.absoluteFillObject}
-          initialRegion={getInitialRegion()}
-          showsUserLocation
-          showsMyLocationButton={false}
-          onPress={handleMapPress}
-        >
-          {selectedLocation?.latitude && selectedLocation?.longitude && (
-            <Marker coordinate={selectedLocation} draggable onDragEnd={handleMarkerDragEnd} />
-          )}
-        </MapView>
- 
-        {/* Locate button */}
-        <TouchableOpacity style={styles.locationButton} onPress={goToCurrentLocation} activeOpacity={0.8}>
-          <Ionicons name="locate" size={20} color="#007AFF" />
-        </TouchableOpacity>
- 
-        {/* ── Modern bottom sheet ── */}
-        <View style={wzStyles.sheet}>
-          {/* handle */}
-          <View style={wzStyles.handle} />
- 
-          {/* header row */}
-          <View style={wzStyles.headerRow}>
-            <View style={wzStyles.iconWrap}>
-              <Ionicons name="location" size={18} color="#fff" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={wzStyles.title}>My Work Zone</Text>
-              <Text style={wzStyles.subtitle}>Must match your vehicle's wilaya</Text>
-            </View>
-          </View>
- 
-          {/* CTA */}
-          <TouchableOpacity
-            style={[wzStyles.cta, (!selectedLocation || loadingAddress || savingAddress) && wzStyles.ctaDisabled]}
-            onPress={handleConfirmWorkZone}
-            disabled={!selectedLocation || loadingAddress || savingAddress}
-            activeOpacity={0.85}
-          >
-            {savingAddress ? (
-              <ActivityIndicator size="small" color="#fff" />
-            ) : (
-              <>
-                <Text style={wzStyles.ctaText}>Save & continue</Text>
-                <Ionicons name="arrow-forward" size={17} color="#fff" />
-              </>
-            )}
-          </TouchableOpacity>
-        </View>
-      </View>
-    );
-  }
- 
+if (selectionType === "work_zone") {
+  return (
+    <View style={styles.container}>
+      <MapView
+        ref={mapRef}
+        style={StyleSheet.absoluteFillObject}
+        initialRegion={getInitialRegion()}
+        showsUserLocation
+        showsMyLocationButton={false}
+        onRegionChangeComplete={async (region) => {
+          const coords = { latitude: region.latitude, longitude: region.longitude };
+          setSelectedLocation(coords);
+          fetchAddress(coords);
+        }}
+      >
+        {/* pas de Marker — pin fixe au centre */}
+      </MapView>
 
+      {/* Pin fixe au centre */}
+      <View pointerEvents="none" style={wzStyles.pinWrap}>
+        <Ionicons name="location" size={40} color="#294190" />
+        <View style={wzStyles.pinShadow} />
+      </View>
+
+      {/* Address pill flottante au dessus du pin */}
+      <View style={wzStyles.floatingPill}>
+        <Text style={wzStyles.floatingHint}>MOVE THE MAP TO SPECIFY YOUR LOCATION</Text>
+        {loadingAddress ? (
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <ActivityIndicator size="small" color="#fff" />
+            <Text style={wzStyles.floatingAddress}>Loading...</Text>
+          </View>
+        ) : (
+          <Text style={wzStyles.floatingAddress} numberOfLines={1}>
+            {selectedAddress || 'Move the map...'}
+          </Text>
+        )}
+      </View>
+
+      {/* Locate button */}
+      <TouchableOpacity style={styles.locationButton} onPress={goToCurrentLocation} activeOpacity={0.8}>
+        <Ionicons name="locate" size={20} color="#007AFF" />
+      </TouchableOpacity>
+
+      {/* Bottom CTA */}
+      <View style={wzStyles.bottomBar}>
+        <TouchableOpacity
+          style={[wzStyles.cta, (!selectedLocation || loadingAddress || savingAddress) && wzStyles.ctaDisabled]}
+          onPress={handleConfirmWorkZone}
+          disabled={!selectedLocation || loadingAddress || savingAddress}
+          activeOpacity={0.85}
+        >
+          {savingAddress ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={wzStyles.ctaText}>Confirm</Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+}
+ 
   // ── MODE: route ──────────────────────────────
   if (selectionType === "route") {
     return (
@@ -1138,71 +1142,82 @@ const cancelStyles = StyleSheet.create({
 
 // ── wzStyles — add these to your StyleSheet ──────────────────────────────────
 const wzStyles = StyleSheet.create({
-  sheet: {
+  // Pin fixe au centre
+  pinWrap: {
     position:        'absolute',
-    bottom:          0,
-    left:            0,
-    right:           0,
-    backgroundColor: '#fff',
-    borderTopLeftRadius:  28,
-    borderTopRightRadius: 28,
-    paddingHorizontal: 24,
-    paddingBottom:   36,
-    paddingTop:      12,
-    shadowColor:     '#000',
-    shadowOpacity:   0.12,
-    shadowRadius:    20,
-    shadowOffset:    { width: 0, height: -4 },
-    elevation:       12,
-  },
-  handle: {
-    width:           40,
-    height:          4,
-    borderRadius:    2,
-    backgroundColor: '#E0E0E0',
-    alignSelf:       'center',
-    marginBottom:    20,
-  },
-  headerRow: {
-    flexDirection:  'row',
-    alignItems:     'center',
-    gap:            14,
-    marginBottom:   18,
-  },
-  iconWrap: {
-    width:           42,
-    height:          42,
-    borderRadius:    14,
-    backgroundColor: '#111',
+    top:             '50%',
+    left:            '50%',
+    marginLeft:      -20,
+    marginTop:       -40,
     alignItems:      'center',
-    justifyContent:  'center',
   },
-  title: {
-    fontSize:     16,
-    fontWeight:   '800',
-    color:        '#111',
-    letterSpacing: -0.3,
+  pinShadow: {
+    width:           10,
+    height:          4,
+    borderRadius:    5,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    marginTop:       -2,
   },
-  subtitle: {
-    fontSize:   12,
-    color:      '#999',
-    marginTop:  2,
+
+  // Floating pill
+  floatingPill: {
+    position:          'absolute',
+    top:               '50%',
+    left:              24,
+    right:             24,
+    marginTop:         10,
+    backgroundColor:   '#1a1a2e',
+    borderRadius: 50,
+    paddingHorizontal: 16,
+    paddingVertical:   8, 
+    alignItems:        'center',
+    shadowColor:       '#000000',
+    shadowOpacity:     0.25,
+    shadowRadius:      12,
+    shadowOffset:      { width: 0, height: 4 },
+    elevation:         8,
+  },
+  floatingHint: {
+    fontSize:      10,
+    color:         'rgba(255,255,255,0.5)',
+    letterSpacing: 1,
+    fontWeight:    '600',
+    marginBottom:  4,
+  },
+  floatingAddress: {
+    fontSize:   14,
+    color:      '#fff',
+    fontWeight: '600',
+    textAlign:  'center',
+  },
+
+  // Bottom bar
+  bottomBar: {
+    position:          'absolute',
+    bottom:            0,
+    left:              0,
+    right:             0,
+    paddingHorizontal: 24,
+    paddingBottom:     40,
+    paddingTop:        16,
+    backgroundColor:   'transparent',
   },
   cta: {
-    flexDirection:   'row',
     alignItems:      'center',
     justifyContent:  'center',
-    gap:             8,
-    backgroundColor: '#111',
-    borderRadius:    16,
-    paddingVertical: 16,
+    backgroundColor: '#294190',
+    borderRadius:    50,  
+    paddingVertical: 14,        
+    paddingHorizontal: 140,     
+    alignSelf:       'center',  
   },
   ctaDisabled: {
-    backgroundColor: '#ccc',
+    backgroundColor: 'rgba(41,65,144,0.4)',
   },
   ctaText: {
-    color:      '#fff',
-    fontSize:   16,
-    fontWeight: '700',
+    color:         '#fff',
+    fontSize:      16,
+    fontWeight:    '700',
+    letterSpacing: -0.2,
   },
 });
