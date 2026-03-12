@@ -432,7 +432,6 @@ export default function MapScreen() {
     );
   }
  
- 
 
   // ── MODE: route ──────────────────────────────
   if (selectionType === "route") {
@@ -1188,27 +1187,6 @@ const wzStyles = StyleSheet.create({
     fontSize:   12,
     color:      '#999',
     marginTop:  2,
-  },
-  addressPill: {
-    flexDirection:     'row',
-    alignItems:        'center',
-    backgroundColor:   '#F7F7F7',
-    borderRadius:      12,
-    borderWidth:       1.5,
-    borderColor:       '#EBEBEB',
-    paddingHorizontal: 14,
-    paddingVertical:   12,
-    marginBottom:      16,
-  },
-  addressText: {
-    flex:       1,
-    fontSize:   14,
-    color:      '#222',
-    fontWeight: '500',
-  },
-  addressLoading: {
-    fontSize: 14,
-    color:    '#aaa',
   },
   cta: {
     flexDirection:   'row',
