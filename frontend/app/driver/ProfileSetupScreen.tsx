@@ -259,8 +259,8 @@ export default function ProfileSetupScreen() {
       setCurrentStep(3);
     } catch (err: any) {
       Alert.alert(
-        'Location mismatch',
-        err.response?.data?.detail || err.response?.data?.message || 'Location does not match your wilaya.'
+       'Error',
+       err.response?.data?.message || 'Failed to save location. Please try again.'
       );
     } finally {
       setGpsLoading(false);

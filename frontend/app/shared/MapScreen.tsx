@@ -88,7 +88,6 @@ export default function MapScreen() {
   const [estimatedPrice, setEstimatedPrice]     = useState<number | null>(null);
   const [showLocationError, setShowLocationError] = useState(false);
   const [showCancelModal, setShowCancelModal]   = useState(false);
-  const [mismatchMsg, setMismatchMsg] = useState('');
 
   const mapRef          = useRef(null);
   const debounceTimeout = useRef(null);
@@ -272,9 +271,8 @@ export default function MapScreen() {
         router.replace('/(driverTabs)/DriverHomeScreen');   // ← flow normal
       }
     } catch (e) {
-     setMismatchMsg(
-       e.response?.data?.detail || e.response?.data?.message || 'Location does not match your wilaya.'
-      );
+      Alert.alert('Error', e.response?.data?.message || 'Failed to save location.');
+      setSavingAddress(false);
     }
   };
 
@@ -431,31 +429,6 @@ export default function MapScreen() {
           )}
         </TouchableOpacity>
       </View>
-
-      {/* ← Modal ici */}
-      <Modal visible={!!mismatchMsg} transparent animationType="fade">
-        <View style={wzStyles.errorOverlay}>
-          <View style={wzStyles.errorCard}>
-            <View style={wzStyles.errorIconCircle}>
-              <Ionicons name="location-outline" size={26} color="#EF4444" />
-            </View>
-            <Text style={wzStyles.errorTitle}>Location mismatch</Text>
-            <Text style={wzStyles.errorMsg}>{mismatchMsg}</Text>
-            <TouchableOpacity
-              style={wzStyles.errorBtn}
-              onPress={() => {
-               setMismatchMsg('');
-               setSelectedLocation(null);
-               setSelectedAddress('');
-               setSavingAddress(false);
-              }}
-              activeOpacity={0.85}
-            >
-              <Text style={wzStyles.errorBtnText}>Got it</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
 
     </View>
   );
