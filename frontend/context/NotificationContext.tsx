@@ -1,12 +1,13 @@
-import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useRef, ReactNode, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { router } from 'expo-router';
 import { useAuth } from './AuthContext';
 import { ToastData } from '../components/NotifToast';
 import { API_URL } from '../services/api';
 import FeedbackModal from '../components/FeedbackModal';
 
-const SOCKET_URL = (process.env.EXPO_PUBLIC_API_URL_SANS_API || API_URL.replace(/\/api$/, ''));
+const SOCKET_URL = (process.env.EXPO_PUBLIC_API_URL_SANS_API?.trim() || API_URL.replace(/\/api$/, ''));
 
 export type Notification = {
   id?: number;
@@ -35,10 +36,9 @@ const NotificationContext = createContext<NotificationContextType | undefined>(u
 
 const CATEGORY_TOAST = (title: string): { color: string; icon: any } => {
   const t = title.toLowerCase();
-  if (t.includes('confirmé') || t.includes('accepté')) return { color: '#22C55E', icon: 'checkmark-circle' };
-  if (t.includes('refus') || t.includes('annulé') || t.includes('expirée')) return { color: '#EF4444', icon: 'close-circle' };
-  if (t.includes('démarré')) return { color: '#3B82F6', icon: 'car' };
-  if (t.includes('terminé')) return { color: '#8B5CF6', icon: 'flag' };
+  if (t.includes('confirme') || t.includes('accepte')) return { color: '#22C55E', icon: 'checkmark-circle' };
+  if (t.includes('refus') || t.includes('annule') || t.includes('expiree')) return { color: '#EF4444', icon: 'close-circle' };
+  if (t.includes('envoyee') || t.includes('cree') || t.includes('demande')) return { color: '#3B82F6', icon: 'car' };
   if (t.includes('avis')) return { color: '#F59E0B', icon: 'star' };
   return { color: '#8B5CF6', icon: 'notifications' };
 };
@@ -48,10 +48,9 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [socket, setSocket] = useState<Socket | null>(null);
   const [currentToast, setCurrentToast] = useState<ToastData | null>(null);
+  const [feedbackModalVisible, setFeedbackModalVisible] = useState(false); // État pour la modale de feedback
+  const [feedbackTrajetId, setFeedbackTrajetId] = useState<number | null>(null); // TrajetId pour lequel ouvrir la modale
   const { user } = useAuth();
-
-  const [feedbackModalVisible, setFeedbackModalVisible] = useState(false);
-  const [feedbackTrajetId, setFeedbackTrajetId] = useState<number | null>(null);
 
 
   const storageKey    = user?.id ? `app_notifications_${user.id}` : null;
@@ -85,9 +84,9 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
       } catch (e) { console.error('Cache load error:', e); }
     };
     load();
-  }, [user?.id]);
+  }, [user?.id, storageKey]);
 
-  // ── 2. Fetch BD au login ────────────────────────────────────────────────────
+  // 2. Sync avec la Base de Données
   const fetchFromDB = useCallback(async (retryCount = 0) => {
     if (!user?.id || !storageKey || !unreadKey) return;
     try {
@@ -189,28 +188,22 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
   // ── 4. Socket.IO ────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!user?.id) return;
-    const newSocket = io(SOCKET_URL, { transports: ['websocket'], reconnection: true });
+    const newSocket = io(SOCKET_URL, {
+      transports: ['websocket'],
+      reconnection: true
+    });
 
     newSocket.on('connect', () => {
-      console.log('🔌 Socket connecté:', newSocket.id);
-      if (user.role === 'passenger') newSocket.emit('registerUser', user.id);
-      else if (user.role === 'driver') newSocket.emit('registerDriver', user.id);
+      if (user.role === 'passenger') {
+        newSocket.emit('registerUser', user.id);
+      } else if (user.role === 'driver') {
+        newSocket.emit('registerDriver', user.id);
+      }
     });
 
     if (user.role === 'passenger') {
       newSocket.on('rideAccepted', (data) => {
-        addNotif(data.title || '✅ Trajet confirmé', data.message || `${data.driver?.prenom} a accepté votre demande.`, { rideId: data.rideId, prenom: data.driver?.prenom, nom: data.driver?.nom });
-      });
-      newSocket.on('rideRejectedByDriver', (data) => {
-        addNotif(data.title || '❌ Demande refusée', data.message || 'Votre demande a été refusée.', { rideId: data.rideId });
-      });
-      newSocket.on('rideStarted', (data) => {
-        addNotif(data.title || '🚗 Trajet démarré', data.message || 'Votre trajet a démarré !', { rideId: data.rideId });
-      });
-      newSocket.on('rideCompleted', (data) => {
-        // ouvre le modal feedback
-        setFeedbackTrajetId(data.rideId ?? null);
-        setFeedbackModalVisible(true);
+        addNotif('Trajet confirme', `${data.driver.prenom} a accepte votre trajet.`);
       });
     }
 

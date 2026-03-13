@@ -3,13 +3,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from './api';
 
 // Helper to derive base socket URL from API_URL
-const SOCKET_URL = API_URL.replace(/\/api$/, '');
+const SOCKET_URL = API_URL.trim().replace(/\/api$/, '');
 
 let socket = null;
 
 /**
- * Initialise ou retourne l'instance de socket connectée.
- * La fonction récupère le JWT stocké en AsyncStorage et l'ajoute
+ * Initialise ou retourne l'instance de socket connectee.
+ * La fonction recupere le JWT stocke en AsyncStorage et l'ajoute
  * dans la payload d'auth lors de la connexion.
  * Usage typique dans un component:
  *   const socket = await initSocket();
@@ -29,11 +29,11 @@ export const initSocket = async () => {
   });
 
   socket.on('connect', () => {
-    console.log('🔌 WebSocket connected:', socket.id);
+    console.log('[socket] connected:', socket.id);
   });
 
   socket.on('connect_error', (err) => {
-    console.warn('⚠️ Socket connect error:', err.message);
+    console.warn('[socket] connect error:', err.message);
   });
 
   // automatically attempt connection once configured
@@ -48,7 +48,7 @@ export const initSocket = async () => {
 export const getSocket = () => socket;
 
 /**
- * Déconnecte et efface l'instance de socket.
+ * Deconnecte et efface l'instance de socket.
  */
 export const disconnectSocket = () => {
   if (socket) {

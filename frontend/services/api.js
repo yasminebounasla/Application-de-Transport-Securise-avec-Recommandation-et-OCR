@@ -1,7 +1,9 @@
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-export const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://10.0.2.2:5000/api';
+const normalizeUrl = (value) => value?.trim().replace(/\/+$/, '');
+
+export const API_URL = normalizeUrl(process.env.EXPO_PUBLIC_API_URL) || 'http://10.0.2.2:4040/api';
 
 const api = axios.create({
   baseURL: API_URL,
@@ -20,7 +22,8 @@ api.interceptors.request.use(
     }
 
     console.log('?? Token:', token ? token.substring(0, 30) + '...' : 'ABSENT');
-    console.log('?? URL appelée:', config.url);
+    console.log('?? Base URL:', config.baseURL);
+    console.log('?? URL called:', config.url);
 
     return config;
   },

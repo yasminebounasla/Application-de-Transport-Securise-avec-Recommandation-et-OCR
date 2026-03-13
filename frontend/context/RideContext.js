@@ -22,6 +22,9 @@ export const RideProvider = ({ children }) => {
   const [driverLocationsByRide, setDriverLocationsByRide] = useState({});
   const passengerSocketRef = useRef(null);
   const passengerListenerRef = useRef(null);
+  const passengerPollInFlightRef = useRef(false);
+  const passengerConsecutiveFailuresRef = useRef(0);
+  const passengerLastLoggedAtRef = useRef(0);
 
   useEffect(() => {
     let mounted = true;
@@ -36,13 +39,19 @@ export const RideProvider = ({ children }) => {
 
     const subscribeToActivePassengerRides = async () => {
       if (!user || user.role !== 'passenger') return;
+      if (passengerPollInFlightRef.current) return;
+      passengerPollInFlightRef.current = true;
       try {
         const response = await api.get('/ridesDem/my-rides');
         const rides = response.data?.data || [];
         if (mounted) setPassengerRides(rides);
-
+        passengerConsecutiveFailuresRef.current = 0;
+  
         const activeRides = rides.filter((r) => ['ACCEPTED', 'IN_PROGRESS'].includes(r.status));
-        if (activeRides.length === 0) return;
+        if (activeRides.length === 0) {
+          passengerPollInFlightRef.current = false;
+          return;
+        }
 
         const sock = await initSocket();
         passengerSocketRef.current = sock;
@@ -63,7 +72,34 @@ export const RideProvider = ({ children }) => {
         activeRides.forEach((ride) => {
           sock.emit('subscribeToRide', ride.id);
         });
+
+        passengerPollInFlightRef.current = false;
       } catch (error) {
+        passengerConsecutiveFailuresRef.current += 1;
+        passengerPollInFlightRef.current = false;
+
+        const now = Date.now();
+        const shouldLog = now - passengerLastLoggedAtRef.current > 15000; // avoid log spam
+        if (!shouldLog) return;
+
+        passengerLastLoggedAtRef.current = now;
+        const baseURL = error?.config?.baseURL;
+        const url = error?.config?.url;
+        const code = error?.code;
+        const server = error?.response?.data;
+
+        // In React Native, "Network Error" usually means the device cannot reach the host/port.
+        console.error(
+          '❌ Erreur auto-tracking passager:',
+          server || error.message,
+          baseURL && url ? `(GET ${String(baseURL)}${String(url)})` : '',
+          code ? `(code ${String(code)})` : '',
+          passengerConsecutiveFailuresRef.current >= 3
+            ? 'Check phone + PC same Wi-Fi and Windows firewall for port 4040.'
+            : ''
+        );
+
+        return;
         console.error('❌ Erreur auto-tracking passager:', error.response?.data || error.message);
       }
     };

@@ -1,196 +1,107 @@
-// exportLightFM.js
-// User = Trajet, Item = Driver
-// ✅ Ajouts : distance_km, score_distance, work_hour_match
-
+﻿// seed.drivers.js
 import { prisma } from "../config/prisma.js";
-import fs from "fs";
-import path from "path";
+import bcrypt from "bcrypt";
 
-const boolToYesNo = (b) => (b ? "yes" : "no");
+const PRENOMS_F = ["Sara", "Lina", "Amira", "Nour", "Yasmine", "Fatima", "Meriem", "Salma", "Rania", "Asma"];
+const PRENOMS_M = ["Hawas", "Mohamed", "Yassine", "Karim", "Mehdi", "Hamza", "Rami", "Khaled", "Sofiane", "Amine"];
+const NOMS = ["Benali", "Mansouri", "Bouzid", "Belkacem", "Haddad", "Amrani", "Slimani", "Meziane", "Bouaziz", "Cherif"];
 
-// ── HAVERSINE ────────────────────────────────────────────────────────────────
-function haversine(lat1, lng1, lat2, lng2) {
-  const R    = 6371;
-  const dLat = ((lat2 - lat1) * Math.PI) / 180;
-  const dLng = ((lng2 - lng1) * Math.PI) / 180;
-  const a =
-    Math.sin(dLat / 2) ** 2 +
-    Math.cos((lat1 * Math.PI) / 180) *
-    Math.cos((lat2 * Math.PI) / 180) *
-    Math.sin(dLng / 2) ** 2;
-  return parseFloat((R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))).toFixed(2));
-}
+// Vraies coordonnees GPS des wilayas algeriennes
+const WILAYAS = [
+  { wilaya: "Alger", lat: 36.7538, lng: 3.0588 },
+  { wilaya: "Oran", lat: 35.6969, lng: 0.6331 },
+  { wilaya: "Constantine", lat: 36.3650, lng: 6.6147 },
+  { wilaya: "Blida", lat: 36.4700, lng: 2.8300 },
+  { wilaya: "Annaba", lat: 36.9000, lng: 7.7667 },
+  { wilaya: "Setif", lat: 36.1898, lng: 5.4108 },
+  { wilaya: "Bejaia", lat: 36.7515, lng: 5.0564 },
+  { wilaya: "Tizi Ouzou", lat: 36.7169, lng: 4.0497 },
+  { wilaya: "Medea", lat: 36.2636, lng: 2.7539 },
+  { wilaya: "Boumerdes", lat: 36.7667, lng: 3.4667 },
+];
 
-// ── SCORE DISTANCE selon délai ───────────────────────────────────────────────
-function scoreDistance(distanceKm, hoursUntilDeparture) {
-  let referenceKm;
-  if      (hoursUntilDeparture < 2)   referenceKm = 15;
-  else if (hoursUntilDeparture < 24)  referenceKm = 40;
-  else if (hoursUntilDeparture < 168) referenceKm = 80;
-  else                                referenceKm = 200;
+const randomChoice = (arr) => arr[Math.floor(Math.random() * arr.length)];
+const randomBool = () => Math.random() > 0.5;
+const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+const randomFloat = (min, max) => parseFloat((Math.random() * (max - min) + min).toFixed(6));
 
-  return parseFloat((1 / (1 + distanceKm / referenceKm)).toFixed(4));
-}
+async function seedDrivers(count = 30) {
+  console.log(`Creation de ${count} drivers...\n`);
+  const hashedPassword = await bcrypt.hash("Test123!", 10);
+  const drivers = [];
 
-// ── HEURE DE TRAVAIL ─────────────────────────────────────────────────────────
-function workHourMatch(driver, departureHour) {
-  if (departureHour >= 5  && departureHour < 12  && driver.works_morning)   return 1;
-  if (departureHour >= 12 && departureHour < 18  && driver.works_afternoon) return 1;
-  if (departureHour >= 18 && departureHour < 22  && driver.works_evening)   return 1;
-  if ((departureHour >= 22 || departureHour < 5) && driver.works_night)     return 1;
-  return 0;
-}
+  for (let i = 1; i <= count; i++) {
+    const sexe = i % 2 === 0 ? "F" : "M";
+    const prenom = randomChoice(sexe === "F" ? PRENOMS_F : PRENOMS_M);
+    const nom = randomChoice(NOMS);
 
-// ── EXPORT PRINCIPAL ─────────────────────────────────────────────────────────
-async function exportLightFM() {
-  console.log("🚀 Export LightFM — User=Trajet, Item=Driver\n");
+    // Wilaya avec coordonnees GPS realistes (legere variation autour du centre)
+    const wilayaData = randomChoice(WILAYAS);
+    const latitude = wilayaData.lat + randomFloat(-0.05, 0.05);
+    const longitude = wilayaData.lng + randomFloat(-0.05, 0.05);
+
+    drivers.push({
+      email: `driver${i}@mail.com`,
+      password: hashedPassword,
+      nom,
+      prenom,
+      numTel: `0${randomInt(500000000, 799999999)}`,
+      sexe,
+      age: randomInt(22, 55),
+      isVerified: true,
+      hasAcceptedPhotoStorage: true,
+      wilaya: wilayaData.wilaya,
+      latitude,
+      longitude,
+      talkative: randomBool(),
+      radio_on: randomBool(),
+      smoking_allowed: randomBool(),
+      pets_allowed: randomBool(),
+      car_big: randomBool(),
+      works_morning: randomBool(),
+      works_afternoon: randomBool(),
+      works_evening: randomBool(),
+      works_night: randomBool(),
+    });
+  }
 
   try {
-    // ── 1. DRIVERS ───────────────────────────────────────────────────────────
-    const drivers = await prisma.driver.findMany();
+    let createdCount = 0;
+    let updatedCount = 0;
 
-    // Map pour accès rapide driver par id
-    const driverMap = {};
-    drivers.forEach((d) => { driverMap[d.id] = d; });
-
-    // ── 2. TRAJETS ───────────────────────────────────────────────────────────
-    const trajets = await prisma.trajet.findMany({
-      where: {
-        status:     { in: ["COMPLETED", "CANCELLED_BY_PASSENGER"] },
-        passagerId: { not: null },
-        driverId:   { not: null },
-      },
-      include: {
-        evaluation: true,
-        passenger:  true,
-      },
-    });
-
-    console.log(`✅ ${drivers.length} drivers, ${trajets.length} trajets récupérés`);
-
-    // ── 3. INTERACTIONS ───────────────────────────────────────────────────────
-    const interactions = [];
-
-    for (const t of trajets) {
-      const driver = driverMap[t.driverId];
-      if (!driver) continue;
-
-      // ── Weight ──────────────────────────────────────────────────────────
-      let weight = 0.0;
-      if (t.status === "CANCELLED_BY_PASSENGER") {
-        weight = 0.1;
-      } else if (t.status === "COMPLETED") {
-        if (!t.evaluation) {
-          weight = 0.5;
-        } else {
-          const r = t.evaluation.rating;
-          if      (r >= 4.5) weight = 1.0;
-          else if (r >= 4.0) weight = 0.8;
-          else if (r >= 3.5) weight = 0.6;
-          else if (r >= 3.0) weight = 0.4;
-          else               weight = 0.2;
-        }
-      }
-
-      // ── Distance driver → point de départ du trajet ──────────────────────
-      let distanceKm   = null;
-      let scoreDistVal = null;
-
-      if (driver.latitude && driver.longitude && t.startLat && t.startLng) {
-        distanceKm   = haversine(driver.latitude, driver.longitude, t.startLat, t.startLng);
-        // Pour les trajets historiques on utilise 48h comme délai par défaut
-        // (on n'a pas le vrai délai au moment de la réservation)
-        const hoursUntilDep = 48;
-        scoreDistVal = scoreDistance(distanceKm, hoursUntilDep);
-      }
-
-      // ── Heure de travail ─────────────────────────────────────────────────
-      let workMatch = null;
-      if (t.heureDepart) {
-        const hour = parseInt(t.heureDepart.split(":")[0], 10);
-        workMatch  = workHourMatch(driver, hour);
-      }
-
-      interactions.push({
-        trajet_id:    `T${t.id}`,
-        driver_id:    `D${t.driverId}`,
-        passenger_id: `P${t.passagerId}`,
-        weight:       weight.toFixed(2),
-
-        // User features (préférences du trajet)
-        quiet_ride:         t.quiet_ride,
-        radio_ok:           t.radio_ok,
-        smoking_ok:         t.smoking_ok,
-        pets_ok:            t.pets_ok,
-        luggage_large:      t.luggage_large,
-        female_driver_pref: t.female_driver_pref,
-
-        // ✅ Nouvelles features
-        distance_km:        distanceKm  !== null ? distanceKm  : "N/A",
-        score_distance:     scoreDistVal !== null ? scoreDistVal : "N/A",
-        work_hour_match:    workMatch    !== null ? workMatch    : "N/A",
-
-        date_trajet: t.updatedAt.toISOString(),
+    for (const driver of drivers) {
+      const existing = await prisma.driver.findUnique({
+        where: { email: driver.email },
+        select: { id: true },
       });
+
+      if (existing) {
+        await prisma.driver.update({
+          where: { email: driver.email },
+          data: driver,
+        });
+        updatedCount++;
+      } else {
+        await prisma.driver.create({ data: driver });
+        createdCount++;
+      }
     }
 
-    // ── 4. DOSSIER D'EXPORT ───────────────────────────────────────────────────
-    const exportDir = path.join(process.cwd(), "../ml-service/lightfm_data");
-    if (!fs.existsSync(exportDir)) fs.mkdirSync(exportDir, { recursive: true });
+    console.log(`✅ ${createdCount} drivers crees avec succes!`);
+    console.log(`✅ ${updatedCount} drivers mis a jour!\n`);
 
-    // ── 5. TRAJETS.CSV (user features) ───────────────────────────────────────
-    const tHeader =
-      "trajet_id,passenger_id,quiet_ride,radio_ok,smoking_ok,pets_ok,luggage_large,female_driver_pref,distance_km,score_distance,work_hour_match\n";
-    const tRows = interactions
-      .map(
-        (i) =>
-          `${i.trajet_id},${i.passenger_id},${i.quiet_ride},${i.radio_ok},${i.smoking_ok},${i.pets_ok},${i.luggage_large},${i.female_driver_pref},${i.distance_km},${i.score_distance},${i.work_hour_match}`
-      )
-      .join("\n");
-    fs.writeFileSync(path.join(exportDir, "trajets.csv"), tHeader + tRows);
-    console.log("✅ trajets.csv créé (user features)");
-
-    // ── 6. DRIVERS.CSV (item features) ───────────────────────────────────────
-    const dHeader =
-      "driver_id,talkative,radio_on,smoking_allowed,pets_allowed,car_big,driver_gender,avg_rating,works_morning,works_afternoon,works_evening,works_night,latitude,longitude\n";
-    const dRows = drivers
-      .map(
-        (d) =>
-          `D${d.id},${boolToYesNo(d.talkative)},${boolToYesNo(d.radio_on)},${boolToYesNo(d.smoking_allowed)},${boolToYesNo(d.pets_allowed)},${boolToYesNo(d.car_big)},${d.sexe?.toLowerCase() === "f" ? "female" : "male"},${(d.avgRating || 4.0).toFixed(1)},${boolToYesNo(d.works_morning)},${boolToYesNo(d.works_afternoon)},${boolToYesNo(d.works_evening)},${boolToYesNo(d.works_night)},${d.latitude ?? "N/A"},${d.longitude ?? "N/A"}`
-      )
-      .join("\n");
-    fs.writeFileSync(path.join(exportDir, "drivers.csv"), dHeader + dRows);
-    console.log("✅ drivers.csv créé (item features)");
-
-    // ── 7. INTERACTIONS.CSV ───────────────────────────────────────────────────
-    const iHeader = "trajet_id,driver_id,weight,date_trajet\n";
-    const iRows   = interactions
-      .map((i) => `${i.trajet_id},${i.driver_id},${i.weight},${i.date_trajet}`)
-      .join("\n");
-    fs.writeFileSync(path.join(exportDir, "interactions.csv"), iHeader + iRows);
-    console.log("✅ interactions.csv créé");
-
-    // ── 8. RÉSUMÉ ─────────────────────────────────────────────────────────────
-    const withDist    = interactions.filter((i) => i.distance_km !== "N/A").length;
-    const withWork    = interactions.filter((i) => i.work_hour_match !== "N/A").length;
-    const highWeight  = interactions.filter((i) => parseFloat(i.weight) > 0.5).length;
-
-    console.log(`\n📊 Résumé :`);
-    console.log(`   Drivers                    : ${drivers.length}`);
-    console.log(`   Interactions totales        : ${interactions.length}`);
-    console.log(`   Avec distance calculée      : ${withDist}`);
-    console.log(`   Avec work_hour_match        : ${withWork}`);
-    console.log(`   Interactions weight > 0.5   : ${highWeight}`);
-    console.log(`\n✅ Export terminé → ${exportDir}`);
-
-    await prisma.$disconnect();
-
+    const created = await prisma.driver.findMany({ take: 5 });
+    console.log("Exemples de drivers:");
+    created.forEach((d) => {
+      console.log(
+        `  - ${d.prenom} ${d.nom} (${d.sexe}) | ${d.wilaya} | lat: ${d.latitude?.toFixed(4)}, lng: ${d.longitude?.toFixed(4)} | talkative: ${d.talkative}`
+      );
+    });
   } catch (error) {
-    console.error("❌ Erreur lors de l'export :", error);
+    console.error("❌ Erreur:", error.message);
+  } finally {
     await prisma.$disconnect();
-    process.exit(1);
   }
 }
 
-export { exportLightFM };
-exportLightFM();
+seedDrivers(100);

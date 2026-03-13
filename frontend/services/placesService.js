@@ -1,5 +1,6 @@
-console.log('API KEY:', LOCATIONIQ_API_KEY);
 const LOCATIONIQ_API_KEY = process.env.EXPO_PUBLIC_LOCATIONIQ_API_KEY;
+// Avoid logging secrets; this is only a quick dev sanity check.
+console.log('[places] LocationIQ key:', LOCATIONIQ_API_KEY ? 'LOADED' : 'MISSING');
 const LOCATIONIQ_BASE_URL = 'https://us1.locationiq.com/v1';
 
 let lastRequestTime = 0;
@@ -67,6 +68,10 @@ function formatAddress(place) {
 
 export async function searchPlaces(query, userLocation = null) {
   if (!query || query.length < 2) return [];
+  if (!LOCATIONIQ_API_KEY) {
+    console.warn('[places] Missing EXPO_PUBLIC_LOCATIONIQ_API_KEY; searchPlaces disabled.');
+    return [];
+  }
 
   // ✅ Rate limiting
   const now = Date.now();
