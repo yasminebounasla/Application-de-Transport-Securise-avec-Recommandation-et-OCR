@@ -401,15 +401,7 @@ export default function ProfileSetupScreen() {
          <Ionicons name="checkmark" size={18} color="#fff" />
         </TouchableOpacity>
       </View>
-
-     {/* ── Skip ── */}
-     <TouchableOpacity
-       style={s.skipBtn}
-       onPress={() => router.replace('/(driverTabs)/DriverHomeScreen')}
-       activeOpacity={0.7}
-      >
-       <Text style={s.skipText}>Fill in later</Text>
-      </TouchableOpacity>
+      
     </View>
   );
 
@@ -663,16 +655,6 @@ const s = StyleSheet.create({
   optionTitle:       { fontSize: 15, fontWeight: '700', color: '#111', marginBottom: 2 },
   optionSubtitle:    { fontSize: 12, color: '#888' },
   optionDivider:     { height: 1, backgroundColor: '#F5F5F5' },
-  skipBtn: {
-   alignItems:  'center',
-   marginTop:   12,
-   paddingVertical: 10,
-  },
-  skipText: {
-   fontSize:   14,
-   color:      '#999',
-   textDecorationLine: 'underline',
-  },
 });
 
 const doneStyles = StyleSheet.create({
