@@ -29,6 +29,22 @@ import {
   formatLicensePlateInput,
 } from '../../utils/validationVehicule';
 
+// ── Step Indicator ────────────────────────────────────────────────────────────
+function StepIndicator({ current, total }: { current: number; total: number }) {
+  const labels = ['Your Vehicle', 'Your Work Zone', 'Your Preferences'];
+  return (
+    <View style={stepStyles.wrap}>
+      <Text style={stepStyles.counter}>{current} of {total}</Text>
+      <View style={stepStyles.barWrap}>
+        {Array.from({ length: total }).map((_, i) => (
+          <View key={i} style={[stepStyles.bar, i < current && stepStyles.barActive]} />
+        ))}
+      </View>
+      <Text style={stepStyles.label}>{labels[current - 1]}</Text>
+    </View>
+  );
+}
+
 // ── Field ─────────────────────────────────────────────────────────────────────
 interface FieldProps {
   label: string;
@@ -153,17 +169,15 @@ export default function ProfileSetupScreen() {
   const [brandSuggestions, setBrandSuggestions] = useState<string[]>([]);
   const [modelSuggestions, setModelSuggestions] = useState<string[]>([]);
   const [colorSuggestions, setColorSuggestions] = useState<string[]>([]);
-  const [showDoneModal, setShowDoneModal] = useState(false);
+  const [showDoneModal, setShowDoneModal]       = useState(false);
 
-   
-  // ── ✅ Quand on revient de MapScreen → avance au step 3 ───────────────────
- // ✅ useFocusEffect — useRef ne cause pas de re-render
+  // ── useFocusEffect — avance au step 3 après retour MapScreen ─────────────
   useFocusEffect(
     useCallback(() => {
-     if (currentStep === 2 && workZoneDoneRef.current) {
-       workZoneDoneRef.current = false;
-       setCurrentStep(3);
-     }
+      if (currentStep === 2 && workZoneDoneRef.current) {
+        workZoneDoneRef.current = false;
+        setCurrentStep(3);
+      }
     }, [currentStep])
   );
 
@@ -259,8 +273,8 @@ export default function ProfileSetupScreen() {
       setCurrentStep(3);
     } catch (err: any) {
       Alert.alert(
-       'Error',
-       err.response?.data?.message || 'Failed to save location. Please try again.'
+        'Error',
+        err.response?.data?.message || 'Failed to save location. Please try again.'
       );
     } finally {
       setGpsLoading(false);
@@ -269,15 +283,24 @@ export default function ProfileSetupScreen() {
 
   // ── Step 2: Work zone — Map ───────────────────────────────────────────────
   const handleSetOnMap = () => {
-   workZoneDoneRef.current = true;   // ← ref, pas de re-render
-   router.push({
-     pathname: '/shared/MapScreen',
-     params:   { selectionType: 'work_zone', fromOnboarding: 'true' },
+    workZoneDoneRef.current = true;
+    router.push({
+      pathname: '/shared/MapScreen',
+      params:   { selectionType: 'work_zone', fromOnboarding: 'true' },
     });
   };
 
   // ── Step 3 submit: Preferences ────────────────────────────────────────────
   const handleCompleteSetup = async () => {
+    const hasWorkingHours =
+      preferences.works_morning || preferences.works_afternoon ||
+      preferences.works_evening || preferences.works_night;
+
+    if (!hasWorkingHours) {
+      Alert.alert('Required', 'Please select at least one working time slot.');
+      return;
+    }
+
     setLoading(true);
     try {
       await api.put('/drivers/preferences', preferences);
@@ -304,12 +327,12 @@ export default function ProfileSetupScreen() {
         <Field label="Brand *"         value={vehicleData.marque}  onChangeText={handleBrandChange}        placeholder="Peugeot, Toyota, Mercedes..." error={errors.marque} />
         <SuggestionList items={brandSuggestions} onSelect={selectBrand} />
 
-        <Field label="Model"           value={vehicleData.modele}  onChangeText={handleModelChange}        placeholder="308, Corolla, C-Class..."      error={errors.modele} />
+        <Field label="Model"           value={vehicleData.modele}  onChangeText={handleModelChange}        placeholder="308, Corolla, C-Class..."     error={errors.modele} />
         <SuggestionList items={modelSuggestions} onSelect={(m) => { setVehicleData({ ...vehicleData, modele: m }); setModelSuggestions([]); setErrors({ ...errors, modele: '' }); }} />
 
         <Field label="License Plate *" value={vehicleData.plaque}  onChangeText={handleLicensePlateChange} placeholder="123456 126 16" keyboardType="numeric" error={errors.plaque} />
 
-        <Field label="Color"           value={vehicleData.couleur} onChangeText={handleColorChange}        placeholder="Black, White, Red..."         error={errors.couleur} />
+        <Field label="Color"           value={vehicleData.couleur} onChangeText={handleColorChange}        placeholder="Black, White, Red..."        error={errors.couleur} />
         <SuggestionList items={colorSuggestions} onSelect={(c) => { setVehicleData({ ...vehicleData, couleur: c }); setColorSuggestions([]); setErrors({ ...errors, couleur: '' }); }} />
       </View>
 
@@ -360,7 +383,7 @@ export default function ProfileSetupScreen() {
     </View>
   );
 
-  // ── STEP 3 — Style ────────────────────────────────────────────────────────
+  // ── STEP 3 — Preferences ─────────────────────────────────────────────────
   const renderPreferencesForm = () => (
     <View>
       <View style={s.headerWrap}>
@@ -380,16 +403,19 @@ export default function ProfileSetupScreen() {
         <ToggleRow icon="car-sport-outline"     label="Large car"       value={preferences.car_big}         onToggle={() => toggle('car_big')} />
       </View>
 
-      <Text style={s.sectionLabel}>WORKING HOURS</Text>
+      <Text style={s.sectionLabel}>
+        WORKING HOURS <Text style={{ color: '#EF4444' }}>*</Text>
+      </Text>
       <View style={s.card}>
         <ToggleRow icon="sunny-outline"        label="Morning  6am – 12pm"  value={preferences.works_morning}   onToggle={() => toggle('works_morning')} />
         <ToggleRow icon="partly-sunny-outline" label="Afternoon 12pm – 6pm" value={preferences.works_afternoon} onToggle={() => toggle('works_afternoon')} />
         <ToggleRow icon="moon-outline"         label="Evening  6pm – 10pm"  value={preferences.works_evening}   onToggle={() => toggle('works_evening')} />
         <ToggleRow icon="cloudy-night-outline" label="Night  10pm – 6am"    value={preferences.works_night}     onToggle={() => toggle('works_night')} />
       </View>
+
       <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
         <TouchableOpacity style={s.ctaBack} onPress={() => setCurrentStep(2)} activeOpacity={0.7}>
-         <Ionicons name="arrow-back" size={18} color="#111" />
+          <Ionicons name="arrow-back" size={18} color="#111" />
         </TouchableOpacity>
         <TouchableOpacity
           style={[s.cta, { flex: 1 }, loading && s.ctaDisabled]}
@@ -397,17 +423,22 @@ export default function ProfileSetupScreen() {
           disabled={loading}
           activeOpacity={0.85}
         >
-         <Text style={s.ctaText}>{loading ? 'Saving...' : 'Complete setup'}</Text>
-         <Ionicons name="checkmark" size={18} color="#fff" />
+          <Text style={s.ctaText}>{loading ? 'Saving...' : 'Complete setup'}</Text>
+          <Ionicons name="checkmark" size={18} color="#fff" />
         </TouchableOpacity>
       </View>
-      
     </View>
   );
 
- return (
+  return (
     <>
       <Stack.Screen options={{ title: 'Complete your profile', headerBackVisible: false, headerShadowVisible: false }} />
+
+      {/* ── Step indicator ── */}
+      <View style={stepStyles.container}>
+        <StepIndicator current={currentStep} total={3} />
+      </View>
+
       <ScrollView
         style={s.screen}
         contentContainerStyle={{ padding: 24, paddingBottom: 48 }}
@@ -445,7 +476,47 @@ export default function ProfileSetupScreen() {
   );
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────────
+// ── Step indicator styles ─────────────────────────────────────────────────────
+const stepStyles = StyleSheet.create({
+  container: {
+    backgroundColor:   '#F8F8F8',
+    paddingHorizontal: 24,
+    paddingTop:        12,
+    paddingBottom:     4,
+  },
+  wrap: {
+    alignItems:   'center',
+    marginBottom: 8,
+  },
+  counter: {
+    fontSize:      12,
+    fontWeight:    '700',
+    color:         '#888',
+    marginBottom:  8,
+    letterSpacing: 0.5,
+  },
+  barWrap: {
+    flexDirection: 'row',
+    gap:           6,
+    marginBottom:  6,
+  },
+  bar: {
+    width:           80,
+    height:          3,
+    borderRadius:    2,
+    backgroundColor: '#E5E7EB',
+  },
+  barActive: {
+    backgroundColor: '#294190',
+  },
+  label: {
+    fontSize:   12,
+    color:      '#294190',
+    fontWeight: '600',
+  },
+});
+
+// ── Main styles ───────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
   screen: {
     flex:            1,
@@ -595,15 +666,15 @@ const s = StyleSheet.create({
     backgroundColor: '#111',
   },
   thumb: {
-    width:        20,
-    height:       20,
-    borderRadius: 10,
+    width:           20,
+    height:          20,
+    borderRadius:    10,
     backgroundColor: '#fff',
-    alignSelf:    'flex-start',
-    shadowColor:  '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation:    2,
+    alignSelf:       'flex-start',
+    shadowColor:     '#000',
+    shadowOpacity:   0.15,
+    shadowRadius:    4,
+    elevation:       2,
   },
   thumbActive: {
     alignSelf: 'flex-end',
@@ -633,49 +704,47 @@ const s = StyleSheet.create({
     alignItems:      'center',
     justifyContent:  'center',
   },
-  
-  // Info box
-  infoBox:{
-   flexDirection: 'row',
-   alignItems: 'flex-start',
-   backgroundColor: '#F0F9F0', 
-   borderRadius: 12, 
-   padding: 14, 
-   marginBottom: 20 
+  infoBox: {
+    flexDirection:   'row',
+    alignItems:      'flex-start',
+    backgroundColor: '#F0F9F0',
+    borderRadius:    12,
+    padding:         14,
+    marginBottom:    20,
   },
-  infoText:{ flex: 1, 
-    fontSize: 13, 
-    color: '#555', 
-    lineHeight: 18 
+  infoText: {
+    flex:       1,
+    fontSize:   13,
+    color:      '#555',
+    lineHeight: 18,
   },
-
-  // Option cards
-  optionCard:        { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 16 },
-  optionIconWrap:    { width: 44, height: 44, borderRadius: 14, backgroundColor: '#111', alignItems: 'center', justifyContent: 'center' },
-  optionTitle:       { fontSize: 15, fontWeight: '700', color: '#111', marginBottom: 2 },
-  optionSubtitle:    { fontSize: 12, color: '#888' },
-  optionDivider:     { height: 1, backgroundColor: '#F5F5F5' },
+  optionCard:     { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 16 },
+  optionIconWrap: { width: 44, height: 44, borderRadius: 14, backgroundColor: '#111', alignItems: 'center', justifyContent: 'center' },
+  optionTitle:    { fontSize: 15, fontWeight: '700', color: '#111', marginBottom: 2 },
+  optionSubtitle: { fontSize: 12, color: '#888' },
+  optionDivider:  { height: 1, backgroundColor: '#F5F5F5' },
 });
 
+// ── Done modal styles ─────────────────────────────────────────────────────────
 const doneStyles = StyleSheet.create({
   overlay: {
-    flex:            1,
-    backgroundColor: 'rgba(0,0,0,0.45)',
-    alignItems:      'center',
-    justifyContent:  'center',
+    flex:              1,
+    backgroundColor:   'rgba(0,0,0,0.45)',
+    alignItems:        'center',
+    justifyContent:    'center',
     paddingHorizontal: 32,
   },
   card: {
-    backgroundColor:  '#fff',
-    borderRadius:     24,
+    backgroundColor:   '#fff',
+    borderRadius:      24,
     paddingHorizontal: 28,
-    paddingVertical:  32,
-    alignItems:       'center',
-    width:            '100%',
-    shadowColor:      '#000',
-    shadowOpacity:    0.12,
-    shadowRadius:     20,
-    elevation:        10,
+    paddingVertical:   32,
+    alignItems:        'center',
+    width:             '100%',
+    shadowColor:       '#000',
+    shadowOpacity:     0.12,
+    shadowRadius:      20,
+    elevation:         10,
   },
   iconCircle: {
     width:           64,
@@ -694,19 +763,19 @@ const doneStyles = StyleSheet.create({
     letterSpacing: -0.5,
   },
   subtitle: {
-  fontSize:     13,      // ← réduit
-  color:        '#888',
-  textAlign:    'center',
-  lineHeight:   20,      // ← réduit
-  marginBottom: 20,      // ← réduit
+    fontSize:     13,
+    color:        '#888',
+    textAlign:    'center',
+    lineHeight:   20,
+    marginBottom: 20,
   },
   btn: {
-    backgroundColor: '#294190',
-    borderRadius:    14,
-    paddingVertical:   13,    // ← réduit
-    paddingHorizontal: 32,  
-    alignItems:      'center',
-    width:           '100%',
+    backgroundColor:   '#294190',
+    borderRadius:      14,
+    paddingVertical:   13,
+    paddingHorizontal: 32,
+    alignItems:        'center',
+    width:             '100%',
   },
   btnText: {
     color:      '#fff',

@@ -106,7 +106,7 @@ function DateErrorModal({
 
               {/* Icon */}
               <View style={modalStyles.iconWrap}>
-                <Ionicons name="time-outline" size={22} color="#F97316" />
+                <Ionicons name="time-outline" size={22} color="#007AFF" />
               </View>
 
               {/* Title */}
@@ -1639,7 +1639,7 @@ const modalStyles = StyleSheet.create({
     width:           48,
     height:          48,
     borderRadius:    24,
-    backgroundColor: "#FFF7ED",
+    backgroundColor: "#eaf4fe",
     alignItems:      "center",
     justifyContent:  "center",
     marginBottom:    12,
@@ -1662,7 +1662,7 @@ const modalStyles = StyleSheet.create({
     color:      "#111",
   },
   btn: {
-    backgroundColor: "#FFF7ED",
+    backgroundColor: "#eaf4fe",
     borderRadius:    12,
     paddingVertical: 12,
     width:           "85%",
@@ -1671,7 +1671,7 @@ const modalStyles = StyleSheet.create({
     marginTop:       20,
   },
   btnText: {
-    color:      "#F97316",
+    color:      "#007AFF",
     fontSize:   16,
     fontWeight: "700",
   },
