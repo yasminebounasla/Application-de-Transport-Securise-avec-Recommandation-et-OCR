@@ -4,14 +4,15 @@ import {
   ActivityIndicator, TextInput, Switch, StyleSheet,
   KeyboardAvoidingView, Platform, Animated,
 } from 'react-native';
-import { Stack, router } from 'expo-router';
+import { Stack, router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../../services/api';
 import type { KeyboardTypeOptions } from 'react-native';
+import { useCallback } from 'react';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
-type Tab = 'personal' | 'preferences' | 'vehicle';
+type Tab = 'personal' | 'preferences' | 'vehicle' | 'zone';
 
 // ── TOAST ──
 function Toast({ visible }: { visible: boolean }) {
@@ -116,7 +117,20 @@ export default function EditProfileScreen() {
   const [works_evening, setWorksEvening]     = useState(false);
   const [works_night, setWorksNight]         = useState(false);
 
+  // Zone
+  const [workZoneAddress, setWorkZoneAddress] = useState('');
+  const [wilaya, setWilaya]                   = useState('');
+
   useEffect(() => { loadData(); }, []);
+
+  // ── Refresh work zone quand on revient de MapScreen ──
+  useFocusEffect(
+    useCallback(() => {
+      if (activeTab === 'zone') {
+        loadZone();
+      }
+    }, [activeTab])
+  );
 
   const loadData = async () => {
     try {
@@ -139,11 +153,22 @@ export default function EditProfileScreen() {
       setWorksAfternoon(!!p.works_afternoon);
       setWorksEvening(!!p.works_evening);
       setWorksNight(!!p.works_night);
+      setWorkZoneAddress(d.workZoneAddress || '');
+      setWilaya(d.wilaya || '');
     } catch (e) {
       Alert.alert('Error', 'Failed to load profile.');
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadZone = async () => {
+    try {
+      const res = await api.get('/drivers/me');
+      const d = res.data.data;
+      setWorkZoneAddress(d.workZoneAddress || '');
+      setWilaya(d.wilaya || '');
+    } catch (e) {}
   };
 
   const updateUserInStorage = async () => {
@@ -191,9 +216,10 @@ export default function EditProfileScreen() {
   }
 
   const tabs: { key: Tab; label: string; icon: IoniconsName }[] = [
-    { key: 'personal',     label: 'Personal',    icon: 'person-outline' },
-    { key: 'preferences',  label: 'Preferences', icon: 'options-outline' },
-    { key: 'vehicle',      label: 'Vehicle',     icon: 'car-outline' },
+    { key: 'personal',    label: 'Personal',    icon: 'person-outline' },
+    { key: 'preferences', label: 'Preferences', icon: 'options-outline' },
+    { key: 'zone',        label: 'Zone',        icon: 'location-outline' },
+    { key: 'vehicle',     label: 'Vehicle',     icon: 'car-outline' },
   ];
 
   return (
@@ -231,7 +257,6 @@ export default function EditProfileScreen() {
           {/* ── PERSONAL TAB ── */}
           {activeTab === 'personal' && (
             <>
-              {/* Avatar */}
               <View style={styles.avatarSection}>
                 <TouchableOpacity style={styles.avatarCircle}
                   onPress={() => Alert.alert('Coming Soon', 'Photo upload will be available soon.')}
@@ -269,7 +294,7 @@ export default function EditProfileScreen() {
           {activeTab === 'preferences' && (
             <>
               <View style={[styles.card, { marginTop: 20 }]}>
-                <Text style={styles.sectionTitle}>Preferences</Text>
+                <Text style={styles.sectionTitle}>Ride Style</Text>
                 <ToggleField label="Talkative"       icon="chatbubbles-outline"   value={talkative}       onValueChange={setTalkative} />
                 <ToggleField label="Radio On"        icon="musical-notes-outline" value={radio_on}        onValueChange={setRadioOn} />
                 <ToggleField label="Smoking Allowed" icon="flame-outline"         value={smoking_allowed} onValueChange={setSmokingAllowed} />
@@ -294,6 +319,92 @@ export default function EditProfileScreen() {
                 </TouchableOpacity>
               </View>
             </>
+          )}
+
+          {/* ── ZONE TAB ── */}
+          {activeTab === 'zone' && (
+            <View style={{ marginTop: 20 }}>
+              <View style={styles.card}>
+                <Text style={styles.sectionTitle}>Work Zone</Text>
+                <Text style={styles.zoneHint}>
+                  Your work zone determines which passengers can find you. Only your wilaya is visible to passengers — never your exact location.
+                </Text>
+
+                {/* Adresse actuelle */}
+                <View style={styles.zoneCurrentBox}>
+                  <View style={styles.zoneIconWrap}>
+                    <Ionicons name="location" size={20} color="#294190" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.zoneCurrentLabel}>Current zone</Text>
+                    <Text style={styles.zoneCurrentValue}>
+                      {workZoneAddress || wilaya || 'Not set yet'}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Options de mise à jour */}
+              <View style={styles.card}>
+                <Text style={styles.sectionTitle}>Update Zone</Text>
+
+                {/* GPS */}
+                <TouchableOpacity
+                  style={styles.zoneOptionRow}
+                  onPress={async () => {
+                    try {
+                      const Location = require('expo-location');
+                      const { status } = await Location.requestForegroundPermissionsAsync();
+                      if (status !== 'granted') {
+                        Alert.alert('Permission denied', 'Location permission is required.');
+                        return;
+                      }
+                      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
+                      await api.patch('/drivers/profile/location', {
+                        latitude:  loc.coords.latitude,
+                        longitude: loc.coords.longitude,
+                      });
+                      await loadZone();
+                      setShowToast(true);
+                      setTimeout(() => setShowToast(false), 2200);
+                    } catch (e: any) {
+                      Alert.alert('Error', e.response?.data?.message || 'Failed to update location.');
+                    }
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.zoneOptionIcon}>
+                    <Ionicons name="locate" size={20} color="#fff" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.zoneOptionTitle}>Use current location</Text>
+                    <Text style={styles.zoneOptionSub}>Quick — uses your GPS right now</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#CCC" />
+                </TouchableOpacity>
+
+                <View style={styles.optionDivider} />
+
+                {/* Map */}
+                <TouchableOpacity
+                  style={styles.zoneOptionRow}
+                  onPress={() => router.push({
+                    pathname: '/shared/MapScreen',
+                    params:   { selectionType: 'work_zone' },
+                  })}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.zoneOptionIcon, { backgroundColor: '#111' }]}>
+                    <Ionicons name="map-outline" size={20} color="#fff" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.zoneOptionTitle}>Set on map</Text>
+                    <Text style={styles.zoneOptionSub}>Pin your exact work area manually</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color="#CCC" />
+                </TouchableOpacity>
+              </View>
+            </View>
           )}
 
           {/* ── VEHICLE TAB ── */}
@@ -321,79 +432,104 @@ export default function EditProfileScreen() {
   );
 }
 
+// ─────────────────────────────────────────────
+// STYLES
+// ─────────────────────────────────────────────
 const styles = StyleSheet.create({
   topBar: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff',
-    paddingTop: Platform.OS === 'ios' ? 54 : 18,
-    paddingBottom: 14, paddingHorizontal: 16,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingHorizontal: 16, paddingVertical: 14, backgroundColor: '#fff',
     borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
   },
-  backBtn:     { padding: 6, marginRight: 8 },
-  topBarTitle: { flex: 1, fontSize: 18, fontWeight: '700', color: '#111' },
+  backBtn:      { width: 40, height: 40, alignItems: 'flex-start', justifyContent: 'center' },
+  topBarTitle:  { fontSize: 17, fontWeight: '800', color: '#111' },
 
   tabBar: {
     flexDirection: 'row', backgroundColor: '#fff',
     borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
   },
   tabItem: {
-    flex: 1, alignItems: 'center', justifyContent: 'center',
-    flexDirection: 'row', gap: 6,
-    paddingVertical: 12, borderBottomWidth: 2, borderBottomColor: 'transparent',
+    flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 5, paddingVertical: 12,
+    borderBottomWidth: 2, borderBottomColor: 'transparent',
   },
   tabItemActive:  { borderBottomColor: '#111' },
-  tabLabel:       { fontSize: 13, fontWeight: '600', color: '#999' },
+  tabLabel:       { fontSize: 12, color: '#999', fontWeight: '600' },
   tabLabelActive: { color: '#111' },
 
-  avatarSection: {
-    alignItems: 'center', paddingTop: 28, paddingBottom: 20,
-    backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F0F0F0', marginBottom: 16,
-  },
+  avatarSection: { alignItems: 'center', paddingTop: 24, paddingBottom: 8 },
   avatarCircle: {
-    width: 90, height: 90, borderRadius: 45, backgroundColor: '#111',
+    width: 88, height: 88, borderRadius: 44, backgroundColor: '#111',
     alignItems: 'center', justifyContent: 'center',
   },
   cameraBadge: {
     position: 'absolute', bottom: 0, right: 0,
-    width: 28, height: 28, borderRadius: 14, backgroundColor: '#444',
-    alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff',
+    width: 28, height: 28, borderRadius: 14, backgroundColor: '#294190',
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 2, borderColor: '#fff',
   },
-  avatarHint: { marginTop: 10, fontSize: 13, color: '#999' },
+  avatarHint: { fontSize: 12, color: '#999', marginTop: 8 },
 
   card: {
-    backgroundColor: '#fff', marginHorizontal: 16, marginBottom: 16,
-    borderRadius: 16, padding: 20,
-    borderWidth: 1, borderColor: '#F0F0F0',
-    shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, elevation: 2,
+    marginHorizontal: 16, marginTop: 16,
+    backgroundColor: '#fff', borderRadius: 16,
+    padding: 16, shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
   },
-  sectionTitle: { fontSize: 15, fontWeight: '800', color: '#111', marginBottom: 16, letterSpacing: 0.2 },
+  sectionTitle: { fontSize: 15, fontWeight: '800', color: '#111', marginBottom: 14 },
 
-  fieldWrapper: { marginBottom: 16 },
-  fieldLabel:   { fontSize: 12, fontWeight: '600', color: '#888', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
-  inputRow: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#F9FAFB', borderRadius: 12,
-    borderWidth: 1, borderColor: '#E5E7EB', paddingHorizontal: 14, height: 50,
-  },
+  fieldWrapper:  { marginBottom: 14 },
+  fieldLabel:    { fontSize: 11, fontWeight: '700', color: '#888', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
+  inputRow:      { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F9FAFB', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, borderWidth: 1, borderColor: '#F0F0F0' },
   inputDisabled: { backgroundColor: '#F3F4F6', opacity: 0.7 },
   input:         { flex: 1, fontSize: 15, color: '#111' },
 
-  genderBtn:           { flex: 1, height: 44, borderRadius: 10, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F3F4F6', borderWidth: 1.5, borderColor: '#E5E7EB' },
-  genderBtnActive:     { backgroundColor: '#111', borderColor: '#111' },
-  genderBtnText:       { fontSize: 14, fontWeight: '600', color: '#555' },
+  toggleRow:   { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F9FAFB' },
+  toggleLabel: { fontSize: 14, color: '#111', fontWeight: '500' },
+
+  genderBtn:         { flex: 1, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', alignItems: 'center' },
+  genderBtnActive:   { backgroundColor: '#111', borderColor: '#111' },
+  genderBtnText:     { fontSize: 14, fontWeight: '600', color: '#666' },
   genderBtnTextActive: { color: '#fff' },
 
-  toggleRow:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
-  toggleLabel: { fontSize: 15, color: '#374151' },
+  saveBtn:         { backgroundColor: '#111', borderRadius: 14, paddingVertical: 16, alignItems: 'center' },
+  saveBtnDisabled: { opacity: 0.5 },
+  saveBtnText:     { color: '#fff', fontSize: 15, fontWeight: '700' },
 
-  saveBtn:         { backgroundColor: '#000', height: 54, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-  saveBtnDisabled: { backgroundColor: '#999' },
-  saveBtnText:     { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.3 },
+  // Zone tab
+  zoneHint: {
+    fontSize: 13, color: '#888', lineHeight: 19, marginBottom: 16,
+  },
+  zoneCurrentBox: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#EEF2FF', borderRadius: 12, padding: 14,
+  },
+  zoneIconWrap: {
+    width: 40, height: 40, borderRadius: 20, backgroundColor: '#fff',
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#294190', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12, shadowRadius: 4, elevation: 2,
+  },
+  zoneCurrentLabel: { fontSize: 11, fontWeight: '700', color: '#294190', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
+  zoneCurrentValue: { fontSize: 14, fontWeight: '600', color: '#111' },
+
+  zoneOptionRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 12,
+  },
+  zoneOptionIcon: {
+    width: 42, height: 42, borderRadius: 12, backgroundColor: '#294190',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  zoneOptionTitle: { fontSize: 14, fontWeight: '700', color: '#111', marginBottom: 2 },
+  zoneOptionSub:   { fontSize: 12, color: '#888' },
+  optionDivider:   { height: 1, backgroundColor: '#F5F5F5', marginVertical: 4 },
 
   toast: {
-    position: 'absolute', bottom: 40, alignSelf: 'center',
+    position: 'absolute', bottom: 32, alignSelf: 'center',
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    backgroundColor: '#111', paddingHorizontal: 22, paddingVertical: 12, borderRadius: 30,
-    shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 10, elevation: 10,
+    backgroundColor: '#111', borderRadius: 20,
+    paddingHorizontal: 18, paddingVertical: 12,
   },
   toastText: { color: '#fff', fontSize: 14, fontWeight: '600' },
 });
