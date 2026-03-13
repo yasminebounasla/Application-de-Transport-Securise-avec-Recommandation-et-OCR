@@ -252,6 +252,21 @@ export const RideProvider = ({ children }) => {
     }
   };
 
+  const startRide = async (rideId) => {
+    try {
+      console.log('🚦 Demarrage du ride:', rideId);
+
+      const response = await api.put(`/ridesDem/${rideId}/start`);
+      const startedRide = response.data.data;
+
+      setCurrentRide(startedRide);
+      return startedRide;
+    } catch (error) {
+      console.error('❌ Erreur startRide:', error.response?.data || error.message);
+      throw error;
+    }
+  };
+
   // Ajoute cette fonction DANS le RideProvider (après cancelRide)
 
   const listenToRideStatus = (trajetId, callback) => {
@@ -320,7 +335,7 @@ export const RideProvider = ({ children }) => {
 
       return response.data.data;
     } catch (error) {
-      console.error('❌ Erreur completeRide:', error);
+      console.error('❌ Erreur completeRide:', error.response?.data || error.message);
       throw error;
     }
   };
@@ -343,6 +358,7 @@ export const RideProvider = ({ children }) => {
     acceptRide,
     rejectRide,
     cancelRide,
+    startRide,
     listenToRideStatus,
     getRideById,
     completeRide,

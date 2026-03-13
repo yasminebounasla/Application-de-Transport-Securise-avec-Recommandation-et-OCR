@@ -13,6 +13,7 @@ export default function ActiveRideScreen() {
     currentRide,
     getDriverActiveRide,
     getRideById,
+    startRide,
     completeRide,
   } = useRide();
 
@@ -22,6 +23,8 @@ export default function ActiveRideScreen() {
 
   const socketRef = useRef<any>(null);
   const mapRef = useRef<MapView | null>(null);
+  const userInteractedWithMapRef = useRef(false);
+  const autoFittedOnceRef = useRef(false);
 
   useEffect(() => {
     getDriverActiveRide();
@@ -126,6 +129,9 @@ export default function ActiveRideScreen() {
 
   useEffect(() => {
     if (!mapRef.current || !activeRide) return;
+    if (userInteractedWithMapRef.current) return;
+    if (autoFittedOnceRef.current) return;
+
     const coords: any[] = [];
     if (activeRide.startLat && activeRide.startLng) {
       coords.push({ latitude: activeRide.startLat, longitude: activeRide.startLng });
@@ -141,17 +147,40 @@ export default function ActiveRideScreen() {
         edgePadding: { top: 90, right: 90, bottom: 180, left: 90 },
         animated: true,
       });
+      autoFittedOnceRef.current = true;
     }
   }, [activeRide, currentLocation]);
+
+  // Reset auto-fit when switching to another ride.
+  useEffect(() => {
+    userInteractedWithMapRef.current = false;
+    autoFittedOnceRef.current = false;
+  }, [activeRide?.id]);
+
+  const handleStart = async () => {
+    if (!activeRide) return;
+    try {
+      await startRide(activeRide.id);
+      Alert.alert('Succes', 'Trajet demarre');
+      getDriverActiveRide();
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || err?.message || 'Impossible de demarrer le trajet';
+      console.error('Start error', err);
+      Alert.alert('Erreur', msg);
+    }
+  };
 
   const handleFinish = async () => {
     if (!activeRide) return;
     try {
       await completeRide(activeRide.id);
       Alert.alert('Succes', 'Trajet termine');
+      getDriverActiveRide();
     } catch (err) {
+      const anyErr: any = err;
+      const msg = anyErr?.response?.data?.message || anyErr?.message || 'Impossible de terminer le trajet';
       console.error('Finish error', err);
-      Alert.alert('Erreur', 'Impossible de terminer le trajet');
+      Alert.alert('Erreur', msg);
     }
   };
 
@@ -176,6 +205,12 @@ export default function ActiveRideScreen() {
       <MapView
         ref={mapRef}
         style={styles.map}
+        onTouchStart={() => {
+          userInteractedWithMapRef.current = true;
+        }}
+        onRegionChangeComplete={(_, details: any) => {
+          if (details?.isGesture) userInteractedWithMapRef.current = true;
+        }}
         initialRegion={{
           latitude: currentLocation?.latitude || activeRide.startLat || 36.7538,
           longitude: currentLocation?.longitude || activeRide.startLng || 3.0588,
@@ -242,7 +277,11 @@ export default function ActiveRideScreen() {
       </MapView>
 
       <View style={styles.buttonContainer}>
-        <Button title="Terminer" onPress={handleFinish} />
+        {activeRide.status === 'ACCEPTED' ? (
+          <Button title="Demarrer" onPress={handleStart} />
+        ) : (
+          <Button title="Terminer" onPress={handleFinish} disabled={activeRide.status !== 'IN_PROGRESS'} />
+        )}
       </View>
     </View>
   );
