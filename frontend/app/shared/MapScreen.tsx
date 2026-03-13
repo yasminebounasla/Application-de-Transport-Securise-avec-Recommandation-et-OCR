@@ -336,7 +336,7 @@ export default function MapScreen() {
           )}
         </MapView>
 
-        <TouchableOpacity style={styles.locationButton} onPress={goToCurrentLocation} activeOpacity={0.8}>
+        <TouchableOpacity style={[styles.locationButton, { bottom: 220 }]}  onPress={goToCurrentLocation} activeOpacity={0.8}>
           <Ionicons name="locate" size={20} color="#007AFF" />
         </TouchableOpacity>
 
