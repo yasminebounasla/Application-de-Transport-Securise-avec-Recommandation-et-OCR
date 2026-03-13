@@ -387,10 +387,9 @@ export default function ProfileSetupScreen() {
         <ToggleRow icon="moon-outline"         label="Evening  6pm – 10pm"  value={preferences.works_evening}   onToggle={() => toggle('works_evening')} />
         <ToggleRow icon="cloudy-night-outline" label="Night  10pm – 6am"    value={preferences.works_night}     onToggle={() => toggle('works_night')} />
       </View>
-
       <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
         <TouchableOpacity style={s.ctaBack} onPress={() => setCurrentStep(2)} activeOpacity={0.7}>
-          <Ionicons name="arrow-back" size={18} color="#111" />
+         <Ionicons name="arrow-back" size={18} color="#111" />
         </TouchableOpacity>
         <TouchableOpacity
           style={[s.cta, { flex: 1 }, loading && s.ctaDisabled]}
@@ -398,10 +397,19 @@ export default function ProfileSetupScreen() {
           disabled={loading}
           activeOpacity={0.85}
         >
-          <Text style={s.ctaText}>{loading ? 'Saving...' : 'Complete setup'}</Text>
-          <Ionicons name="checkmark" size={18} color="#fff" />
+         <Text style={s.ctaText}>{loading ? 'Saving...' : 'Complete setup'}</Text>
+         <Ionicons name="checkmark" size={18} color="#fff" />
         </TouchableOpacity>
       </View>
+
+     {/* ── Skip ── */}
+     <TouchableOpacity
+       style={s.skipBtn}
+       onPress={() => router.replace('/(driverTabs)/DriverHomeScreen')}
+       activeOpacity={0.7}
+      >
+       <Text style={s.skipText}>Fill in later</Text>
+      </TouchableOpacity>
     </View>
   );
 
@@ -655,6 +663,16 @@ const s = StyleSheet.create({
   optionTitle:       { fontSize: 15, fontWeight: '700', color: '#111', marginBottom: 2 },
   optionSubtitle:    { fontSize: 12, color: '#888' },
   optionDivider:     { height: 1, backgroundColor: '#F5F5F5' },
+  skipBtn: {
+   alignItems:  'center',
+   marginTop:   12,
+   paddingVertical: 10,
+  },
+  skipText: {
+   fontSize:   14,
+   color:      '#999',
+   textDecorationLine: 'underline',
+  },
 });
 
 const doneStyles = StyleSheet.create({
