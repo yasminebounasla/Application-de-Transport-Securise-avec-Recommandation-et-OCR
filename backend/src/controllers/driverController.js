@@ -131,19 +131,6 @@ export const addVehicle = async (req, res) => {
       },
     });
 
-    // ── ✅ Mettre à jour wilaya + coords du driver automatiquement ────────────
-    if (wilayaInfo) {
-      await prisma.driver.update({
-        where: { id: driverId },
-        data: {
-          wilaya:    wilayaInfo.nom,
-          latitude:  wilayaInfo.lat,
-          longitude: wilayaInfo.lng,
-        },
-      });
-      console.log("[addVehicle] Driver wilaya updated:", wilayaInfo.nom);
-    }
-
     res.status(201).json({
       message: "Vehicle added successfully.",
       data:    vehicle,
@@ -607,23 +594,16 @@ export const updateDriverLocation = async (req, res) => {
     const workZoneAddress = city ? `${city}, ${wilayaFromCoords?.nom || ''}` : (wilayaFromCoords?.nom || null);
 
 
-    // ✅ Validation
-    if (!wilayaFromCoords || wilayaFromCoords.nom.toLowerCase() !== driver.wilaya.toLowerCase()) {
-      return res.status(400).json({
-        message: "LOCATION_WILAYA_MISMATCH",
-        detail:  `Vos coordonnées indiquent "${wilayaFromCoords?.nom || "inconnu"}" mais votre wilaya est "${driver.wilaya}".`,
-      });
-    }
-
     await prisma.driver.update({
       where: { id: driverId },
       data: {
-        latitude:        parseFloat(latitude),
-        longitude:       parseFloat(longitude),
-        workZoneAddress: workZoneAddress,
-      },
+       latitude:        parseFloat(latitude),
+       longitude:       parseFloat(longitude),
+       workZoneAddress: workZoneAddress,
+       wilaya:          wilayaFromCoords?.nom || driver.wilaya,
+     },
     });
-
+  
     res.status(200).json({
       message: "Location updated successfully.",
       data: {
