@@ -138,6 +138,7 @@ export default function ProfileSetupScreen() {
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading]         = useState(false);
   const [gpsLoading, setGpsLoading]   = useState(false);
+  const [hoursError, setHoursError]   = useState(false);
   const workZoneDoneRef = useRef(false);
 
   const [vehicleData, setVehicleData] = useState({
@@ -171,7 +172,7 @@ export default function ProfileSetupScreen() {
   const [colorSuggestions, setColorSuggestions] = useState<string[]>([]);
   const [showDoneModal, setShowDoneModal]       = useState(false);
 
-  // ── useFocusEffect — avance au step 3 après retour MapScreen ─────────────
+  // ── useFocusEffect ────────────────────────────────────────────────────────
   useFocusEffect(
     useCallback(() => {
       if (currentStep === 2 && workZoneDoneRef.current) {
@@ -181,7 +182,10 @@ export default function ProfileSetupScreen() {
     }, [currentStep])
   );
 
-  const toggle = (key: string) => setPreferences((p: any) => ({ ...p, [key]: !p[key] }));
+  const toggle = (key: string) => {
+    setPreferences((p: any) => ({ ...p, [key]: !p[key] }));
+    if (key.startsWith('works_')) setHoursError(false);
+  };
 
   // ── Vehicle handlers ──────────────────────────────────────────────────────
   const handleBrandChange = (text: string) => {
@@ -235,7 +239,7 @@ export default function ProfileSetupScreen() {
     });
   };
 
-  // ── Step 1 submit: Vehicle ────────────────────────────────────────────────
+  // ── Step 1 ────────────────────────────────────────────────────────────────
   const handleStep1Next = async () => {
     const newErrors = validateAllVehicleFields(vehicleData);
     setErrors(newErrors);
@@ -256,7 +260,7 @@ export default function ProfileSetupScreen() {
     }
   };
 
-  // ── Step 2: Work zone — GPS ───────────────────────────────────────────────
+  // ── Step 2 — GPS ──────────────────────────────────────────────────────────
   const handleUseCurrentLocation = async () => {
     setGpsLoading(true);
     try {
@@ -272,16 +276,13 @@ export default function ProfileSetupScreen() {
       });
       setCurrentStep(3);
     } catch (err: any) {
-      Alert.alert(
-        'Error',
-        err.response?.data?.message || 'Failed to save location. Please try again.'
-      );
+      Alert.alert('Error', err.response?.data?.message || 'Failed to save location. Please try again.');
     } finally {
       setGpsLoading(false);
     }
   };
 
-  // ── Step 2: Work zone — Map ───────────────────────────────────────────────
+  // ── Step 2 — Map ──────────────────────────────────────────────────────────
   const handleSetOnMap = () => {
     workZoneDoneRef.current = true;
     router.push({
@@ -290,17 +291,18 @@ export default function ProfileSetupScreen() {
     });
   };
 
-  // ── Step 3 submit: Preferences ────────────────────────────────────────────
+  // ── Step 3 ────────────────────────────────────────────────────────────────
   const handleCompleteSetup = async () => {
     const hasWorkingHours =
       preferences.works_morning || preferences.works_afternoon ||
       preferences.works_evening || preferences.works_night;
 
     if (!hasWorkingHours) {
-      Alert.alert('Required', 'Please select at least one working time slot.');
+      setHoursError(true);
       return;
     }
 
+    setHoursError(false);
     setLoading(true);
     try {
       await api.put('/drivers/preferences', preferences);
@@ -326,12 +328,9 @@ export default function ProfileSetupScreen() {
       <View style={s.card}>
         <Field label="Brand *"         value={vehicleData.marque}  onChangeText={handleBrandChange}        placeholder="Peugeot, Toyota, Mercedes..." error={errors.marque} />
         <SuggestionList items={brandSuggestions} onSelect={selectBrand} />
-
         <Field label="Model"           value={vehicleData.modele}  onChangeText={handleModelChange}        placeholder="308, Corolla, C-Class..."     error={errors.modele} />
         <SuggestionList items={modelSuggestions} onSelect={(m) => { setVehicleData({ ...vehicleData, modele: m }); setModelSuggestions([]); setErrors({ ...errors, modele: '' }); }} />
-
         <Field label="License Plate *" value={vehicleData.plaque}  onChangeText={handleLicensePlateChange} placeholder="123456 126 16" keyboardType="numeric" error={errors.plaque} />
-
         <Field label="Color"           value={vehicleData.couleur} onChangeText={handleColorChange}        placeholder="Black, White, Red..."        error={errors.couleur} />
         <SuggestionList items={colorSuggestions} onSelect={(c) => { setVehicleData({ ...vehicleData, couleur: c }); setColorSuggestions([]); setErrors({ ...errors, couleur: '' }); }} />
       </View>
@@ -403,15 +402,29 @@ export default function ProfileSetupScreen() {
         <ToggleRow icon="car-sport-outline"     label="Large car"       value={preferences.car_big}         onToggle={() => toggle('car_big')} />
       </View>
 
-      <Text style={s.sectionLabel}>
-        WORKING HOURS <Text style={{ color: '#EF4444' }}>*</Text>
-      </Text>
-      <View style={s.card}>
+      {/* Working hours — required */}
+      <View style={s.sectionLabelRow}>
+        <Text style={s.sectionLabel}>WORKING HOURS</Text>
+        <Text style={s.sectionRequired}> *</Text>
+      </View>
+      <View style={[s.card, hoursError && s.cardError]}>
         <ToggleRow icon="sunny-outline"        label="Morning  6am – 12pm"  value={preferences.works_morning}   onToggle={() => toggle('works_morning')} />
         <ToggleRow icon="partly-sunny-outline" label="Afternoon 12pm – 6pm" value={preferences.works_afternoon} onToggle={() => toggle('works_afternoon')} />
         <ToggleRow icon="moon-outline"         label="Evening  6pm – 10pm"  value={preferences.works_evening}   onToggle={() => toggle('works_evening')} />
         <ToggleRow icon="cloudy-night-outline" label="Night  10pm – 6am"    value={preferences.works_night}     onToggle={() => toggle('works_night')} />
       </View>
+
+      {/* Inline error */}
+      {hoursError && (
+        <View style={s.hoursErrorBox}>
+          <View style={s.hoursErrorIcon}>
+            <Ionicons name="alert-circle" size={18} color="#EF4444" />
+          </View>
+          <Text style={s.hoursErrorText}>
+            Please select at least one working time slot to continue
+          </Text>
+        </View>
+      )}
 
       <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
         <TouchableOpacity style={s.ctaBack} onPress={() => setCurrentStep(2)} activeOpacity={0.7}>
@@ -559,13 +572,26 @@ const s = StyleSheet.create({
     shadowOffset:      { width: 0, height: 4 },
     elevation:         3,
   },
+  cardError: {
+    borderWidth: 1.5,
+    borderColor: '#FECACA',
+  },
+  sectionLabelRow: {
+    flexDirection: 'row',
+    alignItems:    'center',
+    marginBottom:  8,
+    marginLeft:    4,
+  },
   sectionLabel: {
     fontSize:      11,
     fontWeight:    '700',
     color:         '#aaa',
     letterSpacing: 1.2,
-    marginBottom:  8,
-    marginLeft:    4,
+  },
+  sectionRequired: {
+    fontSize:   13,
+    fontWeight: '700',
+    color:      '#EF4444',
   },
   fieldWrap: {
     marginVertical: 10,
@@ -723,6 +749,35 @@ const s = StyleSheet.create({
   optionTitle:    { fontSize: 15, fontWeight: '700', color: '#111', marginBottom: 2 },
   optionSubtitle: { fontSize: 12, color: '#888' },
   optionDivider:  { height: 1, backgroundColor: '#F5F5F5' },
+
+  // Hours error
+  hoursErrorBox: {
+    flexDirection:   'row',
+    alignItems:      'center',
+    gap:             10,
+    backgroundColor: '#FEF2F2',
+    borderRadius:    12,
+    padding:         14,
+    marginTop:       -12,
+    marginBottom:    16,
+    borderWidth:     1,
+    borderColor:     '#FECACA',
+  },
+  hoursErrorIcon: {
+    width:           32,
+    height:          32,
+    borderRadius:    16,
+    backgroundColor: '#FEE2E2',
+    alignItems:      'center',
+    justifyContent:  'center',
+  },
+  hoursErrorText: {
+    flex:       1,
+    fontSize:   13,
+    color:      '#EF4444',
+    fontWeight: '500',
+    lineHeight: 18,
+  },
 });
 
 // ── Done modal styles ─────────────────────────────────────────────────────────
