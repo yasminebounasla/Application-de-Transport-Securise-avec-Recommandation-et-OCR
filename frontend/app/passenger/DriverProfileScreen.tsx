@@ -12,9 +12,18 @@ import { API_URL } from '../../services/api';
 import { getPublicDriverStats, getPublicDriverFeedback } from '../../services/feedbackService';
 
 // ─────────────────────────────────────────────
+// AVATAR COLOR HELPER
+// ─────────────────────────────────────────────
+function getAvatarColor(name: string) {
+  const colors = ['#F472B6', '#FB923C', '#A78BFA', '#34D399', '#60A5FA'];
+  const i = (name?.charCodeAt(0) ?? 0) % colors.length;
+  return colors[i];
+}
+
+// ─────────────────────────────────────────────
 // STAR ROW
 // ─────────────────────────────────────────────
-function StarRow({ rating, size = 14 }) {
+function StarRow({ rating, size = 14 }: { rating: number; size?: number }) {
   return (
     <View style={{ flexDirection: 'row', gap: 2 }}>
       {[1, 2, 3, 4, 5].map(i => (
@@ -22,7 +31,7 @@ function StarRow({ rating, size = 14 }) {
           key={i}
           name={i <= Math.round(rating) ? 'star' : 'star-outline'}
           size={size}
-          color={i <= Math.round(rating) ? '#CA8A04' : '#DDD'}
+          color={i <= Math.round(rating) ? '#CA8A04' : '#D1D5DB'}
         />
       ))}
     </View>
@@ -30,13 +39,13 @@ function StarRow({ rating, size = 14 }) {
 }
 
 // ─────────────────────────────────────────────
-// PREFERENCE CHIP (only shown if value = true)
+// CONFIGS
 // ─────────────────────────────────────────────
 const PREF_CONFIG = [
   { key: 'talkative',       icon: 'chatbubbles-outline',   label: 'Talkative' },
-  { key: 'radio_on',        icon: 'musical-notes-outline', label: 'Radio On' },
+  { key: 'radio_on',        icon: 'musical-notes-outline', label: 'Radio' },
   { key: 'smoking_allowed', icon: 'flame-outline',         label: 'Smoking OK' },
-  { key: 'pets_allowed',    icon: 'paw-outline',           label: 'Pets OK' },
+  { key: 'pets_allowed',    icon: 'paw-outline',           label: 'Pets' },
   { key: 'car_big',         icon: 'car-sport-outline',     label: 'Large Car' },
 ];
 
@@ -66,14 +75,11 @@ export default function PublicDriverProfileScreen() {
   const fetchAll = async () => {
     try {
       const token = await AsyncStorage.getItem('token');
-      const [profileRes] = await Promise.all([
-        axios.get(`${API_URL}/drivers/${driverId}`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-      ]);
+      const profileRes = await axios.get(`${API_URL}/drivers/${driverId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       setDriver(profileRes.data.data);
 
-      // Load reviews & stats in parallel
       const [statsRes, feedRes] = await Promise.all([
         getPublicDriverStats(String(driverId)),
         getPublicDriverFeedback(String(driverId), 1, 20),
@@ -81,7 +87,7 @@ export default function PublicDriverProfileScreen() {
       setStats(statsRes.data);
       setFeedbacks(feedRes.data || []);
 
-      Animated.timing(fadeAnim, { toValue: 1, duration: 350, useNativeDriver: true }).start();
+      Animated.timing(fadeAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start();
     } catch (e) {
       console.error('Error fetching driver profile:', e);
     } finally {
@@ -89,15 +95,17 @@ export default function PublicDriverProfileScreen() {
     }
   };
 
+  // ── Loading ──
   if (loading) {
     return (
       <SafeAreaView style={styles.centered}>
-        <ActivityIndicator size="large" color="#000" />
+        <ActivityIndicator size="large" color="#111" />
         <Text style={styles.loadingText}>Loading profile...</Text>
       </SafeAreaView>
     );
   }
 
+  // ── Not found ──
   if (!driver) {
     return (
       <SafeAreaView style={styles.centered}>
@@ -110,88 +118,127 @@ export default function PublicDriverProfileScreen() {
     );
   }
 
-  const vehicule  = driver.vehicules?.[0];
-  const prefs     = driver.preferences ?? driver;
-  const avgRating = Number(stats?.averageRating || driver.stats?.avgRating || 0);
+  const vehicule     = driver.vehicules?.[0];
+  const prefs        = driver.preferences ?? driver;
+  const avgRating    = Number(stats?.averageRating || driver.stats?.avgRating || 0);
   const totalReviews = stats?.totalFeedbacks || driver.stats?.ratingsCount || 0;
 
-  // Only active prefs / hours
   const activePrefs = PREF_CONFIG.filter(p => prefs?.[p.key]);
   const activeHours = HOURS_CONFIG.filter(h => prefs?.[h.key]);
-
-  // Reviews to show
   const visibleFeedbacks = showAll ? feedbacks : feedbacks.slice(0, 3);
+
+  const initials = `${driver.prenom?.[0] ?? ''}${driver.nom?.[0] ?? ''}`.toUpperCase();
+  const avatarBg = getAvatarColor(driver.prenom ?? '');
 
   return (
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <SafeAreaView style={styles.container}>
 
-        {/* ── HEADER ── */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.headerBack}>
-            <Ionicons name="close" size={22} color="#111" />
+        {/* ── TOP NAV ── */}
+        <View style={styles.topNav}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.navBtn}>
+            <Ionicons name="arrow-back" size={20} color="#111" />
           </TouchableOpacity>
-          <View style={{ width: 40 }} />
+          <Text style={styles.navTitle}>Driver Profile</Text>
+          <View style={styles.navBtn} />
         </View>
 
-        <Animated.ScrollView style={{ opacity: fadeAnim }} contentContainerStyle={styles.content}>
-
-          {/* ── AVATAR + NAME ── */}
+        <Animated.ScrollView
+          style={{ opacity: fadeAnim }}
+          contentContainerStyle={styles.content}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* ── HERO ── */}
           <View style={styles.heroSection}>
-            <View style={styles.avatar}>
-              <Ionicons name="person" size={44} color="#FFF" />
+            {/* Avatar */}
+            <View style={[styles.avatarRing, { borderColor: avatarBg }]}>
+              <View style={[styles.avatar, { backgroundColor: avatarBg }]}>
+                <Text style={styles.avatarText}>{initials}</Text>
+              </View>
             </View>
+
+            {/* Name */}
             <Text style={styles.name}>{driver.prenom} {driver.nom}</Text>
+
+            {/* ⭐ Rating right under the name — like the photo */}
+            <TouchableOpacity
+              style={styles.ratingRow}
+              onPress={() => setShowAll(true)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="star" size={15} color="#CA8A04" />
+              <Text style={styles.ratingValue}>{avgRating.toFixed(1)}</Text>
+              <Text style={styles.ratingDot}>·</Text>
+              <Text style={styles.ratingLink}>
+                {totalReviews} review{totalReviews !== 1 ? 's' : ''}
+              </Text>
+            </TouchableOpacity>
+
+            {/* DRIVER badge */}
+            <View style={styles.driverBadge}>
+              <Text style={styles.driverBadgeText}>DRIVER</Text>
+            </View>
+
+            {/* Verified */}
             {driver.isVerified && (
               <View style={styles.verifiedBadge}>
-                <Ionicons name="checkmark-circle" size={14} color="#22C55E" />
-                <Text style={styles.verifiedText}>Verified Driver</Text>
+                <Ionicons name="checkmark-circle" size={13} color="#22C55E" />
+                <Text style={styles.verifiedText}>Verified</Text>
               </View>
             )}
           </View>
 
-          {/* ── STATS ROW ── */}
+          {/* ── STATS CARDS ── */}
           <View style={styles.statsRow}>
-            <View style={styles.statBox}>
+            <View style={styles.statCard}>
               <Text style={styles.statNumber}>{driver.stats?.totalRides ?? '—'}</Text>
-              <Text style={styles.statLabel}>rides</Text>
+              <Text style={styles.statLabel}>Rides</Text>
             </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statBox}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                <Text style={styles.statNumber}>{avgRating.toFixed(1)}</Text>
-                <Ionicons name="star" size={16} color="#CA8A04" />
-              </View>
-              <Text style={styles.statLabel}>rating</Text>
+            <View style={styles.statCard}>
+              <Text style={styles.statNumber}>{avgRating.toFixed(1)}</Text>
+              <Text style={styles.statLabel}>Rating</Text>
+            </View>
+            <View style={styles.statCard}>
+              <Text style={styles.statNumber}>{totalReviews}</Text>
+              <Text style={styles.statLabel}>Reviews</Text>
             </View>
           </View>
 
           {/* ── VEHICLE ── */}
           {vehicule && (
-            <View style={styles.vehicleRow}>
-              <View>
-                <Text style={styles.vehicleModel}>
-                  {[vehicule.couleur, vehicule.marque, vehicule.modele, vehicule.annee ? `, ${vehicule.annee}` : ''].filter(Boolean).join(' ')}
-                </Text>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Vehicle</Text>
+              <View style={styles.vehicleCard}>
+                <View style={styles.vehicleIconWrap}>
+                  <Ionicons name="car-outline" size={26} color="#111" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.vehicleModel}>
+                    {[vehicule.marque, vehicule.modele].filter(Boolean).join(' ')}
+                  </Text>
+                  <Text style={styles.vehicleColor}>
+                    {vehicule.couleur ?? ''}
+                    {vehicule.annee ? `  ·  ${vehicule.annee}` : ''}
+                  </Text>
+                </View>
                 {vehicule.plaque && (
                   <View style={styles.plateBox}>
                     <Text style={styles.plateText}>{vehicule.plaque}</Text>
                   </View>
                 )}
               </View>
-              <Ionicons name="car-outline" size={40} color="#CCC" />
             </View>
           )}
 
-          {/* ── PREFERENCES (only YES) ── */}
+          {/* ── PREFERENCES ── */}
           {activePrefs.length > 0 && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Preferences</Text>
               <View style={styles.chipsWrap}>
                 {activePrefs.map(p => (
                   <View key={p.key} style={styles.prefChip}>
-                    <Ionicons name={p.icon as any} size={15} color="#111" />
+                    <Ionicons name={p.icon as any} size={13} color="#111" />
                     <Text style={styles.prefChipText}>{p.label}</Text>
                   </View>
                 ))}
@@ -199,14 +246,14 @@ export default function PublicDriverProfileScreen() {
             </View>
           )}
 
-          {/* ── WORKING HOURS (only ON) ── */}
+          {/* ── WORKING HOURS ── */}
           {activeHours.length > 0 && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Working Hours</Text>
               <View style={styles.chipsWrap}>
                 {activeHours.map(h => (
                   <View key={h.key} style={styles.hourChip}>
-                    <Ionicons name={h.icon as any} size={15} color="#555" />
+                    <Ionicons name={h.icon as any} size={13} color="#555" />
                     <Text style={styles.hourChipText}>{h.label}</Text>
                   </View>
                 ))}
@@ -214,20 +261,31 @@ export default function PublicDriverProfileScreen() {
             </View>
           )}
 
-          {/* ── REVIEWS (inline) ── */}
+          {/* ── REVIEWS ── */}
           {feedbacks.length > 0 && (
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>{totalReviews} review{totalReviews !== 1 ? 's' : ''}</Text>
+              <Text style={styles.sectionTitle}>Reviews</Text>
 
-              {visibleFeedbacks.map(fb => (
-                <View key={fb.id} style={styles.reviewRow}>
-                  <StarRow rating={fb.rating} />
-                  {fb.comment ? (
-                    <Text style={styles.reviewComment}>{fb.comment}</Text>
-                  ) : null}
-                  <Text style={styles.reviewMeta}>
-                    {fb.trajet?.passenger?.prenom} · {formatTimeAgo(fb.createdAt)}
-                  </Text>
+              {visibleFeedbacks.map((fb, idx) => (
+                <View key={fb.id} style={[styles.reviewCard, idx === 0 && { marginTop: 0 }]}>
+                  {/* Reviewer initials */}
+                  <View style={styles.reviewAvatar}>
+                    <Text style={styles.reviewAvatarText}>
+                      {fb.trajet?.passenger?.prenom?.[0]?.toUpperCase() ?? '?'}
+                    </Text>
+                  </View>
+                  <View style={{ flex: 1, gap: 4 }}>
+                    <View style={styles.reviewHeader}>
+                      <Text style={styles.reviewerName}>
+                        {fb.trajet?.passenger?.prenom ?? 'Passenger'}
+                      </Text>
+                      <Text style={styles.reviewTime}>{formatTimeAgo(fb.createdAt)}</Text>
+                    </View>
+                    <StarRow rating={fb.rating} size={12} />
+                    {fb.comment ? (
+                      <Text style={styles.reviewComment}>{fb.comment}</Text>
+                    ) : null}
+                  </View>
                 </View>
               ))}
 
@@ -237,7 +295,12 @@ export default function PublicDriverProfileScreen() {
                   onPress={() => setShowAll(s => !s)}
                   activeOpacity={0.7}
                 >
-                  <Text style={styles.seeAllText}>{showAll ? 'Show less' : 'See all'}</Text>
+                  <Text style={styles.seeAllText}>{showAll ? 'Show less' : 'See all reviews'}</Text>
+                  <Ionicons
+                    name={showAll ? 'chevron-up' : 'chevron-down'}
+                    size={15}
+                    color="#111"
+                  />
                 </TouchableOpacity>
               )}
             </View>
@@ -250,7 +313,7 @@ export default function PublicDriverProfileScreen() {
 }
 
 // ─────────────────────────────────────────────
-// TIME AGO HELPER
+// TIME AGO
 // ─────────────────────────────────────────────
 function formatTimeAgo(dateString: string) {
   const diff = Date.now() - new Date(dateString).getTime();
@@ -268,79 +331,136 @@ function formatTimeAgo(dateString: string) {
 // STYLES
 // ─────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container:   { flex: 1, backgroundColor: '#fff' },
-  centered:    { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff', gap: 12 },
-  loadingText: { fontSize: 15, color: '#666' },
-  errorText:   { fontSize: 15, color: '#666' },
+  container:   { flex: 1, backgroundColor: '#FAFAFA' },
+  centered:    { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FAFAFA', gap: 12 },
+  loadingText: { fontSize: 14, color: '#888', marginTop: 8 },
+  errorText:   { fontSize: 15, color: '#888' },
   backBtn:     { backgroundColor: '#111', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 12, marginTop: 8 },
   backBtnText: { color: '#FFF', fontWeight: '700' },
 
-  // Header
-  header: {
+  // Top nav
+  topNav: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 12,
+    paddingHorizontal: 16, paddingVertical: 14,
+    backgroundColor: '#FAFAFA',
   },
-  headerBack: { width: 40 },
+  navBtn:   { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F0F0F0', alignItems: 'center', justifyContent: 'center' },
+  navTitle: { fontSize: 15, fontWeight: '700', color: '#111' },
 
   content: { paddingHorizontal: 20, paddingBottom: 48 },
 
-  // Hero
-  heroSection: { alignItems: 'center', paddingTop: 8, paddingBottom: 20 },
-  avatar: {
-    width: 80, height: 80, borderRadius: 40, backgroundColor: '#111',
-    alignItems: 'center', justifyContent: 'center', marginBottom: 12,
+  // ── Hero ──
+  heroSection: { alignItems: 'center', paddingTop: 12, paddingBottom: 28 },
+  avatarRing: {
+    width: 92, height: 92, borderRadius: 46,
+    borderWidth: 3, padding: 3,
+    marginBottom: 14,
   },
-  name:          { fontSize: 20, fontWeight: '800', color: '#111', marginBottom: 6 },
-  verifiedBadge: { flexDirection: 'row', alignItems: 'center', gap: 5 },
+  avatar: {
+    flex: 1, borderRadius: 43,
+    alignItems: 'center', justifyContent: 'center',
+  },
+  avatarText: { fontSize: 28, fontWeight: '900', color: '#FFF' },
+
+  name: { fontSize: 22, fontWeight: '800', color: '#111', marginBottom: 8, letterSpacing: -0.3 },
+
+  // Rating row — right under the name
+  ratingRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    marginBottom: 12,
+  },
+  ratingValue: { fontSize: 14, fontWeight: '700', color: '#111' },
+  ratingDot:   { fontSize: 14, color: '#CCC' },
+  ratingLink:  { fontSize: 14, color: '#6B7280', textDecorationLine: 'underline' },
+
+  // DRIVER badge
+  driverBadge: {
+    backgroundColor: '#111', borderRadius: 20,
+    paddingHorizontal: 14, paddingVertical: 5,
+    marginBottom: 10,
+  },
+  driverBadgeText: { fontSize: 11, fontWeight: '800', color: '#FFF', letterSpacing: 1.5 },
+
+  verifiedBadge: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   verifiedText:  { fontSize: 12, fontWeight: '600', color: '#22C55E' },
 
-  // Stats
+  // ── Stats ──
   statsRow: {
-    flexDirection: 'row', justifyContent: 'center', alignItems: 'center',
-    borderTopWidth: 1, borderBottomWidth: 1, borderColor: '#F0F0F0',
-    paddingVertical: 16, marginBottom: 20,
+    flexDirection: 'row', gap: 10, marginBottom: 24,
   },
-  statBox:     { alignItems: 'center', paddingHorizontal: 32 },
-  statNumber:  { fontSize: 22, fontWeight: '800', color: '#111' },
-  statLabel:   { fontSize: 12, color: '#888', marginTop: 2 },
-  statDivider: { width: 1, height: 32, backgroundColor: '#E5E7EB' },
-
-  // Vehicle
-  vehicleRow: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: '#F7F7F7', borderRadius: 14, padding: 16, marginBottom: 20,
+  statCard: {
+    flex: 1, backgroundColor: '#FFF', borderRadius: 14,
+    paddingVertical: 16, alignItems: 'center',
+    shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
   },
-  vehicleModel: { fontSize: 15, fontWeight: '700', color: '#111', marginBottom: 6 },
-  plateBox:     { borderWidth: 1, borderColor: '#DDD', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start' },
-  plateText:    { fontSize: 12, fontWeight: '600', color: '#444', letterSpacing: 1 },
+  statNumber: { fontSize: 20, fontWeight: '800', color: '#111' },
+  statLabel:  { fontSize: 12, color: '#9CA3AF', marginTop: 3, fontWeight: '500' },
 
-  // Section
+  // ── Section ──
   section:      { marginBottom: 24 },
-  sectionTitle: { fontSize: 16, fontWeight: '800', color: '#111', marginBottom: 12 },
+  sectionTitle: { fontSize: 15, fontWeight: '800', color: '#111', marginBottom: 12, letterSpacing: -0.2 },
 
-  // Preference chips
+  // ── Vehicle card ──
+  vehicleCard: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#FFF', borderRadius: 14, padding: 16,
+    shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  vehicleIconWrap: {
+    width: 44, height: 44, borderRadius: 12,
+    backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center',
+  },
+  vehicleModel: { fontSize: 14, fontWeight: '700', color: '#111' },
+  vehicleColor: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
+  plateBox: {
+    borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8,
+    paddingHorizontal: 10, paddingVertical: 5,
+    backgroundColor: '#F9FAFB',
+  },
+  plateText: { fontSize: 12, fontWeight: '700', color: '#374151', letterSpacing: 1.2 },
+
+  // ── Chips ──
   chipsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   prefChip: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: '#F0F0F0', borderRadius: 20,
+    backgroundColor: '#FFF', borderRadius: 10,
+    borderWidth: 1, borderColor: '#E5E7EB',
     paddingHorizontal: 12, paddingVertical: 8,
+    shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 4, shadowOffset: { width: 0, height: 1 },
   },
-  prefChipText: { fontSize: 13, fontWeight: '600', color: '#111' },
+  prefChipText: { fontSize: 12, fontWeight: '600', color: '#111' },
   hourChip: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: '#F7F7F7', borderRadius: 20, borderWidth: 1, borderColor: '#E5E7EB',
+    backgroundColor: '#F9FAFB', borderRadius: 10,
+    borderWidth: 1, borderColor: '#E5E7EB',
     paddingHorizontal: 12, paddingVertical: 8,
   },
-  hourChipText: { fontSize: 13, fontWeight: '500', color: '#555' },
+  hourChipText: { fontSize: 12, fontWeight: '500', color: '#555' },
 
-  // Reviews
-  reviewRow:     { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F5F5F5' },
-  reviewComment: { fontSize: 14, color: '#111', marginTop: 4, lineHeight: 20 },
-  reviewMeta:    { fontSize: 12, color: '#999', marginTop: 4 },
+  // ── Review cards ──
+  reviewCard: {
+    flexDirection: 'row', gap: 12,
+    backgroundColor: '#FFF', borderRadius: 14, padding: 14,
+    marginTop: 10,
+    shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 },
+    elevation: 1,
+  },
+  reviewAvatar: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center',
+  },
+  reviewAvatarText: { fontSize: 14, fontWeight: '800', color: '#555' },
+  reviewHeader:     { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  reviewerName:     { fontSize: 13, fontWeight: '700', color: '#111' },
+  reviewTime:       { fontSize: 11, color: '#9CA3AF' },
+  reviewComment:    { fontSize: 13, color: '#374151', lineHeight: 18, marginTop: 2 },
 
   seeAllBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6,
     marginTop: 12, paddingVertical: 14, borderRadius: 14,
-    backgroundColor: '#F5F5F5', alignItems: 'center',
+    backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E5E7EB',
   },
   seeAllText: { fontSize: 14, fontWeight: '700', color: '#111' },
 });
