@@ -23,16 +23,23 @@ function getAvatarColor(gender?: string) {
 // STAR ROW
 // ─────────────────────────────────────────────
 function StarRow({ rating, size = 14 }: { rating: number; size?: number }) {
+  const r = Math.round(parseFloat(String(rating)) * 2) / 2;
+  const floored = Math.floor(r);
+  const hasHalf = (r - floored) === 0.5;
   return (
     <View style={{ flexDirection: 'row', gap: 2 }}>
-      {[1, 2, 3, 4, 5].map(i => (
-        <Ionicons
-          key={i}
-          name={i <= Math.round(rating) ? 'star' : 'star-outline'}
-          size={size}
-          color={i <= Math.round(rating) ? '#CA8A04' : '#D1D5DB'}
-        />
-      ))}
+      {[1, 2, 3, 4, 5].map(i => {
+        const full = i <= floored;
+        const half = !full && hasHalf && i === floored + 1;
+        return (
+          <Ionicons
+            key={i}
+            name={full ? 'star' : half ? 'star-half' : 'star-outline'}
+            size={size}
+            color={full || half ? '#F59E0B' : '#D1D5DB'}
+          />
+        );
+      })}
     </View>
   );
 }
