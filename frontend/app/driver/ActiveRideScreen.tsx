@@ -2,12 +2,37 @@ import React, { useEffect, useRef, useState } from 'react';
 import { View, Text, StyleSheet, Button, Alert } from 'react-native';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import * as Location from 'expo-location';
-import { useLocalSearchParams } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRide } from '../../context/RideContext';
 import { initSocket } from '../../services/socket';
 
+const NEAR_DISTANCE_M = 200;
+
+const distanceMeters = (
+  a: { latitude: number; longitude: number },
+  b: { latitude: number; longitude: number }
+) => {
+  // Haversine formula.
+  const R = 6371000;
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(b.latitude - a.latitude);
+  const dLon = toRad(b.longitude - a.longitude);
+  const lat1 = toRad(a.latitude);
+  const lat2 = toRad(b.latitude);
+
+  const sinDLat = Math.sin(dLat / 2);
+  const sinDLon = Math.sin(dLon / 2);
+  const h =
+    sinDLat * sinDLat +
+    Math.cos(lat1) * Math.cos(lat2) * sinDLon * sinDLon;
+  const c = 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+  return R * c;
+};
+
 export default function ActiveRideScreen() {
   const { trajetId } = useLocalSearchParams<{ trajetId?: string }>();
+  const insets = useSafeAreaInsets();
   const {
     driverRequests,
     currentRide,
@@ -159,9 +184,26 @@ export default function ActiveRideScreen() {
 
   const handleStart = async () => {
     if (!activeRide) return;
+
+    if (!currentLocation?.latitude || !currentLocation?.longitude) {
+      Alert.alert('Erreur', 'Localisation indisponible.');
+      return;
+    }
+
+    if (activeRide.startLat && activeRide.startLng) {
+      const meters = distanceMeters(
+        currentLocation,
+        { latitude: activeRide.startLat, longitude: activeRide.startLng }
+      );
+      if (meters > NEAR_DISTANCE_M) {
+        Alert.alert('You didn\'t pickup the passenger');
+        return;
+      }
+    }
+
     try {
       await startRide(activeRide.id);
-      Alert.alert('Succes', 'Trajet demarre');
+      Alert.alert('Trip started');
       getDriverActiveRide();
     } catch (err: any) {
       const msg = err?.response?.data?.message || err?.message || 'Impossible de demarrer le trajet';
@@ -172,10 +214,28 @@ export default function ActiveRideScreen() {
 
   const handleFinish = async () => {
     if (!activeRide) return;
+
+    if (!currentLocation?.latitude || !currentLocation?.longitude) {
+      Alert.alert('Erreur', 'Localisation indisponible.');
+      return;
+    }
+
+    if (activeRide.endLat && activeRide.endLng) {
+      const meters = distanceMeters(
+        currentLocation,
+        { latitude: activeRide.endLat, longitude: activeRide.endLng }
+      );
+      if (meters > NEAR_DISTANCE_M) {
+        Alert.alert('You didn\'t reach the destination yet');
+        return;
+      }
+    }
+
     try {
       await completeRide(activeRide.id);
-      Alert.alert('Succes', 'Trajet termine');
+      Alert.alert('Trip Ended');
       getDriverActiveRide();
+      router.replace('/(driverTabs)/DriverHomeScreen' as any);
     } catch (err) {
       const anyErr: any = err;
       const msg = anyErr?.response?.data?.message || anyErr?.message || 'Impossible de terminer le trajet';
@@ -276,7 +336,7 @@ export default function ActiveRideScreen() {
           )}
       </MapView>
 
-      <View style={styles.buttonContainer}>
+      <View style={[styles.buttonContainer, { bottom: insets.bottom + 60 }]}>
         {activeRide.status === 'ACCEPTED' ? (
           <Button title="Demarrer" onPress={handleStart} />
         ) : (
@@ -301,7 +361,6 @@ const styles = StyleSheet.create({
   },
   buttonContainer: {
     position: 'absolute',
-    bottom: 20,
     left: 20,
     right: 20,
   },

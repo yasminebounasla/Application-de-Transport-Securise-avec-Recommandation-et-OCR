@@ -4,7 +4,7 @@ import {
   ActivityIndicator, TouchableOpacity, TextInput, Animated,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
@@ -68,6 +68,7 @@ function StatCard({ icon, label, value }: { icon: string; label: string; value: 
 export default function ActivityScreen() {
   const { user } = useAuth();
   const params = useLocalSearchParams<{ rideId?: string; tab?: string }>();
+  const router = useRouter();
 
   const [activity, setActivity] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -173,6 +174,7 @@ export default function ActivityScreen() {
     if (status === 'COMPLETED') return styles.completedBadge;
     if (status === 'CANCELLED_BY_DRIVER') return styles.cancelledDriverBadge;
     if (status === 'CANCELLED_BY_PASSENGER') return styles.cancelledPassengerBadge;
+    if (status === 'ACCEPTED') return styles.acceptedBadge;
     return styles.pendingBadge;
   };
 
@@ -188,39 +190,35 @@ export default function ActivityScreen() {
   };
 
   const renderItem = ({ item }: { item: any }) => {
-    const passenger = item.passenger || {};
-    const driver = item.driver || {};
-    const passengerName = `${passenger.prenom || user?.firstName || ''} ${passenger.nom || user?.familyName || ''}`.trim() || 'N/A';
-    const driverName = `${driver.prenom || ''} ${driver.nom || ''}`.trim() || 'N/A';
     const dateLabel = item.dateDepart ? new Date(item.dateDepart).toLocaleDateString() : 'N/A';
     const timeLabel = item.heureDepart || 'N/A';
     const start = item.startAddress || item.depart || 'N/A';
     const end = item.endAddress || item.destination || 'N/A';
-    const price = Number(item.prix) || 0;
     const isHighlighted = item.rideId === highlightedId;
 
     return (
-      <HighlightCard highlighted={isHighlighted}>
-        <View style={styles.rideHeader}>
-          <Text style={styles.rideId}>Trip #{item.rideId}</Text>
-          <View style={[styles.statusBadge, getStatusBadgeStyle(item.status)]}>
-            <Text style={styles.statusText}>{getStatusLabel(item.status)}</Text>
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={() =>
+          router.push(`/shared/ride-details/${item.rideId}` as any)
+        }
+      >
+        <HighlightCard highlighted={isHighlighted}>
+          <View style={styles.tripHeader}>
+            <Text style={styles.tripTitle}>Trajet #{item.rideId}</Text>
+            <View style={[styles.statusBadge, getStatusBadgeStyle(item.status)]}>
+              <Text style={[styles.statusText, item.status === 'ACCEPTED' && styles.acceptedText]}>
+                {getStatusLabel(item.status)}
+              </Text>
+            </View>
           </View>
-        </View>
-        {isHighlighted && (
-          <View style={styles.highlightBanner}>
-            <MaterialIcons name="notifications-active" size={13} color="#92400E" />
-            <Text style={styles.highlightText}>Trajet concerné par votre notification</Text>
-          </View>
-        )}
-        <View style={styles.detailRow}><MaterialIcons name="event" size={18} color="#444" /><Text style={styles.detailText}>Date: {dateLabel}</Text></View>
-        <View style={styles.detailRow}><MaterialIcons name="schedule" size={18} color="#444" /><Text style={styles.detailText}>Heure: {timeLabel}</Text></View>
-        <View style={styles.detailRow}><MaterialIcons name="my-location" size={18} color="#444" /><Text style={styles.detailText}>Depart: {start}</Text></View>
-        <View style={styles.detailRow}><MaterialIcons name="location-on" size={18} color="#444" /><Text style={styles.detailText}>Arrivee: {end}</Text></View>
-        <View style={styles.detailRow}><MaterialIcons name="badge" size={18} color="#444" /><Text style={styles.detailText}>Driver: {driverName}</Text></View>
-        <View style={styles.detailRow}><MaterialIcons name="person" size={18} color="#444" /><Text style={styles.detailText}>Passenger: {passengerName}</Text></View>
-        <View style={styles.detailRow}><MaterialIcons name="payments" size={18} color="#444" /><Text style={styles.detailText}>Prix: {price.toFixed(2)} DA</Text></View>
-      </HighlightCard>
+          <View style={styles.detailRow}><MaterialIcons name="my-location" size={18} color="#444" /><Text style={styles.detailText}>Depart: {start}</Text></View>
+          <View style={styles.detailRow}><MaterialIcons name="location-on" size={18} color="#444" /><Text style={styles.detailText}>Arrivee: {end}</Text></View>
+          <View style={styles.detailRow}><MaterialIcons name="event" size={18} color="#444" /><Text style={styles.detailText}>Date: {dateLabel}</Text></View>
+          <View style={styles.detailRow}><MaterialIcons name="schedule" size={18} color="#444" /><Text style={styles.detailText}>Heure: {timeLabel}</Text></View>
+          <Text style={styles.seeMore}>See more infos</Text>
+        </HighlightCard>
+      </TouchableOpacity>
     );
   };
 
@@ -340,11 +338,16 @@ const styles = StyleSheet.create({
   statusBadge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
   completedBadge: { backgroundColor: '#D1FAE5' },
   pendingBadge: { backgroundColor: '#DBEAFE' },
+  acceptedBadge: { backgroundColor: '#DCFCE7' },
   cancelledDriverBadge: { backgroundColor: '#FEE2E2' },
   cancelledPassengerBadge: { backgroundColor: '#FFEDD5' },
   statusText: { fontSize: 11, fontWeight: '700', color: '#111' },
+  acceptedText: { color: '#166534' },
   detailRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 },
   detailText: { flex: 1, color: '#333', fontSize: 13 },
   highlightBanner: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FEF3C7', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 10 },
   highlightText: { fontSize: 11, color: '#92400E', fontWeight: '700', flex: 1 },
+  tripHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  tripTitle: { color: '#111', fontSize: 18, fontWeight: '800', textAlign: 'left' },
+  seeMore: { marginTop: 10, color: '#2563EB', fontWeight: '700', fontSize: 13, textAlign: 'center', alignSelf: 'center' },
 });

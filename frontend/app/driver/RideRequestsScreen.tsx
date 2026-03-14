@@ -8,13 +8,18 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { router } from 'expo-router';
 import { useRide } from '../../context/RideContext';
 import RideCard from '../../components/RideCard';
 
 export default function RideRequestsScreen() {
   const { driverRequests, getDriverRequests, acceptRide, rejectRide, loading } = useRide();
   const [refreshing, setRefreshing] = useState(false);
+  const [flash, setFlash] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  const showFlash = (type: 'success' | 'error', text: string) => {
+    setFlash({ type, text });
+    setTimeout(() => setFlash(null), 2500);
+  };
 
   useEffect(() => {
     loadRequests();
@@ -47,11 +52,13 @@ export default function RideRequestsScreen() {
           onPress: async () => {
             try {
               await acceptRide(rideId);
-              Alert.alert('✅ Success', 'Ride accepted!');
-              router.push('/driver/ActiveRideScreen');
-              loadRequests();
+              showFlash('success', 'Ride accepted!');
+              await loadRequests();
             } catch (error) {
-              Alert.alert('Error', error.message || 'Failed to accept ride');
+              const anyErr: any = error;
+              const msg = anyErr?.message || 'Failed to accept ride';
+              showFlash('error', msg);
+              Alert.alert('Error', msg);
             }
           },
         },
@@ -72,9 +79,13 @@ export default function RideRequestsScreen() {
           onPress: async () => {
             try {
               await rejectRide(rideId);
-              loadRequests();
+              showFlash('error', 'Ride rejected!');
+              await loadRequests();
             } catch (error) {
-              Alert.alert('Error', error.message || 'Failed to reject ride');
+              const anyErr: any = error;
+              const msg = anyErr?.message || 'Failed to reject ride';
+              showFlash('error', msg);
+              Alert.alert('Error', msg);
             }
           },
         },
@@ -111,6 +122,12 @@ export default function RideRequestsScreen() {
           <Text style={styles.badgeText}>{driverRequests.length}</Text>
         </View>
       </View>
+
+      {!!flash && (
+        <View style={[styles.flash, flash.type === 'success' ? styles.flashSuccess : styles.flashError]}>
+          <Text style={[styles.flashText, flash.type === 'error' && styles.flashTextError]}>{flash.text}</Text>
+        </View>
+      )}
 
       {driverRequests.length === 0 ? (
         <View style={styles.emptyContainer}>
@@ -212,4 +229,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#999',
   },
+  flash: {
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 4,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  flashSuccess: { backgroundColor: '#ECFDF3', borderColor: '#ABEFC6' },
+  // Match the "Cancelled by driver" vibe used in Activity badges.
+  flashError: { backgroundColor: '#FEE2E2', borderColor: '#FCA5A5' },
+  flashText: { fontSize: 13, fontWeight: '800', color: '#111' },
+  flashTextError: { color: '#B42318' },
 });

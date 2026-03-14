@@ -4,13 +4,13 @@ import {
   ActivityIndicator, TouchableOpacity, TextInput, Animated,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
 const CATEGORIES = [
   { key: 'completed', label: 'Completed' },
-  { key: 'pending', label: 'Pending' },
+  { key: 'pending', label: 'Accepted' },
   { key: 'cancelled', label: 'Cancelled' },
 ];
 const PRICE_FILTERS = [
@@ -68,6 +68,7 @@ function StatCard({ icon, label, value }: { icon: string; label: string; value: 
 export default function DriverActivityScreen() {
   const { user } = useAuth();
   const params = useLocalSearchParams<{ rideId?: string; tab?: string }>();
+  const router = useRouter();
 
   const [activity, setActivity] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -133,7 +134,7 @@ export default function DriverActivityScreen() {
     setTimeout(() => {
       const tabRides = activity.filter((r: any) => {
         if (tab === 'completed') return r.status === 'COMPLETED';
-        if (tab === 'pending') return ['PENDING', 'ACCEPTED', 'IN_PROGRESS'].includes(r.status);
+        if (tab === 'pending') return ['ACCEPTED'].includes(r.status);
         return ['CANCELLED_BY_PASSENGER', 'CANCELLED_BY_DRIVER'].includes(r.status);
       });
       const index = tabRides.findIndex((r: any) => r.rideId === rideId);
@@ -147,7 +148,7 @@ export default function DriverActivityScreen() {
 
   const categorized = useMemo(() => ({
     completed: activity.filter((r: any) => r.status === 'COMPLETED'),
-    pending: activity.filter((r: any) => ['PENDING', 'ACCEPTED', 'IN_PROGRESS'].includes(r.status)),
+    pending: activity.filter((r: any) => ['ACCEPTED'].includes(r.status)),
     cancelled: activity.filter((r: any) => ['CANCELLED_BY_PASSENGER', 'CANCELLED_BY_DRIVER'].includes(r.status)),
   }), [activity]);
 
@@ -197,41 +198,35 @@ export default function DriverActivityScreen() {
   };
 
   const renderRide = ({ item }: { item: any }) => {
-    const passenger = item.passenger || {};
-    const driver = item.driver || {};
-    const passengerName = `${passenger.prenom || ''} ${passenger.nom || ''}`.trim() || 'N/A';
-    const driverName = `${driver.prenom || user?.firstName || ''} ${driver.nom || user?.familyName || ''}`.trim() || 'N/A';
     const dateLabel = item.dateDepart ? new Date(item.dateDepart).toLocaleDateString() : 'N/A';
     const timeLabel = item.heureDepart || 'N/A';
     const start = item.startAddress || item.depart || 'N/A';
     const end = item.endAddress || item.destination || 'N/A';
-    const price = Number(item.prix) || 0;
     const isHighlighted = item.rideId === highlightedId;
 
     return (
-      <HighlightCard highlighted={isHighlighted}>
-        <View style={styles.rideHeader}>
-          <Text style={styles.rideId}>Trip #{item.rideId}</Text>
-          <View style={[styles.statusBadge, getStatusBadgeStyle(item.status)]}>
-            <Text style={[styles.statusText, item.status === 'ACCEPTED' && styles.acceptedText]}>
-              {getStatusLabel(item.status)}
-            </Text>
+      <TouchableOpacity
+        activeOpacity={0.85}
+        onPress={() =>
+          router.push(`/shared/ride-details/${item.rideId}` as any)
+        }
+      >
+        <HighlightCard highlighted={isHighlighted}>
+          <View style={styles.tripHeader}>
+            <Text style={styles.tripTitle}>Trajet #{item.rideId}</Text>
+            <View style={[styles.statusBadge, getStatusBadgeStyle(item.status)]}>
+              <Text style={[styles.statusText, item.status === 'ACCEPTED' && styles.acceptedText]}>
+                {getStatusLabel(item.status)}
+              </Text>
+            </View>
           </View>
-        </View>
-        {isHighlighted && (
-          <View style={styles.highlightBanner}>
-            <MaterialIcons name="notifications-active" size={13} color="#92400E" />
-            <Text style={styles.highlightText}>Trajet concerné par votre notification</Text>
-          </View>
-        )}
-        <View style={styles.detailRow}><MaterialIcons name="event" size={18} color="#444" /><Text style={styles.detailText}>Date: {dateLabel}</Text></View>
-        <View style={styles.detailRow}><MaterialIcons name="schedule" size={18} color="#444" /><Text style={styles.detailText}>Heure: {timeLabel}</Text></View>
-        <View style={styles.detailRow}><MaterialIcons name="my-location" size={18} color="#444" /><Text style={styles.detailText}>Depart: {start}</Text></View>
-        <View style={styles.detailRow}><MaterialIcons name="location-on" size={18} color="#444" /><Text style={styles.detailText}>Arrivee: {end}</Text></View>
-        <View style={styles.detailRow}><MaterialIcons name="person" size={18} color="#444" /><Text style={styles.detailText}>Passenger: {passengerName}</Text></View>
-        <View style={styles.detailRow}><MaterialIcons name="badge" size={18} color="#444" /><Text style={styles.detailText}>Driver: {driverName}</Text></View>
-        <View style={styles.detailRow}><MaterialIcons name="payments" size={18} color="#444" /><Text style={styles.detailText}>Prix: {price.toFixed(2)} DA</Text></View>
-      </HighlightCard>
+          <View style={styles.detailRow}><MaterialIcons name="my-location" size={18} color="#444" /><Text style={styles.detailText}>Depart: {start}</Text></View>
+          <View style={styles.detailRow}><MaterialIcons name="location-on" size={18} color="#444" /><Text style={styles.detailText}>Arrivee: {end}</Text></View>
+          <View style={styles.detailRow}><MaterialIcons name="event" size={18} color="#444" /><Text style={styles.detailText}>Date: {dateLabel}</Text></View>
+          <View style={styles.detailRow}><MaterialIcons name="schedule" size={18} color="#444" /><Text style={styles.detailText}>Heure: {timeLabel}</Text></View>
+          <Text style={styles.seeMore}>See more infos</Text>
+        </HighlightCard>
+      </TouchableOpacity>
     );
   };
 
@@ -257,7 +252,7 @@ export default function DriverActivityScreen() {
             <View style={styles.statsGrid}>
               <StatCard icon="list-alt" label="Total" value={stats.total} />
               <StatCard icon="flag" label="Termines" value={stats.completed} />
-              <StatCard icon="hourglass-empty" label="Pending" value={stats.pending} />
+              <StatCard icon="hourglass-empty" label="Accepted" value={stats.pending} />
               <StatCard icon="cancel" label="Cancelled" value={stats.cancelled} />
               <StatCard icon="percent" label="Taux succes" value={`${stats.completionRate}%`} />
             </View>
@@ -360,4 +355,7 @@ const styles = StyleSheet.create({
   detailText: { flex: 1, color: '#333', fontSize: 13 },
   highlightBanner: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FEF3C7', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 10 },
   highlightText: { fontSize: 11, color: '#92400E', fontWeight: '700', flex: 1 },
+  tripHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
+  tripTitle: { color: '#111', fontSize: 18, fontWeight: '800', textAlign: 'left' },
+  seeMore: { marginTop: 10, color: '#2563EB', fontWeight: '700', fontSize: 13, textAlign: 'center', alignSelf: 'center' },
 });
