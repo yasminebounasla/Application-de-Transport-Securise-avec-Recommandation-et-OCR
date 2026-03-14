@@ -8,66 +8,74 @@ datasource db {
 }
 
 model Passenger {
-  id            Int            @id @default(autoincrement())
-  email         String         @unique
-  password      String
-  nom           String
-  prenom        String
-  numTel        String
-  age           Int
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+  id        Int      @id @default(autoincrement())
+  email     String   @unique
+  password  String
+  nom       String
+  prenom    String
+  numTel    String
+  age       Int
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  trajets Trajet[]
+  savedPlaces SavedPlace[]
   notifications Notification[]
-  savedPlaces   SavedPlace[]
-  trajets       Trajet[]
 }
 
 model Driver {
-  id                      Int            @id @default(autoincrement())
-  email                   String         @unique
+  id                      Int     @id @default(autoincrement())
+  email                   String  @unique
   password                String
   nom                     String
   prenom                  String
   numTel                  String
   sexe                    String
-  isVerified              Boolean        @default(false)
+  isVerified              Boolean @default(false)
   age                     Int
-  hasAcceptedPhotoStorage Boolean        @default(false)
-  talkative               Boolean        @default(false)
-  radio_on                Boolean        @default(false)
-  smoking_allowed         Boolean        @default(false)
-  pets_allowed            Boolean        @default(false)
-  car_big                 Boolean        @default(false)
-  works_morning           Boolean        @default(false)
-  works_afternoon         Boolean        @default(false)
-  works_evening           Boolean        @default(false)
-  works_night             Boolean        @default(false)
-  avgRating               Float?         @default(0)
-  ratingsCount            Int?           @default(0)
-  createdAt               DateTime       @default(now())
-  updatedAt               DateTime       @updatedAt
+  hasAcceptedPhotoStorage Boolean @default(false)
+  wilaya                  String
   latitude                Float?
   longitude               Float?
-  wilaya                  String
-  license                 License?
-  notifications           Notification[]
-  trajets                 Trajet[]
-  vehicules               Vehicule[]
-  verification            Verification?
+  workZoneAddress         String?  // Reverse-geocoded address of driver's work zone (city, wilaya) — stored for UI display to avoid repeated API calls
+
+  talkative       Boolean @default(false)
+  radio_on        Boolean @default(false)
+  smoking_allowed Boolean @default(false)
+  pets_allowed    Boolean @default(false)
+  car_big         Boolean @default(false)
+  works_morning   Boolean @default(false)
+  works_afternoon Boolean @default(false)
+  works_evening   Boolean @default(false)
+  works_night     Boolean @default(false)
+
+  avgRating    Float? @default(0)
+  ratingsCount Int?   @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  verification Verification?
+  license      License?
+  vehicules    Vehicule[]
+  trajets      Trajet[]
+  notifications Notification[]
 }
 
 model Vehicule {
-  id        Int      @id @default(autoincrement())
-  driverId  Int
-  marque    String
-  modele    String?
-  annee     Int?
-  nbPlaces  Int?
-  plaque    String?
-  couleur   String?
+  id       Int     @id @default(autoincrement())
+  driverId Int
+  marque   String
+  modele   String?
+  annee    Int?
+  nbPlaces Int?
+  plaque   String?
+  couleur  String?
+
+  driver Driver @relation(fields: [driverId], references: [id])
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-  driver    Driver   @relation(fields: [driverId], references: [id])
 
   @@index([driverId])
 }
@@ -85,7 +93,8 @@ model Verification {
   selfieQuality   Int?
   isApproved      Boolean  @default(false)
   createdAt       DateTime @default(now())
-  driver          Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
 }
 
 model License {
@@ -98,38 +107,57 @@ model License {
   ocrConfidence Int?
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
-  driver        Driver    @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  driver Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+}
+
+enum TrajetStatus {
+  PENDING
+  ACCEPTED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED_BY_PASSENGER
+  CANCELLED_BY_DRIVER
 }
 
 model Trajet {
-  id                 Int          @id @default(autoincrement())
-  driverId           Int?
-  passagerId         Int?
-  depart             String
-  destination        String
-  dateDepart         DateTime
-  heureDepart        String?
-  placesDispo        Int
-  prix               Float
-  status             TrajetStatus @default(PENDING)
-  quiet_ride         String       @default("no")
-  radio_ok           String       @default("no")
-  smoking_ok         String       @default("no")
-  pets_ok            String       @default("no")
-  luggage_large      String       @default("no")
-  female_driver_pref String       @default("no")
-  createdAt          DateTime     @default(now())
-  updatedAt          DateTime     @updatedAt
-  completedAt        DateTime?
-  startLat           Float?
-  startLng           Float?
-  startAddress       String?
-  endLat             Float?
-  endLng             Float?
-  endAddress         String?
-  evaluation         Evaluation?
-  driver             Driver?      @relation(fields: [driverId], references: [id])
-  passenger          Passenger?   @relation(fields: [passagerId], references: [id])
+  id          Int          @id @default(autoincrement())
+  driverId    Int?
+  passagerId  Int?
+
+  // Adresses texte (pour affichage)
+  depart      String
+  destination String
+
+  // Coordonnées GPS (pour la carte)
+  startLat    Float?
+  startLng    Float?
+  startAddress String?
+  endLat      Float?
+  endLng      Float?
+  endAddress  String?
+
+  dateDepart  DateTime
+  heureDepart String?
+  placesDispo Int
+  prix        Float
+  status      TrajetStatus @default(PENDING)
+
+  // Préférences du passager pour CE trajet (user features LightFM)
+  quiet_ride         String @default("no")
+  radio_ok           String @default("no")
+  smoking_ok         String @default("no")
+  pets_ok            String @default("no")
+  luggage_large      String @default("no")
+  female_driver_pref String @default("no")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  completedAt DateTime?
+
+  driver     Driver?      @relation(fields: [driverId], references: [id])
+  passenger  Passenger?  @relation(fields: [passagerId], references: [id])
+  evaluation Evaluation?
 
   @@index([driverId])
   @@index([passagerId])
@@ -141,49 +169,25 @@ model Evaluation {
   rating    Float
   comment   String?
   createdAt DateTime @default(now())
-  trajet    Trajet   @relation(fields: [trajetId], references: [id], onDelete: Cascade)
+
+  trajet Trajet @relation(fields: [trajetId], references: [id], onDelete: Cascade)
 }
 
+
+
 model SavedPlace {
-  id          Int       @id @default(autoincrement())
+  id          Int      @id @default(autoincrement())
   passengerId Int
   label       String
   address     String
   lat         Float
   lng         Float
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  passenger   Passenger @relation(fields: [passengerId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  passenger Passenger @relation(fields: [passengerId], references: [id], onDelete: Cascade)
 
   @@index([passengerId])
-}
-
-model Notification {
-  id            Int                   @id @default(autoincrement())
-  driverId      Int?
-  passengerId   Int?
-  recipientType NotificationRecipient
-  type          NotificationType
-  title         String
-  message       String
-  data          Json?
-  isRead        Boolean               @default(false)
-  createdAt     DateTime              @default(now())
-  driver        Driver?               @relation(fields: [driverId], references: [id], onDelete: Cascade)
-  passenger     Passenger?            @relation(fields: [passengerId], references: [id], onDelete: Cascade)
-
-  @@index([driverId, isRead])
-  @@index([passengerId, isRead])
-  @@index([createdAt])
-}
-
-enum TrajetStatus {
-  PENDING
-  ACCEPTED
-  IN_PROGRESS
-  COMPLETED
-  CANCELLED_BY_PASSENGER
-  CANCELLED_BY_DRIVER
 }
 
 enum NotificationRecipient {
@@ -200,4 +204,24 @@ enum NotificationType {
   RIDE_COMPLETED
   NEW_FEEDBACK
   RIDE_TAKEN
+}
+
+model Notification {
+  id            Int                   @id @default(autoincrement())
+  driverId      Int?
+  passengerId   Int?
+  recipientType NotificationRecipient
+  type          NotificationType
+  title         String
+  message       String
+  data          Json?
+  isRead        Boolean               @default(false)
+  createdAt     DateTime              @default(now())
+
+  driver    Driver?    @relation(fields: [driverId],    references: [id], onDelete: Cascade)
+  passenger Passenger? @relation(fields: [passengerId], references: [id], onDelete: Cascade)
+
+  @@index([driverId,    isRead])
+  @@index([passengerId, isRead])
+  @@index([createdAt])
 }
