@@ -12,12 +12,11 @@ import { API_URL } from '../../services/api';
 import { getPublicDriverStats, getPublicDriverFeedback } from '../../services/feedbackService';
 
 // ─────────────────────────────────────────────
-// AVATAR COLOR HELPER
+// AVATAR COLOR — blue for male, pink for female
 // ─────────────────────────────────────────────
-function getAvatarColor(name: string) {
-  const colors = ['#F472B6', '#FB923C', '#A78BFA', '#34D399', '#60A5FA'];
-  const i = (name?.charCodeAt(0) ?? 0) % colors.length;
-  return colors[i];
+function getAvatarColor(gender?: string) {
+  if (gender === 'female' || gender === 'femme' || gender === 'F') return '#F472B6';
+  return '#60A5FA'; // default = male
 }
 
 // ─────────────────────────────────────────────
@@ -128,7 +127,7 @@ export default function PublicDriverProfileScreen() {
   const visibleFeedbacks = showAll ? feedbacks : feedbacks.slice(0, 3);
 
   const initials = `${driver.prenom?.[0] ?? ''}${driver.nom?.[0] ?? ''}`.toUpperCase();
-  const avatarBg = getAvatarColor(driver.prenom ?? '');
+  const avatarBg = getAvatarColor(driver.gender ?? driver.genre ?? driver.sexe);
 
   return (
     <>
@@ -151,29 +150,18 @@ export default function PublicDriverProfileScreen() {
         >
           {/* ── HERO ── */}
           <View style={styles.heroSection}>
-            {/* Avatar */}
-            <View style={[styles.avatarRing, { borderColor: avatarBg }]}>
-              <View style={[styles.avatar, { backgroundColor: avatarBg }]}>
-                <Text style={styles.avatarText}>{initials}</Text>
+            {/* Avatar + rating badge overlay */}
+            <View style={styles.avatarWrap}>
+              <View style={[styles.avatarRing, { borderColor: avatarBg }]}>
+                <View style={[styles.avatar, { backgroundColor: avatarBg }]}>
+                  <Text style={styles.avatarText}>{initials}</Text>
+                </View>
               </View>
+
             </View>
 
             {/* Name */}
             <Text style={styles.name}>{driver.prenom} {driver.nom}</Text>
-
-            {/* ⭐ Rating right under the name — like the photo */}
-            <TouchableOpacity
-              style={styles.ratingRow}
-              onPress={() => setShowAll(true)}
-              activeOpacity={0.7}
-            >
-              <Ionicons name="star" size={15} color="#CA8A04" />
-              <Text style={styles.ratingValue}>{avgRating.toFixed(1)}</Text>
-              <Text style={styles.ratingDot}>·</Text>
-              <Text style={styles.ratingLink}>
-                {totalReviews} review{totalReviews !== 1 ? 's' : ''}
-              </Text>
-            </TouchableOpacity>
 
             {/* DRIVER badge */}
             <View style={styles.driverBadge}>
@@ -197,7 +185,7 @@ export default function PublicDriverProfileScreen() {
             </View>
             <View style={styles.statCard}>
               <Text style={styles.statNumber}>{avgRating.toFixed(1)}</Text>
-              <Text style={styles.statLabel}>Rating</Text>
+              <StarRow rating={avgRating} size={12} />
             </View>
             <View style={styles.statCard}>
               <Text style={styles.statNumber}>{totalReviews}</Text>
@@ -351,10 +339,15 @@ const styles = StyleSheet.create({
 
   // ── Hero ──
   heroSection: { alignItems: 'center', paddingTop: 12, paddingBottom: 28 },
+
+  avatarWrap: {
+    position: 'relative',
+    marginBottom: 18,
+    alignItems: 'center',
+  },
   avatarRing: {
     width: 92, height: 92, borderRadius: 46,
     borderWidth: 3, padding: 3,
-    marginBottom: 14,
   },
   avatar: {
     flex: 1, borderRadius: 43,
@@ -362,18 +355,23 @@ const styles = StyleSheet.create({
   },
   avatarText: { fontSize: 28, fontWeight: '900', color: '#FFF' },
 
-  name: { fontSize: 22, fontWeight: '800', color: '#111', marginBottom: 8, letterSpacing: -0.3 },
-
-  // Rating row — right under the name
-  ratingRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    marginBottom: 12,
+  // Rating pill — overlaps bottom of avatar
+  ratingPill: {
+    position: 'absolute',
+    bottom: -13,
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: '#FFFBEB',
+    borderRadius: 20,
+    paddingHorizontal: 10, paddingVertical: 5,
+    borderWidth: 2, borderColor: '#FFF',
+    shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 6, shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
   },
-  ratingValue: { fontSize: 14, fontWeight: '700', color: '#111' },
-  ratingDot:   { fontSize: 14, color: '#CCC' },
-  ratingLink:  { fontSize: 14, color: '#6B7280', textDecorationLine: 'underline' },
+  ratingValue: { fontSize: 13, fontWeight: '800', color: '#B45309' },
+  ratingDot:   { fontSize: 14, color: '#CA8A04', fontWeight: '600' },
+  ratingCount: { fontSize: 14, fontWeight: '600', color: '#92400E' },
 
-  // DRIVER badge
+  name: { fontSize: 22, fontWeight: '800', color: '#111', marginBottom: 8, letterSpacing: -0.3 },
   driverBadge: {
     backgroundColor: '#111', borderRadius: 20,
     paddingHorizontal: 14, paddingVertical: 5,
