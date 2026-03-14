@@ -180,7 +180,7 @@ export default function PublicDriverProfileScreen() {
           {/* ── STATS CARDS ── */}
           <View style={styles.statsRow}>
             <View style={styles.statCard}>
-              <Text style={styles.statNumber}>{driver.stats?.totalRides ?? '—'}</Text>
+              <Text style={styles.statNumber}>{driver.stats?.completedRides ?? '—'}</Text>
               <Text style={styles.statLabel}>Rides</Text>
             </View>
             <View style={styles.statCard}>
