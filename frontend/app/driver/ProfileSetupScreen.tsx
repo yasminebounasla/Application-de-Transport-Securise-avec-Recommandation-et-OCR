@@ -31,7 +31,6 @@ import {
 
 // ── Step Indicator ────────────────────────────────────────────────────────────
 function StepIndicator({ current, total }: { current: number; total: number }) {
-  const labels = ['Your Vehicle', 'Your Work Zone', 'Your Preferences'];
   return (
     <View style={stepStyles.wrap}>
       <Text style={stepStyles.counter}>{current} of {total}</Text>
@@ -40,7 +39,6 @@ function StepIndicator({ current, total }: { current: number; total: number }) {
           <View key={i} style={[stepStyles.bar, i < current && stepStyles.barActive]} />
         ))}
       </View>
-      <Text style={stepStyles.label}>{labels[current - 1]}</Text>
     </View>
   );
 }
