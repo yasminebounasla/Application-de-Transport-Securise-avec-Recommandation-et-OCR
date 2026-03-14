@@ -14,9 +14,10 @@ import { getPublicDriverStats, getPublicDriverFeedback } from '../../services/fe
 // ─────────────────────────────────────────────
 // AVATAR COLOR — blue for male, pink for female
 // ─────────────────────────────────────────────
-function getAvatarColor(gender?: string) {
-  if (gender === 'female' || gender === 'femme' || gender === 'F') return '#F472B6';
-  return '#60A5FA'; // default = male
+function getAvatarColor(gender?: string): { bg: string; text: string } {
+  if (gender === 'female' || gender === 'femme' || gender === 'F')
+    return { bg: '#fad0e2', text: '#BE185D' };
+  return { bg: '#d3e4fa', text: '#1B72DA' };
 }
 
 // ─────────────────────────────────────────────
@@ -125,7 +126,18 @@ export default function PublicDriverProfileScreen() {
   }
 
   const vehicule     = driver.vehicules?.[0];
-  const prefs        = driver.preferences ?? driver;
+  // Backend returns preferences as nested object AND at top-level — check both
+  const prefs = {
+    talkative:       driver.preferences?.talkative       ?? driver.talkative,
+    radio_on:        driver.preferences?.radio_on        ?? driver.radio_on,
+    smoking_allowed: driver.preferences?.smoking_allowed ?? driver.smoking_allowed,
+    pets_allowed:    driver.preferences?.pets_allowed    ?? driver.pets_allowed,
+    car_big:         driver.preferences?.car_big         ?? driver.car_big,
+    works_morning:   driver.preferences?.works_morning   ?? driver.works_morning,
+    works_afternoon: driver.preferences?.works_afternoon ?? driver.works_afternoon,
+    works_evening:   driver.preferences?.works_evening   ?? driver.works_evening,
+    works_night:     driver.preferences?.works_night     ?? driver.works_night,
+  };
   const avgRating    = Number(stats?.averageRating || driver.stats?.avgRating || 0);
   const totalReviews = stats?.totalFeedbacks || driver.stats?.ratingsCount || 0;
 
@@ -134,7 +146,7 @@ export default function PublicDriverProfileScreen() {
   const visibleFeedbacks = showAll ? feedbacks : feedbacks.slice(0, 3);
 
   const initials = `${driver.prenom?.[0] ?? ''}${driver.nom?.[0] ?? ''}`.toUpperCase();
-  const avatarBg = getAvatarColor(driver.gender ?? driver.genre ?? driver.sexe);
+  const avatarColor = getAvatarColor(driver.gender ?? driver.genre ?? driver.sexe);
 
   return (
     <>
@@ -159,9 +171,9 @@ export default function PublicDriverProfileScreen() {
           <View style={styles.heroSection}>
             {/* Avatar + rating badge overlay */}
             <View style={styles.avatarWrap}>
-              <View style={[styles.avatarRing, { borderColor: avatarBg }]}>
-                <View style={[styles.avatar, { backgroundColor: avatarBg }]}>
-                  <Text style={styles.avatarText}>{initials}</Text>
+              <View style={[styles.avatarRing, { borderColor: avatarColor.bg }]}>
+                <View style={[styles.avatar, { backgroundColor: avatarColor.bg }]}>
+                  <Text style={[styles.avatarText, { color: avatarColor.text }]}>{initials}</Text>
                 </View>
               </View>
 
@@ -360,7 +372,7 @@ const styles = StyleSheet.create({
     flex: 1, borderRadius: 43,
     alignItems: 'center', justifyContent: 'center',
   },
-  avatarText: { fontSize: 28, fontWeight: '900', color: '#FFF' },
+  avatarText: { fontSize: 28, fontWeight: '900', color: '#1E40AF' },
 
   // Rating pill — overlaps bottom of avatar
   ratingPill: {
