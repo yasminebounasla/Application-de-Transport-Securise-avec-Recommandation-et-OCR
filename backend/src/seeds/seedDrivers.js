@@ -62,6 +62,8 @@ async function seedDrivers(count = 30) {
       works_afternoon: randomBool(),
       works_evening: randomBool(),
       works_night: randomBool(),
+      avgRating:    parseFloat((randomFloat(3.0, 5.0)).toFixed(1)),
+      ratingsCount: randomInt(5, 150),
     });
   }
 
