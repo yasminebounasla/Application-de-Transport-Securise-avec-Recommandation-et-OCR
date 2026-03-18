@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, RefreshControl,
-  ActivityIndicator, TouchableOpacity, TextInput, Animated,
+  ActivityIndicator, TouchableOpacity, TextInput, Animated, Modal, Pressable,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -14,23 +14,18 @@ const CATEGORIES = [
   { key: 'cancelled', label: 'Cancelled' },
 ];
 const PRICE_FILTERS = [
-  { key: 'none', label: 'Price: none' },
-  { key: 'asc', label: 'Price: low to high' },
-  { key: 'desc', label: 'Price: high to low' },
+  { key: 'none', label: 'None' },
+  { key: 'asc', label: 'Low-High' },
+  { key: 'desc', label: 'High-Low' },
 ];
 const NAME_FILTERS = [
-  { key: 'none', label: 'Name: none' },
-  { key: 'az', label: 'Name: A-Z' },
-  { key: 'za', label: 'Name: Z-A' },
+  { key: 'none', label: 'None' },
+  { key: 'az', label: 'A-Z' },
+  { key: 'za', label: 'Z-A' },
 ];
-const STATUS_TO_TAB: Record<string, string> = {
-  COMPLETED: 'completed',
-  PENDING: 'pending',
-  ACCEPTED: 'pending',
-  IN_PROGRESS: 'pending',
-  CANCELLED_BY_PASSENGER: 'cancelled',
-  CANCELLED_BY_DRIVER: 'cancelled',
-};
+
+const getDriverName = (ride: any) =>
+  `${ride.driver?.prenom || ''} ${ride.driver?.nom || ''}`.trim();
 
 function HighlightCard({ highlighted, children }: { highlighted: boolean; children: React.ReactNode }) {
   const anim = useRef(new Animated.Value(0)).current;
@@ -45,7 +40,7 @@ function HighlightCard({ highlighted, children }: { highlighted: boolean; childr
       Animated.delay(1500),
       Animated.timing(anim, { toValue: 0, duration: 800, useNativeDriver: false }),
     ]).start();
-  }, [highlighted]);
+  }, [anim, highlighted]);
   const bgColor = anim.interpolate({ inputRange: [0, 1], outputRange: ['#FFFFFF', '#FFF3CD'] });
   const borderColor = anim.interpolate({ inputRange: [0, 1], outputRange: ['#E5E7EB', '#F59E0B'] });
   return (
@@ -79,7 +74,7 @@ export default function ActivityScreen() {
       setError('');
       const response = await api.get(`/rides/activity/passenger/${user.id}`);
       setActivity(response?.data?.data || []);
-    } catch (err) {
+    } catch {
       setError("Impossible de charger l'activite.");
     } finally {
       setLoading(false);
@@ -136,16 +131,11 @@ export default function ActivityScreen() {
     let rides: any[] = (categorized as any)[activeCategory] || [];
     if (nameQuery.trim()) {
       const q = nameQuery.trim().toLowerCase();
-      rides = rides.filter((ride: any) => {
-        const d = ride.driver || {};
-        const p = ride.passenger || {};
-        return `${d.prenom || ''} ${d.nom || ''}`.toLowerCase().includes(q)
-          || `${p.prenom || ''} ${p.nom || ''}`.toLowerCase().includes(q);
-      });
+      rides = rides.filter((ride: any) => getDriverName(ride).toLowerCase().includes(q));
     }
     rides = [...rides];
-    if (nameFilter === 'az') rides.sort((a: any, b: any) => `${a.driver?.prenom || ''}`.localeCompare(`${b.driver?.prenom || ''}`));
-    if (nameFilter === 'za') rides.sort((a: any, b: any) => `${b.driver?.prenom || ''}`.localeCompare(`${a.driver?.prenom || ''}`));
+    if (nameFilter === 'az') rides.sort((a: any, b: any) => getDriverName(a).localeCompare(getDriverName(b)));
+    if (nameFilter === 'za') rides.sort((a: any, b: any) => getDriverName(b).localeCompare(getDriverName(a)));
     if (priceFilter === 'asc') rides.sort((a: any, b: any) => (Number(a.prix) || 0) - (Number(b.prix) || 0));
     if (priceFilter === 'desc') rides.sort((a: any, b: any) => (Number(b.prix) || 0) - (Number(a.prix) || 0));
     return rides;
@@ -163,11 +153,6 @@ export default function ActivityScreen() {
     if (status === 'CANCELLED_BY_DRIVER') return 'CANCELLED BY DRIVER';
     if (status === 'CANCELLED_BY_PASSENGER') return 'CANCELLED BY YOU';
     return status;
-  };
-
-  const cycleFilter = (current: string, values: { key: string; label: string }[]) => {
-    const idx = values.findIndex((v) => v.key === current);
-    return values[idx === values.length - 1 ? 0 : idx + 1].key;
   };
 
   const renderItem = ({ item }: { item: any }) => {
@@ -235,29 +220,21 @@ export default function ActivityScreen() {
                 </TouchableOpacity>
               ))}
             </View>
-            <View style={styles.filtersHeader}>
-              <TouchableOpacity style={styles.filterToggleButton} onPress={() => setShowFilters((prev) => !prev)}>
-                <MaterialIcons name="filter-list" size={18} color="#111" />
-                <Text style={styles.filterToggleText}>Filtrage</Text>
-              </TouchableOpacity>
-            </View>
-            {showFilters && (
-              <View style={styles.filtersPanel}>
-                <TextInput style={styles.input} value={nameQuery} onChangeText={setNameQuery} placeholder="Filtrer par nom..." placeholderTextColor="#999" />
-                <View style={styles.filterButtonsRow}>
-                  <TouchableOpacity style={styles.filterOptionButton} onPress={() => setPriceFilter((v) => cycleFilter(v, PRICE_FILTERS))}>
-                    <Text style={styles.filterOptionText}>{PRICE_FILTERS.find(f => f.key === priceFilter)?.label}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity style={styles.filterOptionButton} onPress={() => setNameFilter((v) => cycleFilter(v, NAME_FILTERS))}>
-                    <Text style={styles.filterOptionText}>{NAME_FILTERS.find(f => f.key === nameFilter)?.label}</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
             {!!error && <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View>}
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Liste trajets</Text>
-              <Text style={styles.sectionCount}>{visibleRides.length}</Text>
+              <View style={styles.sectionActions}>
+                <TouchableOpacity
+                  style={[styles.filterIconButton, showFilters && styles.filterIconButtonActive]}
+                  onPress={() => setShowFilters(true)}
+                  activeOpacity={0.85}
+                >
+                  <MaterialIcons name="filter-list" size={20} color={showFilters ? '#FFF' : '#111'} />
+                </TouchableOpacity>
+                <View style={styles.sectionCountBadge}>
+                  <Text style={styles.sectionCountText}>{visibleRides.length}</Text>
+                </View>
+              </View>
             </View>
           </>
         }
@@ -271,6 +248,79 @@ export default function ActivityScreen() {
         contentContainerStyle={styles.listContainer}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await loadActivity(); setRefreshing(false); }} colors={['#000']} />}
       />
+      <Modal
+        transparent
+        animationType="fade"
+        visible={showFilters}
+        onRequestClose={() => setShowFilters(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <Pressable style={styles.modalBackdrop} onPress={() => setShowFilters(false)} />
+          <View style={styles.filterModal}>
+            <View style={styles.filterModalHeader}>
+              <Text style={styles.filterModalTitle}>Filtrage</Text>
+              <TouchableOpacity onPress={() => setShowFilters(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+                <MaterialIcons name="close" size={22} color="#111" />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.filterSectionLabel}>Price</Text>
+            <View style={styles.filterChoicesWrap}>
+              {PRICE_FILTERS.map((filter) => (
+                <TouchableOpacity
+                  key={filter.key}
+                  style={[styles.filterChoiceButton, priceFilter === filter.key && styles.filterChoiceButtonActive]}
+                  onPress={() => setPriceFilter(filter.key)}
+                >
+                  <Text style={[styles.filterChoiceText, priceFilter === filter.key && styles.filterChoiceTextActive]}>
+                    {filter.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.filterSectionLabel}>A-Z / Z-A</Text>
+            <View style={styles.filterChoicesWrap}>
+              {NAME_FILTERS.map((filter) => (
+                <TouchableOpacity
+                  key={filter.key}
+                  style={[styles.filterChoiceButton, nameFilter === filter.key && styles.filterChoiceButtonActive]}
+                  onPress={() => setNameFilter(filter.key)}
+                >
+                  <Text style={[styles.filterChoiceText, nameFilter === filter.key && styles.filterChoiceTextActive]}>
+                    {filter.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.filterSectionLabel}>Name of driver</Text>
+            <TextInput
+              style={styles.modalInput}
+              value={nameQuery}
+              onChangeText={setNameQuery}
+              placeholder="Name of driver"
+              placeholderTextColor="#9CA3AF"
+            />
+
+            <View style={styles.filterFooter}>
+              <TouchableOpacity
+                style={styles.filterResetButton}
+                onPress={() => {
+                  setPriceFilter('none');
+                  setNameFilter('none');
+                  setNameQuery('');
+                }}
+              >
+                <Text style={styles.filterResetText}>Reset</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowFilters(false)}>
+                <Text style={styles.filterDoneText}>Done</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -290,17 +340,13 @@ const styles = StyleSheet.create({
   categoryButtonActive: { backgroundColor: '#111', borderColor: '#111' },
   categoryText: { color: '#111', fontSize: 13, fontWeight: '600' },
   categoryTextActive: { color: '#FFF' },
-  filtersHeader: { paddingHorizontal: 16, marginTop: 10 },
-  filterToggleButton: { alignSelf: 'flex-start', backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10, paddingVertical: 8, paddingHorizontal: 12, flexDirection: 'row', alignItems: 'center', gap: 6 },
-  filterToggleText: { color: '#111', fontWeight: '600', fontSize: 13 },
-  filtersPanel: { marginHorizontal: 16, marginTop: 8, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, padding: 12, gap: 10 },
-  input: { height: 42, borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 10, paddingHorizontal: 12, color: '#111', backgroundColor: '#FAFAFA', fontSize: 14 },
-  filterButtonsRow: { flexDirection: 'row', gap: 8 },
-  filterOptionButton: { flex: 1, backgroundColor: '#F9FAFB', borderRadius: 10, borderWidth: 1, borderColor: '#E5E7EB', paddingVertical: 10, paddingHorizontal: 10 },
-  filterOptionText: { color: '#111', fontWeight: '600', fontSize: 12, textAlign: 'center' },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginTop: 6, marginBottom: 8 },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, marginTop: 12, marginBottom: 8 },
   sectionTitle: { fontSize: 18, fontWeight: '700', color: '#111' },
-  sectionCount: { minWidth: 30, height: 30, borderRadius: 15, backgroundColor: '#111', color: '#FFF', textAlign: 'center', textAlignVertical: 'center', fontWeight: '700', fontSize: 13, overflow: 'hidden', paddingTop: 6 },
+  sectionActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  filterIconButton: { width: 38, height: 38, borderRadius: 12, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E5E7EB', alignItems: 'center', justifyContent: 'center' },
+  filterIconButtonActive: { backgroundColor: '#111', borderColor: '#111' },
+  sectionCountBadge: { minWidth: 38, height: 38, borderRadius: 12, backgroundColor: '#111', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
+  sectionCountText: { color: '#FFF', fontWeight: '700', fontSize: 13 },
   listContainer: { paddingHorizontal: 16, paddingBottom: 32, flexGrow: 1 },
   rideCard: { backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 14, padding: 14, marginBottom: 12 },
   rideHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
@@ -320,4 +366,21 @@ const styles = StyleSheet.create({
   tripHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   tripTitle: { color: '#111', fontSize: 18, fontWeight: '800', textAlign: 'left' },
   seeMore: { marginTop: 10, color: '#2563EB', fontWeight: '700', fontSize: 13, textAlign: 'center', alignSelf: 'center' },
+  modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+  modalBackdrop: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(17, 24, 39, 0.35)' },
+  filterModal: { width: '100%', maxWidth: 360, backgroundColor: '#FFF', borderRadius: 24, padding: 18, gap: 14, borderWidth: 1, borderColor: '#E5E7EB' },
+  filterModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  filterModalTitle: { color: '#111', fontSize: 18, fontWeight: '800' },
+  filterSectionLabel: { color: '#111', fontSize: 13, fontWeight: '700' },
+  filterChoicesWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  filterChoiceButton: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: 12, backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB' },
+  filterChoiceButtonActive: { backgroundColor: '#111', borderColor: '#111' },
+  filterChoiceText: { color: '#111', fontSize: 13, fontWeight: '600' },
+  filterChoiceTextActive: { color: '#FFF' },
+  modalInput: { height: 44, borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, paddingHorizontal: 12, color: '#111', backgroundColor: '#F9FAFB', fontSize: 14 },
+  filterFooter: { flexDirection: 'row', gap: 10, marginTop: 4 },
+  filterResetButton: { flex: 1, height: 44, borderRadius: 12, borderWidth: 1, borderColor: '#D1D5DB', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF' },
+  filterResetText: { color: '#111', fontSize: 14, fontWeight: '700' },
+  filterDoneButton: { flex: 1, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#111' },
+  filterDoneText: { color: '#FFF', fontSize: 14, fontWeight: '700' },
 });
