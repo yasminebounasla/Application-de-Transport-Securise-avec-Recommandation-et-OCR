@@ -1,3 +1,4 @@
 node_modules
 ml-service/lightfm_data/
 face-recognition-service/venv
+face-recognition-service/.env
