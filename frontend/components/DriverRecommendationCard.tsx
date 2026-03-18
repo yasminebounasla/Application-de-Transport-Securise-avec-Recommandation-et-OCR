@@ -102,24 +102,29 @@ export default function DriverRecoCard({
 
               {/* Calme / Bavard */}
               {!driver.talkative
-                ? <MiniTag icon="volume-mute"  label="Calme"    />
-                : <MiniTag icon="chatbubbles"  label="Bavard"   iconLib="material" />
+                ? <MiniTag icon="volume-mute"     label="Calme"      iconLib="ionicons" />
+                : <MiniTag icon="chatbubbles"     label="Bavard"     iconLib="ionicons" />
               }
 
-              {/* ✅ Radio — ajouté car pris en compte dans le scoring */}
-              {driver.radio_on
-                ? <MiniTag icon="radio"        label="Radio ✓"  />
-                : <MiniTag icon="radio-off"    label="Sans radio" />
+              {/* Radio */}
+              {driver.radio_on &&
+                <MiniTag icon="radio"           label="Radio"      iconLib="material" />
               }
 
               {/* Fumeur */}
-              {driver.smoking_allowed && <MiniTag icon="smoking"     label="Fumeur OK" />}
+              {driver.smoking_allowed && 
+                <MiniTag icon="smoking"           label="Fumeur OK"  iconLib="material" />
+              }
 
               {/* Animaux */}
-              {driver.pets_allowed    && <MiniTag icon="paw"         label="Animaux"   />}
+              {driver.pets_allowed &&
+                <MiniTag icon="paw"               label="Animaux"    iconLib="material" />
+              }
 
               {/* Grand coffre */}
-              {driver.car_big         && <MiniTag icon="car-side"    label="Grand"     />}
+              {driver.car_big &&
+                <MiniTag icon="car-side"          label="Grand"      iconLib="material" />
+              }
 
             </View>
           </View>
