@@ -6,64 +6,85 @@ const PRENOMS_F = ["Sara", "Lina", "Amira", "Nour", "Yasmine", "Fatima", "Meriem
 const PRENOMS_M = ["Hawas", "Mohamed", "Yassine", "Karim", "Mehdi", "Hamza", "Rami", "Khaled", "Sofiane", "Amine"];
 const NOMS = ["Benali", "Mansouri", "Bouzid", "Belkacem", "Haddad", "Amrani", "Slimani", "Meziane", "Bouaziz", "Cherif"];
 
-// Vraies coordonnees GPS des wilayas algeriennes
-const WILAYAS = [
-  { wilaya: "Alger", lat: 36.7538, lng: 3.0588 },
-  { wilaya: "Oran", lat: 35.6969, lng: 0.6331 },
+const ALGER_ZONES = [
+  { lat: 36.7538, lng: 3.0588 },
+  { lat: 36.7197, lng: 3.1833 },
+  { lat: 36.7456, lng: 3.0231 },
+  { lat: 36.7631, lng: 2.9997 },
+  { lat: 36.7272, lng: 3.0939 },
+  { lat: 36.7167, lng: 3.1333 },
+  { lat: 36.6961, lng: 3.2150 },
+  { lat: 36.7069, lng: 3.0514 },
+  { lat: 36.7378, lng: 3.1108 },
+  { lat: 36.7406, lng: 3.1856 },
+  { lat: 36.7333, lng: 3.2833 },
+  { lat: 36.7167, lng: 3.3500 },
+  { lat: 36.7667, lng: 2.9667 },
+  { lat: 36.7500, lng: 2.8833 },
+  { lat: 36.6833, lng: 2.8333 },
+];
+
+const AUTRES_WILAYAS = [
+  { wilaya: "Oran",        lat: 35.6969, lng: 0.6331 },
   { wilaya: "Constantine", lat: 36.3650, lng: 6.6147 },
-  { wilaya: "Blida", lat: 36.4700, lng: 2.8300 },
-  { wilaya: "Annaba", lat: 36.9000, lng: 7.7667 },
-  { wilaya: "Setif", lat: 36.1898, lng: 5.4108 },
-  { wilaya: "Bejaia", lat: 36.7515, lng: 5.0564 },
-  { wilaya: "Tizi Ouzou", lat: 36.7169, lng: 4.0497 },
-  { wilaya: "Medea", lat: 36.2636, lng: 2.7539 },
-  { wilaya: "Boumerdes", lat: 36.7667, lng: 3.4667 },
+  { wilaya: "Blida",       lat: 36.4700, lng: 2.8300 },
+  { wilaya: "Annaba",      lat: 36.9000, lng: 7.7667 },
+  { wilaya: "Bejaia",      lat: 36.7515, lng: 5.0564 },
 ];
 
 const randomChoice = (arr) => arr[Math.floor(Math.random() * arr.length)];
-const randomBool = () => Math.random() > 0.5;
-const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
-const randomFloat = (min, max) => parseFloat((Math.random() * (max - min) + min).toFixed(6));
+const randomBool   = () => Math.random() > 0.5;
+const randomInt    = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+const randomFloat  = (min, max) => parseFloat((Math.random() * (max - min) + min).toFixed(6));
 
-async function seedDrivers(count = 30) {
-  console.log(`Creation de ${count} drivers...\n`);
+async function seedDrivers(count = 100) {
+  console.log(`Création de ${count} drivers (80 Alger + 20 autres wilayas)...\n`);
   const hashedPassword = await bcrypt.hash("Test123!", 10);
   const drivers = [];
 
   for (let i = 1; i <= count; i++) {
-    const sexe = i % 2 === 0 ? "F" : "M";
+    const sexe   = i % 2 === 0 ? "F" : "M";
     const prenom = randomChoice(sexe === "F" ? PRENOMS_F : PRENOMS_M);
-    const nom = randomChoice(NOMS);
+    const nom    = randomChoice(NOMS);
 
-    // Wilaya avec coordonnees GPS realistes (legere variation autour du centre)
-    const wilayaData = randomChoice(WILAYAS);
-    const latitude = wilayaData.lat + randomFloat(-0.05, 0.05);
-    const longitude = wilayaData.lng + randomFloat(-0.05, 0.05);
+    let wilaya, latitude, longitude;
+
+    if (i <= 80) {
+      const zone = randomChoice(ALGER_ZONES);
+      wilaya    = "Alger";
+      latitude  = zone.lat + randomFloat(-0.02, 0.02);
+      longitude = zone.lng + randomFloat(-0.02, 0.02);
+    } else {
+      const w   = randomChoice(AUTRES_WILAYAS);
+      wilaya    = w.wilaya;
+      latitude  = w.lat + randomFloat(-0.05, 0.05);
+      longitude = w.lng + randomFloat(-0.05, 0.05);
+    }
 
     drivers.push({
-      email: `driver${i}@mail.com`,
-      password: hashedPassword,
+      email:                   `driver${i}@mail.com`,
+      password:                hashedPassword,
       nom,
       prenom,
-      numTel: `0${randomInt(500000000, 799999999)}`,
+      numTel:                  `0${randomInt(500000000, 799999999)}`,
       sexe,
-      age: randomInt(22, 55),
-      isVerified: true,
+      age:                     randomInt(22, 55),
+      isVerified:              true,
       hasAcceptedPhotoStorage: true,
-      wilaya: wilayaData.wilaya,
+      wilaya,
       latitude,
       longitude,
-      talkative: randomBool(),
-      radio_on: randomBool(),
-      smoking_allowed: randomBool(),
-      pets_allowed: randomBool(),
-      car_big: randomBool(),
-      works_morning: randomBool(),
-      works_afternoon: randomBool(),
-      works_evening: randomBool(),
-      works_night: randomBool(),
-      avgRating:    parseFloat((randomFloat(3.0, 5.0)).toFixed(1)),
-      ratingsCount: randomInt(5, 150),
+      talkative:               randomBool(),
+      radio_on:                randomBool(),
+      smoking_allowed:         randomBool(),
+      pets_allowed:            randomBool(),
+      car_big:                 randomBool(),
+      works_morning:           randomBool(),
+      works_afternoon:         randomBool(),
+      works_evening:           randomBool(),
+      works_night:             randomBool(),
+      avgRating:               parseFloat((randomFloat(3.0, 5.0)).toFixed(1)),
+      ratingsCount:            randomInt(5, 150),
     });
   }
 
@@ -73,15 +94,11 @@ async function seedDrivers(count = 30) {
 
     for (const driver of drivers) {
       const existing = await prisma.driver.findUnique({
-        where: { email: driver.email },
+        where:  { email: driver.email },
         select: { id: true },
       });
-
       if (existing) {
-        await prisma.driver.update({
-          where: { email: driver.email },
-          data: driver,
-        });
+        await prisma.driver.update({ where: { email: driver.email }, data: driver });
         updatedCount++;
       } else {
         await prisma.driver.create({ data: driver });
@@ -89,14 +106,14 @@ async function seedDrivers(count = 30) {
       }
     }
 
-    console.log(`✅ ${createdCount} drivers crees avec succes!`);
-    console.log(`✅ ${updatedCount} drivers mis a jour!\n`);
+    console.log(`✅ ${createdCount} drivers créés avec succès!`);
+    console.log(`✅ ${updatedCount} drivers mis à jour!\n`);
 
-    const created = await prisma.driver.findMany({ take: 5 });
+    const exemples = await prisma.driver.findMany({ take: 5 });
     console.log("Exemples de drivers:");
-    created.forEach((d) => {
+    exemples.forEach((d) => {
       console.log(
-        `  - ${d.prenom} ${d.nom} (${d.sexe}) | ${d.wilaya} | lat: ${d.latitude?.toFixed(4)}, lng: ${d.longitude?.toFixed(4)} | talkative: ${d.talkative}`
+        `  - ${d.prenom} ${d.nom} (${d.sexe}) | ${d.wilaya} | lat: ${d.latitude?.toFixed(4)}, lng: ${d.longitude?.toFixed(4)}`
       );
     });
   } catch (error) {
