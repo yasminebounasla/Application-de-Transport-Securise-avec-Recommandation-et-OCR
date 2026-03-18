@@ -2,8 +2,7 @@ import { prisma } from "../config/prisma.js";
 
 // ── GET all saved places
 export const getSavedPlaces = async (req, res) => {
-  console.log('req.user:', req.user);
-  const passengerId = req.user.passengerId;
+  const passengerId = req.user?.passengerId;
   if (!passengerId) return res.status(403).json({ message: "Access restricted to passengers only." });
 
   try {
@@ -13,13 +12,14 @@ export const getSavedPlaces = async (req, res) => {
     });
     res.status(200).json({ message: "Saved places retrieved.", data: savedPlaces });
   } catch (err) {
+    console.error('Failed to retrieve saved places:', err);
     res.status(500).json({ message: "Failed to retrieve saved places.", error: err.message });
   }
 };
 
 // ── ADD a saved place
 export const addSavedPlace = async (req, res) => {
-  const passengerId = req.user.passengerId;
+  const passengerId = req.user?.passengerId;
   if (!passengerId) return res.status(403).json({ message: "Access restricted to passengers only." });
 
   try {
@@ -41,13 +41,14 @@ export const addSavedPlace = async (req, res) => {
 
     res.status(201).json({ message: "Saved place added.", data: savedPlace });
   } catch (err) {
+    console.error('Failed to add saved place:', err);
     res.status(500).json({ message: "Failed to add saved place.", error: err.message });
   }
 };
 
 // ── UPDATE a saved place
 export const updateSavedPlace = async (req, res) => {
-  const passengerId = req.user.passengerId;
+  const passengerId = req.user?.passengerId;
   const { id } = req.params;
   if (!passengerId) return res.status(403).json({ message: "Access restricted to passengers only." });
 
@@ -72,13 +73,14 @@ export const updateSavedPlace = async (req, res) => {
 
     res.status(200).json({ message: "Saved place updated.", data: updated });
   } catch (err) {
+    console.error('Failed to update saved place:', err);
     res.status(500).json({ message: "Failed to update saved place.", error: err.message });
   }
 };
 
 // ── DELETE a saved place
 export const deleteSavedPlace = async (req, res) => {
-  const passengerId = req.user.passengerId;
+  const passengerId = req.user?.passengerId;
   const { id } = req.params;
   if (!passengerId) return res.status(403).json({ message: "Access restricted to passengers only." });
 
@@ -93,6 +95,7 @@ export const deleteSavedPlace = async (req, res) => {
 
     res.status(200).json({ message: "Saved place deleted." });
   } catch (err) {
+    console.error('Failed to delete saved place:', err);
     res.status(500).json({ message: "Failed to delete saved place.", error: err.message });
   }
 };

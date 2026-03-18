@@ -1,4 +1,3 @@
-
 # Dépendances pour OCR Permis de Conduire
 
 # Computer Vision

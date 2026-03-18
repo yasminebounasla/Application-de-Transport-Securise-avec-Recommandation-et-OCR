@@ -55,16 +55,6 @@ function HighlightCard({ highlighted, children }: { highlighted: boolean; childr
   );
 }
 
-function StatCard({ icon, label, value }: { icon: string; label: string; value: string | number }) {
-  return (
-    <View style={styles.statCard}>
-      <MaterialIcons name={icon as any} size={20} color="#111" />
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
-  );
-}
-
 export default function ActivityScreen() {
   const { user } = useAuth();
   const params = useLocalSearchParams<{ rideId?: string; tab?: string }>();
@@ -142,15 +132,6 @@ export default function ActivityScreen() {
     cancelled: activity.filter((r: any) => ['CANCELLED_BY_PASSENGER', 'CANCELLED_BY_DRIVER'].includes(r.status)),
   }), [activity]);
 
-  const stats = useMemo(() => {
-    const total = activity.length;
-    const completed = categorized.completed.length;
-    const pending = categorized.pending.length;
-    const cancelled = categorized.cancelled.length;
-    const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
-    return { total, completed, pending, cancelled, completionRate };
-  }, [activity, categorized]);
-
   const visibleRides = useMemo(() => {
     let rides: any[] = (categorized as any)[activeCategory] || [];
     if (nameQuery.trim()) {
@@ -179,8 +160,8 @@ export default function ActivityScreen() {
   };
 
   const getStatusLabel = (status: string) => {
-    if (status === 'CANCELLED_BY_DRIVER') return 'Cancelled by driver';
-    if (status === 'CANCELLED_BY_PASSENGER') return 'Cancelled by passenger';
+    if (status === 'CANCELLED_BY_DRIVER') return 'CANCELLED BY DRIVER';
+    if (status === 'CANCELLED_BY_PASSENGER') return 'CANCELLED BY YOU';
     return status;
   };
 
@@ -241,13 +222,6 @@ export default function ActivityScreen() {
         renderItem={renderItem}
         ListHeaderComponent={
           <>
-            <View style={styles.statsGrid}>
-              <StatCard icon="list-alt" label="Total" value={stats.total} />
-              <StatCard icon="flag" label="Termines" value={stats.completed} />
-              <StatCard icon="hourglass-empty" label="Pending" value={stats.pending} />
-              <StatCard icon="cancel" label="Cancelled" value={stats.cancelled} />
-              <StatCard icon="percent" label="Taux succes" value={`${stats.completionRate}%`} />
-            </View>
             <View style={styles.categoriesRow}>
               {CATEGORIES.map((category) => (
                 <TouchableOpacity
@@ -311,10 +285,6 @@ const styles = StyleSheet.create({
   emptySubText: { fontSize: 14, color: '#999' },
   errorBox: { marginHorizontal: 16, marginTop: 4, marginBottom: 8, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 12, backgroundColor: '#FFF1F1', borderWidth: 1, borderColor: '#FFCACA' },
   errorText: { color: '#B42318', fontSize: 13, fontWeight: '600' },
-  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, padding: 16, paddingBottom: 6 },
-  statCard: { width: '31%', backgroundColor: '#FFF', borderRadius: 12, borderWidth: 1, borderColor: '#ECECEC', paddingVertical: 14, alignItems: 'center' },
-  statValue: { marginTop: 6, fontSize: 20, fontWeight: '700', color: '#111' },
-  statLabel: { marginTop: 2, fontSize: 12, color: '#666', fontWeight: '600' },
   categoriesRow: { flexDirection: 'row', paddingHorizontal: 16, marginTop: 8, gap: 8 },
   categoryButton: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 10, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E5E7EB' },
   categoryButtonActive: { backgroundColor: '#111', borderColor: '#111' },
@@ -339,8 +309,8 @@ const styles = StyleSheet.create({
   completedBadge: { backgroundColor: '#D1FAE5' },
   pendingBadge: { backgroundColor: '#DBEAFE' },
   acceptedBadge: { backgroundColor: '#DCFCE7' },
-  cancelledDriverBadge: { backgroundColor: '#FEE2E2' },
-  cancelledPassengerBadge: { backgroundColor: '#FFEDD5' },
+  cancelledDriverBadge: { backgroundColor: '#FFEDD5' },
+  cancelledPassengerBadge: { backgroundColor: '#FEE2E2' },
   statusText: { fontSize: 11, fontWeight: '700', color: '#111' },
   acceptedText: { color: '#166534' },
   detailRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 },

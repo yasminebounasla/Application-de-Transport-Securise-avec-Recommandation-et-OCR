@@ -1,16 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, RefreshControl,
-  ActivityIndicator, TouchableOpacity, TextInput, Animated,
+  ActivityIndicator, TouchableOpacity, TextInput, Animated, Alert,
 } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
+import { useRide } from '../../context/RideContext';
 
 const CATEGORIES = [
   { key: 'completed', label: 'Completed' },
-  { key: 'pending', label: 'Accepted' },
+  { key: 'pending', label: 'Pending' },
+  { key: 'accepted', label: 'Accepted' },
   { key: 'cancelled', label: 'Cancelled' },
 ];
 const PRICE_FILTERS = [
@@ -23,15 +25,6 @@ const NAME_FILTERS = [
   { key: 'az', label: 'Name: A-Z' },
   { key: 'za', label: 'Name: Z-A' },
 ];
-const STATUS_TO_TAB: Record<string, string> = {
-  COMPLETED: 'completed',
-  PENDING: 'pending',
-  ACCEPTED: 'pending',
-  IN_PROGRESS: 'pending',
-  CANCELLED_BY_PASSENGER: 'cancelled',
-  CANCELLED_BY_DRIVER: 'cancelled',
-};
-
 function HighlightCard({ highlighted, children }: { highlighted: boolean; children: React.ReactNode }) {
   const anim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
@@ -55,18 +48,9 @@ function HighlightCard({ highlighted, children }: { highlighted: boolean; childr
   );
 }
 
-function StatCard({ icon, label, value }: { icon: string; label: string; value: string | number }) {
-  return (
-    <View style={styles.statCard}>
-      <MaterialIcons name={icon as any} size={20} color="#111" />
-      <Text style={styles.statValue}>{value}</Text>
-      <Text style={styles.statLabel}>{label}</Text>
-    </View>
-  );
-}
-
 export default function DriverActivityScreen() {
   const { user } = useAuth();
+  const { acceptRide, rejectRide } = useRide();
   const params = useLocalSearchParams<{ rideId?: string; tab?: string }>();
   const router = useRouter();
 
@@ -80,11 +64,21 @@ export default function DriverActivityScreen() {
   const [nameFilter, setNameFilter] = useState('none');
   const [nameQuery, setNameQuery] = useState('');
   const [highlightedId, setHighlightedId] = useState<number | null>(null);
+  const [flash, setFlash] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [actionLoading, setActionLoading] = useState<{ rideId: number | null; action: 'accept' | 'reject' | null }>({
+    rideId: null,
+    action: null,
+  });
   const flatListRef = useRef<FlatList>(null);
 
   // ✅ KEY FIX: on garde une ref separee pour le tab et rideId cible
   // comme ca meme si activity se re-charge, on peut re-appliquer le highlight
   const pendingHighlight = useRef<{ rideId: number; tab: string } | null>(null);
+
+  const showFlash = (type: 'success' | 'error', text: string) => {
+    setFlash({ type, text });
+    setTimeout(() => setFlash(null), 2500);
+  };
 
   const loadActivity = useCallback(async () => {
     if (!user?.id) { setLoading(false); return; }
@@ -100,7 +94,11 @@ export default function DriverActivityScreen() {
     }
   }, [user?.id]);
 
-  useEffect(() => { loadActivity(); }, [loadActivity]);
+  useFocusEffect(
+    useCallback(() => {
+      loadActivity();
+    }, [loadActivity])
+  );
 
   // ✅ Step 1: quand les params changent, on sauvegarde la cible dans la ref
   // et on switch le tab IMMEDIATEMENT
@@ -134,7 +132,8 @@ export default function DriverActivityScreen() {
     setTimeout(() => {
       const tabRides = activity.filter((r: any) => {
         if (tab === 'completed') return r.status === 'COMPLETED';
-        if (tab === 'pending') return ['ACCEPTED'].includes(r.status);
+        if (tab === 'pending') return r.status === 'PENDING';
+        if (tab === 'accepted') return ['ACCEPTED', 'IN_PROGRESS'].includes(r.status);
         return ['CANCELLED_BY_PASSENGER', 'CANCELLED_BY_DRIVER'].includes(r.status);
       });
       const index = tabRides.findIndex((r: any) => r.rideId === rideId);
@@ -148,18 +147,10 @@ export default function DriverActivityScreen() {
 
   const categorized = useMemo(() => ({
     completed: activity.filter((r: any) => r.status === 'COMPLETED'),
-    pending: activity.filter((r: any) => ['ACCEPTED'].includes(r.status)),
+    pending: activity.filter((r: any) => r.status === 'PENDING'),
+    accepted: activity.filter((r: any) => ['ACCEPTED', 'IN_PROGRESS'].includes(r.status)),
     cancelled: activity.filter((r: any) => ['CANCELLED_BY_PASSENGER', 'CANCELLED_BY_DRIVER'].includes(r.status)),
   }), [activity]);
-
-  const stats = useMemo(() => {
-    const total = activity.length;
-    const completed = categorized.completed.length;
-    const pending = categorized.pending.length;
-    const cancelled = categorized.cancelled.length;
-    const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
-    return { total, completed, pending, cancelled, completionRate };
-  }, [activity, categorized]);
 
   const visibleRides = useMemo(() => {
     let rides: any[] = (categorized as any)[activeCategory] || [];
@@ -187,8 +178,8 @@ export default function DriverActivityScreen() {
   };
 
   const getStatusLabel = (status: string) => {
-    if (status === 'CANCELLED_BY_DRIVER') return 'Cancelled by driver';
-    if (status === 'CANCELLED_BY_PASSENGER') return 'Cancelled by passenger';
+    if (status === 'CANCELLED_BY_DRIVER') return 'CANCELLED BY YOU';
+    if (status === 'CANCELLED_BY_PASSENGER') return 'CANCELLED BY PASSENGER';
     return status;
   };
 
@@ -197,12 +188,113 @@ export default function DriverActivityScreen() {
     return values[idx === values.length - 1 ? 0 : idx + 1].key;
   };
 
+  const handleRideAction = async (rideId: number, action: 'accept' | 'reject') => {
+    try {
+      setActionLoading({ rideId, action });
+      if (action === 'accept') {
+        await acceptRide(rideId);
+        showFlash('success', 'Ride accepted!');
+        pendingHighlight.current = { rideId, tab: 'accepted' };
+        setActiveCategory('accepted');
+      } else {
+        await rejectRide(rideId);
+        showFlash('error', 'Ride rejected!');
+      }
+      await loadActivity();
+    } catch (e: any) {
+      Alert.alert(
+        'Error',
+        e?.response?.data?.message || e?.message || `Failed to ${action} ride.`
+      );
+    } finally {
+      setActionLoading({ rideId: null, action: null });
+    }
+  };
+
+  const confirmRideAction = (rideId: number, action: 'accept' | 'reject') => {
+    Alert.alert(
+      action === 'accept' ? 'Accept ride?' : 'Reject ride?',
+      action === 'accept'
+        ? 'This pending ride will be assigned to you.'
+        : 'This pending ride will be rejected.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: action === 'accept' ? 'Accept' : 'Reject',
+          style: action === 'reject' ? 'destructive' : 'default',
+          onPress: () => handleRideAction(rideId, action),
+        },
+      ]
+    );
+  };
+
   const renderRide = ({ item }: { item: any }) => {
     const dateLabel = item.dateDepart ? new Date(item.dateDepart).toLocaleDateString() : 'N/A';
     const timeLabel = item.heureDepart || 'N/A';
     const start = item.startAddress || item.depart || 'N/A';
     const end = item.endAddress || item.destination || 'N/A';
     const isHighlighted = item.rideId === highlightedId;
+    const passenger = item.passenger || {};
+    const passengerName = `${passenger.prenom || 'Unknown'} ${passenger.nom || 'Passenger'}`.trim();
+    const passengerPhone = passenger.numTel ? String(passenger.numTel) : 'N/A';
+    const isPendingRequest = item.status === 'PENDING';
+    const isActionLoading = actionLoading.rideId === item.rideId;
+
+    const cardContent = (
+      <HighlightCard highlighted={isHighlighted}>
+        <>
+          <View style={styles.pendingHeader}>
+            <View style={styles.pendingPassengerInfo}>
+              <MaterialIcons name="account-circle" size={40} color="#111" />
+              <View style={styles.pendingPassengerDetails}>
+                <Text style={styles.pendingPassengerName}>{passengerName}</Text>
+                <Text style={styles.pendingPassengerPhone}>{passengerPhone}</Text>
+              </View>
+            </View>
+            <View style={[styles.statusBadge, getStatusBadgeStyle(item.status)]}>
+              <Text style={[styles.statusText, item.status === 'ACCEPTED' && styles.acceptedText]}>
+                {getStatusLabel(item.status)}
+              </Text>
+            </View>
+          </View>
+          <View style={styles.pendingSeparator} />
+          <View style={styles.detailRow}><View style={styles.pendingStartDot} /><Text style={styles.detailText}>{start}</Text></View>
+          <View style={styles.detailRow}><View style={styles.pendingEndDot} /><Text style={styles.detailText}>{end}</Text></View>
+          <View style={styles.detailRow}><MaterialIcons name="event" size={18} color="#444" /><Text style={styles.detailText}>{dateLabel}</Text></View>
+          <View style={styles.detailRow}><MaterialIcons name="schedule" size={18} color="#444" /><Text style={styles.detailText}>{timeLabel}</Text></View>
+          {isPendingRequest ? (
+            <View style={styles.pendingActions}>
+              <TouchableOpacity
+                style={[styles.pendingActionButton, styles.rejectButton, isActionLoading && styles.actionButtonDisabled]}
+                onPress={() => confirmRideAction(item.rideId, 'reject')}
+                disabled={isActionLoading}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="close-circle" size={20} color="#000" />
+                <Text style={styles.rejectButtonText}>
+                  {isActionLoading && actionLoading.action === 'reject' ? 'Rejecting...' : 'Reject'}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.pendingActionButton, styles.acceptButton, isActionLoading && styles.actionButtonDisabled]}
+                onPress={() => confirmRideAction(item.rideId, 'accept')}
+                disabled={isActionLoading}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="checkmark-circle" size={20} color="#FFF" />
+                <Text style={styles.acceptButtonText}>
+                  {isActionLoading && actionLoading.action === 'accept' ? 'Accepting...' : 'Accept'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <Text style={styles.seeMore}>See more infos</Text>
+          )}
+        </>
+      </HighlightCard>
+    );
+
+    if (isPendingRequest) return cardContent;
 
     return (
       <TouchableOpacity
@@ -211,21 +303,7 @@ export default function DriverActivityScreen() {
           router.push(`/shared/ride-details/${item.rideId}` as any)
         }
       >
-        <HighlightCard highlighted={isHighlighted}>
-          <View style={styles.tripHeader}>
-            <Text style={styles.tripTitle}>Trajet #{item.rideId}</Text>
-            <View style={[styles.statusBadge, getStatusBadgeStyle(item.status)]}>
-              <Text style={[styles.statusText, item.status === 'ACCEPTED' && styles.acceptedText]}>
-                {getStatusLabel(item.status)}
-              </Text>
-            </View>
-          </View>
-          <View style={styles.detailRow}><MaterialIcons name="my-location" size={18} color="#444" /><Text style={styles.detailText}>Depart: {start}</Text></View>
-          <View style={styles.detailRow}><MaterialIcons name="location-on" size={18} color="#444" /><Text style={styles.detailText}>Arrivee: {end}</Text></View>
-          <View style={styles.detailRow}><MaterialIcons name="event" size={18} color="#444" /><Text style={styles.detailText}>Date: {dateLabel}</Text></View>
-          <View style={styles.detailRow}><MaterialIcons name="schedule" size={18} color="#444" /><Text style={styles.detailText}>Heure: {timeLabel}</Text></View>
-          <Text style={styles.seeMore}>See more infos</Text>
-        </HighlightCard>
+        {cardContent}
       </TouchableOpacity>
     );
   };
@@ -249,13 +327,6 @@ export default function DriverActivityScreen() {
         renderItem={renderRide}
         ListHeaderComponent={
           <>
-            <View style={styles.statsGrid}>
-              <StatCard icon="list-alt" label="Total" value={stats.total} />
-              <StatCard icon="flag" label="Termines" value={stats.completed} />
-              <StatCard icon="hourglass-empty" label="Accepted" value={stats.pending} />
-              <StatCard icon="cancel" label="Cancelled" value={stats.cancelled} />
-              <StatCard icon="percent" label="Taux succes" value={`${stats.completionRate}%`} />
-            </View>
             <View style={styles.categoriesRow}>
               {CATEGORIES.map((category) => (
                 <TouchableOpacity
@@ -288,6 +359,11 @@ export default function DriverActivityScreen() {
                 </View>
               </View>
             )}
+            {!!flash && (
+              <View style={[styles.flash, flash.type === 'success' ? styles.flashSuccess : styles.flashError]}>
+                <Text style={[styles.flashText, flash.type === 'error' && styles.flashTextError]}>{flash.text}</Text>
+              </View>
+            )}
             {!!error && <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View>}
             <View style={styles.sectionHeader}>
               <Text style={styles.sectionTitle}>Liste trajets</Text>
@@ -317,12 +393,13 @@ const styles = StyleSheet.create({
   emptyIcon: { fontSize: 28, marginBottom: 12 },
   emptyText: { fontSize: 18, fontWeight: '600', color: '#666', marginBottom: 8 },
   emptySubText: { fontSize: 14, color: '#999' },
+  flash: { marginTop: 10, marginBottom: 4, borderRadius: 12, borderWidth: 1, paddingVertical: 10, paddingHorizontal: 12 },
+  flashSuccess: { backgroundColor: '#ECFDF3', borderColor: '#ABEFC6' },
+  flashError: { backgroundColor: '#FEE2E2', borderColor: '#FCA5A5' },
+  flashText: { fontSize: 13, fontWeight: '800', color: '#111' },
+  flashTextError: { color: '#B42318' },
   errorBox: { marginTop: 4, marginBottom: 8, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 12, backgroundColor: '#FFF1F1', borderWidth: 1, borderColor: '#FFCACA' },
   errorText: { color: '#B42318', fontSize: 13, fontWeight: '600' },
-  statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, padding: 16, paddingBottom: 6 },
-  statCard: { width: '31%', backgroundColor: '#FFF', borderRadius: 12, borderWidth: 1, borderColor: '#ECECEC', paddingVertical: 14, alignItems: 'center' },
-  statValue: { marginTop: 6, fontSize: 20, fontWeight: '700', color: '#111' },
-  statLabel: { marginTop: 2, fontSize: 12, color: '#666', fontWeight: '600' },
   categoriesRow: { flexDirection: 'row', marginTop: 8, gap: 8 },
   categoryButton: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 10, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E5E7EB' },
   categoryButtonActive: { backgroundColor: '#111', borderColor: '#111' },
@@ -341,6 +418,14 @@ const styles = StyleSheet.create({
   sectionCount: { minWidth: 30, height: 30, borderRadius: 15, backgroundColor: '#111', color: '#FFF', textAlign: 'center', textAlignVertical: 'center', fontWeight: '700', fontSize: 13, overflow: 'hidden', paddingTop: 6 },
   listContainer: { paddingHorizontal: 16, paddingBottom: 32, flexGrow: 1 },
   rideCard: { backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 14, padding: 14, marginBottom: 12 },
+  pendingHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 10 },
+  pendingPassengerInfo: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  pendingPassengerDetails: { marginLeft: 10, flex: 1 },
+  pendingPassengerName: { color: '#111', fontSize: 16, fontWeight: '700' },
+  pendingPassengerPhone: { color: '#666', fontSize: 13, marginTop: 2 },
+  pendingSeparator: { height: 1, backgroundColor: '#E5E7EB', marginBottom: 12 },
+  pendingActions: { flexDirection: 'row', gap: 12, marginTop: 14 },
+  pendingActionButton: { flex: 1, borderRadius: 12, paddingVertical: 12, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 },
   rideHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   rideId: { color: '#111', fontWeight: '700', fontSize: 14 },
   statusBadge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
@@ -352,6 +437,13 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 11, fontWeight: '700', color: '#111' },
   acceptedText: { color: '#166534' },
   detailRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 },
+  pendingStartDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#111' },
+  pendingEndDot: { width: 12, height: 12, borderRadius: 3, backgroundColor: '#6B7280' },
+  acceptButton: { backgroundColor: '#000' },
+  acceptButtonText: { color: '#FFF', fontSize: 14, fontWeight: '600' },
+  rejectButton: { backgroundColor: '#FFF', borderWidth: 2, borderColor: '#000' },
+  rejectButtonText: { color: '#000', fontSize: 14, fontWeight: '600' },
+  actionButtonDisabled: { opacity: 0.6 },
   detailText: { flex: 1, color: '#333', fontSize: 13 },
   highlightBanner: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FEF3C7', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 10 },
   highlightText: { fontSize: 11, color: '#92400E', fontWeight: '700', flex: 1 },

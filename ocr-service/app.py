@@ -1,4 +1,3 @@
-
 # API Flask pour OCR
 
 # Instructions pour exécuter le service OCR :

@@ -8,7 +8,7 @@ Système d'extraction automatique des informations du permis de conduire algéri
 - ✅ **Support de tous les fonds** (blanc, bois, noir, etc.)
 - ✅ **Extraction spatiale des dates** (position TOP-CENTRE-DROITE)
 - ✅ **Validation stricte** (TYPE détecté + date d'expiration future)
-- ✅ **Pattern LICENSE ultra-tolérant** ("(icense", "Ucense", etc.)
+- ✅ **Pattern LICENSE ultra-tolérant** (ex : "icense", "Ucense", etc.)
 - ✅ **API REST FastAPI**
 - ✅ **CLI pour utilisation en ligne de commande**
 

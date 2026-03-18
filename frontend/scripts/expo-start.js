@@ -14,16 +14,16 @@ function hostnameFromUrl(value) {
 }
 
 const host =
-  hostnameFromUrl(process.env.EXPO_PUBLIC_API_URL_SANS_API) ||
-  hostnameFromUrl(process.env.EXPO_PUBLIC_API_URL) ||
+  hostnameFromUrl(process.env.EXPO_PACKAGER_HOSTNAME) ||
+  hostnameFromUrl(process.env.EXPO_PUBLIC_PACKAGER_URL) ||
   null;
 
 if (!host) {
   console.warn(
-    '[expo-start] Could not derive host from EXPO_PUBLIC_API_URL(_SANS_API). Falling back to Expo defaults.'
+    '[expo-start] No explicit packager host configured. Falling back to Expo auto-detection.'
   );
 } else {
-  // These env vars influence what URL Metro advertises to Expo Go.
+  // Only override Metro host when explicitly requested.
   process.env.REACT_NATIVE_PACKAGER_HOSTNAME = host;
   process.env.EXPO_PACKAGER_HOSTNAME = host;
   console.log(`[expo-start] Using packager host: ${host}`);
@@ -39,4 +39,3 @@ const child = spawn(expoCmd, args, {
 });
 
 child.on('exit', (code) => process.exit(code ?? 0));
-

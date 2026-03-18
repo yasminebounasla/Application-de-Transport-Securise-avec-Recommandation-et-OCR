@@ -16,6 +16,7 @@ import { validateLocationsInAlgeria } from "../../utils/Geovalidation";
 import { formatDuration, formatDistance } from "../../utils/formatUtils";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from "../../services/api";
 import { calculatePrice } from "../../utils/priceCalculator";
 
@@ -51,6 +52,7 @@ function LocationNotSupported({ onTryAnother }) {
 
 export default function MapScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const {
     selectionType,
     rideId,
@@ -449,7 +451,7 @@ export default function MapScreen() {
             <Marker coordinate={startLocation} pinColor="green" />
           )}
           {endLocation?.latitude && endLocation?.longitude && (
-            <Marker coordinate={endLocation} pinColor="blue" />
+            <Marker coordinate={endLocation} pinColor="red" />
           )}
           {isValidRoute && routeCoordinates.length > 0 && (
             <Polyline coordinates={routeCoordinates} strokeColor="#294190" strokeWidth={2} />
@@ -463,7 +465,7 @@ export default function MapScreen() {
           </View>
           <View style={routeStyles.addressDivider} />
           <View style={routeStyles.addressRow}>
-            <View style={routeStyles.dotBlue} />
+            <View style={routeStyles.dotRed} />
             <Text style={routeStyles.addressText} numberOfLines={1}>{endAddress || "Destination"}</Text>
           </View>
         </View>
@@ -471,7 +473,16 @@ export default function MapScreen() {
         {showLocationError ? (
           <LocationNotSupported onTryAnother={handleTryAnother} />
         ) : (
-          <View style={routeStyles.bottomSheet}>
+          <View
+            style={[
+              routeStyles.bottomSheet,
+              {
+                paddingBottom:
+                  Math.max(insets.bottom, Platform.OS === 'ios' ? 28 : 24) +
+                  (Platform.OS === 'android' ? 32 : 16),
+              },
+            ]}
+          >
             <View style={routeStyles.handle} />
             {loadingRoute ? (
               <View style={routeStyles.loadingRow}>
@@ -734,7 +745,7 @@ const styles = StyleSheet.create({
     width: 12,
     height: 12,
     borderRadius: 6,
-    backgroundColor: "#3B82F6",
+    backgroundColor: "#DC2626",
   },
   addressText: {
     fontSize: 15,
@@ -928,11 +939,11 @@ const routeStyles = StyleSheet.create({
     borderRadius: 5,
     backgroundColor: '#22C55E',
   },
-  dotBlue: {
+  dotRed: {
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: '#3B82F6',
+    backgroundColor: '#DC2626',
   },
   addressText: {
     flex: 1,

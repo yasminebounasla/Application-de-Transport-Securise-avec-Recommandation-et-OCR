@@ -130,7 +130,9 @@ export const getRideById = async (req, res) => {
     if (!ride) return res.status(404).json({ success: false, message: "Trajet introuvable" });
     if (passengerId && ride.passagerId !== passengerId)
       return res.status(403).json({ success: false, message: "Accès refusé à ce trajet" });
-    if (driverId && ride.driverId !== driverId)
+    const canAccessPendingDriverRequest =
+      driverId && ride.status === 'PENDING' && ride.driverId == null;
+    if (driverId && ride.driverId !== driverId && !canAccessPendingDriverRequest)
       return res.status(403).json({ success: false, message: "Accès refusé à ce trajet" });
 
     return res.status(200).json({ success: true, data: ride });

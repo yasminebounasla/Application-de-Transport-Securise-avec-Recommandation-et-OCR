@@ -19,6 +19,8 @@ export default function Home() {
   const TAB_BAR_HEIGHT = 60 + insets.bottom;
 
   const mapRef = useRef<MapView>(null);
+  const hasAutoCenteredRef = useRef(false);
+  const [mapReady, setMapReady] = useState(false);
 
   const feedbackCheckedRef = useRef<Set<number>>(new Set());
 
@@ -89,12 +91,29 @@ useEffect(() => {
     }, 500);
   };
 
+  useEffect(() => {
+    if (!mapReady || hasAutoCenteredRef.current) return;
+    if (!currentLocation?.latitude || !currentLocation?.longitude) return;
+
+    hasAutoCenteredRef.current = true;
+    mapRef.current?.animateToRegion(
+      {
+        latitude: currentLocation.latitude,
+        longitude: currentLocation.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      },
+      500
+    );
+  }, [mapReady, currentLocation?.latitude, currentLocation?.longitude]);
+
   return (
     <>
       <MapView
         ref={mapRef}
         style={StyleSheet.absoluteFillObject}
         initialRegion={initialRegion}
+        onMapReady={() => setMapReady(true)}
         showsUserLocation
         showsMyLocationButton={false}
       />

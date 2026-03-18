@@ -1,7 +1,7 @@
 const LOCATIONIQ_API_KEY = process.env.EXPO_PUBLIC_LOCATIONIQ_API_KEY;
 // Avoid logging secrets; this is only a quick dev sanity check.
 console.log('[places] LocationIQ key:', LOCATIONIQ_API_KEY ? 'LOADED' : 'MISSING');
-const LOCATIONIQ_BASE_URL = 'https://us1.locationiq.com/v1';
+const LOCATIONIQ_AUTOCOMPLETE_URL = 'https://api.locationiq.com/v1/autocomplete';
 
 let lastRequestTime = 0;
 const MIN_REQUEST_INTERVAL = 1000;
@@ -86,7 +86,6 @@ export async function searchPlaces(query, userLocation = null) {
     const params = new URLSearchParams({
       key:            LOCATIONIQ_API_KEY,
       q:              query,
-      format:         'json',
       countrycodes:   'dz',       // Algérie uniquement
       limit:          '5',
       addressdetails: '1',
@@ -95,14 +94,14 @@ export async function searchPlaces(query, userLocation = null) {
 
     // ✅ Bias vers la position de l'utilisateur si disponible
     if (userLocation?.latitude && userLocation?.longitude) {
-      params.append('viewboxlbrt',
+      params.append('viewbox',
         `${userLocation.longitude - 1},${userLocation.latitude - 1},` +
         `${userLocation.longitude + 1},${userLocation.latitude + 1}`
       );
       params.append('bounded', '0'); // 0 = cherche aussi en dehors du viewbox
     }
 
-    const url = `${LOCATIONIQ_BASE_URL}/search?${params.toString()}`;
+    const url = `${LOCATIONIQ_AUTOCOMPLETE_URL}?${params.toString()}`;
 
     const fetchPromise = fetch(url, {
       headers: { 'Accept': 'application/json' },
@@ -121,7 +120,7 @@ export async function searchPlaces(query, userLocation = null) {
     }
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+      throw new Error(`HTTP ${response.status} from LocationIQ autocomplete`);
     }
 
     const data = await response.json();

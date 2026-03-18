@@ -3,7 +3,7 @@
 
 1. Paramètres > À propos du téléphone > Informations sur le logiciel
 2. Cliquer 7 fois sur "Numéro de version" ==> tu auras le message "Mode développeur activé"
-3. Retourner aux Paramètres > Options pour les développeurs > Sélectionner application de localisation fictive > LocaShift
+3. Retourner aux Paramètres > Options pour les développeurs > Sélectionner application de localisation fictive > GPS Emulator
 
 • Redmi 9 :
 

@@ -6,7 +6,6 @@ export default function Layout() {
       <Stack.Screen name="HomeScreen" />
       <Stack.Screen name="ActiveRideScreen" />
       <Stack.Screen name="ProfileSetupScreen" />
-      <Stack.Screen name="RideRequestsScreen" />
       <Stack.Screen name="MyFeedbacksScreen" />
       <Stack.Screen name="PassengerProfileScreen" options={{ headerShown: false }} />
     </Stack>

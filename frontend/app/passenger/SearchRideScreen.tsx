@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { useRouter, Stack } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { LocationContext } from "../../context/LocationContext";
 import { useRide } from "../../context/RideContext";
 import { reverseGeocode } from "../../utils/reverseGeocode";
@@ -301,6 +302,7 @@ function PassengerPickerModal({
 
 // ── Main Screen ───────────────────────────────────────────────────────────────
 export default function SearchRideScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
 
   const {
@@ -411,7 +413,11 @@ export default function SearchRideScreen() {
         applyPlaces(places);
         await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(places));
       } catch (e) {
-        console.error("Failed to fetch saved places (using cache):", e);
+        console.error(
+          "Failed to fetch saved places (using cache):",
+          e?.response?.status,
+          e?.response?.data || e?.message || e
+        );
       }
     };
 
@@ -841,15 +847,8 @@ export default function SearchRideScreen() {
       {/* ── Header ── */}
       <Stack.Screen
         options={{
-          title: "",
-          headerLeft: () => (
-            <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 4 }}>
-              <Ionicons name="arrow-back" size={24} color="#111" />
-            </TouchableOpacity>
-          ),
-          headerTitle: () => (
-            <Text style={styles.headerTitle}>Book a Ride</Text>
-          ),
+          title: "Book a Ride",
+          headerTitleStyle: styles.headerTitle,
           headerRight: () => (
             <TouchableOpacity
               onPress={handleOpenDatePicker}
@@ -1010,9 +1009,9 @@ export default function SearchRideScreen() {
                 {startSuggestions.length > 0 && (
                   <>
                     <View style={styles.dividerLine} />
-                    {startSuggestions.map((item) => (
+                    {startSuggestions.map((item, index) => (
                       <TouchableOpacity
-                        key={item.id}
+                        key={`${item.id}-${item.latitude}-${item.longitude}-${index}`}
                         style={styles.suggestionItem}
                         onPressIn={() => { isSelectingSuggestion.current = true; }}
                         onPress={() => handleSelectStartSuggestion(item)}
@@ -1068,9 +1067,9 @@ export default function SearchRideScreen() {
                 {endSuggestions.length > 0 && (
                   <>
                     <View style={styles.dividerLine} />
-                    {endSuggestions.map((item) => (
+                    {endSuggestions.map((item, index) => (
                       <TouchableOpacity
-                        key={item.id}
+                        key={`${item.id}-${item.latitude}-${item.longitude}-${index}`}
                         style={styles.suggestionItem}
                         onPressIn={() => { isSelectingSuggestion.current = true; }}
                         onPress={() => handleSelectEndSuggestion(item)}
@@ -1137,7 +1136,12 @@ export default function SearchRideScreen() {
         </KeyboardAvoidingView>
 
         {/* ── Continue button ── */}
-        <View style={styles.bottomBar}>
+        <View
+          style={[
+            styles.bottomBar,
+            { paddingBottom: Math.max(insets.bottom, Platform.OS === "ios" ? 20 : 16) + 8 },
+          ]}
+        >
           <TouchableOpacity
             style={[styles.continueChip, !valid && styles.continueChipDisabled]}
             disabled={!valid}
