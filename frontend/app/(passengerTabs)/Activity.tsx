@@ -161,6 +161,9 @@ export default function ActivityScreen() {
     const start = item.startAddress || item.depart || 'N/A';
     const end = item.endAddress || item.destination || 'N/A';
     const isHighlighted = item.rideId === highlightedId;
+    const driver = item.driver || {};
+    const driverName = `${driver.prenom || 'Unknown'} ${driver.nom || 'Driver'}`.trim();
+    const driverPhone = driver.numTel ? String(driver.numTel) : 'N/A';
 
     return (
       <TouchableOpacity
@@ -170,18 +173,25 @@ export default function ActivityScreen() {
         }
       >
         <HighlightCard highlighted={isHighlighted}>
-          <View style={styles.tripHeader}>
-            <Text style={styles.tripTitle}>Trajet #{item.rideId}</Text>
+          <View style={styles.pendingHeader}>
+            <View style={styles.pendingPassengerInfo}>
+              <MaterialIcons name="account-circle" size={40} color="#111" />
+              <View style={styles.pendingPassengerDetails}>
+                <Text style={styles.pendingPassengerName}>{driverName}</Text>
+                <Text style={styles.pendingPassengerPhone}>{driverPhone}</Text>
+              </View>
+            </View>
             <View style={[styles.statusBadge, getStatusBadgeStyle(item.status)]}>
               <Text style={[styles.statusText, item.status === 'ACCEPTED' && styles.acceptedText]}>
                 {getStatusLabel(item.status)}
               </Text>
             </View>
           </View>
-          <View style={styles.detailRow}><MaterialIcons name="my-location" size={18} color="#444" /><Text style={styles.detailText}>Depart: {start}</Text></View>
-          <View style={styles.detailRow}><MaterialIcons name="location-on" size={18} color="#444" /><Text style={styles.detailText}>Arrivee: {end}</Text></View>
-          <View style={styles.detailRow}><MaterialIcons name="event" size={18} color="#444" /><Text style={styles.detailText}>Date: {dateLabel}</Text></View>
-          <View style={styles.detailRow}><MaterialIcons name="schedule" size={18} color="#444" /><Text style={styles.detailText}>Heure: {timeLabel}</Text></View>
+          <View style={styles.pendingSeparator} />
+          <View style={styles.detailRow}><View style={styles.pendingStartDot} /><Text style={styles.detailText}>{start}</Text></View>
+          <View style={styles.detailRow}><View style={styles.pendingEndDot} /><Text style={styles.detailText}>{end}</Text></View>
+          <View style={styles.detailRow}><MaterialIcons name="event" size={18} color="#444" /><Text style={styles.detailText}>{dateLabel}</Text></View>
+          <View style={styles.detailRow}><MaterialIcons name="schedule" size={18} color="#444" /><Text style={styles.detailText}>{timeLabel}</Text></View>
           <Text style={styles.seeMore}>See more infos</Text>
         </HighlightCard>
       </TouchableOpacity>
@@ -349,6 +359,12 @@ const styles = StyleSheet.create({
   sectionCountText: { color: '#FFF', fontWeight: '700', fontSize: 13 },
   listContainer: { paddingHorizontal: 16, paddingBottom: 32, flexGrow: 1 },
   rideCard: { backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 14, padding: 14, marginBottom: 12 },
+  pendingHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 10 },
+  pendingPassengerInfo: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  pendingPassengerDetails: { marginLeft: 10, flex: 1 },
+  pendingPassengerName: { color: '#111', fontSize: 16, fontWeight: '700' },
+  pendingPassengerPhone: { color: '#666', fontSize: 13, marginTop: 2 },
+  pendingSeparator: { height: 1, backgroundColor: '#E5E7EB', marginBottom: 12 },
   rideHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   rideId: { color: '#111', fontWeight: '700', fontSize: 14 },
   statusBadge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
@@ -360,6 +376,8 @@ const styles = StyleSheet.create({
   statusText: { fontSize: 11, fontWeight: '700', color: '#111' },
   acceptedText: { color: '#166534' },
   detailRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 },
+  pendingStartDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#111' },
+  pendingEndDot: { width: 12, height: 12, borderRadius: 3, backgroundColor: '#6B7280' },
   detailText: { flex: 1, color: '#333', fontSize: 13 },
   highlightBanner: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FEF3C7', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 10 },
   highlightText: { fontSize: 11, color: '#92400E', fontWeight: '700', flex: 1 },
