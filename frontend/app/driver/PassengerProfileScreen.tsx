@@ -45,14 +45,6 @@ export default function PassengerProfileScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#000" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Passenger Profile</Text>
-        <View style={{ width: 40 }} />
-      </View>
 
       <ScrollView contentContainerStyle={styles.content}>
 

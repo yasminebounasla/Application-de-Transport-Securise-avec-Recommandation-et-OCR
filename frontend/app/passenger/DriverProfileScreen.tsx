@@ -10,6 +10,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_URL } from '../../services/api';
 import { getPublicDriverStats, getPublicDriverFeedback } from '../../services/feedbackService';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // ─────────────────────────────────────────────
 // AVATAR COLOR — blue for male, pink for female
@@ -19,6 +20,7 @@ function getAvatarColor(gender?: string): { bg: string; text: string } {
     return { bg: '#fad0e2', text: '#BE185D' };
   return { bg: '#d3e4fa', text: '#1B72DA' };
 }
+
 
 // ─────────────────────────────────────────────
 // STAR ROW
@@ -69,6 +71,7 @@ const HOURS_CONFIG = [
 export default function PublicDriverProfileScreen() {
   const { driverId } = useLocalSearchParams();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   const [driver, setDriver]       = useState<any>(null);
   const [loading, setLoading]     = useState(true);
@@ -150,17 +153,8 @@ export default function PublicDriverProfileScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ headerShown: false }} />
-      <SafeAreaView style={styles.container}>
 
-        {/* ── TOP NAV ── */}
-        <View style={styles.topNav}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.navBtn}>
-            <Ionicons name="arrow-back" size={20} color="#111" />
-          </TouchableOpacity>
-          <Text style={styles.navTitle}>Driver Profile</Text>
-          <View style={styles.navBtn} />
-        </View>
+      <SafeAreaView style={styles.container}>
 
         <Animated.ScrollView
           style={{ opacity: fadeAnim }}
@@ -348,7 +342,7 @@ const styles = StyleSheet.create({
   // Top nav
   topNav: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 14,
+    paddingHorizontal: 16, paddingVertical: 14, paddingBottom: 14, 
     backgroundColor: '#FAFAFA',
   },
   navBtn:   { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F0F0F0', alignItems: 'center', justifyContent: 'center' },
