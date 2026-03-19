@@ -1,60 +1,103 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator, Alert, ScrollView, StyleSheet,
+  Text, TouchableOpacity, View,
+} from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import api from '../../../services/api';
 import { useAuth } from '../../../context/AuthContext';
 import { useRide } from '../../../context/RideContext';
 
-const formatDurationMin = (durationMin: number) => {
-  const minutes = Math.max(0, Math.round(durationMin));
-  if (minutes < 60) return `${minutes} min`;
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  const mm = String(m).padStart(2, '0');
-  return `${h} h ${mm} min`;
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+const formatDuration = (min: number) => {
+  const m = Math.max(0, Math.round(min));
+  if (m < 60) return `${m} min`;
+  return `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')} min`;
 };
 
-function Row({ icon, label, value }: { icon: string; label: string; value: string }) {
+const FALLBACK = '—';
+
+const STATUS_CONFIG: Record<string, { label: string; bg: string; color: string; icon: string }> = {
+  COMPLETED:              { label: 'Completed',          bg: '#D1FAE5', color: '#065F46', icon: 'checkmark-circle' },
+  PENDING:                { label: 'Pending',            bg: '#DBEAFE', color: '#1E40AF', icon: 'time'             },
+  ACCEPTED:               { label: 'Accepted',           bg: '#DCFCE7', color: '#166534', icon: 'checkmark-circle' },
+  IN_PROGRESS:            { label: 'In progress',        bg: '#FEF9C3', color: '#854D0E', icon: 'car-outline'      },
+  CANCELLED_BY_PASSENGER: { label: 'Cancelled by you',   bg: '#FEE2E2', color: '#991B1B', icon: 'close-circle'     },
+  CANCELLED_BY_DRIVER:    { label: 'Cancelled by driver',bg: '#FFEDD5', color: '#9A3412', icon: 'close-circle'     },
+};
+
+// ── AVATAR ────────────────────────────────────────────────────────────────────
+function getAvatarColor(sexe?: string) {
+  const val = (sexe ?? '').toLowerCase().trim();
+  if (val === 'f' || val === 'female' || val === 'femme' || val === 'woman')
+    return { bg: '#fad0e2', text: '#BE185D' };
+  return { bg: '#d3e4fa', text: '#1B72DA' };
+}
+
+function Avatar({ prenom, nom, sexe, size = 52 }: { prenom?: string; nom?: string; sexe?: string; size?: number }) {
+  const initials = `${prenom?.[0] ?? ''}${nom?.[0] ?? ''}`.toUpperCase() || '?';
+  const colors   = getAvatarColor(sexe);
   return (
-    <View style={styles.row}>
-      <MaterialIcons name={icon as any} size={18} color="#444" />
-      <Text style={styles.rowText}>
-        <Text style={styles.rowLabel}>{label}:</Text> {value}
-      </Text>
+    <View style={[d.avatar, { width: size, height: size, borderRadius: size / 2, backgroundColor: colors.bg }]}>
+      <Text style={[d.avatarText, { color: colors.text, fontSize: size * 0.3 }]}>{initials}</Text>
     </View>
   );
 }
 
-export default function RideDetailsScreen() {
-  const { user } = useAuth();
-  const { acceptRide, rejectRide } = useRide();
-  const { rideId } = useLocalSearchParams<{ rideId?: string }>();
-  const id = useMemo(() => (rideId ? Number.parseInt(String(rideId), 10) : NaN), [rideId]);
-  const headerTitle = 'Details';
-  const FALLBACK = '------------------';
+// ── INFO ROW ──────────────────────────────────────────────────────────────────
+function InfoRow({ icon, label, value, iconLib = 'ionicons' }: {
+  icon: string; label: string; value: string; iconLib?: string;
+}) {
+  return (
+    <View style={d.infoRow}>
+      <View style={d.infoIcon}>
+        {iconLib === 'material'
+          ? <MaterialCommunityIcons name={icon as any} size={16} color="#9CA3AF" />
+          : <Ionicons name={icon as any} size={16} color="#9CA3AF" />
+        }
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={d.infoLabel}>{label}</Text>
+        <Text style={d.infoValue}>{value}</Text>
+      </View>
+    </View>
+  );
+}
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [ride, setRide] = useState<any | null>(null);
-  const [estimatedDurationLabel, setEstimatedDurationLabel] = useState<string>(FALLBACK);
-  const [cancelLoading, setCancelLoading] = useState(false);
+// ── SECTION ───────────────────────────────────────────────────────────────────
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <View style={d.section}>
+      <Text style={d.sectionTitle}>{title}</Text>
+      {children}
+    </View>
+  );
+}
+
+// ── SCREEN ────────────────────────────────────────────────────────────────────
+export default function RideDetailsScreen() {
+  const { user }                   = useAuth();
+  const { acceptRide, rejectRide } = useRide();
+  const { rideId }                 = useLocalSearchParams<{ rideId?: string }>();
+  const id = useMemo(() => (rideId ? Number.parseInt(String(rideId), 10) : NaN), [rideId]);
+
+  const [loading,             setLoading]             = useState(true);
+  const [error,               setError]               = useState('');
+  const [ride,                setRide]                = useState<any | null>(null);
+  const [durationLabel,       setDurationLabel]       = useState<string>('...');
+  const [cancelLoading,       setCancelLoading]       = useState(false);
   const [driverActionLoading, setDriverActionLoading] = useState<'accept' | 'reject' | null>(null);
 
   useEffect(() => {
     const load = async () => {
-      if (!Number.isFinite(id)) {
-        setError('Ride ID invalide.');
-        setLoading(false);
-        return;
-      }
+      if (!Number.isFinite(id)) { setError('Invalid ID.'); setLoading(false); return; }
       try {
-        setError('');
-        setLoading(true);
-        const response = await api.get(`/ridesDem/${id}`);
-        setRide(response?.data?.data || null);
+        setLoading(true); setError('');
+        const res = await api.get(`/ridesDem/${id}`);
+        setRide(res?.data?.data || null);
       } catch (e: any) {
-        setError(e?.response?.data?.message || e?.message || 'Impossible de charger le trajet.');
+        setError(e?.response?.data?.message || 'Unable to load ride.');
       } finally {
         setLoading(false);
       }
@@ -64,301 +107,264 @@ export default function RideDetailsScreen() {
 
   useEffect(() => {
     let mounted = true;
-
-    const startLat = Number(ride?.startLat);
-    const startLng = Number(ride?.startLng);
-    const endLat = Number(ride?.endLat);
-    const endLng = Number(ride?.endLng);
-
-    // We can only estimate if the ride has coordinates.
-    if (![startLat, startLng, endLat, endLng].every((n) => Number.isFinite(n))) {
-      setEstimatedDurationLabel(FALLBACK);
-      return () => { mounted = false; };
-    }
-
+    const { startLat, startLng, endLat, endLng } = ride || {};
+    const coords = [startLat, startLng, endLat, endLng].map(Number);
+    if (!coords.every(Number.isFinite)) { setDurationLabel(FALLBACK); return; }
     (async () => {
       try {
-        setEstimatedDurationLabel('...');
-        const response = await api.post('/ride/estimate', {
-          start: { latitude: startLat, longitude: startLng },
-          end: { latitude: endLat, longitude: endLng },
+        const res = await api.post('/ride/estimate', {
+          start: { latitude: coords[0], longitude: coords[1] },
+          end:   { latitude: coords[2], longitude: coords[3] },
         });
-        const data = response?.data;
-        const durationMin = Number(data?.durationMin);
-        const label = Number.isFinite(durationMin) ? formatDurationMin(durationMin) : FALLBACK;
-        if (mounted) setEstimatedDurationLabel(label);
-      } catch {
-        if (mounted) setEstimatedDurationLabel(FALLBACK);
-      }
+        const min = Number(res?.data?.durationMin);
+        if (mounted) setDurationLabel(Number.isFinite(min) ? formatDuration(min) : FALLBACK);
+      } catch { if (mounted) setDurationLabel(FALLBACK); }
     })();
-
-    return () => {
-      mounted = false;
-    };
+    return () => { mounted = false; };
   }, [ride?.startLat, ride?.startLng, ride?.endLat, ride?.endLng]);
 
-  const dateLabel = ride?.dateDepart ? new Date(ride.dateDepart).toLocaleDateString() : FALLBACK;
-  const timeLabel = ride?.heureDepart || FALLBACK;
-  const showStart = ride?.status === 'IN_PROGRESS' || ride?.status === 'COMPLETED';
-  const startAtLabel =
-    showStart && (ride?.dateDepart || ride?.heureDepart)
-      ? `${ride?.dateDepart ? new Date(ride.dateDepart).toLocaleDateString() : ''} ${ride?.heureDepart || ''}`.trim()
-      : FALLBACK;
-  const start = ride?.startAddress || ride?.depart || FALLBACK;
-  const end = ride?.endAddress || ride?.destination || FALLBACK;
-  const rawStatus = ride?.status || FALLBACK;
-  const price = typeof ride?.prix === 'number' ? ride.prix : Number(ride?.prix) || 0;
+  const isPassenger = user?.role === 'passenger';
+  const isDriver    = user?.role === 'driver';
+  const contact     = isPassenger ? ride?.driver : ride?.passenger;
+  const rawStatus   = ride?.status || '';
+  const cfg         = STATUS_CONFIG[rawStatus] || { label: rawStatus, bg: '#F3F4F6', color: '#6B7280', icon: 'ellipse' };
 
-  const isPassengerView = user?.role === 'passenger';
-  const isDriverView = user?.role === 'driver';
-  const contact = isPassengerView ? ride?.driver : ride?.passenger;
-  const contactName = contact ? `${contact.prenom || ''} ${contact.nom || ''}`.trim() : FALLBACK;
-  const contactLabel = isPassengerView ? 'Conducteur' : 'Passager';
-  const contactPhoneLabel = isPassengerView ? 'Tel conducteur' : 'Tel passager';
-  const status =
-    rawStatus === 'CANCELLED_BY_DRIVER'
-      ? (isPassengerView ? 'CANCELLED BY DRIVER' : 'CANCELLED BY YOU')
-      : rawStatus === 'CANCELLED_BY_PASSENGER'
-        ? (isPassengerView ? 'CANCELLED BY YOU' : 'CANCELLED BY PASSENGER')
-        : rawStatus;
-  const canCancelRide =
-    isPassengerView && ['PENDING', 'ACCEPTED', 'IN_PROGRESS'].includes(rawStatus);
-  const canReviewPendingRide =
-    isDriverView && rawStatus === 'PENDING';
+  const statusLabel = (() => {
+    if (rawStatus === 'CANCELLED_BY_DRIVER')    return isPassenger ? 'Cancelled by driver' : 'Cancelled by you';
+    if (rawStatus === 'CANCELLED_BY_PASSENGER') return isPassenger ? 'Cancelled by you'    : 'Cancelled by passenger';
+    return cfg.label;
+  })();
 
-  const handleConfirmCancelRide = async () => {
-    if (!Number.isFinite(id) || cancelLoading) return;
-    try {
-      setCancelLoading(true);
-      const response = await api.put(`/ridesDem/${id}/cancel`);
-      setRide(response?.data?.data || null);
-      Alert.alert('Success', 'Ride cancelled.');
-    } catch (e: any) {
-      Alert.alert('Error', e?.response?.data?.message || e?.message || 'Failed to cancel ride.');
-    } finally {
-      setCancelLoading(false);
-    }
+  const dateLabel    = ride?.dateDepart  ? new Date(ride.dateDepart).toLocaleDateString('en-GB',  { day: '2-digit', month: 'long', year: 'numeric' }) : FALLBACK;
+  const createdLabel = ride?.createdAt   ? new Date(ride.createdAt).toLocaleString('en-GB')   : FALLBACK;
+  const doneLabel    = ride?.completedAt ? new Date(ride.completedAt).toLocaleString('en-GB')  : FALLBACK;
+  const start        = ride?.startAddress || ride?.depart      || FALLBACK;
+  const end          = ride?.endAddress   || ride?.destination || FALLBACK;
+  const price        = typeof ride?.prix === 'number' ? ride.prix : Number(ride?.prix) || 0;
+  const contactName  = contact ? `${contact.prenom || ''} ${contact.nom || ''}`.trim() : FALLBACK;
+  const contactPhone = contact?.numTel ? String(contact.numTel) : FALLBACK;
+
+  const canCancel = isPassenger && ['PENDING', 'ACCEPTED', 'IN_PROGRESS'].includes(rawStatus);
+  const canReview = isDriver    && rawStatus === 'PENDING';
+
+  const handleCancel = () => {
+    Alert.alert('Cancel ride?', 'The ride will be marked as cancelled.', [
+      { text: 'Back', style: 'cancel' },
+      { text: 'Confirm', style: 'destructive', onPress: async () => {
+        try {
+          setCancelLoading(true);
+          const res = await api.put(`/ridesDem/${id}/cancel`);
+          setRide(res?.data?.data || null);
+          Alert.alert('Done', 'Ride cancelled.');
+        } catch (e: any) {
+          Alert.alert('Error', e?.response?.data?.message || 'Unable to cancel.');
+        } finally { setCancelLoading(false); }
+      }},
+    ]);
   };
 
-  const handleCancelPress = () => {
+  const handleDriverAction = (action: 'accept' | 'reject') => {
+    const isAccept = action === 'accept';
     Alert.alert(
-      'Cancel ride?',
-      'This ride will be marked as cancelled.',
+      isAccept ? 'Accept ride?' : 'Reject ride?',
+      isAccept ? 'This ride will be assigned to you.' : 'This ride will be rejected.',
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Confirm', style: 'destructive', onPress: handleConfirmCancelRide },
+        { text: isAccept ? 'Accept' : 'Reject', style: isAccept ? 'default' : 'destructive', onPress: async () => {
+          try {
+            setDriverActionLoading(action);
+            const updated = isAccept ? await acceptRide(id) : await rejectRide(id);
+            setRide(updated || null);
+            Alert.alert('Done', isAccept ? 'Ride accepted.' : 'Ride rejected.');
+          } catch (e: any) {
+            Alert.alert('Error', e?.response?.data?.message || `Failed to ${isAccept ? 'accept' : 'reject'}.`);
+          } finally { setDriverActionLoading(null); }
+        }},
       ]
     );
   };
 
-  const handleDriverAction = async (action: 'accept' | 'reject') => {
-    if (!Number.isFinite(id) || driverActionLoading) return;
-    try {
-      setDriverActionLoading(action);
-      const updatedRide = action === 'accept'
-        ? await acceptRide(id)
-        : await rejectRide(id);
-      setRide(updatedRide || null);
-      Alert.alert('Success', action === 'accept' ? 'Ride accepted.' : 'Ride rejected.');
-    } catch (e: any) {
-      Alert.alert(
-        'Error',
-        e?.response?.data?.message || e?.message || `Failed to ${action} ride.`
-      );
-    } finally {
-      setDriverActionLoading(null);
-    }
-  };
+  if (loading) return (
+    <View style={d.center}>
+      <Stack.Screen options={{ title: 'Details' }} />
+      <ActivityIndicator size="large" color="#111" />
+      <Text style={d.centerText}>Loading...</Text>
+    </View>
+  );
 
-  const handleAcceptPress = () => {
-    Alert.alert(
-      'Accept ride?',
-      'This pending ride will be assigned to you.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Accept', onPress: () => handleDriverAction('accept') },
-      ]
-    );
-  };
-
-  const handleRejectPress = () => {
-    Alert.alert(
-      'Reject ride?',
-      'This pending ride will be rejected.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Reject', style: 'destructive', onPress: () => handleDriverAction('reject') },
-      ]
-    );
-  };
-
-  if (loading) {
-    return (
-      <View style={styles.center}>
-        <Stack.Screen options={{ title: headerTitle }} />
-        <ActivityIndicator size="large" color="#111" />
-        <Text style={styles.centerText}>Chargement du trajet...</Text>
-      </View>
-    );
-  }
-
-  if (error) {
-    return (
-      <View style={styles.center}>
-        <Stack.Screen options={{ title: headerTitle }} />
-        <Text style={styles.errorText}>{error}</Text>
-      </View>
-    );
-  }
-
-  if (!ride) {
-    return (
-      <View style={styles.center}>
-        <Stack.Screen options={{ title: headerTitle }} />
-        <Text style={styles.centerText}>Trajet introuvable.</Text>
-      </View>
-    );
-  }
+  if (error || !ride) return (
+    <View style={d.center}>
+      <Stack.Screen options={{ title: 'Details' }} />
+      <Ionicons name="alert-circle-outline" size={48} color="#D1D5DB" />
+      <Text style={d.errorMsg}>{error || 'Ride not found.'}</Text>
+    </View>
+  );
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Stack.Screen options={{ title: headerTitle }} />
-      <View style={styles.card}>
-        <Text style={styles.title}>Trajet #{ride.id}</Text>
-        <Row icon="my-location" label="Depart" value={start} />
-        <Row icon="location-on" label="Arrivee" value={end} />
-        <Row icon="event" label="Date" value={dateLabel} />
-        <Row icon="schedule" label="Heure" value={timeLabel} />
+    <ScrollView contentContainerStyle={d.container}>
+      <Stack.Screen options={{ title: 'Ride details' }} />
+
+      {/* ── HERO ── */}
+      <View style={d.hero}>
+        <View style={d.heroLeft}>
+          <Avatar prenom={contact?.prenom} nom={contact?.nom} sexe={contact?.sexe} size={52} />
+          <View style={{ flex: 1 }}>
+            <Text style={d.heroName} numberOfLines={1}>{contactName}</Text>
+            <Text style={d.heroRole}>{isPassenger ? 'Driver' : 'Passenger'}</Text>
+            {contactPhone !== FALLBACK && (
+              <Text style={d.heroPhone}>{contactPhone}</Text>
+            )}
+          </View>
+        </View>
+        <View style={[d.statusChip, { backgroundColor: cfg.bg }]}>
+          <Ionicons name={cfg.icon as any} size={13} color={cfg.color} />
+          <Text style={[d.statusChipText, { color: cfg.color }]}>{statusLabel}</Text>
+        </View>
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.section}>Details</Text>
-        <Row icon="info" label="Status" value={status} />
-        <Row icon="payments" label="Prix" value={`${price.toFixed(2)} DA`} />
-        <Row icon="person" label={contactLabel} value={contactName || FALLBACK} />
-        <Row icon="phone" label={contactPhoneLabel} value={contact?.numTel ? String(contact.numTel) : FALLBACK} />
+      {/* ── PRIX ── */}
+      <View style={d.priceBar}>
+        <Ionicons name="cash-outline" size={18} color="#065F46" />
+        <Text style={d.priceLabel}>Price</Text>
+        <Text style={d.priceValue}>{price.toFixed(2)} DA</Text>
       </View>
 
-      <View style={styles.card}>
-        <Text style={styles.section}>Horodatage</Text>
-        <Row
-          icon="schedule"
-          label="Cree le"
-          value={ride?.createdAt ? new Date(ride.createdAt).toLocaleString() : FALLBACK}
-        />
-        <Row icon="timer" label="Temps estime" value={estimatedDurationLabel} />
-        <Row icon="directions-car" label="Demarre le" value={startAtLabel} />
-        <Row
-          icon="flag"
-          label="Termine le"
-          value={ride?.completedAt ? new Date(ride.completedAt).toLocaleString() : FALLBACK}
-        />
-      </View>
+      {/* ── ROUTE ── */}
+      <Section title="Route">
+        <View style={d.routeBox}>
+          <View style={d.routeRow}>
+            <View style={[d.dot, { backgroundColor: '#22C55E' }]} />
+            <View style={{ flex: 1 }}>
+              <Text style={d.routeSmall}>From</Text>
+              <Text style={d.routeAddr}>{start}</Text>
+            </View>
+          </View>
+          <View style={d.routeLine} />
+          <View style={d.routeRow}>
+            <View style={[d.dot, { backgroundColor: '#EF4444' }]} />
+            <View style={{ flex: 1 }}>
+              <Text style={d.routeSmall}>To</Text>
+              <Text style={d.routeAddr}>{end}</Text>
+            </View>
+          </View>
+        </View>
+      </Section>
 
-      {canCancelRide && (
-        <TouchableOpacity
-          style={[styles.cancelButton, cancelLoading && styles.cancelButtonDisabled]}
-          onPress={handleCancelPress}
-          disabled={cancelLoading}
-          activeOpacity={0.8}
-        >
-          <Text style={styles.cancelButtonText}>
-            {cancelLoading ? 'Cancelling...' : 'Cancel ride'}
-          </Text>
-        </TouchableOpacity>
-      )}
+      {/* ── INFOS ── */}
+      <Section title="Details">
+        <InfoRow icon="calendar-outline"  label="Date"           value={dateLabel}                          />
+        <InfoRow icon="time-outline"      label="Time"           value={ride?.heureDepart || FALLBACK}      />
+        <InfoRow icon="people-outline"    label="Seats"          value={String(ride?.placesDispo ?? FALLBACK)} />
+        <InfoRow icon="timer-outline"     label="Est. duration"  value={durationLabel}                      />
+      </Section>
 
-      {canReviewPendingRide && (
-        <View style={styles.driverActionsRow}>
+      {/* ── TIMESTAMPS ── */}
+      <Section title="Timeline">
+        <InfoRow icon="add-circle-outline" label="Created"   value={createdLabel} />
+        {(rawStatus === 'IN_PROGRESS' || rawStatus === 'COMPLETED') && (
+          <InfoRow icon="play-circle-outline" label="Started" value={`${ride?.dateDepart ? new Date(ride.dateDepart).toLocaleDateString('en-GB') : ''} ${ride?.heureDepart || ''}`.trim() || FALLBACK} />
+        )}
+        {rawStatus === 'COMPLETED' && (
+          <InfoRow icon="flag-outline" label="Completed" value={doneLabel} />
+        )}
+      </Section>
+
+      {/* ── CANCEL (passager) ── */}
+      {canCancel && (
+        <View style={d.cancelBlock}>
+          <Text style={d.cancelHint}>Need to cancel? You can cancel this ride below.</Text>
           <TouchableOpacity
-            style={[styles.driverActionButton, styles.rejectButton, driverActionLoading && styles.driverActionDisabled]}
-            onPress={handleRejectPress}
-            disabled={!!driverActionLoading}
+            style={[d.btnCancel, cancelLoading && d.btnDisabled]}
+            onPress={handleCancel}
+            disabled={cancelLoading}
             activeOpacity={0.8}
           >
-            <Ionicons name="close-circle" size={20} color="#000" />
-            <Text style={styles.rejectButtonText}>
-              {driverActionLoading === 'reject' ? 'Rejecting...' : 'Reject'}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.driverActionButton, styles.acceptButton, driverActionLoading && styles.driverActionDisabled]}
-            onPress={handleAcceptPress}
-            disabled={!!driverActionLoading}
-            activeOpacity={0.8}
-          >
-            <Ionicons name="checkmark-circle" size={20} color="#FFF" />
-            <Text style={styles.acceptButtonText}>
-              {driverActionLoading === 'accept' ? 'Accepting...' : 'Accept'}
-            </Text>
+            <Ionicons name="close-circle-outline" size={18} color="#DC2626" />
+            <Text style={d.btnCancelText}>{cancelLoading ? 'Cancelling...' : 'Cancel this ride'}</Text>
           </TouchableOpacity>
         </View>
       )}
+
+      {/* ── ACTIONS DRIVER ── */}
+      {canReview && (
+        <View style={d.driverActions}>
+          <TouchableOpacity
+            style={[d.btnOutline, !!driverActionLoading && d.btnDisabled]}
+            onPress={() => handleDriverAction('reject')}
+            disabled={!!driverActionLoading}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="close-circle-outline" size={18} color="#111" />
+            <Text style={d.btnOutlineText}>{driverActionLoading === 'reject' ? 'Rejecting...' : 'Reject'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[d.btnPrimary, !!driverActionLoading && d.btnDisabled]}
+            onPress={() => handleDriverAction('accept')}
+            disabled={!!driverActionLoading}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="checkmark-circle-outline" size={18} color="#fff" />
+            <Text style={d.btnPrimaryText}>{driverActionLoading === 'accept' ? 'Accepting...' : 'Accept'}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
     </ScrollView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { padding: 16, paddingBottom: 28, backgroundColor: '#F5F5F5' },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 20, backgroundColor: '#F5F5F5' },
-  centerText: { marginTop: 10, color: '#666', fontSize: 14, fontWeight: '600' },
-  errorText: { color: '#B42318', fontSize: 14, fontWeight: '700', textAlign: 'center' },
-  card: { backgroundColor: '#FFF', borderRadius: 14, borderWidth: 1, borderColor: '#E5E7EB', padding: 14, marginBottom: 12 },
-  title: { fontSize: 18, fontWeight: '800', color: '#111', marginBottom: 10 },
-  section: { fontSize: 14, fontWeight: '800', color: '#111', marginBottom: 10 },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
-  rowText: { flex: 1, color: '#333', fontSize: 13 },
-  rowLabel: { fontWeight: '800', color: '#111' },
-  cancelButton: {
-    backgroundColor: '#DC2626',
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 4,
-    marginBottom: 12,
+const d = StyleSheet.create({
+  container: { padding: 16, paddingBottom: 36, backgroundColor: '#F5F5F5', gap: 12 },
+  center:    { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, padding: 20, backgroundColor: '#F5F5F5' },
+  centerText:{ color: '#666', fontSize: 14, fontWeight: '600' },
+  errorMsg:  { color: '#B42318', fontSize: 14, fontWeight: '700', textAlign: 'center', marginTop: 8 },
+
+  hero:      { backgroundColor: '#fff', borderRadius: 16, padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1.5, borderColor: '#F3F4F6', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1 },
+  heroLeft:  { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
+  avatar:    { alignItems: 'center', justifyContent: 'center' },
+  avatarText:{ fontWeight: '800' },
+  heroName:  { fontSize: 16, fontWeight: '800', color: '#111' },
+  heroRole:  { fontSize: 12, color: '#9CA3AF', fontWeight: '500' },
+  heroPhone: { fontSize: 12, color: '#6B7280', fontWeight: '600', marginTop: 1 },
+  statusChip:{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20 },
+  statusChipText: { fontSize: 11, fontWeight: '700' },
+
+  priceBar:  { backgroundColor: '#F0FDF4', borderRadius: 12, padding: 14, flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: '#BBF7D0' },
+  priceLabel:{ fontSize: 14, fontWeight: '600', color: '#065F46', flex: 1 },
+  priceValue:{ fontSize: 18, fontWeight: '800', color: '#065F46' },
+
+  section:     { backgroundColor: '#fff', borderRadius: 16, padding: 14, borderWidth: 1.5, borderColor: '#F3F4F6', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 3, elevation: 1 },
+  sectionTitle:{ fontSize: 12, fontWeight: '800', color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 12 },
+
+  infoRow:   { flexDirection: 'row', alignItems: 'flex-start', gap: 10, paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: '#F9FAFB' },
+  infoIcon:  { width: 28, height: 28, borderRadius: 8, backgroundColor: '#F5F5F5', alignItems: 'center', justifyContent: 'center' },
+  infoLabel: { fontSize: 11, color: '#9CA3AF', fontWeight: '600', marginBottom: 1 },
+  infoValue: { fontSize: 14, color: '#111', fontWeight: '600' },
+
+  routeBox:  { gap: 4 },
+  routeRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  dot:       { width: 10, height: 10, borderRadius: 5, marginTop: 4 },
+  routeLine: { width: 2, height: 16, backgroundColor: '#E5E7EB', marginLeft: 4, marginVertical: 2 },
+  routeSmall:{ fontSize: 11, color: '#9CA3AF', fontWeight: '600' },
+  routeAddr: { fontSize: 14, color: '#111', fontWeight: '600' },
+
+  // Cancel block — discret, pas rouge agressif
+  cancelBlock: {
+    backgroundColor: '#fff', borderRadius: 16, padding: 16,
+    borderWidth: 1.5, borderColor: '#F3F4F6', gap: 12,
   },
-  cancelButtonDisabled: {
-    opacity: 0.6,
+  cancelHint:    { fontSize: 13, color: '#9CA3AF', fontWeight: '500' },
+  btnCancel: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
+    backgroundColor: '#FEF2F2', borderRadius: 12, paddingVertical: 14,
+    borderWidth: 1.5, borderColor: '#FECACA',
   },
-  cancelButtonText: {
-    color: '#FFF',
-    fontSize: 15,
-    fontWeight: '800',
-  },
-  driverActionsRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginTop: 4,
-    marginBottom: 12,
-  },
-  driverActionButton: {
-    flex: 1,
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-    gap: 6,
-  },
-  driverActionDisabled: {
-    opacity: 0.6,
-  },
-  rejectButton: {
-    backgroundColor: '#FFF',
-    borderWidth: 2,
-    borderColor: '#000',
-  },
-  rejectButtonText: {
-    color: '#000',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  acceptButton: {
-    backgroundColor: '#000',
-  },
-  acceptButtonText: {
-    color: '#FFF',
-    fontSize: 14,
-    fontWeight: '600',
-  },
+  btnCancelText: { color: '#DC2626', fontSize: 14, fontWeight: '700' },
+  btnDisabled:   { opacity: 0.6 },
+
+  driverActions:  { flexDirection: 'row', gap: 12 },
+  btnOutline:     { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#fff', borderWidth: 2, borderColor: '#111', borderRadius: 14, paddingVertical: 15 },
+  btnOutlineText: { color: '#111', fontSize: 14, fontWeight: '700' },
+  btnPrimary:     { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#111', borderRadius: 14, paddingVertical: 15 },
+  btnPrimaryText: { color: '#fff', fontSize: 14, fontWeight: '700' },
 });

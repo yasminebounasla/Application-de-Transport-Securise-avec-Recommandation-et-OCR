@@ -24,53 +24,52 @@ const getRelativeTime = (timestamp: number) => {
   const mins  = Math.floor(diff / 60000);
   const hours = Math.floor(diff / 3600000);
   const days  = Math.floor(diff / 86400000);
-  if (mins < 1)   return "À l'instant";
-  if (mins < 60)  return `${mins}m`;
-  if (hours < 24) return `${hours}h`;
-  return `${days}j`;
+  if (mins < 1)   return 'Just now';
+  if (mins < 60)  return `${mins}m ago`;
+  if (hours < 24) return `${hours}h ago`;
+  return `${days}d ago`;
 };
 
-const CATEGORY = (title: string) => {
-  if (title.includes('confirmé') || title.includes('accepté') || title.includes('démarré'))
-    return { color: '#22C55E', bg: '#F0FFF4', icon: 'checkmark-circle' as const };
-  if (title.includes('refus') || title.includes('annulé') || title.includes('expirée'))
-    return { color: '#EF4444', bg: '#FFF5F5', icon: 'close-circle' as const };
-  if (title.includes('envoyée') || title.includes('créé') || title.includes('demande'))
-    return { color: '#3B82F6', bg: '#EFF6FF', icon: 'car' as const };
-  if (title.includes('terminé') || title.includes('arrivé'))
-    return { color: '#8B5CF6', bg: '#F5F3FF', icon: 'flag' as const };
-  return { color: '#F59E0B', bg: '#FFFBEB', icon: 'alert-circle' as const };
+// Catégorie basée sur le titre — détermine couleur + icône
+const getCategory = (title: string) => {
+  const t = title.toLowerCase();
+  if (t.includes('accepted') || t.includes('accepté') || t.includes('confirmé') || t.includes('démarré') || t.includes('started'))
+    return { color: '#16A34A', bg: '#F0FDF4', borderColor: '#BBF7D0', icon: 'checkmark-circle' as const };
+  if (t.includes('reject') || t.includes('refus') || t.includes('annulé') || t.includes('cancelled') || t.includes('expir'))
+    return { color: '#DC2626', bg: '#FEF2F2', borderColor: '#FECACA', icon: 'close-circle'     as const };
+  if (t.includes('completed') || t.includes('terminé') || t.includes('arrivé'))
+    return { color: '#7C3AED', bg: '#F5F3FF', borderColor: '#DDD6FE', icon: 'flag'              as const };
+  if (t.includes('request') || t.includes('demande') || t.includes('créé') || t.includes('nouvelle'))
+    return { color: '#2563EB', bg: '#EFF6FF', borderColor: '#BFDBFE', icon: 'car'               as const };
+  return   { color: '#D97706', bg: '#FFFBEB', borderColor: '#FDE68A', icon: 'notifications'     as const };
 };
 
-// ✅ FIX : On s'assure que le retour correspond aux clés de l'ActivityScreen
 const getTabFromTitle = (title: string): string => {
   const t = title.toLowerCase();
   if (t.includes('terminé') || t.includes('completed')) return 'completed';
-  if (t.includes('annulé') || t.includes('refus')) return 'cancelled';
-  return 'pending'; 
+  if (t.includes('annulé') || t.includes('refus') || t.includes('cancelled') || t.includes('rejected')) return 'cancelled';
+  return 'pending';
 };
 
-const AVATAR_COLORS = ['#6366F1', '#EC4899', '#F59E0B', '#10B981', '#3B82F6', '#8B5CF6'];
-const getAvatarColor = (name: string) =>
-  AVATAR_COLORS[(name?.charCodeAt(0) ?? 0) % AVATAR_COLORS.length];
-
-function NotifAvatar({ notif, cat }: { notif: Notification; cat: ReturnType<typeof CATEGORY> }) {
+// Avatar initiales ou photo
+function NotifAvatar({ notif, cat }: { notif: Notification; cat: ReturnType<typeof getCategory> }) {
   const initials = `${notif.prenom?.[0] ?? ''}${notif.nom?.[0] ?? ''}`.toUpperCase();
   return (
-    <View style={styles.avatarWrapper}>
+    <View style={st.avatarWrap}>
       {notif.photoUrl ? (
-        <Image source={{ uri: notif.photoUrl }} style={styles.avatar} />
+        <Image source={{ uri: notif.photoUrl }} style={st.avatarImg} />
       ) : initials ? (
-        <View style={[styles.avatar, styles.avatarFallback, { backgroundColor: getAvatarColor(notif.prenom ?? '') }]}>
-          <Text style={styles.initials}>{initials}</Text>
+        <View style={[st.avatarImg, st.avatarFallback, { backgroundColor: cat.bg, borderColor: cat.borderColor }]}>
+          <Text style={[st.initials, { color: cat.color }]}>{initials}</Text>
         </View>
       ) : (
-        <View style={[styles.avatar, styles.avatarFallback, { backgroundColor: cat.bg }]}>
-          <Ionicons name={cat.icon} size={22} color={cat.color} />
+        <View style={[st.avatarImg, st.avatarFallback, { backgroundColor: cat.bg, borderColor: cat.borderColor }]}>
+          <Ionicons name={cat.icon} size={20} color={cat.color} />
         </View>
       )}
-      <View style={[styles.badge, { backgroundColor: cat.color }]}>
-        <Ionicons name={cat.icon} size={8} color="#fff" />
+      {/* Badge icône en bas à droite */}
+      <View style={[st.iconBadge, { backgroundColor: cat.color }]}>
+        <Ionicons name={cat.icon} size={9} color="#fff" />
       </View>
     </View>
   );
@@ -90,8 +89,7 @@ export default function NotificationsScreen() {
   }, []));
 
   useFocusEffect(useCallback(() => {
-    if (snapshotDone.current) return;
-    if (notifications.length === 0) return;
+    if (snapshotDone.current || notifications.length === 0) return;
     snapshotDone.current = true;
     const unread = notifications.filter(n => n.isRead === false);
     const read   = notifications.filter(n => n.isRead !== false);
@@ -100,39 +98,44 @@ export default function NotificationsScreen() {
     if (unread.length > 0) markAllAsRead();
   }, [notifications, markAllAsRead]));
 
-  const handleNotifPress = (notif: Notification) => {
-  if (!notif.rideId) return;
-  const tab = getTabFromTitle(notif.title);
-  console.log('🟢 NAVIGATE rideId:', notif.rideId, 'tab:', tab); // ← AJOUTE
-  const route = user?.role === 'driver'
-    ? '/(driverTabs)/Activity'
-    : '/(passengerTabs)/Activity';
-  router.push({ pathname: route as any, params: { rideId: String(notif.rideId), tab } });
-};
+  const handlePress = (notif: Notification) => {
+    if (!notif.rideId) return;
+    const tab   = getTabFromTitle(notif.title);
+    const route = user?.role === 'driver'
+      ? '/(driverTabs)/Activity'
+      : '/(passengerTabs)/Activity';
+    router.push({ pathname: route as any, params: { rideId: String(notif.rideId), tab } });
+  };
 
   const renderNotif = (notif: Notification, i: number, isNew: boolean) => {
-    const cat = CATEGORY(notif.title);
+    const cat      = getCategory(notif.title);
     const tappable = !!notif.rideId;
     return (
       <TouchableOpacity
         key={i}
-        style={[styles.row, isNew && styles.rowNew]}
-        onPress={() => handleNotifPress(notif)}
-        activeOpacity={tappable ? 0.7 : 1}
+        style={[st.row, isNew && st.rowNew]}
+        onPress={() => handlePress(notif)}
+        activeOpacity={tappable ? 0.72 : 1}
         disabled={!tappable}
       >
-        {isNew && <View style={styles.newDot} />}
+        {/* Unread indicator */}
+        {isNew && <View style={[st.unreadBar, { backgroundColor: cat.color }]} />}
+
         <NotifAvatar notif={notif} cat={cat} />
-        <View style={styles.content}>
-          <View style={styles.topRow}>
-            <Text style={styles.title}>{notif.title}</Text>
-            <Text style={styles.time}>
-              {notif.timestamp ? getRelativeTime(notif.timestamp) : ''}
-            </Text>
+
+        <View style={st.content}>
+          <View style={st.topRow}>
+            <Text style={st.title} numberOfLines={1}>{notif.title}</Text>
+            {notif.timestamp && (
+              <Text style={st.time}>{getRelativeTime(notif.timestamp)}</Text>
+            )}
           </View>
-          <Text style={styles.msg} numberOfLines={2}>{notif.message}</Text>
+          <Text style={st.msg} numberOfLines={2}>{notif.message}</Text>
           {tappable && (
-            <Text style={styles.tapHint}>Voir le trajet →</Text>
+            <View style={st.tapRow}>
+              <Text style={[st.tapHint, { color: cat.color }]}>View ride</Text>
+              <Ionicons name="arrow-forward" size={11} color={cat.color} />
+            </View>
           )}
         </View>
       </TouchableOpacity>
@@ -145,49 +148,62 @@ export default function NotificationsScreen() {
     <>
       <Stack.Screen options={{ headerShown: false }} />
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.headerTitle}>Notifications</Text>
+      <View style={st.container}>
+
+        {/* Header */}
+        <View style={st.header}>
+          <View>
+            <Text style={st.headerTitle}>Notifications</Text>
+            {!allEmpty && (
+              <Text style={st.headerSub}>
+                {newNotifs.length > 0 ? `${newNotifs.length} new` : 'All caught up'}
+              </Text>
+            )}
+          </View>
           {!allEmpty && (
             <TouchableOpacity
+              style={st.clearBtn}
               onPress={() => { clearNotifications(); setNewNotifs([]); setOldNotifs([]); }}
               activeOpacity={0.7}
             >
-              <Text style={styles.clearBtn}>Tout effacer</Text>
+              <Text style={st.clearBtnText}>Clear all</Text>
             </TouchableOpacity>
           )}
         </View>
 
         {allEmpty ? (
-          <View style={styles.empty}>
-            <View style={styles.emptyIconWrap}>
-              <Ionicons name="notifications-outline" size={36} color="#CCC" />
+          <View style={st.empty}>
+            <View style={st.emptyIconWrap}>
+              <Ionicons name="notifications-off-outline" size={34} color="#D1D5DB" />
             </View>
-            <Text style={styles.emptyTitle}>Aucune notification</Text>
-            <Text style={styles.emptySub}>Vos alertes de trajet apparaîtront ici</Text>
+            <Text style={st.emptyTitle}>No notifications</Text>
+            <Text style={st.emptySub}>Your ride alerts will appear here</Text>
           </View>
         ) : (
-          <ScrollView showsVerticalScrollIndicator={false}>
+          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 40 }}>
+
             {newNotifs.length > 0 && (
               <>
-                <View style={styles.sectionHeader}>
-                  <View style={styles.sectionRedDot} />
-                  <Text style={styles.sectionTitle}>Nouvelles</Text>
-                  <View style={styles.sectionLine} />
+                <View style={st.sectionHeader}>
+                  <View style={[st.sectionDot, { backgroundColor: '#EF4444' }]} />
+                  <Text style={[st.sectionLabel, { color: '#EF4444' }]}>New</Text>
+                  <View style={[st.sectionLine, { backgroundColor: '#FECACA' }]} />
                 </View>
-                {newNotifs.map((notif, i) => renderNotif(notif, i, true))}
+                {newNotifs.map((n, i) => renderNotif(n, i, true))}
               </>
             )}
+
             {oldNotifs.length > 0 && (
               <>
-                <View style={styles.sectionHeader}>
-                  <Text style={styles.sectionTitleOld}>Précédentes</Text>
-                  <View style={styles.sectionLineGray} />
+                <View style={st.sectionHeader}>
+                  <View style={[st.sectionDot, { backgroundColor: '#D1D5DB' }]} />
+                  <Text style={[st.sectionLabel, { color: '#9CA3AF' }]}>Earlier</Text>
+                  <View style={[st.sectionLine, { backgroundColor: '#F0F0F0' }]} />
                 </View>
-                {oldNotifs.map((notif, i) => renderNotif(notif, newNotifs.length + i, false))}
+                {oldNotifs.map((n, i) => renderNotif(n, newNotifs.length + i, false))}
               </>
             )}
-            <View style={{ height: 40 }} />
+
           </ScrollView>
         )}
       </View>
@@ -195,52 +211,57 @@ export default function NotificationsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
-  container:     { flex: 1, backgroundColor: '#fff' },
+const st = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#fff' },
+
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 18, paddingTop: 58, paddingBottom: 14,
-    borderBottomWidth: 1, borderBottomColor: '#F2F2F2',
+    paddingHorizontal: 20, paddingTop: 58, paddingBottom: 16,
+    borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
   },
-  headerTitle:     { fontSize: 22, fontWeight: '800', color: '#111', letterSpacing: -0.4 },
-  clearBtn:         { fontSize: 13, color: '#BBB', fontWeight: '500' },
-  sectionHeader: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 18, paddingTop: 16, paddingBottom: 6, gap: 8,
-  },
-  sectionRedDot:   { width: 8, height: 8, borderRadius: 4, backgroundColor: '#EF4444' },
-  sectionTitle:    { fontSize: 12, fontWeight: '700', color: '#EF4444', textTransform: 'uppercase', letterSpacing: 0.8 },
-  sectionTitleOld: { fontSize: 12, fontWeight: '700', color: '#AAA', textTransform: 'uppercase', letterSpacing: 0.8 },
-  sectionLine:     { flex: 1, height: 1, backgroundColor: '#FECACA' },
-  sectionLineGray: { flex: 1, height: 1, backgroundColor: '#F0F0F0' },
+  headerTitle: { fontSize: 22, fontWeight: '800', color: '#111', letterSpacing: -0.4 },
+  headerSub:   { fontSize: 12, color: '#9CA3AF', fontWeight: '500', marginTop: 2 },
+  clearBtn:    { backgroundColor: '#F5F5F5', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7 },
+  clearBtnText:{ fontSize: 12, fontWeight: '700', color: '#6B7280' },
+
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 18, paddingBottom: 8, gap: 8 },
+  sectionDot:    { width: 7, height: 7, borderRadius: 4 },
+  sectionLabel:  { fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.8 },
+  sectionLine:   { flex: 1, height: 1 },
+
+  // Row
   row: {
     flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 18, paddingVertical: 13,
+    paddingHorizontal: 20, paddingVertical: 14,
     borderBottomWidth: 1, borderBottomColor: '#F7F7F7',
+    position: 'relative',
   },
-  rowNew:          { backgroundColor: '#FFF8F8' },
-  newDot:          { width: 7, height: 7, borderRadius: 4, backgroundColor: '#EF4444', marginRight: 8 },
-  avatarWrapper:  { position: 'relative', marginRight: 13 },
-  avatar:          { width: 48, height: 48, borderRadius: 24 },
-  avatarFallback: { justifyContent: 'center', alignItems: 'center' },
-  initials:        { color: '#fff', fontSize: 16, fontWeight: '700' },
-  badge: {
-    position: 'absolute', bottom: 0, right: -1,
-    width: 17, height: 17, borderRadius: 9,
+  rowNew:     { backgroundColor: '#FAFAFA' },
+  unreadBar:  { position: 'absolute', left: 0, top: 14, bottom: 14, width: 3, borderRadius: 2 },
+
+  // Avatar
+  avatarWrap:    { position: 'relative', marginRight: 14 },
+  avatarImg:     { width: 46, height: 46, borderRadius: 23 },
+  avatarFallback:{ justifyContent: 'center', alignItems: 'center', borderWidth: 1.5 },
+  initials:      { fontSize: 16, fontWeight: '800' },
+  iconBadge: {
+    position: 'absolute', bottom: -1, right: -1,
+    width: 18, height: 18, borderRadius: 9,
     justifyContent: 'center', alignItems: 'center',
     borderWidth: 2, borderColor: '#fff',
   },
-  content:  { flex: 1 },
-  topRow:   { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 },
-  title:    { fontSize: 14, fontWeight: '700', color: '#111', flex: 1 },
-  time:      { fontSize: 12, color: '#BBB', marginLeft: 8 },
-  msg:       { fontSize: 13, color: '#666', lineHeight: 18 },
-  tapHint:  { fontSize: 11, color: '#3B82F6', marginTop: 4, fontWeight: '600' },
-  empty:    { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10, paddingBottom: 80 },
-  emptyIconWrap: {
-    width: 80, height: 80, borderRadius: 40, backgroundColor: '#F7F7F7',
-    justifyContent: 'center', alignItems: 'center', marginBottom: 6,
-  },
-  emptyTitle: { fontSize: 17, fontWeight: '700', color: '#222' },
-  emptySub:   { fontSize: 13, color: '#BBB', textAlign: 'center', paddingHorizontal: 50 },
+
+  content: { flex: 1 },
+  topRow:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 },
+  title:   { fontSize: 14, fontWeight: '700', color: '#111', flex: 1, marginRight: 8 },
+  time:    { fontSize: 11, color: '#C4C4C4', fontWeight: '500' },
+  msg:     { fontSize: 13, color: '#6B7280', lineHeight: 18 },
+  tapRow:  { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 5 },
+  tapHint: { fontSize: 11, fontWeight: '700' },
+
+  // Empty
+  empty:        { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10, paddingBottom: 80 },
+  emptyIconWrap:{ width: 80, height: 80, borderRadius: 40, backgroundColor: '#F7F7F7', justifyContent: 'center', alignItems: 'center', marginBottom: 4 },
+  emptyTitle:   { fontSize: 17, fontWeight: '700', color: '#374151' },
+  emptySub:     { fontSize: 13, color: '#9CA3AF', textAlign: 'center', paddingHorizontal: 50 },
 });

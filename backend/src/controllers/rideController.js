@@ -67,7 +67,7 @@ export const createRide = async (req, res) => {
       },
       include: {
         passenger: {
-          select: { id: true, nom: true, prenom: true, numTel: true, email: true },
+          select: { id: true, nom: true, prenom: true, numTel: true, email: true, sexe: true },
         },
       },
     });
@@ -123,7 +123,7 @@ export const getRideById = async (req, res) => {
       where: { id: parseInt(id, 10) },
       include: {
         passenger: { select: { id: true, nom: true, prenom: true, numTel: true } },
-        driver: { select: { id: true, nom: true, prenom: true, numTel: true } },
+        driver: { select: { id: true, nom: true, prenom: true, numTel: true , sexe: true} },
       },
     });
 
@@ -488,7 +488,7 @@ export const getPassengerRideActivity = async (req, res) => {
       where: { passagerId: passengerId },
       include: {
         passenger: { select: { id: true, nom: true, prenom: true, numTel: true } },
-        driver:    { select: { id: true, nom: true, prenom: true, numTel: true, avgRating: true } },
+        driver:    { select: { id: true, nom: true, prenom: true, numTel: true, avgRating: true , sexe: true } },
       },
       orderBy: { updatedAt: 'desc' },
     });
@@ -526,7 +526,7 @@ export const getDriverRideActivity = async (req, res) => {
         ]
       },
       include: {
-        driver:    { select: { id: true, nom: true, prenom: true, numTel: true } },
+        driver:    { select: { id: true, nom: true, prenom: true, numTel: true, sexe: true } },
         passenger: { select: { id: true, nom: true, prenom: true, numTel: true, age: true } },
       },
       orderBy: { updatedAt: 'desc' },
