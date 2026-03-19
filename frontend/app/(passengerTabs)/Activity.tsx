@@ -127,7 +127,7 @@ function RideCard({ item, highlighted, onPress }: {
               <Avatar prenom={driver.prenom} nom={driver.nom} sexe={driver.sexe} />
               <View>
                 <Text style={s.driverName} numberOfLines={1}>{driver.prenom} {driver.nom}</Text>
-                <Text style={s.driverSub}>Driver</Text>
+                <Text style={s.driverSub}>{driver.numTel}</Text>
               </View>
             </View>
           )}
@@ -299,7 +299,8 @@ export default function ActivityScreen() {
     setTimeout(() => {
       const tabRides = activity.filter((r: any) => {
         if (tab === 'completed') return r.status === 'COMPLETED';
-        if (tab === 'pending')   return ['PENDING', 'ACCEPTED', 'IN_PROGRESS'].includes(r.status);
+        if (tab === 'pending')   return r.status ==='PENDING';
+        if (tab === 'active') return ['ACCEPTED', 'IN_PROGRESS'].includes(r.status);
         return ['CANCELLED_BY_PASSENGER', 'CANCELLED_BY_DRIVER'].includes(r.status);
       });
       const index = tabRides.findIndex((r: any) => r.rideId === rideId);

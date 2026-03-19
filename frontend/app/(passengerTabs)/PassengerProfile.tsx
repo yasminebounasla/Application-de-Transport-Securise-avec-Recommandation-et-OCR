@@ -13,6 +13,7 @@ import {
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 
 
 
@@ -22,6 +23,8 @@ export default function PassengerProfileScreen() {
   const [refreshing, setRefreshing]    = useState(false);
   const [settingsVisible, setSettings] = useState(false);
   const [loggingOut, setLoggingOut]    = useState(false);
+
+  const { logout } = useAuth(); 
 
   useFocusEffect(
     useCallback(() => {
@@ -66,6 +69,7 @@ export default function PassengerProfileScreen() {
             } catch (e) {
               // ignore logout API errors
             } finally {
+              await logout();
               setLoggingOut(false);
               router.replace('/');
             }

@@ -23,10 +23,13 @@ type UpcomingRide = {
 
 const REMINDER_WINDOW_MS = 60 * 60 * 1000;
 
+// ← outside component so it survives remounts
+let reminderShownForRideId: number | null = null;
+
 export default function ReminderModal() {
   const { user } = useAuth();
-  const [ride,    setRide]    = useState<UpcomingRide | null>(null);
-  const [visible, setVisible] = useState(false);
+  const [ride,     setRide]     = useState<UpcomingRide | null>(null);
+  const [visible,  setVisible]  = useState(false);
   const [minsLeft, setMinsLeft] = useState(0);
 
   const pulseAnim = useRef(new Animated.Value(1)).current;
@@ -59,16 +62,18 @@ export default function ReminderModal() {
       const rides: UpcomingRide[] = res?.data?.data || [];
       const now = Date.now();
       const upcoming = rides.find(r => {
-        // ✅ PENDING retiré — le reminder n'apparaît qu'après acceptation
         if (!['ACCEPTED', 'IN_PROGRESS'].includes(r.status)) return false;
         const diff = new Date(r.dateDepart).getTime() - now;
         return diff > 0 && diff <= REMINDER_WINDOW_MS;
       });
       if (upcoming) {
+        // ← skip if already shown for this ride
+        if (reminderShownForRideId === upcoming.rideId) return;
         const diff = new Date(upcoming.dateDepart).getTime() - now;
         setMinsLeft(Math.round(diff / 60000));
         setRide(upcoming);
         setVisible(true);
+        reminderShownForRideId = upcoming.rideId; // ← mark as shown
       }
     } catch { }
   };
@@ -81,10 +86,7 @@ export default function ReminderModal() {
       : '/(passengerTabs)/MesTrajets';
     router.push({
       pathname: route as any,
-      params: {
-        rideId:    String(ride.rideId),
-        highlight: 'true',   // ← signal pour MesTrajets de scroller + highlight
-      },
+      params: { rideId: String(ride.rideId), highlight: 'true' },
     });
   };
 
@@ -110,26 +112,22 @@ export default function ReminderModal() {
       <View style={s.overlay}>
         <View style={s.sheet}>
 
-          {/* Icon circle — style cohérent avec ConfirmModal / SentModal */}
           <View style={s.iconCircle}>
             <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
               <Ionicons name="time" size={32} color="#111" />
             </Animated.View>
           </View>
 
-          {/* Title */}
           <Text style={s.title}>Ride reminder</Text>
           <Text style={s.subtitle}>
             Your ride starts {minsLeft <= 5 ? 'now' : `in ${minsLeft} minutes`}
           </Text>
 
-          {/* Urgency badge */}
           <View style={s.urgencyBadge}>
             <Ionicons name="alert-circle-outline" size={14} color="#374151" />
             <Text style={s.urgencyText}>{urgencyLabel}</Text>
           </View>
 
-          {/* Route */}
           <View style={s.routeBox}>
             <View style={s.routeRow}>
               <View style={[s.dot, { backgroundColor: '#22C55E' }]} />
@@ -142,7 +140,6 @@ export default function ReminderModal() {
             </View>
           </View>
 
-          {/* Infos */}
           <View style={s.infoRow}>
             <Ionicons name="time-outline" size={14} color="#9CA3AF" />
             <Text style={s.infoText}>
@@ -159,7 +156,6 @@ export default function ReminderModal() {
             </View>
           )}
 
-          {/* Actions */}
           <View style={s.actions}>
             <TouchableOpacity style={s.dismissBtn} onPress={() => setVisible(false)}>
               <Text style={s.dismissText}>Later</Text>
@@ -186,19 +182,13 @@ const s = StyleSheet.create({
     backgroundColor: '#fff', borderRadius: 24, padding: 24,
     width: '100%', alignItems: 'center', gap: 12,
   },
-
-  // Icon circle — même style que ConfirmModal/SentModal
   iconCircle: {
     width: 72, height: 72, borderRadius: 36,
     backgroundColor: '#F5F5F5', borderWidth: 1.5, borderColor: '#E5E7EB',
-    alignItems: 'center', justifyContent: 'center',
-    marginBottom: 4,
+    alignItems: 'center', justifyContent: 'center', marginBottom: 4,
   },
-
   title:    { fontSize: 20, fontWeight: '800', color: '#111', textAlign: 'center' },
   subtitle: { fontSize: 14, color: '#6B7280', textAlign: 'center', lineHeight: 20 },
-
-  // Urgency badge
   urgencyBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
     backgroundColor: '#F5F5F5', borderWidth: 1, borderColor: '#E5E7EB',
@@ -206,19 +196,13 @@ const s = StyleSheet.create({
     width: '100%', justifyContent: 'center',
   },
   urgencyText: { fontSize: 13, fontWeight: '700', color: '#374151' },
-
-  // Route
   routeBox:  { backgroundColor: '#F7F7F7', borderRadius: 14, padding: 14, gap: 4, width: '100%' },
   routeRow:  { flexDirection: 'row', alignItems: 'center', gap: 10 },
   dot:       { width: 10, height: 10, borderRadius: 5 },
   routeLine: { width: 2, height: 14, backgroundColor: '#E5E7EB', marginLeft: 4 },
   routeText: { flex: 1, fontSize: 13, color: '#374151', fontWeight: '600' },
-
-  // Info rows
   infoRow:  { flexDirection: 'row', alignItems: 'center', gap: 8, alignSelf: 'flex-start' },
   infoText: { fontSize: 13, color: '#6B7280' },
-
-  // Buttons — même style que ConfirmModal
   actions:     { flexDirection: 'row', gap: 10, width: '100%', marginTop: 4 },
   dismissBtn:  { flex: 1, borderRadius: 12, paddingVertical: 14, backgroundColor: '#F5F5F5', alignItems: 'center' },
   dismissText: { fontSize: 15, fontWeight: '600', color: '#6B7280' },

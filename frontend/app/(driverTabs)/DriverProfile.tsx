@@ -13,6 +13,7 @@ import {
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 
 export default function DriverProfileScreen() {
   const [profile, setProfile]          = useState(null);
@@ -20,6 +21,8 @@ export default function DriverProfileScreen() {
   const [refreshing, setRefreshing]    = useState(false);
   const [settingsVisible, setSettings] = useState(false);
   const [loggingOut, setLoggingOut]    = useState(false);
+
+  const { logout } = useAuth()
 
   useFocusEffect(
     useCallback(() => {
@@ -80,6 +83,7 @@ export default function DriverProfileScreen() {
             } catch (e) {
               // ignore logout API errors
             } finally {
+              await logout();
               setLoggingOut(false);
               router.replace('/');
             }

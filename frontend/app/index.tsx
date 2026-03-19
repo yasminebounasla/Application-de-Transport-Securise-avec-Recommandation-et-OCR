@@ -1,7 +1,18 @@
+
+import { useEffect } from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
 import { router } from 'expo-router';
+import { useAuth } from '../context/AuthContext';
 
 export default function Home() {
+    const { isAuthenticated, user } = useAuth();
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    if (user?.role === 'driver') router.replace('/(driverTabs)/DriverHomeScreen');
+    else router.replace('/(passengerTabs)/PassengerHomeScreen');
+  }, [isAuthenticated]);
+
   return (
     <View className="flex-1 bg-white">
       {/* Header Section */}
@@ -42,4 +53,3 @@ export default function Home() {
     </View>
   );
 }
-

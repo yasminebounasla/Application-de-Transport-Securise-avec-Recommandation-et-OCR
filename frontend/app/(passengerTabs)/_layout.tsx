@@ -2,6 +2,7 @@ import { Tabs, router } from "expo-router";
 import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import { TouchableOpacity, View, Text } from 'react-native';
 import { useNotifications } from '../../context/NotificationContext';
+import ReminderModal from '../shared/ReminderModel'; 
 
 function NotificationButton() {
   const { unreadCount } = useNotifications();
@@ -11,7 +12,7 @@ function NotificationButton() {
       style={{
         marginRight: 16,
         width: 44, height: 44, borderRadius: 22,
-        backgroundColor: '#f0f0F2',   // ← gris clair au lieu du blanc
+        backgroundColor: '#f0f0F2',
         justifyContent: 'center', alignItems: 'center',
       }}
     >
@@ -31,72 +32,69 @@ function NotificationButton() {
 
 export default function TabsLayout() {
   return (
-    <Tabs screenOptions={{
-      headerRight: () => <NotificationButton />,
-      // Titre plus gras + shadow sur le header
-      headerTitleStyle: {
-        fontWeight: '800',
-        fontSize: 22,
-      },
-      headerStyle: {
-        backgroundColor: '#ffffff',
-        // Shadow iOS
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.08,
-        shadowRadius: 6,
-        // Shadow Android
-        elevation: 4,
-      },
-      tabBarStyle: {
-        backgroundColor: "#f5f5f5",
-        borderTopWidth: 0,
-        elevation: 0,
-        shadowOpacity: 0,
-      },
-      tabBarActiveTintColor: "#000000",
-      tabBarInactiveTintColor: "#666666",
-    }}>
-      <Tabs.Screen
-        name="PassengerHomeScreen"
-        options={{
-          title: "Accueil",
-          headerShown: true,
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="home" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="MesTrajets"
-        options={{
-          title: "Mes Trajets",
-          headerShown: true,
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="car" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="Activity"
-        options={{
-          title: "Activity",
-          headerShown: true,
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="history" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="PassengerProfile"
-        options={{
-          title: "Profil",
-          headerShown: true,
-          tabBarIcon: ({ color, size }) => (
-            <MaterialCommunityIcons name="account" size={size} color={color} />
-          ),
-        }}
-      />
-    </Tabs>
+    <>
+      <Tabs screenOptions={{
+        headerRight: () => <NotificationButton />,
+        headerTitleStyle: { fontWeight: '800', fontSize: 22 },
+        headerStyle: {
+          backgroundColor: '#ffffff',
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.08,
+          shadowRadius: 6,
+          elevation: 4,
+        },
+        tabBarStyle: {
+          backgroundColor: "#f5f5f5",
+          borderTopWidth: 0,
+          elevation: 0,
+          shadowOpacity: 0,
+        },
+        tabBarActiveTintColor: "#000000",
+        tabBarInactiveTintColor: "#666666",
+      }}>
+        <Tabs.Screen
+          name="PassengerHomeScreen"
+          options={{
+            title: "Accueil",
+            headerShown: true,
+            tabBarIcon: ({ color, size }) => (
+              <MaterialCommunityIcons name="home" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="MesTrajets"
+          options={{
+            title: "Mes Trajets",
+            headerShown: true,
+            tabBarIcon: ({ color, size }) => (
+              <MaterialCommunityIcons name="car" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="Activity"
+          options={{
+            title: "Activity",
+            headerShown: true,
+            tabBarIcon: ({ color, size }) => (
+              <MaterialCommunityIcons name="history" size={size} color={color} />
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="PassengerProfile"
+          options={{
+            title: "Profil",
+            headerShown: true,
+            tabBarIcon: ({ color, size }) => (
+              <MaterialCommunityIcons name="account" size={size} color={color} />
+            ),
+          }}
+        />
+      </Tabs>
+      <ReminderModal /> 
+    </>
   );
 }

@@ -1,12 +1,13 @@
 import React, { useState, useCallback, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, StatusBar, Image,
+  StyleSheet, StatusBar, Image, ActivityIndicator,
 } from 'react-native';
 import { Stack, useFocusEffect, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useNotifications } from '../../context/NotificationContext';
 import { useAuth } from '../../context/AuthContext';
+import api from '../../services/api';
 
 type Notification = {
   title: string;
@@ -17,6 +18,7 @@ type Notification = {
   prenom?: string;
   nom?: string;
   rideId?: number;
+  type?: string;
 };
 
 const getRelativeTime = (timestamp: number) => {
@@ -30,48 +32,43 @@ const getRelativeTime = (timestamp: number) => {
   return `${days}d ago`;
 };
 
-// Catégorie basée sur le titre — détermine couleur + icône
-const getCategory = (title: string) => {
-  const t = title.toLowerCase();
-  if (t.includes('accepted') || t.includes('accepté') || t.includes('confirmé') || t.includes('démarré') || t.includes('started'))
-    return { color: '#16A34A', bg: '#F0FDF4', borderColor: '#BBF7D0', icon: 'checkmark-circle' as const };
-  if (t.includes('reject') || t.includes('refus') || t.includes('annulé') || t.includes('cancelled') || t.includes('expir'))
-    return { color: '#DC2626', bg: '#FEF2F2', borderColor: '#FECACA', icon: 'close-circle'     as const };
-  if (t.includes('completed') || t.includes('terminé') || t.includes('arrivé'))
-    return { color: '#7C3AED', bg: '#F5F3FF', borderColor: '#DDD6FE', icon: 'flag'              as const };
-  if (t.includes('request') || t.includes('demande') || t.includes('créé') || t.includes('nouvelle'))
-    return { color: '#2563EB', bg: '#EFF6FF', borderColor: '#BFDBFE', icon: 'car'               as const };
-  return   { color: '#D97706', bg: '#FFFBEB', borderColor: '#FDE68A', icon: 'notifications'     as const };
+// Neutral, simple avatar accent colors — one per type
+const TYPE_CONFIG: Record<string, { accent: string; icon: any; label: string }> = {
+  RIDE_ACCEPTED:  { accent: '#4CAF50', icon: 'checkmark-circle-outline', label: 'Accepted'  },
+  RIDE_REJECTED:  { accent: '#F44336', icon: 'close-circle-outline',     label: 'Rejected'  },
+  RIDE_CANCELLED: { accent: '#F44336', icon: 'ban-outline',              label: 'Cancelled' },
+  RIDE_STARTED:   { accent: '#2196F3', icon: 'navigate-outline',         label: 'Started'   },
+  RIDE_COMPLETED: { accent: '#9C27B0', icon: 'flag-outline',             label: 'Completed' },
+  RIDE_REQUEST:   { accent: '#2196F3', icon: 'car-outline',              label: 'Request'   },
+  RIDE_TAKEN:     { accent: '#FF9800', icon: 'alert-circle-outline',     label: 'Taken'     },
+  NEW_FEEDBACK:   { accent: '#9C27B0', icon: 'star-outline',             label: 'Feedback'  },
+};
+const DEFAULT_CONFIG = { accent: '#9E9E9E', icon: 'notifications-outline', label: 'Info' };
+const getCfg = (type?: string) => TYPE_CONFIG[type ?? ''] ?? DEFAULT_CONFIG;
+
+const statusToTab = (status: string): string => {
+  switch (status) {
+    case 'PENDING':                return 'pending';
+    case 'ACCEPTED':
+    case 'IN_PROGRESS':            return 'active';
+    case 'COMPLETED':              return 'completed';
+    case 'CANCELLED_BY_PASSENGER':
+    case 'CANCELLED_BY_DRIVER':    return 'cancelled';
+    default:                       return 'pending';
+  }
 };
 
-const getTabFromTitle = (title: string): string => {
-  const t = title.toLowerCase();
-  if (t.includes('terminé') || t.includes('completed')) return 'completed';
-  if (t.includes('annulé') || t.includes('refus') || t.includes('cancelled') || t.includes('rejected')) return 'cancelled';
-  if (t.includes('accepted') || t.includes('accepté') || t.includes('started') || t.includes('démarré') || t.includes('in progress')) return 'active';
-  return 'pending';
-};
-
-// Avatar initiales ou photo
-function NotifAvatar({ notif, cat }: { notif: Notification; cat: ReturnType<typeof getCategory> }) {
+function Avatar({ notif, accent }: { notif: Notification; accent: string }) {
+  const cfg      = getCfg(notif.type);
   const initials = `${notif.prenom?.[0] ?? ''}${notif.nom?.[0] ?? ''}`.toUpperCase();
   return (
-    <View style={st.avatarWrap}>
-      {notif.photoUrl ? (
-        <Image source={{ uri: notif.photoUrl }} style={st.avatarImg} />
-      ) : initials ? (
-        <View style={[st.avatarImg, st.avatarFallback, { backgroundColor: cat.bg, borderColor: cat.borderColor }]}>
-          <Text style={[st.initials, { color: cat.color }]}>{initials}</Text>
-        </View>
-      ) : (
-        <View style={[st.avatarImg, st.avatarFallback, { backgroundColor: cat.bg, borderColor: cat.borderColor }]}>
-          <Ionicons name={cat.icon} size={20} color={cat.color} />
-        </View>
-      )}
-      {/* Badge icône en bas à droite */}
-      <View style={[st.iconBadge, { backgroundColor: cat.color }]}>
-        <Ionicons name={cat.icon} size={9} color="#fff" />
-      </View>
+    <View style={[st.avatar, { backgroundColor: accent + '18', borderColor: accent + '40' }]}>
+      {notif.photoUrl
+        ? <Image source={{ uri: notif.photoUrl }} style={st.avatarImg} />
+        : initials
+          ? <Text style={[st.initials, { color: accent }]}>{initials}</Text>
+          : <Ionicons name={cfg.icon} size={22} color={accent} />
+      }
     </View>
   );
 }
@@ -82,6 +79,7 @@ export default function NotificationsScreen() {
 
   const [newNotifs, setNewNotifs] = useState<Notification[]>([]);
   const [oldNotifs, setOldNotifs] = useState<Notification[]>([]);
+  const [loadingId, setLoadingId] = useState<number | null>(null);
   const snapshotDone = useRef(false);
 
   useFocusEffect(useCallback(() => {
@@ -99,30 +97,43 @@ export default function NotificationsScreen() {
     if (unread.length > 0) markAllAsRead();
   }, [notifications, markAllAsRead]));
 
-  const handlePress = (notif: Notification) => {
+  const handlePress = async (notif: Notification) => {
     if (!notif.rideId) return;
-    const tab   = getTabFromTitle(notif.title);
-    const route = user?.role === 'driver'
-      ? '/(driverTabs)/Activity'
-      : '/(passengerTabs)/Activity';
-    router.push({ pathname: route as any, params: { rideId: String(notif.rideId), tab } });
+    setLoadingId(notif.rideId);
+    try {
+      const res    = await api.get(`/rides/${notif.rideId}`);
+      const status = res?.data?.data?.status ?? res?.data?.status ?? '';
+      const tab    = statusToTab(status);
+      const route  = user?.role === 'driver'
+        ? '/(driverTabs)/Activity'
+        : '/(passengerTabs)/Activity';
+      router.push({ pathname: route as any, params: { rideId: String(notif.rideId), tab } });
+    } catch {
+      const route = user?.role === 'driver'
+        ? '/(driverTabs)/Activity'
+        : '/(passengerTabs)/Activity';
+      router.push({ pathname: route as any, params: { rideId: String(notif.rideId), tab: 'pending' } });
+    } finally {
+      setLoadingId(null);
+    }
   };
 
   const renderNotif = (notif: Notification, i: number, isNew: boolean) => {
-    const cat      = getCategory(notif.title);
+    const cfg      = getCfg(notif.type);
     const tappable = !!notif.rideId;
+    const loading  = loadingId === notif.rideId;
+
     return (
       <TouchableOpacity
         key={i}
         style={[st.row, isNew && st.rowNew]}
         onPress={() => handlePress(notif)}
-        activeOpacity={tappable ? 0.72 : 1}
-        disabled={!tappable}
+        activeOpacity={tappable ? 0.7 : 1}
+        disabled={!tappable || !!loadingId}
       >
-        {/* Unread indicator */}
-        {isNew && <View style={[st.unreadBar, { backgroundColor: cat.color }]} />}
+        {isNew && <View style={[st.unreadDot, { backgroundColor: cfg.accent }]} />}
 
-        <NotifAvatar notif={notif} cat={cat} />
+        <Avatar notif={notif} accent={cfg.accent} />
 
         <View style={st.content}>
           <View style={st.topRow}>
@@ -134,8 +145,10 @@ export default function NotificationsScreen() {
           <Text style={st.msg} numberOfLines={2}>{notif.message}</Text>
           {tappable && (
             <View style={st.tapRow}>
-              <Text style={[st.tapHint, { color: cat.color }]}>View ride</Text>
-              <Ionicons name="arrow-forward" size={11} color={cat.color} />
+              {loading
+                ? <ActivityIndicator size="small" color={cfg.accent} />
+                : <Text style={[st.tapHint, { color: cfg.accent }]}>View ride →</Text>
+              }
             </View>
           )}
         </View>
@@ -151,7 +164,6 @@ export default function NotificationsScreen() {
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
       <View style={st.container}>
 
-        {/* Header */}
         <View style={st.header}>
           <View>
             <Text style={st.headerTitle}>Notifications</Text>
@@ -165,7 +177,6 @@ export default function NotificationsScreen() {
             <TouchableOpacity
               style={st.clearBtn}
               onPress={() => { clearNotifications(); setNewNotifs([]); setOldNotifs([]); }}
-              activeOpacity={0.7}
             >
               <Text style={st.clearBtnText}>Clear all</Text>
             </TouchableOpacity>
@@ -174,8 +185,8 @@ export default function NotificationsScreen() {
 
         {allEmpty ? (
           <View style={st.empty}>
-            <View style={st.emptyIconWrap}>
-              <Ionicons name="notifications-off-outline" size={34} color="#D1D5DB" />
+            <View style={st.emptyIcon}>
+              <Ionicons name="notifications-off-outline" size={32} color="#C4C4C4" />
             </View>
             <Text style={st.emptyTitle}>No notifications</Text>
             <Text style={st.emptySub}>Your ride alerts will appear here</Text>
@@ -186,9 +197,8 @@ export default function NotificationsScreen() {
             {newNotifs.length > 0 && (
               <>
                 <View style={st.sectionHeader}>
-                  <View style={[st.sectionDot, { backgroundColor: '#EF4444' }]} />
-                  <Text style={[st.sectionLabel, { color: '#EF4444' }]}>New</Text>
-                  <View style={[st.sectionLine, { backgroundColor: '#FECACA' }]} />
+                  <Text style={st.sectionLabel}>New</Text>
+                  <View style={st.sectionLine} />
                 </View>
                 {newNotifs.map((n, i) => renderNotif(n, i, true))}
               </>
@@ -197,9 +207,8 @@ export default function NotificationsScreen() {
             {oldNotifs.length > 0 && (
               <>
                 <View style={st.sectionHeader}>
-                  <View style={[st.sectionDot, { backgroundColor: '#D1D5DB' }]} />
-                  <Text style={[st.sectionLabel, { color: '#9CA3AF' }]}>Earlier</Text>
-                  <View style={[st.sectionLine, { backgroundColor: '#F0F0F0' }]} />
+                  <Text style={[st.sectionLabel, { color: '#BDBDBD' }]}>Earlier</Text>
+                  <View style={st.sectionLine} />
                 </View>
                 {oldNotifs.map((n, i) => renderNotif(n, newNotifs.length + i, false))}
               </>
@@ -218,51 +227,49 @@ const st = StyleSheet.create({
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 20, paddingTop: 58, paddingBottom: 16,
-    borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
+    borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
   },
   headerTitle: { fontSize: 22, fontWeight: '800', color: '#111', letterSpacing: -0.4 },
-  headerSub:   { fontSize: 12, color: '#9CA3AF', fontWeight: '500', marginTop: 2 },
+  headerSub:   { fontSize: 12, color: '#BDBDBD', fontWeight: '500', marginTop: 2 },
   clearBtn:    { backgroundColor: '#F5F5F5', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7 },
-  clearBtnText:{ fontSize: 12, fontWeight: '700', color: '#6B7280' },
+  clearBtnText:{ fontSize: 12, fontWeight: '600', color: '#9E9E9E' },
 
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingTop: 18, paddingBottom: 8, gap: 8 },
-  sectionDot:    { width: 7, height: 7, borderRadius: 4 },
-  sectionLabel:  { fontSize: 11, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.8 },
-  sectionLine:   { flex: 1, height: 1 },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 6 },
+  sectionLabel:  { fontSize: 11, fontWeight: '700', color: '#111', textTransform: 'uppercase', letterSpacing: 0.8 },
+  sectionLine:   { flex: 1, height: 1, backgroundColor: '#F0F0F0' },
 
-  // Row
   row: {
     flexDirection: 'row', alignItems: 'center',
     paddingHorizontal: 20, paddingVertical: 14,
     borderBottomWidth: 1, borderBottomColor: '#F7F7F7',
-    position: 'relative',
   },
-  rowNew:     { backgroundColor: '#FAFAFA' },
-  unreadBar:  { position: 'absolute', left: 0, top: 14, bottom: 14, width: 3, borderRadius: 2 },
+  rowNew: { backgroundColor: '#FAFAFA' },
 
-  // Avatar
-  avatarWrap:    { position: 'relative', marginRight: 14 },
-  avatarImg:     { width: 46, height: 46, borderRadius: 23 },
-  avatarFallback:{ justifyContent: 'center', alignItems: 'center', borderWidth: 1.5 },
-  initials:      { fontSize: 16, fontWeight: '800' },
-  iconBadge: {
-    position: 'absolute', bottom: -1, right: -1,
-    width: 18, height: 18, borderRadius: 9,
-    justifyContent: 'center', alignItems: 'center',
-    borderWidth: 2, borderColor: '#fff',
+  unreadDot: {
+    position: 'absolute', left: 0, top: '50%',
+    width: 3, height: 32, borderRadius: 2, marginTop: -16,
   },
+
+  // Simple avatar — tinted bg, no border noise
+  avatar: {
+    width: 46, height: 46, borderRadius: 23,
+    borderWidth: 1.5,
+    justifyContent: 'center', alignItems: 'center',
+    marginRight: 14,
+  },
+  avatarImg: { width: 46, height: 46, borderRadius: 23 },
+  initials:  { fontSize: 15, fontWeight: '700' },
 
   content: { flex: 1 },
   topRow:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 },
-  title:   { fontSize: 14, fontWeight: '700', color: '#111', flex: 1, marginRight: 8 },
-  time:    { fontSize: 11, color: '#C4C4C4', fontWeight: '500' },
-  msg:     { fontSize: 13, color: '#6B7280', lineHeight: 18 },
-  tapRow:  { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 5 },
+  title:   { fontSize: 13, fontWeight: '700', color: '#111', flex: 1, marginRight: 8 },
+  time:    { fontSize: 11, color: '#C4C4C4' },
+  msg:     { fontSize: 12, color: '#757575', lineHeight: 17 },
+  tapRow:  { marginTop: 4, height: 16, justifyContent: 'center' },
   tapHint: { fontSize: 11, fontWeight: '700' },
 
-  // Empty
-  empty:        { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10, paddingBottom: 80 },
-  emptyIconWrap:{ width: 80, height: 80, borderRadius: 40, backgroundColor: '#F7F7F7', justifyContent: 'center', alignItems: 'center', marginBottom: 4 },
-  emptyTitle:   { fontSize: 17, fontWeight: '700', color: '#374151' },
-  emptySub:     { fontSize: 13, color: '#9CA3AF', textAlign: 'center', paddingHorizontal: 50 },
+  empty:      { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 8, paddingBottom: 80 },
+  emptyIcon:  { width: 72, height: 72, borderRadius: 36, backgroundColor: '#F5F5F5', justifyContent: 'center', alignItems: 'center', marginBottom: 4 },
+  emptyTitle: { fontSize: 16, fontWeight: '700', color: '#424242' },
+  emptySub:   { fontSize: 13, color: '#BDBDBD', textAlign: 'center', paddingHorizontal: 50 },
 });
