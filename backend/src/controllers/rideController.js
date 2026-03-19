@@ -67,7 +67,7 @@ export const createRide = async (req, res) => {
       },
       include: {
         passenger: {
-          select: { id: true, nom: true, prenom: true, numTel: true, email: true, sexe: true },
+          select: { id: true, nom: true, prenom: true, numTel: true, email: true },
         },
       },
     });

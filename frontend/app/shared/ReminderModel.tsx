@@ -57,7 +57,8 @@ export default function ReminderModal() {
       const rides: UpcomingRide[] = res?.data?.data || [];
       const now = Date.now();
       const upcoming = rides.find(r => {
-        if (!['ACCEPTED', 'IN_PROGRESS', 'PENDING'].includes(r.status)) return false;
+        // PENDING retiré — le reminder n'apparaît qu'après acceptation
+        if (!['ACCEPTED', 'IN_PROGRESS'].includes(r.status)) return false;
         const diff = new Date(r.dateDepart).getTime() - now;
         return diff > 0 && diff <= REMINDER_WINDOW_MS;
       });
@@ -88,18 +89,7 @@ export default function ReminderModal() {
   if (!ride) return null;
 
   const otherPerson  = user?.role === 'driver' ? ride.passenger : ride.driver;
-  const urgencyColor = minsLeft <= 15 ? '#EF4444' : minsLeft <= 30 ? '#F59E0B' : '#3B82F6';
-  const urgencyBg    = minsLeft <= 15 ? '#FEF2F2' : minsLeft <= 30 ? '#FFFBEB' : '#EFF6FF';
-  const urgencyBorder= minsLeft <= 15 ? '#FECACA' : minsLeft <= 30 ? '#FDE68A' : '#BFDBFE';
-
-  const urgencyLabel = minsLeft <= 5
-    ? 'Starting now!'
-    : minsLeft <= 15
-    ? 'Get ready, very soon!'
-    : minsLeft <= 30
-    ? 'Start preparing'
-    : 'You still have some time';
-
+ 
   return (
     <Modal
       visible={visible}
@@ -112,9 +102,9 @@ export default function ReminderModal() {
         <View style={s.sheet}>
 
           {/* Icon circle — style cohérent avec ConfirmModal / SentModal */}
-          <View style={[s.iconCircle, { backgroundColor: urgencyBg, borderColor: urgencyBorder }]}>
+          <View style={s.iconCircle}>
             <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-              <Ionicons name="time" size={32} color={urgencyColor} />
+              <Ionicons name="time" size={32} color="#111" />
             </Animated.View>
           </View>
 
@@ -123,12 +113,6 @@ export default function ReminderModal() {
           <Text style={s.subtitle}>
             Your ride starts {minsLeft <= 5 ? 'now' : `in ${minsLeft} minutes`}
           </Text>
-
-          {/* Urgency badge */}
-          <View style={[s.urgencyBadge, { backgroundColor: urgencyBg, borderColor: urgencyBorder }]}>
-            <Ionicons name="alert-circle-outline" size={14} color={urgencyColor} />
-            <Text style={[s.urgencyText, { color: urgencyColor }]}>{urgencyLabel}</Text>
-          </View>
 
           {/* Route */}
           <View style={s.routeBox}>
@@ -191,8 +175,9 @@ const s = StyleSheet.create({
   // Icon circle — même style que ConfirmModal/SentModal
   iconCircle: {
     width: 72, height: 72, borderRadius: 36,
+    backgroundColor: '#F5F5F5', borderWidth: 1.5, borderColor: '#E5E7EB',
     alignItems: 'center', justifyContent: 'center',
-    marginBottom: 4, borderWidth: 1.5,
+    marginBottom: 4,
   },
 
   title:    { fontSize: 20, fontWeight: '800', color: '#111', textAlign: 'center' },
@@ -201,11 +186,11 @@ const s = StyleSheet.create({
   // Urgency badge
   urgencyBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    borderWidth: 1, borderRadius: 20,
-    paddingHorizontal: 14, paddingVertical: 7, width: '100%',
-    justifyContent: 'center',
+    backgroundColor: '#F5F5F5', borderWidth: 1, borderColor: '#E5E7EB',
+    borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7,
+    width: '100%', justifyContent: 'center',
   },
-  urgencyText: { fontSize: 13, fontWeight: '700' },
+  urgencyText: { fontSize: 13, fontWeight: '700', color: '#374151' },
 
   // Route
   routeBox:  { backgroundColor: '#F7F7F7', borderRadius: 14, padding: 14, gap: 4, width: '100%' },
