@@ -220,8 +220,6 @@ model Notification {
 
   driver    Driver?    @relation(fields: [driverId],    references: [id], onDelete: Cascade)
   passenger Passenger? @relation(fields: [passengerId], references: [id], onDelete: Cascade)
-  
-  notifiedDriverIds Int[] @default([])
 
   @@index([driverId,    isRead])
   @@index([passengerId, isRead])

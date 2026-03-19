@@ -228,10 +228,21 @@ export const acceptRide = async (req, res) => {
       message,
     });
 
-    const otherDriverIds = (ride.notifiedDriverIds || []).filter(id => id !== driverId);
-    otherDriverIds.forEach(otherDriverId => {
-      io.to(`driver_${otherDriverId}`).emit('rideTaken', { rideId: updatedRide.id });
-    });
+    // Récupérer tous les drivers qui ont ce ride en PENDING dans leur activity
+      const otherDriverNotifs = await prisma.notification.findMany({
+        where: {
+          type: 'RIDE_REQUEST',
+          data: { path: ['rideId'], equals: updatedRide.id },
+          driverId: { not: driverId },
+        },
+        select: { driverId: true },
+      });
+
+      const otherDriverIds = [...new Set(otherDriverNotifs.map(n => n.driverId).filter(Boolean))];
+
+      otherDriverIds.forEach(otherDriverId => {
+        io.to(`driver_${otherDriverId}`).emit('rideTaken', { rideId: updatedRide.id });
+      });
 
     // FIX : persister la notification en base de données
     await createNotification({

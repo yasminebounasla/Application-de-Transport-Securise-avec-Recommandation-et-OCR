@@ -622,71 +622,55 @@ export const updateDriverLocation = async (req, res) => {
 
 export const notifySelectedDrivers = async (req, res) => {
   const passengerId = req.user.passengerId;
-
-  if (!passengerId) {
+  if (!passengerId)
     return res.status(400).json({ success: false, message: "User not found in request" });
-  }
 
   const { rideId, driverIds } = req.body;
-
-  if (!rideId || !driverIds || !Array.isArray(driverIds) || driverIds.length === 0) {
-    return res.status(400).json({ 
-      success: false, 
-      message: "rideId et driverIds sont requis" 
-    });
-  }
+  if (!rideId || !driverIds || !Array.isArray(driverIds) || driverIds.length === 0)
+    return res.status(400).json({ success: false, message: "rideId et driverIds sont requis" });
 
   try {
     const ride = await prisma.trajet.findUnique({
       where: { id: parseInt(rideId) },
-      include: {
-        passenger: {
-          select: { id: true, nom: true, prenom: true, numTel: true }
-        }
-      }
+      include: { passenger: { select: { id: true, nom: true, prenom: true, numTel: true } } },
     });
 
-    if (!ride) {
+    if (!ride)
       return res.status(404).json({ success: false, message: "Trajet introuvable" });
-    }
-
-    if (ride.passagerId !== passengerId) {
+    if (ride.passagerId !== passengerId)
       return res.status(403).json({ success: false, message: "Ce trajet ne vous appartient pas" });
-    }
-
-    if (ride.status !== 'PENDING') {
+    if (ride.status !== 'PENDING')
       return res.status(400).json({ success: false, message: "Ce trajet n'est plus disponible" });
-    }
 
     const io = getIO();
 
-    
-    await prisma.trajet.update({
-      where: { id: parseInt(rideId) },
-      data: { notifiedDriverIds: driverIds.map(Number) },
-    });
-
-
-    // Notifier chaque driver sélectionné
-    driverIds.forEach(driverId => {
+    // ← use for...of so await works correctly
+    for (const driverId of driverIds) {
       io.to(`driver_${driverId}`).emit('rideRequest', {
-        rideId: ride.id,
-        passenger: ride.passenger,
+        rideId:       ride.id,
+        passenger:    ride.passenger,
         startAddress: ride.startAddress,
-        endAddress: ride.endAddress,
-        prix: ride.prix,
-        dateDepart: ride.dateDepart,
-        startLat: ride.startLat,
-        startLng: ride.startLng,
-        endLat: ride.endLat,
-        endLng: ride.endLng,
+        endAddress:   ride.endAddress,
+        prix:         ride.prix,
+        dateDepart:   ride.dateDepart,
+        startLat:     ride.startLat,
+        startLng:     ride.startLng,
+        endLat:       ride.endLat,
+        endLng:       ride.endLng,
       });
-    });
 
-    return res.status(200).json({
-      success: true,
-      message: `${driverIds.length} conducteur(s) notifié(s)`,
-    });
+      // ← persist one notif per driver so acceptRide can find them later
+      await createNotification({
+        driverId:      Number(driverId),
+        recipientType: 'DRIVER',
+        type:          'RIDE_REQUEST',
+        title:         '🚗 Nouvelle demande',
+        message:       `${ride.passenger.prenom} cherche un trajet.`,
+        data: { rideId: ride.id, passenger: { prenom: ride.passenger.prenom, nom: ride.passenger.nom } },
+      });
+    }
+
+    return res.status(200).json({ success: true, message: `${driverIds.length} conducteur(s) notifié(s)` });
 
   } catch (error) {
     console.error('Erreur notifySelectedDrivers:', error);
