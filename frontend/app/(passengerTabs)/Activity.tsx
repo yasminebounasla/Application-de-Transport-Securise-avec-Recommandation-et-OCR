@@ -9,11 +9,13 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
+
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const CATEGORIES = [
-  { key: 'completed', label: 'Completed', icon: 'checkmark-circle-outline' as const },
-  { key: 'pending',   label: 'Pending',   icon: 'time-outline'              as const },
-  { key: 'cancelled', label: 'Cancelled', icon: 'close-circle-outline'      as const },
+  { key: 'completed', label: 'Completed' },
+  { key: 'active',    label: 'Active'    },
+  { key: 'pending',   label: 'Pending'   },
+  { key: 'cancelled', label: 'Cancelled' },
 ];
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; color: string; icon: string }> = {
@@ -87,7 +89,7 @@ function RideCard({ item, highlighted, onPress }: {
     ]).start();
   }, [highlighted]);
 
-  // highlight gris/noir au lieu de jaune
+  // ✅ highlight gris/noir au lieu de jaune
   const borderColor = glowAnim.interpolate({ inputRange: [0, 1], outputRange: ['#F3F4F6', '#111111'] });
   const bgColor     = glowAnim.interpolate({ inputRange: [0, 1], outputRange: ['#FFFFFF', '#F3F4F6'] });
 
@@ -102,6 +104,7 @@ function RideCard({ item, highlighted, onPress }: {
   const start = item.startAddress || item.depart      || 'N/A';
   const end   = item.endAddress   || item.destination || 'N/A';
   const trunc = (str: string, n = 32) => str.length > n ? str.slice(0, n) + '…' : str;
+
 
   return (
     <Pressable onPress={onPress} onPressIn={onPressIn} onPressOut={onPressOut}>
@@ -124,7 +127,7 @@ function RideCard({ item, highlighted, onPress }: {
               <Avatar prenom={driver.prenom} nom={driver.nom} sexe={driver.sexe} />
               <View>
                 <Text style={s.driverName} numberOfLines={1}>{driver.prenom} {driver.nom}</Text>
-                <Text style={s.driverSub}>{driver.numTel}</Text>
+                <Text style={s.driverSub}>Driver</Text>
               </View>
             </View>
           )}
@@ -277,7 +280,8 @@ export default function ActivityScreen() {
   useEffect(() => {
     if (!params.rideId) return;
     const rideId = parseInt(params.rideId as string);
-    const tab    = (params.tab as string) || 'pending';
+    // ✅ "active" pour les accepted/in_progress, "pending" pour les pending
+    const tab = (params.tab as string) || 'completed';
     pendingHighlight.current = { rideId, tab };
     setActiveCategory(tab);
   }, [params.rideId, params.tab]);
@@ -291,9 +295,14 @@ export default function ActivityScreen() {
     setActiveCategory(tab);
     setHighlightedId(rideId);
 
-    // Remplace le setTimeout du scroll par ça :
+    // ✅ scroll amélioré — attend que le tab soit rendu
     setTimeout(() => {
-      const index = visibleRides.findIndex((r: any) => r.rideId === rideId);
+      const tabRides = activity.filter((r: any) => {
+        if (tab === 'completed') return r.status === 'COMPLETED';
+        if (tab === 'pending')   return ['PENDING', 'ACCEPTED', 'IN_PROGRESS'].includes(r.status);
+        return ['CANCELLED_BY_PASSENGER', 'CANCELLED_BY_DRIVER'].includes(r.status);
+      });
+      const index = tabRides.findIndex((r: any) => r.rideId === rideId);
       if (index >= 0) {
         flatListRef.current?.scrollToIndex({
           index,
@@ -308,7 +317,8 @@ export default function ActivityScreen() {
 
   const categorized = useMemo(() => ({
     completed: activity.filter((r: any) => r.status === 'COMPLETED'),
-    pending:   activity.filter((r: any) => ['PENDING', 'ACCEPTED', 'IN_PROGRESS'].includes(r.status)),
+    active:    activity.filter((r: any) => ['ACCEPTED', 'IN_PROGRESS'].includes(r.status)),
+    pending:   activity.filter((r: any) => r.status === 'PENDING'),
     cancelled: activity.filter((r: any) => ['CANCELLED_BY_PASSENGER', 'CANCELLED_BY_DRIVER'].includes(r.status)),
   }), [activity]);
 
@@ -388,7 +398,6 @@ export default function ActivityScreen() {
                       style={[s.tab, active && s.tabActive]}
                       onPress={() => setActiveCategory(cat.key)}
                     >
-                      <Ionicons name={cat.icon} size={13} color={active ? '#fff' : '#6B7280'} />
                       <Text style={[s.tabText, active && s.tabTextActive]}>{cat.label}</Text>
                       {count > 0 && (
                         <View style={[s.tabBadge, active && s.tabBadgeActive]}>

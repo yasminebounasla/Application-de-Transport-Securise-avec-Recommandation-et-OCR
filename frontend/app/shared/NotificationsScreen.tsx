@@ -48,6 +48,7 @@ const getTabFromTitle = (title: string): string => {
   const t = title.toLowerCase();
   if (t.includes('terminé') || t.includes('completed')) return 'completed';
   if (t.includes('annulé') || t.includes('refus') || t.includes('cancelled') || t.includes('rejected')) return 'cancelled';
+  if (t.includes('accepted') || t.includes('accepté') || t.includes('started') || t.includes('démarré') || t.includes('in progress')) return 'active';
   return 'pending';
 };
 

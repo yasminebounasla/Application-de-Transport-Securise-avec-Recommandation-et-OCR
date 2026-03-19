@@ -32,9 +32,11 @@ export default function ReminderModal() {
   const pulseAnim = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id || !user?.role) return;
     checkUpcomingRide();
-  }, [user?.id]);
+    const interval = setInterval(checkUpcomingRide, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [user?.id, user?.role]);
 
   useEffect(() => {
     if (!visible) return;
@@ -57,7 +59,7 @@ export default function ReminderModal() {
       const rides: UpcomingRide[] = res?.data?.data || [];
       const now = Date.now();
       const upcoming = rides.find(r => {
-        // PENDING retiré — le reminder n'apparaît qu'après acceptation
+        // ✅ PENDING retiré — le reminder n'apparaît qu'après acceptation
         if (!['ACCEPTED', 'IN_PROGRESS'].includes(r.status)) return false;
         const diff = new Date(r.dateDepart).getTime() - now;
         return diff > 0 && diff <= REMINDER_WINDOW_MS;
@@ -89,7 +91,14 @@ export default function ReminderModal() {
   if (!ride) return null;
 
   const otherPerson  = user?.role === 'driver' ? ride.passenger : ride.driver;
- 
+  const urgencyLabel = minsLeft <= 5
+    ? 'Starting now!'
+    : minsLeft <= 15
+    ? 'Get ready, very soon!'
+    : minsLeft <= 30
+    ? 'Start preparing'
+    : 'You still have some time';
+
   return (
     <Modal
       visible={visible}
@@ -113,6 +122,12 @@ export default function ReminderModal() {
           <Text style={s.subtitle}>
             Your ride starts {minsLeft <= 5 ? 'now' : `in ${minsLeft} minutes`}
           </Text>
+
+          {/* Urgency badge */}
+          <View style={s.urgencyBadge}>
+            <Ionicons name="alert-circle-outline" size={14} color="#374151" />
+            <Text style={s.urgencyText}>{urgencyLabel}</Text>
+          </View>
 
           {/* Route */}
           <View style={s.routeBox}>
