@@ -228,6 +228,11 @@ export const acceptRide = async (req, res) => {
       message,
     });
 
+    const otherDriverIds = (ride.notifiedDriverIds || []).filter(id => id !== driverId);
+    otherDriverIds.forEach(otherDriverId => {
+      io.to(`driver_${otherDriverId}`).emit('rideTaken', { rideId: updatedRide.id });
+    });
+
     // FIX : persister la notification en base de données
     await createNotification({
       passengerId:   updatedRide.passagerId,

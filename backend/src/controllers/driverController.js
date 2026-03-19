@@ -660,6 +660,13 @@ export const notifySelectedDrivers = async (req, res) => {
 
     const io = getIO();
 
+    
+    await prisma.trajet.update({
+      where: { id: parseInt(rideId) },
+      data: { notifiedDriverIds: driverIds.map(Number) },
+    });
+
+
     // Notifier chaque driver sélectionné
     driverIds.forEach(driverId => {
       io.to(`driver_${driverId}`).emit('rideRequest', {
