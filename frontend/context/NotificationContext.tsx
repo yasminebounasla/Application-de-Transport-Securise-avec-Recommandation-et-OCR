@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useRef, ReactNode, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from './AuthContext';
@@ -18,7 +18,7 @@ export type Notification = {
   prenom?: string;
   nom?: string;
   rideId?: number;
-  type?: string; // ← ADDED
+  type?: string;
 };
 
 type NotificationContextType = {
@@ -55,13 +55,9 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
   const storageKey = user?.id ? `app_notifications_${user.id}` : null;
   const unreadKey  = user?.id ? `app_notifications_${user.id}_unread` : null;
 
-  // ── 1. Load from cache on login ─────────────────────────────────────────────
+  // ── 1. Load from cache ──────────────────────────────────────────────────────
   useEffect(() => {
-    if (!user) {
-      setNotifications([]);
-      setUnreadCount(0);
-      return;
-    }
+    if (!user) { setNotifications([]); setUnreadCount(0); return; }
     const load = async () => {
       if (!storageKey || !unreadKey) return;
       try {
@@ -70,11 +66,7 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
         const count  = unread ? parseInt(unread) : 0;
         if (cached) {
           const parsed: Notification[] = JSON.parse(cached);
-          const withCorrectRead = parsed.map((n, i) => ({
-            ...n,
-            isRead: i < count ? false : true,
-          }));
-          setNotifications(withCorrectRead);
+          setNotifications(parsed.map((n, i) => ({ ...n, isRead: i < count ? false : true })));
         }
         setUnreadCount(count);
       } catch (e) { console.error('Cache load error:', e); }
@@ -105,44 +97,49 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
           rideId:    n.data?.rideId,
           prenom:    n.data?.passenger?.prenom || n.data?.driver?.prenom,
           nom:       n.data?.passenger?.nom    || n.data?.driver?.nom,
-          type:      n.type, // ← ADDED
+          type:      n.type,
         }));
-
         setNotifications(prev => {
-          const socketOnlyNotifs = prev.filter(n => !n.id && n.isRead === false);
-          const merged = [...socketOnlyNotifs, ...normalized];
+          const socketOnly = prev.filter(n => !n.id && n.isRead === false);
+          const merged = [...socketOnly, ...normalized];
           AsyncStorage.setItem(storageKey, JSON.stringify(merged));
           return merged;
         });
-
         setUnreadCount(serverUnread);
         await AsyncStorage.setItem(unreadKey, String(serverUnread));
       }
     } catch (e) { console.error('fetchFromDB error:', e); }
   }, [user?.id, storageKey, unreadKey]);
 
-  useEffect(() => {
-    if (user?.id) fetchFromDB();
-  }, [user?.id]);
+  useEffect(() => { if (user?.id) fetchFromDB(); }, [user?.id]);
 
   // ── 3. Actions ──────────────────────────────────────────────────────────────
   const addNotif = useCallback(async (title: string, message: string, extra?: Partial<Notification>) => {
     const newNotif: Notification = { title, message, timestamp: Date.now(), isRead: false, ...extra };
-
     setNotifications(prev => {
       const updated = [newNotif, ...prev];
       if (storageKey) AsyncStorage.setItem(storageKey, JSON.stringify(updated));
       return updated;
     });
-
     setUnreadCount(prev => {
       const next = prev + 1;
       if (unreadKey) AsyncStorage.setItem(unreadKey, String(next));
       return next;
     });
-
     const { color, icon } = CATEGORY_TOAST(title);
     setCurrentToast({ title, message, color, icon });
+  }, [storageKey, unreadKey]);
+
+  // ← helper: remove notifs by rideId + recount unread
+  const removeNotifsByRideId = useCallback((rideId: number) => {
+    setNotifications(prev => {
+      const updated  = prev.filter(n => n.rideId !== rideId);
+      const newUnread = updated.filter(n => n.isRead === false).length;
+      if (storageKey) AsyncStorage.setItem(storageKey, JSON.stringify(updated));
+      if (unreadKey)  AsyncStorage.setItem(unreadKey, String(newUnread));
+      setUnreadCount(newUnread);
+      return updated;
+    });
   }, [storageKey, unreadKey]);
 
   const markAllAsRead = useCallback(async () => {
@@ -191,35 +188,33 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
       else if (user.role === 'driver') newSocket.emit('registerDriver', user.id);
     });
 
+    // ← pour TOUS — quand un ride est pris, supprimer ses notifs pending
+    newSocket.on('rideTaken', ({ rideId }: { rideId: number }) => {
+      removeNotifsByRideId(rideId);
+    });
+
     if (user.role === 'passenger') {
       newSocket.on('rideAccepted', (data) => {
         addNotif(data.title || 'Trajet confirmé', data.message, {
-          rideId: data.rideId,
-          type:   'RIDE_ACCEPTED', // ← ADDED
-          prenom: data.driver?.prenom,
-          nom:    data.driver?.nom,
+          rideId: data.rideId, type: 'RIDE_ACCEPTED',
+          prenom: data.driver?.prenom, nom: data.driver?.nom,
         });
       });
       newSocket.on('rideRejectedByDriver', (data) => {
         addNotif(data.title || 'Demande refusée', data.message, {
-          rideId: data.rideId,
-          type:   'RIDE_REJECTED', // ← ADDED
-          prenom: data.driver?.prenom,
-          nom:    data.driver?.nom,
+          rideId: data.rideId, type: 'RIDE_REJECTED',
+          prenom: data.driver?.prenom, nom: data.driver?.nom,
         });
       });
       newSocket.on('rideStarted', (data) => {
         addNotif(data.title || 'Trajet démarré', data.message, {
-          rideId: data.rideId,
-          type:   'RIDE_STARTED', // ← ADDED
-          prenom: data.driver?.prenom,
-          nom:    data.driver?.nom,
+          rideId: data.rideId, type: 'RIDE_STARTED',
+          prenom: data.driver?.prenom, nom: data.driver?.nom,
         });
       });
       newSocket.on('rideCompleted', (data) => {
         addNotif(data.title || 'Trajet terminé', data.message, {
-          rideId: data.rideId,
-          type:   'RIDE_COMPLETED', // ← ADDED
+          rideId: data.rideId, type: 'RIDE_COMPLETED',
         });
       });
     }
@@ -227,31 +222,26 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
     if (user.role === 'driver') {
       newSocket.on('rideRequest', (data) => {
         addNotif(data.title || '🚗 Nouvelle demande', data.message, {
-          rideId: data.rideId,
-          type:   'RIDE_REQUEST', // ← ADDED
-          prenom: data.passenger?.prenom,
-          nom:    data.passenger?.nom,
+          rideId: data.rideId, type: 'RIDE_REQUEST',
+          prenom: data.passenger?.prenom, nom: data.passenger?.nom,
         });
       });
       newSocket.on('rideCancelledByPassenger', (data) => {
         addNotif(data.title || '❌ Trajet annulé', data.message, {
-          rideId: data.rideId,
-          type:   'RIDE_CANCELLED', // ← ADDED
-          prenom: data.passenger?.prenom,
-          nom:    data.passenger?.nom,
+          rideId: data.rideId, type: 'RIDE_CANCELLED',
+          prenom: data.passenger?.prenom, nom: data.passenger?.nom,
         });
       });
       newSocket.on('newFeedback', (data) => {
         addNotif(data.title || '⭐ Nouvel avis reçu', data.message, {
-          rideId: data.trajetId,
-          type:   'NEW_FEEDBACK', // ← ADDED
+          rideId: data.trajetId, type: 'NEW_FEEDBACK',
         });
       });
     }
 
     setSocket(newSocket);
     return () => { newSocket.disconnect(); };
-  }, [user?.id, user?.role, addNotif]);
+  }, [user?.id, user?.role, addNotif, removeNotifsByRideId]);
 
   const openFeedbackModal = (trajetId: number) => {
     setFeedbackTrajetId(trajetId);
