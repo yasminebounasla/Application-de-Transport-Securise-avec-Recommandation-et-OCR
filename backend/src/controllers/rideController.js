@@ -284,14 +284,27 @@ export const rejectRide = async (req, res) => {
       return res.status(400).json({ success: false, message: `Impossible de refuser un trajet avec le status ${ride.status}` });
     if (ride.driverId && ride.driverId !== driverId)
       return res.status(403).json({ success: false, message: "Vous ne pouvez refuser que vos propres demandes" });
-
+     
+    //  CORRIGÉ — étape 1 : ajouter le driver aux refus
     const updatedRide = await prisma.trajet.update({
       where: { id: parseInt(id) },
-      data: { status: 'CANCELLED_BY_DRIVER', updatedAt: new Date() },
+      data: {
+       rejectedDriverIds: { push: driverId },
+       updatedAt: new Date(),
+      },
       include: {
         passenger: { select: { id: true, nom: true, prenom: true } },
         driver:    { select: { id: true, nom: true, prenom: true, numTel: true } },
       },
+    });
+
+    // ✅ étape 2 : vérifier si tous ont refusé
+    const allRejected = updatedRide.rejectedDriverIds.length  >= updatedRide.notifiedDriversCount;
+
+    // ✅ étape 3 : mettre à jour le statut
+    await prisma.trajet.update({
+      where: { id: parseInt(id) },
+     data: { status: allRejected ? 'CANCELLED_BY_DRIVER' : 'PENDING' },
     });
 
     const io = getIO();
