@@ -2,6 +2,32 @@ import { prisma } from "../config/prisma.js";
 import { getIO } from "../socket/socket.js";
 import { createNotification } from "./NotificationController.js";
 
+const FASTAPI_URL = process.env.FASTAPI_URL || "http://localhost:8000";
+
+/**
+ * Notifie FastAPI du vrai rating pour alimenter le buffer de régression.
+ * Fire-and-forget — on ne bloque pas la réponse HTTP si ça échoue.
+ */
+async function notifyFastAPIFeedback(rideId, driverId, rating) {
+  try {
+    const res = await fetch(`${FASTAPI_URL}/feedback`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ rideId, driverId, rating }),
+      signal:  AbortSignal.timeout(5000),   // timeout 5s
+    });
+    const body = await res.json();
+    if (body.success) {
+      console.log(`[ML] Feedback enregistré → rideId=${rideId} driverId=${driverId} rating=${rating}`);
+    } else {
+      console.warn(`[ML] FastAPI /feedback: ${body.message}`);
+    }
+  } catch (err) {
+    // On logue mais on ne plante pas la requête principale
+    console.warn(`[ML] FastAPI /feedback non joignable: ${err.message}`);
+  }
+}
+
 export const submitFeedback = async (req, res) => {
   const { trajetId, rating, comment } = req.body;
   try {
@@ -37,7 +63,6 @@ export const submitFeedback = async (req, res) => {
       const title   = '⭐ Nouvel avis reçu';
       const message = `${passengerName} vous a donné une note de ${rating}/5.`;
 
-      // FIX : room correcte "driver_${id}"
       io.to(`driver_${trajet.driverId}`).emit('newFeedback', {
         trajetId: trajet.id,
         rating,
@@ -47,7 +72,6 @@ export const submitFeedback = async (req, res) => {
         message,
       });
 
-      // FIX : persister la notification en base de données
       await createNotification({
         driverId:      trajet.driverId,
         recipientType: 'DRIVER',
@@ -63,6 +87,10 @@ export const submitFeedback = async (req, res) => {
           },
         },
       });
+
+      // ✅ Notifier FastAPI pour alimenter la régression linéaire
+      // driverId sans préfixe "D" — FastAPI l'ajoute lui-même
+      notifyFastAPIFeedback(trajet.id, driver.id, rating);
     }
 
     return res.status(201).json({ message: "Feedback submitted successfully.", data: feedback });

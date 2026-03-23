@@ -2,10 +2,11 @@ import pickle
 import numpy as np
 import pandas as pd
 import math
+import json
+import os
 from lightfm import LightFM
 from typing import List, Dict, Optional
 import httpx
-import os
 from dotenv import load_dotenv
 from scipy.sparse import csr_matrix
 
@@ -14,6 +15,10 @@ BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:5000")
 
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
 MODELS_DIR = os.path.join(BASE_DIR, "..", "model_real")
+
+# ── LOG FILE PATH ─────────────────────────────────────────────────────────────
+LOGS_PATH = os.path.join(BASE_DIR, "..", "recommendation_logs.jsonl")
+
 
 # ── HAVERSINE ────────────────────────────────────────────────────────────────
 def haversine(lat1, lng1, lat2, lng2) -> float:
@@ -140,7 +145,58 @@ def cold_start_by_preferences(
     return scored[:top_n]
 
 
+# ── LOG DES SCORES ────────────────────────────────────────────────────────────
+def save_recommendation_log(ride_id: str, driver_id: str, scores: Dict) -> None:
+    """
+    Sauvegarde les scores d'un driver dans recommendation_logs.jsonl.
+    Appelé pour CHAQUE driver scoré — on filtre au moment du feedback.
+    Format : une ligne JSON par entrée { rideId, driverId, scores... }
+    """
+    entry = {
+        "rideId":    ride_id,
+        "driverId":  driver_id,
+        "lightfm":   scores["lightfm"],
+        "pref":      scores["pref"],
+        "dist":      scores["dist"],
+        "work":      scores["work"],
+        "rating":    scores["rating"],
+    }
+    try:
+        with open(LOGS_PATH, "a", encoding="utf-8") as f:
+            f.write(json.dumps(entry) + "\n")
+    except Exception as e:
+        print(f"[WARNING] Impossible de sauvegarder le log: {e}")
+
+
+def find_log_entry(ride_id: str, driver_id: str) -> Optional[Dict]:
+    """
+    Retrouve l'entrée de log pour un rideId + driverId donné.
+    Lit le fichier depuis la fin pour trouver l'entrée la plus récente.
+    """
+    if not os.path.exists(LOGS_PATH):
+        return None
+    try:
+        matches = []
+        with open(LOGS_PATH, "r", encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entry = json.loads(line)
+                    if entry.get("rideId") == str(ride_id) and entry.get("driverId") == str(driver_id):
+                        matches.append(entry)
+                except json.JSONDecodeError:
+                    continue
+        return matches[-1] if matches else None
+    except Exception as e:
+        print(f"[WARNING] Lecture log échouée: {e}")
+        return None
+
+
 # ── OPTIMISATION POIDS PAR RÉGRESSION ────────────────────────────────────────
+# NOTE : le buffer _scores_history est alimenté UNIQUEMENT via /feedback
+# (avec le vrai rating passager comme target), pas au moment de la recommandation.
 _scores_history: List[Dict] = []
 _optimized_weights: Optional[np.ndarray] = None
 
@@ -151,18 +207,55 @@ def _try_optimize_weights() -> Optional[np.ndarray]:
         from sklearn.linear_model import LinearRegression
         df    = pd.DataFrame(_scores_history)
         X     = df[['lightfm', 'pref', 'dist', 'work', 'rating']].values
-        y     = df['target'].values
+        y     = df['target'].values   # ← vrai rating normalisé (rating-1)/4
         model = LinearRegression(positive=True, fit_intercept=False)
         model.fit(X, y)
         w      = model.coef_
         w_norm = w / w.sum()
-        print(f"\n📊 Poids optimisés par régression :")
+        print(f"\n📊 Poids optimisés par régression ({len(_scores_history)} observations) :")
         print(f"   LightFM={w_norm[0]:.3f} | Pref={w_norm[1]:.3f} | "
               f"Dist={w_norm[2]:.3f} | Work={w_norm[3]:.3f} | Rating={w_norm[4]:.3f}")
         return w_norm
     except Exception as e:
         print(f"[WARNING] Régression échouée: {e}")
         return None
+
+
+def add_feedback_to_buffer(ride_id: str, driver_id: str, real_rating: float) -> bool:
+    """
+    Appelé par l'endpoint /feedback.
+    Retrouve les scores sauvegardés, ajoute au buffer avec target = vrai rating normalisé.
+    Retourne True si l'entrée a été trouvée et ajoutée.
+    """
+    global _optimized_weights
+
+    entry = find_log_entry(ride_id, driver_id)
+    if not entry:
+        print(f"[WARNING] Aucun log trouvé pour rideId={ride_id} driverId={driver_id}")
+        return False
+
+    # Target = vrai rating passager normalisé entre 0 et 1
+    target = (real_rating - 1) / 4
+
+    _scores_history.append({
+        'lightfm': entry['lightfm'],
+        'pref':    entry['pref'],
+        'dist':    entry['dist'],
+        'work':    entry['work'],
+        'rating':  entry['rating'],
+        'target':  target,
+    })
+
+    print(f"✅ Feedback ajouté au buffer | rideId={ride_id} | driver={driver_id} | "
+          f"rating={real_rating} → target={target:.3f} | buffer={len(_scores_history)}/50")
+
+    # Tenter d'optimiser si seuil atteint
+    if len(_scores_history) >= 50:
+        new_weights = _try_optimize_weights()
+        if new_weights is not None:
+            _optimized_weights = new_weights
+
+    return True
 
 
 class Recommender:
@@ -289,8 +382,6 @@ class Recommender:
                 print(f"[WARNING] predict fallback failed: {e2}")
                 return {}
 
-        # ✅ Normalisation min-max → [0, 1]
-        # Les scores LightFM WARP sont négatifs par nature, on les ramène entre 0 et 1
         s_min, s_max = raw_scores.min(), raw_scores.max()
         if s_max > s_min:
             scores_norm = (raw_scores - s_min) / (s_max - s_min)
@@ -327,6 +418,14 @@ async def get_recommendations(
     heure_depart_str   = trajet.get("heureDepart", "12:00")
     departure_hour     = int(heure_depart_str.split(":")[0]) if heure_depart_str else 12
 
+    # ── rideId : obligatoire pour logger les scores ───────────────────────────
+    ride_id = str(trajet.get("rideId", ""))
+    if not ride_id:
+        # Fallback : on génère un identifiant temporaire basé sur passager + timestamp
+        import time
+        ride_id = f"{passenger_id}_{int(time.time())}"
+        print(f"   [WARNING] rideId absent — fallback: {ride_id}")
+
     hours_until_departure = 48.0
     if date_depart_str:
         try:
@@ -339,6 +438,7 @@ async def get_recommendations(
             pass
 
     max_km = max_driver_distance(trajet_distance_km, hours_until_departure)
+    print(f"   rideId: {ride_id}")
     print(f"   Heure départ: {departure_hour}h | Délai: {hours_until_departure:.1f}h")
     print(f"   Distance trajet: {trajet_distance_km}km | Rayon drivers: {max_km}km")
 
@@ -372,7 +472,7 @@ async def get_recommendations(
         w_lfm, w_pref, w_dist, w_work, w_rating = _optimized_weights
         print(f"   Poids: optimisés par régression")
     else:
-        w_lfm, w_pref, w_dist, w_work, w_rating = 0.50, 0.15, 0.20, 0.10, 0.05
+        w_lfm, w_pref, w_dist, w_work, w_rating = 0.60, 0.15, 0.10, 0.10, 0.05
         print(f"   Poids: hardcodés ({len(_scores_history)}/50 scores collectés)")
 
     scored_drivers = []
@@ -391,7 +491,6 @@ async def get_recommendations(
             continue
 
         dist_score    = score_distance(dist_km, hours_until_departure)
-        # ✅ Plus de max(0.0, ...) — les scores sont déjà normalisés entre 0 et 1
         lightfm_score = lightfm_scores_map.get(driver_id, 0.0)
         pref_score    = calculate_match_score(driver, preferences)
         work_score    = work_hour_match(driver, departure_hour)
@@ -419,10 +518,14 @@ async def get_recommendations(
               f"Dist={dist_score:.3f} | Work={work_score:.1f} | "
               f"Rating={rating_score:.3f} | → Final={final_score:.4f}")
 
-        _scores_history.append({
-            'lightfm': lightfm_score, 'pref': pref_score,
-            'dist': dist_score, 'work': work_score,
-            'rating': rating_score, 'target': lightfm_score,
+        # ✅ FIX PRINCIPAL : sauvegarder dans le log au lieu d'ajouter au buffer
+        # Le buffer sera alimenté uniquement via /feedback avec le vrai rating
+        save_recommendation_log(ride_id, driver_id, {
+            'lightfm': lightfm_score,
+            'pref':    pref_score,
+            'dist':    dist_score,
+            'work':    work_score,
+            'rating':  rating_score,
         })
 
         nb_trajets_ensemble = interaction_counts.get(str(driver["id"]), 0)
