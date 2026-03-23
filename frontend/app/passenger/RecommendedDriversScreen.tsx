@@ -108,22 +108,45 @@ export default function RecommendedDriversScreen() {
   const loadRecommendations = async () => {
     try {
       setLoading(true);
+
       const raw = await AsyncStorage.getItem('tripRequest');
       if (!raw) { router.back(); return; }
+
       const trip = JSON.parse(raw);
       setTripRequest(trip);
 
+      // ── LOG pour debug ───────────────────────────────────────────────────
+      console.log('═══════════════════════════════════════════');
+      console.log('📦 [RecommendedDrivers] tripRequest lu depuis AsyncStorage:');
+      console.log('   passengerId :', trip.passengerId);
+      console.log('   rideId      :', trip.rideId);
+      console.log('   trajet      :', JSON.stringify(trip.trajet));
+      console.log('   preferences :', JSON.stringify(trip.preferences));
+
+      // ── Validation géo ───────────────────────────────────────────────────
+      const trajet = trip.trajet || {};
+      if (trajet.startLat == null || trajet.startLng == null) {
+        console.warn('⚠️  [RecommendedDrivers] startLat/startLng manquants dans tripRequest.trajet !');
+        console.warn('   → Vérifie que SearchRideScreen stocke bien trajet dans AsyncStorage');
+      } else {
+        console.log(`✅ [RecommendedDrivers] Géo OK: (${trajet.startLat}, ${trajet.startLng})`);
+      }
+      console.log('═══════════════════════════════════════════');
+
+      // ── Appel API recommendation ─────────────────────────────────────────
       const response = await recommendDrivers(
         trip.passengerId,
-        trip.preferences,
-        trip.trajet || {},
+        trip.preferences || {},
+        trajet,           // ✅ passé séparément, jamais undefined
         5
       );
-      if (response.recommendedDrivers?.length > 0) {
+
+      if (response?.recommendedDrivers?.length > 0) {
         setDrivers(response.recommendedDrivers);
       }
+
     } catch (error: any) {
-      console.error('Erreur:', error.message);
+      console.error('❌ [RecommendedDrivers] Erreur:', error.message);
     } finally {
       setLoading(false);
     }
@@ -149,11 +172,6 @@ export default function RecommendedDriversScreen() {
     router.push({ pathname: '/passenger/DriverProfileScreen', params: { driverId: driver.id } } as any);
   };
 
-  // ✅ FIX PRINCIPAL : appelle le backend sendRideRequests
-  // AVANT : handleConfirmSend ne faisait que supprimer tripRequest et ouvrir SentModal
-  //         → aucune notif envoyée aux drivers
-  // APRÈS : appelle POST /api/rides/send-requests avec rideId + driverIds[]
-  //         → backend émet rideRequest via Socket.IO à chaque driver sélectionné
   const handleConfirmSend = async () => {
     if (!tripRequest?.rideId || selectedIds.size === 0) return;
 
@@ -179,9 +197,7 @@ export default function RecommendedDriversScreen() {
       const data = await response.json();
 
       if (!response.ok) {
-        console.error('Erreur sendRideRequests:', data.message);
-        // On continue quand même pour montrer le modal succès
-        // (l'UX ne doit pas casser si erreur réseau)
+        console.error('❌ Erreur sendRideRequests:', data.message);
       } else {
         console.log(`✅ ${data.driversNotified} drivers notifiés`);
       }
@@ -190,8 +206,7 @@ export default function RecommendedDriversScreen() {
       setShowSent(true);
 
     } catch (error: any) {
-      console.error('Erreur envoi demande:', error.message);
-      // Même en cas d'erreur, on montre le modal pour ne pas bloquer l'UX
+      console.error('❌ Erreur envoi demande:', error.message);
       await AsyncStorage.removeItem('tripRequest');
       setShowSent(true);
     } finally {

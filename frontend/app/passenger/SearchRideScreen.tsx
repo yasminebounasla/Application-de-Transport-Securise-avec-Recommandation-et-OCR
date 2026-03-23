@@ -771,11 +771,29 @@ export default function SearchRideScreen() {
         placesDispo:   nbPassagers,
       });
 
+      // ── Dans handleRideRequest() — remplace UNIQUEMENT le bloc AsyncStorage.setItem ──
+      // Cherche cette ligne dans ton SearchRideScreen.tsx :
+      //   await AsyncStorage.setItem('tripRequest', JSON.stringify({ ... }))
+      // et remplace le contenu par ceci :
+
       await AsyncStorage.setItem(
         "tripRequest",
         JSON.stringify({
           rideId:      newRide.id,
           passengerId: newRide.passengerId || 1,
+
+          // ✅ AJOUT : géolocalisation complète dans trajet
+          trajet: {
+            startLat:    startLocation.latitude,
+            startLng:    startLocation.longitude,
+            endLat:      endLocation.latitude,
+            endLng:      endLocation.longitude,
+            distanceKm:  newRide.distanceKm ?? null,
+            dateDepart:  dateDepart.toISOString(),
+            heureDepart: heureDepart ?? `${dateDepart.getHours().toString().padStart(2,"0")}:${dateDepart.getMinutes().toString().padStart(2,"0")}`,
+            rideId:      String(newRide.id),
+          },
+
           preferences: {
             quiet_ride:         quiet_ride         ? "yes" : "no",
             radio_ok:           radio_ok           ? "yes" : "no",
@@ -784,6 +802,7 @@ export default function SearchRideScreen() {
             luggage_large:      luggage_large      ? "yes" : "no",
             female_driver_pref: female_driver_pref ? "yes" : "no",
           },
+
           startAddress: startAddress || "Departure point",
           endAddress:   endAddress   || "Destination",
         })

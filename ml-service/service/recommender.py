@@ -9,18 +9,17 @@ from typing import List, Dict, Optional
 import httpx
 from dotenv import load_dotenv
 from scipy.sparse import csr_matrix
+from scipy.optimize import minimize
 
 load_dotenv()
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:5000")
 
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
 MODELS_DIR = os.path.join(BASE_DIR, "..", "model_real")
-
-# ── LOG FILE PATH ─────────────────────────────────────────────────────────────
-LOGS_PATH = os.path.join(BASE_DIR, "..", "recommendation_logs.jsonl")
+LOGS_PATH  = os.path.join(BASE_DIR, "..", "recommendation_logs.jsonl")
 
 
-# ── HAVERSINE ────────────────────────────────────────────────────────────────
+# ── HAVERSINE ─────────────────────────────────────────────────────────────────
 def haversine(lat1, lng1, lat2, lng2) -> float:
     R = 6371
     dLat = math.radians(lat2 - lat1)
@@ -33,11 +32,13 @@ def haversine(lat1, lng1, lat2, lng2) -> float:
 
 
 def score_distance(distance_km: float, hours_until_departure: float) -> float:
+    """Score basé sur la distance driver↔point_de_départ_passager."""
     if   hours_until_departure < 2:   reference_km = 15
     elif hours_until_departure < 24:  reference_km = 40
     elif hours_until_departure < 168: reference_km = 60
     else:                             reference_km = 80
-    return 1 / (1 + distance_km / reference_km)
+    #return 1 / (1 + distance_km / reference_km)
+    return math.exp(-distance_km / reference_km)
 
 
 def work_hour_match(driver: Dict, departure_hour: int) -> float:
@@ -57,6 +58,7 @@ def distance_bucket(km: float) -> str:
 
 
 def max_driver_distance(trajet_distance_km: float, hours_until_departure: float) -> float:
+    """Rayon max autour du point de départ pour filtrer les drivers — INCHANGÉ."""
     if   trajet_distance_km < 30:   dist_based = 30
     elif trajet_distance_km < 100:  dist_based = 60
     elif trajet_distance_km < 300:  dist_based = 100
@@ -92,7 +94,12 @@ def calculate_match_score(driver: Dict, preferences: Dict) -> float:
     if   preferences.get("female_driver_pref") == "yes" and driver.get("sexe") == "F":         score += 1
     elif preferences.get("female_driver_pref") == "no"  and driver.get("sexe") == "M":         score += 1
 
-    return score / max_score
+    #return score / max_score
+
+    base = score / max_score
+
+    # FIX: amplification (très important)
+    return base ** 2
 
 
 # ── COLD START ────────────────────────────────────────────────────────────────
@@ -106,35 +113,48 @@ def cold_start_by_preferences(
     max_km: float,
     top_n: int = 5
 ) -> List[Dict]:
+    geo_available = start_lat is not None and start_lng is not None
     scored = []
+
     for driver in drivers:
-        dist_km = 50.0
-        if start_lat and start_lng and driver.get("latitude") and driver.get("longitude"):
+        # Filtrage géographique — INCHANGÉ dans sa logique
+        if geo_available and driver.get("latitude") and driver.get("longitude"):
             try:
                 dist_km = haversine(driver["latitude"], driver["longitude"], start_lat, start_lng)
                 driver["distance_km"] = round(dist_km, 1)
             except Exception:
-                pass
+                dist_km = None
+        else:
+            dist_km = None
 
-        if dist_km > max_km:
+        # On filtre par rayon seulement si on a la géoloc
+        if dist_km is not None and dist_km > max_km:
             continue
 
         pref_score   = calculate_match_score(driver, preferences)
-        dist_score   = score_distance(dist_km, hours_until_departure)
+        dist_score   = score_distance(dist_km, hours_until_departure) if dist_km is not None else 0.5
         work_score   = work_hour_match(driver, departure_hour)
         avg_rating   = driver.get("avgRating") or 4.0
         rating_score = (avg_rating - 1) / 4
 
-        final_score = (
-            0.50 * pref_score   +
-            0.25 * dist_score   +
-            0.15 * work_score   +
-            0.10 * rating_score
-        )
+        if geo_available:
+            final_score = (
+                0.50 * pref_score   +
+                0.25 * dist_score   +
+                0.15 * work_score   +
+                0.10 * rating_score
+            )
+        else:
+            # Géoloc absente : redistribue le poids distance vers préférences
+            final_score = (
+                0.60 * pref_score   +
+                0.25 * work_score   +
+                0.15 * rating_score
+            )
 
         driver["final_score"] = round(final_score, 4)
         driver["work_match"]  = work_score == 1.0
-        driver["dist_score"]  = round(dist_score, 3)
+        driver["dist_score"]  = round(dist_score, 3) if dist_km is not None else None
         scored.append(driver)
 
     scored.sort(key=lambda d: d.get("final_score", 0), reverse=True)
@@ -145,21 +165,16 @@ def cold_start_by_preferences(
     return scored[:top_n]
 
 
-# ── LOG DES SCORES ────────────────────────────────────────────────────────────
+# ── LOG DES SCORES ─────────────────────────────────────────────────────────────
 def save_recommendation_log(ride_id: str, driver_id: str, scores: Dict) -> None:
-    """
-    Sauvegarde les scores d'un driver dans recommendation_logs.jsonl.
-    Appelé pour CHAQUE driver scoré — on filtre au moment du feedback.
-    Format : une ligne JSON par entrée { rideId, driverId, scores... }
-    """
     entry = {
-        "rideId":    ride_id,
-        "driverId":  driver_id,
-        "lightfm":   scores["lightfm"],
-        "pref":      scores["pref"],
-        "dist":      scores["dist"],
-        "work":      scores["work"],
-        "rating":    scores["rating"],
+        "rideId":   ride_id,
+        "driverId": driver_id,
+        "lightfm":  scores["lightfm"],
+        "pref":     scores["pref"],
+        "dist":     scores["dist"],
+        "work":     scores["work"],
+        "rating":   scores["rating"],
     }
     try:
         with open(LOGS_PATH, "a", encoding="utf-8") as f:
@@ -169,10 +184,6 @@ def save_recommendation_log(ride_id: str, driver_id: str, scores: Dict) -> None:
 
 
 def find_log_entry(ride_id: str, driver_id: str) -> Optional[Dict]:
-    """
-    Retrouve l'entrée de log pour un rideId + driverId donné.
-    Lit le fichier depuis la fin pour trouver l'entrée la plus récente.
-    """
     if not os.path.exists(LOGS_PATH):
         return None
     try:
@@ -184,7 +195,8 @@ def find_log_entry(ride_id: str, driver_id: str) -> Optional[Dict]:
                     continue
                 try:
                     entry = json.loads(line)
-                    if entry.get("rideId") == str(ride_id) and entry.get("driverId") == str(driver_id):
+                    if (entry.get("rideId") == str(ride_id) and
+                            entry.get("driverId") == str(driver_id)):
                         matches.append(entry)
                 except json.JSONDecodeError:
                     continue
@@ -194,39 +206,75 @@ def find_log_entry(ride_id: str, driver_id: str) -> Optional[Dict]:
         return None
 
 
-# ── OPTIMISATION POIDS PAR RÉGRESSION ────────────────────────────────────────
-# NOTE : le buffer _scores_history est alimenté UNIQUEMENT via /feedback
-# (avec le vrai rating passager comme target), pas au moment de la recommandation.
+# ── OPTIMISATION POIDS AVEC BOUNDS ───────────────────────────────────────────
 _scores_history: List[Dict] = []
 _optimized_weights: Optional[np.ndarray] = None
 
+# Bornes par composante : empêche la régression de tout mettre sur rating ou LightFM
+WEIGHT_BOUNDS = {
+    "lightfm": (0.20, 0.50),   # utile mais pas dominant
+    "pref":    (0.20, 0.45),   # critère principal passager
+    "dist":    (0.10, 0.35),   # important si géoloc dispo
+    "work":    (0.05, 0.20),   # bonus horaire
+    "rating":  (0.02, 0.15),   # tie-break seulement
+}
+WEIGHT_KEYS = ["lightfm", "pref", "dist", "work", "rating"]
+# Poids hardcodés par défaut (géoloc dispo)
+DEFAULT_WEIGHTS_GEO    = np.array([0.30, 0.30, 0.25, 0.10, 0.05])
+# Poids hardcodés par défaut (géoloc absente — dist = 0, redistribué)
+DEFAULT_WEIGHTS_NO_GEO = np.array([0.30, 0.45, 0.00, 0.15, 0.10])
+
+
 def _try_optimize_weights() -> Optional[np.ndarray]:
+    """
+    Optimise les poids via scipy SLSQP avec :
+    - bounds par composante (WEIGHT_BOUNDS)
+    - contrainte sum = 1
+    Remplace la LinearRegression sklearn qui ne pouvait pas contraindre ces deux choses.
+    """
     if len(_scores_history) < 50:
         return None
     try:
-        from sklearn.linear_model import LinearRegression
-        df    = pd.DataFrame(_scores_history)
-        X     = df[['lightfm', 'pref', 'dist', 'work', 'rating']].values
-        y     = df['target'].values   # ← vrai rating normalisé (rating-1)/4
-        model = LinearRegression(positive=True, fit_intercept=False)
-        model.fit(X, y)
-        w      = model.coef_
-        w_norm = w / w.sum()
-        print(f"\n📊 Poids optimisés par régression ({len(_scores_history)} observations) :")
-        print(f"   LightFM={w_norm[0]:.3f} | Pref={w_norm[1]:.3f} | "
-              f"Dist={w_norm[2]:.3f} | Work={w_norm[3]:.3f} | Rating={w_norm[4]:.3f}")
+        df = pd.DataFrame(_scores_history)
+        X  = df[WEIGHT_KEYS].values
+        y  = df["target"].values
+
+        def loss(w):
+            return np.mean((X @ w - y) ** 2)
+
+        def grad(w):
+            return 2 * X.T @ (X @ w - y) / len(y)
+
+        bounds      = [WEIGHT_BOUNDS[k] for k in WEIGHT_KEYS]
+        constraints = {"type": "eq", "fun": lambda w: w.sum() - 1}
+        w0          = DEFAULT_WEIGHTS_GEO.copy()
+
+        result = minimize(
+            loss, w0, jac=grad,
+            method="SLSQP",
+            bounds=bounds,
+            constraints=constraints,
+            options={"ftol": 1e-9, "maxiter": 1000},
+        )
+
+        if not result.success:
+            print(f"[WARNING] Optimisation poids échouée: {result.message} — hardcodés conservés")
+            return None
+
+        w_norm = result.x
+        print(f"\n📊 Poids optimisés avec bounds ({len(_scores_history)} obs) :")
+        for k, v in zip(WEIGHT_KEYS, w_norm):
+            lo, hi = WEIGHT_BOUNDS[k]
+            print(f"   {k:10s}: {v:.3f}  [{lo}, {hi}]")
+
         return w_norm
+
     except Exception as e:
         print(f"[WARNING] Régression échouée: {e}")
         return None
 
 
 def add_feedback_to_buffer(ride_id: str, driver_id: str, real_rating: float) -> bool:
-    """
-    Appelé par l'endpoint /feedback.
-    Retrouve les scores sauvegardés, ajoute au buffer avec target = vrai rating normalisé.
-    Retourne True si l'entrée a été trouvée et ajoutée.
-    """
     global _optimized_weights
 
     entry = find_log_entry(ride_id, driver_id)
@@ -234,30 +282,34 @@ def add_feedback_to_buffer(ride_id: str, driver_id: str, real_rating: float) -> 
         print(f"[WARNING] Aucun log trouvé pour rideId={ride_id} driverId={driver_id}")
         return False
 
-    # Target = vrai rating passager normalisé entre 0 et 1
-    target = (real_rating - 1) / 4
+    # 🔥 FIX: NE PLUS utiliser rating comme target
+    # target = (real_rating - 1) / 4
+
+    # 👉 TEMPORAIRE (en attendant mieux)
+    target = 1.0  # driver choisi
 
     _scores_history.append({
-        'lightfm': entry['lightfm'],
-        'pref':    entry['pref'],
-        'dist':    entry['dist'],
-        'work':    entry['work'],
-        'rating':  entry['rating'],
-        'target':  target,
+        "lightfm": entry["lightfm"],
+        "pref":    entry["pref"],
+        "dist":    entry["dist"],
+        "work":    entry["work"],
+        "rating":  entry["rating"],
+        "target":  target,
     })
 
-    print(f"✅ Feedback ajouté au buffer | rideId={ride_id} | driver={driver_id} | "
-          f"rating={real_rating} → target={target:.3f} | buffer={len(_scores_history)}/50")
+    # 🔥 FIX: désactiver optimisation pour l’instant
+    # print(f"✅ Feedback ajouté | rideId={ride_id} | driver={driver_id} | "
+    #       f"rating={real_rating} → target={target:.3f} | buffer={len(_scores_history)}/50")
 
-    # Tenter d'optimiser si seuil atteint
-    if len(_scores_history) >= 50:
-        new_weights = _try_optimize_weights()
-        if new_weights is not None:
-            _optimized_weights = new_weights
+    # if len(_scores_history) >= 50:
+    #     new_weights = _try_optimize_weights()
+    #     if new_weights is not None:
+    #         _optimized_weights = new_weights
 
     return True
 
 
+# ── RECOMMENDER CLASS ─────────────────────────────────────────────────────────
 class Recommender:
     def __init__(self):
         self.model         = self._load(os.path.join(MODELS_DIR, "lightfm_model_real.pkl"))
@@ -287,8 +339,8 @@ class Recommender:
     def _load(self, path: str):
         try:
             print(f"   [LOAD] Tentative: {path}")
-            with open(path, 'rb') as f:
-                obj = pickle.load(f, encoding='bytes')
+            with open(path, "rb") as f:
+                obj = pickle.load(f, encoding="bytes")
             print(f"   [LOAD] ✅ OK: {path} → type={type(obj).__name__}")
             return obj
         except Exception as e1:
@@ -306,7 +358,9 @@ class Recommender:
     async def get_all_drivers_from_db(self) -> List[Dict]:
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.get(f"{BACKEND_URL}/api/auth/driver/all", timeout=30.0)
+                response = await client.get(
+                    f"{BACKEND_URL}/api/auth/driver/all", timeout=30.0
+                )
                 if response.status_code == 200:
                     result  = response.json()
                     drivers = result.get("data", result) if isinstance(result, dict) else result
@@ -323,7 +377,8 @@ class Recommender:
             clean_id = str(passenger_id).lstrip("P")
             async with httpx.AsyncClient() as client:
                 response = await client.get(
-                    f"{BACKEND_URL}/api/passengers/{clean_id}/driver-interactions", timeout=10.0
+                    f"{BACKEND_URL}/api/passengers/{clean_id}/driver-interactions",
+                    timeout=10.0,
                 )
                 if response.status_code == 200:
                     counts = response.json().get("data", {})
@@ -355,11 +410,17 @@ class Recommender:
             return None
 
     def predict_for_passenger(self, passenger_key: str) -> Dict[str, float]:
+        """
+        Retourne les scores LightFM normalisés via softmax (température=3.0).
+        Softmax au lieu de min-max : adoucit les écarts entre drivers pour que
+        les préférences et la distance puissent vraiment différencier le résultat.
+        LightFM reste précieux (embeddings, patterns cachés) mais ne domine plus seul.
+        """
         if not self.model:
             return {}
 
         all_driver_indices = np.array(list(self.index_to_driver_id.keys()))
-        user_index = self.user_id_map[passenger_key]
+        user_index         = self.user_id_map[passenger_key]
         print(f"   Mode LightFM: CF hybride (passager {passenger_key} connu)")
 
         try:
@@ -382,23 +443,34 @@ class Recommender:
                 print(f"[WARNING] predict fallback failed: {e2}")
                 return {}
 
-        s_min, s_max = raw_scores.min(), raw_scores.max()
+        # Softmax avec température pour adoucir les écarts
+        # FIX: température réduite (plus de différence)
+        temperature = 1.0   # AVANT = 3.0
+        shifted     = raw_scores - raw_scores.max()
+        exp_scores  = np.exp(shifted / temperature)
+        scores_soft = exp_scores / exp_scores.sum()
+
+        # Re-scale 0→1 pour rester comparable aux autres composantes
+        s_min, s_max = scores_soft.min(), scores_soft.max()
         if s_max > s_min:
-            scores_norm = (raw_scores - s_min) / (s_max - s_min)
+            scores_norm = (scores_soft - s_min) / (s_max - s_min)
         else:
-            scores_norm = np.zeros_like(raw_scores)
+            scores_norm = np.zeros_like(scores_soft)
 
-        print(f"   [DEBUG] raw: min={s_min:.3f} max={s_max:.3f} | "
-              f"norm: min={scores_norm.min():.3f} max={scores_norm.max():.3f}")
+        print(f"   [DEBUG] raw: min={raw_scores.min():.3f} max={raw_scores.max():.3f} | "
+              f"softmax_norm: min={scores_norm.min():.3f} max={scores_norm.max():.3f}")
 
-        return {self.index_to_driver_id[idx]: float(scores_norm[i])
-                for i, idx in enumerate(all_driver_indices)}
+        return {
+            self.index_to_driver_id[idx]: float(scores_norm[i])
+            for i, idx in enumerate(all_driver_indices)
+        }
 
 
 # Instance globale
 recommender = Recommender()
 
 
+# ── POINT D'ENTRÉE PRINCIPAL ──────────────────────────────────────────────────
 async def get_recommendations(
     passenger_id: str,
     preferences: Dict = None,
@@ -411,17 +483,21 @@ async def get_recommendations(
 
     print(f"\n🔍 Recommandations pour passager: {passenger_id}")
 
-    start_lat          = trajet.get("startLat")
-    start_lng          = trajet.get("startLng")
+    start_lat     = trajet.get("startLat")
+    start_lng     = trajet.get("startLng")
+    geo_available = start_lat is not None and start_lng is not None
+
+    if not geo_available:
+        print(f"   [WARNING] startLat/startLng absents → filtrage distance désactivé, "
+              f"dist_score=0.5 (neutre) pour tous les drivers")
+
     trajet_distance_km = float(trajet.get("distanceKm", 50.0))
     date_depart_str    = trajet.get("dateDepart")
     heure_depart_str   = trajet.get("heureDepart", "12:00")
     departure_hour     = int(heure_depart_str.split(":")[0]) if heure_depart_str else 12
 
-    # ── rideId : obligatoire pour logger les scores ───────────────────────────
     ride_id = str(trajet.get("rideId", ""))
     if not ride_id:
-        # Fallback : on génère un identifiant temporaire basé sur passager + timestamp
         import time
         ride_id = f"{passenger_id}_{int(time.time())}"
         print(f"   [WARNING] rideId absent — fallback: {ride_id}")
@@ -431,16 +507,19 @@ async def get_recommendations(
         try:
             from datetime import datetime, timezone
             date_depart = datetime.fromisoformat(date_depart_str.replace("Z", "+00:00"))
-            now  = datetime.now(timezone.utc)
-            diff = date_depart - now
+            now         = datetime.now(timezone.utc)
+            diff        = date_depart - now
             hours_until_departure = max(0.0, diff.total_seconds() / 3600)
         except Exception:
             pass
 
+    # Rayon de filtrage — INCHANGÉ
     max_km = max_driver_distance(trajet_distance_km, hours_until_departure)
+
     print(f"   rideId: {ride_id}")
     print(f"   Heure départ: {departure_hour}h | Délai: {hours_until_departure:.1f}h")
     print(f"   Distance trajet: {trajet_distance_km}km | Rayon drivers: {max_km}km")
+    print(f"   Géoloc passager: {'✅ disponible' if geo_available else '❌ absente'}")
 
     import asyncio
     all_drivers, interaction_counts = await asyncio.gather(
@@ -453,6 +532,7 @@ async def get_recommendations(
 
     passenger_key = f"P{str(passenger_id).lstrip('P')}"
 
+    # Cold-start : passager inconnu du modèle
     if passenger_key not in recommender.user_id_map:
         print("   Mode: cold-start (nouveau passager) → filtrage préférences")
         return cold_start_by_preferences(
@@ -461,43 +541,66 @@ async def get_recommendations(
             max_km, top_n
         )
 
+    # Scores LightFM (softmax normalisés)
     lightfm_scores_map = recommender.predict_for_passenger(passenger_key)
 
-    # Poids
+
+    # Sélection des poids
     global _optimized_weights
-    if _optimized_weights is None:
-        _optimized_weights = _try_optimize_weights()
+    # if _optimized_weights is None:
+    #     _optimized_weights = _try_optimize_weights()
+
+    _optimized_weights = None
 
     if _optimized_weights is not None:
-        w_lfm, w_pref, w_dist, w_work, w_rating = _optimized_weights
-        print(f"   Poids: optimisés par régression")
+        w = _optimized_weights
+        print(f"   Poids: optimisés par régression bornée")
+    elif geo_available:
+        w = DEFAULT_WEIGHTS_GEO
+        print(f"   Poids: hardcodés géoloc dispo | "
+              f"LFM={w[0]} Pref={w[1]} Dist={w[2]} Work={w[3]} Rating={w[4]} "
+              f"| ({len(_scores_history)}/50 feedbacks)")
     else:
-        w_lfm, w_pref, w_dist, w_work, w_rating = 0.60, 0.15, 0.10, 0.10, 0.05
-        print(f"   Poids: hardcodés ({len(_scores_history)}/50 scores collectés)")
+        w = DEFAULT_WEIGHTS_NO_GEO
+        print(f"   Poids: hardcodés géoloc absente | "
+              f"LFM={w[0]} Pref={w[1]} Dist={w[2]} Work={w[3]} Rating={w[4]} "
+              f"| ({len(_scores_history)}/50 feedbacks)")
+    
+
+    w_lfm, w_pref, w_dist, w_work, w_rating = w
 
     scored_drivers = []
     for driver in all_drivers:
         driver_id = f"D{driver['id']}"
 
-        dist_km = 50.0
-        if start_lat and start_lng and driver.get("latitude") and driver.get("longitude"):
+        # ── Calcul distance driver↔départ passager — FILTRAGE INCHANGÉ ────────
+        if geo_available and driver.get("latitude") and driver.get("longitude"):
             try:
-                dist_km = haversine(driver["latitude"], driver["longitude"], start_lat, start_lng)
+                dist_km = haversine(
+                    driver["latitude"], driver["longitude"],
+                    start_lat, start_lng
+                )
                 driver["distance_km"] = round(dist_km, 1)
             except Exception:
-                pass
+                dist_km = None
+        else:
+            dist_km = None
 
-        if dist_km > max_km:
+        # Filtre rayon — INCHANGÉ
+        if dist_km is not None and dist_km > max_km:
             continue
 
-        dist_score    = score_distance(dist_km, hours_until_departure)
+        # Scores composantes
+        dist_score    = score_distance(dist_km, hours_until_departure) if dist_km is not None else 0.5
         lightfm_score = lightfm_scores_map.get(driver_id, 0.0)
         pref_score    = calculate_match_score(driver, preferences)
         work_score    = work_hour_match(driver, departure_hour)
         avg_rating    = driver.get("avgRating") or 4.0
         rating_score  = (avg_rating - 1) / 4
 
-        if lightfm_scores_map:
+        # Score final
+        #  FIX
+        if lightfm_scores_map and max(lightfm_scores_map.values()) > 0:
             final_score = (
                 w_lfm    * lightfm_score +
                 w_pref   * pref_score    +
@@ -506,42 +609,52 @@ async def get_recommendations(
                 w_rating * rating_score
             )
         else:
-            final_score = (
-                0.40 * pref_score  +
-                0.35 * dist_score  +
-                0.25 * work_score  +
-                0.10 * rating_score
-            )
+            # Fallback sans LightFM
+            if geo_available:
+                final_score = (
+                    0.40 * pref_score   +
+                    0.35 * dist_score   +
+                    0.15 * work_score   +
+                    0.10 * rating_score
+                )
+            else:
+                final_score = (
+                    0.55 * pref_score   +
+                    0.30 * work_score   +
+                    0.15 * rating_score
+                )
 
         print(f"   D{driver['id']:3d} | "
               f"LFM={lightfm_score:.3f} | Pref={pref_score:.3f} | "
-              f"Dist={dist_score:.3f} | Work={work_score:.1f} | "
-              f"Rating={rating_score:.3f} | → Final={final_score:.4f}")
+              f"Dist={'N/A' if dist_km is None else f'{dist_score:.3f}'} | "
+              f"Work={work_score:.1f} | Rating={rating_score:.3f} | "
+              f"→ Final={final_score:.4f}")
 
-        # ✅ FIX PRINCIPAL : sauvegarder dans le log au lieu d'ajouter au buffer
-        # Le buffer sera alimenté uniquement via /feedback avec le vrai rating
         save_recommendation_log(ride_id, driver_id, {
-            'lightfm': lightfm_score,
-            'pref':    pref_score,
-            'dist':    dist_score,
-            'work':    work_score,
-            'rating':  rating_score,
+            "lightfm": lightfm_score,
+            "pref":    pref_score,
+            "dist":    dist_score,
+            "work":    work_score,
+            "rating":  rating_score,
         })
 
+        # Pénalité diversité : éviter de toujours recommander le même driver
         nb_trajets_ensemble = interaction_counts.get(str(driver["id"]), 0)
-        if nb_trajets_ensemble >= 5:
-            final_score *= 0.80
-        elif nb_trajets_ensemble >= 3:
-            final_score *= 0.90
+        if   nb_trajets_ensemble >= 5: final_score *= 0.80
+        elif nb_trajets_ensemble >= 3: final_score *= 0.90
 
         driver["final_score"] = round(final_score, 4)
         driver["work_match"]  = work_score == 1.0
-        driver["dist_score"]  = round(dist_score, 3)
+        driver["dist_score"]  = round(dist_score, 3) if dist_km is not None else None
         scored_drivers.append(driver)
 
     scored_drivers.sort(key=lambda d: d.get("final_score", 0), reverse=True)
     for driver in scored_drivers:
         driver.pop("final_score", None)
 
-    print(f"✅ {len(scored_drivers)} drivers dans le rayon | Top {min(top_n, len(scored_drivers))} retournés")
+    print(f"✅ {len(scored_drivers)} drivers dans le rayon | "
+          f"Top {min(top_n, len(scored_drivers))} retournés")
     return scored_drivers[:top_n]
+
+
+    
