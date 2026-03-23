@@ -25,8 +25,12 @@ function ToastManager() {
 }
 
 function AppContent() {
-  const { loading, isAuthenticated } = useAuth(); 
+  const { loading, isAuthenticated } = useAuth();
+
+  console.log('AppContent render — loading:', loading, 'isAuthenticated:', isAuthenticated);
+
   if (loading) return null;
+
   return (
     <NotificationProvider>
       <LocationProvider>
@@ -42,7 +46,6 @@ function AppContent() {
               <Stack.Screen name="shared/MapScreen" options={{ title: 'Map' }} />
             </Stack>
             <ToastManager />
-            console.log('AppContent render — loading:', loading, 'isAuthenticated:', isAuthenticated);
             {isAuthenticated && <ReminderModal />}
           </SafeAreaProvider>
         </RideProvider>

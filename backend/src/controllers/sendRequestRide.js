@@ -78,7 +78,7 @@ export const sendRideRequests = async (req, res) => {
       // Associer le trajet au driver (driverId) pour qu'il apparaisse dans ses requests
       await prisma.trajet.update({
         where: { id: ride.id },
-        data:  { driverId: driver.id },
+        data:  { notifiedDriversCount: drivers.length },
       });
 
       notifiedCount++;

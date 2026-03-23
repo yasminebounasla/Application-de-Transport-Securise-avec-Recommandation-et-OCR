@@ -281,17 +281,44 @@ export const rejectRide = async (req, res) => {
     const ride = await prisma.trajet.findUnique({ where: { id: parseInt(id) } });
     if (!ride) return res.status(404).json({ success: false, message: 'Demande de trajet introuvable' });
     if (ride.status !== 'PENDING')
-      return res.status(400).json({ success: false, message: `Impossible de refuser un trajet avec le status ${ride.status}` });
-    if (ride.driverId && ride.driverId !== driverId)
-      return res.status(403).json({ success: false, message: "Vous ne pouvez refuser que vos propres demandes" });
+    return res.status(400).json({ success: false, message: `Impossible de refuser un trajet avec le status ${ride.status}` });
 
+    // Vérifier que le driver était bien notifié pour ce trajet
+    // (il a reçu une notification RIDE_REQUEST)
+    const wasNotified = await prisma.notification.findFirst({
+      where: {
+       driverId: driverId,
+       type: 'RIDE_REQUEST',
+       data: { path: ['rideId'], equals: parseInt(id) }
+      }
+    });
+
+   if (!wasNotified)
+   return res.status(403).json({ 
+     success: false, 
+     message: "Vous n'êtes pas autorisé à refuser ce trajet" 
+    });
+
+    //  CORRIGÉ — étape 1 : ajouter le driver aux refus
     const updatedRide = await prisma.trajet.update({
       where: { id: parseInt(id) },
-      data: { status: 'CANCELLED_BY_DRIVER', updatedAt: new Date() },
+      data: {
+       rejectedDriverIds: { push: driverId },
+       updatedAt: new Date(),
+      },
       include: {
         passenger: { select: { id: true, nom: true, prenom: true } },
         driver:    { select: { id: true, nom: true, prenom: true, numTel: true } },
       },
+    });
+
+    // ✅ étape 2 : vérifier si tous ont refusé
+    const allRejected = updatedRide.rejectedDriverIds.length  >= updatedRide.notifiedDriversCount;
+
+    // ✅ étape 3 : mettre à jour le statut
+    await prisma.trajet.update({
+      where: { id: parseInt(id) },
+     data: { status: allRejected ? 'CANCELLED_BY_DRIVER' : 'PENDING' },
     });
 
     const io = getIO();
@@ -535,10 +562,16 @@ export const getDriverRideActivity = async (req, res) => {
 
   try {
     const rides = await prisma.trajet.findMany({
-      where: {
-        OR: [
+     where: {
+       OR: [
           { driverId: driverId },
-          { driverId: null, status: 'PENDING' } // rides PENDING envoyés à ce driver
+          {
+           status: 'PENDING',
+           driverId: null,
+           NOT: {
+             rejectedDriverIds: { has: driverId }
+            }
+          }
         ]
       },
       include: {
