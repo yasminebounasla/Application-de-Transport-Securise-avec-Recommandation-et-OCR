@@ -142,6 +142,10 @@ model Trajet {
   placesDispo Int
   prix        Float
   status      TrajetStatus @default(PENDING)
+  
+  // gestion des refus
+  notifiedDriversCount  Int   @default(0)
+  rejectedDriverIds     Int[] @default([])
 
   // Préférences du passager pour CE trajet (user features LightFM)
   quiet_ride         String @default("no")
