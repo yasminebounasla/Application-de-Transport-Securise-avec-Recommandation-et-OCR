@@ -562,10 +562,16 @@ export const getDriverRideActivity = async (req, res) => {
 
   try {
     const rides = await prisma.trajet.findMany({
-      where: {
-        OR: [
+     where: {
+       OR: [
           { driverId: driverId },
-          { driverId: null, status: 'PENDING' } // rides PENDING envoyés à ce driver
+          {
+           status: 'PENDING',
+           driverId: null,
+           NOT: {
+             rejectedDriverIds: { has: driverId }
+            }
+          }
         ]
       },
       include: {
