@@ -281,10 +281,24 @@ export const rejectRide = async (req, res) => {
     const ride = await prisma.trajet.findUnique({ where: { id: parseInt(id) } });
     if (!ride) return res.status(404).json({ success: false, message: 'Demande de trajet introuvable' });
     if (ride.status !== 'PENDING')
-      return res.status(400).json({ success: false, message: `Impossible de refuser un trajet avec le status ${ride.status}` });
-    if (ride.driverId && ride.driverId !== driverId)
-      return res.status(403).json({ success: false, message: "Vous ne pouvez refuser que vos propres demandes" });
-     
+    return res.status(400).json({ success: false, message: `Impossible de refuser un trajet avec le status ${ride.status}` });
+
+    // Vérifier que le driver était bien notifié pour ce trajet
+    // (il a reçu une notification RIDE_REQUEST)
+    const wasNotified = await prisma.notification.findFirst({
+      where: {
+       driverId: driverId,
+       type: 'RIDE_REQUEST',
+       data: { path: ['rideId'], equals: parseInt(id) }
+      }
+    });
+
+   if (!wasNotified)
+   return res.status(403).json({ 
+     success: false, 
+     message: "Vous n'êtes pas autorisé à refuser ce trajet" 
+    });
+
     //  CORRIGÉ — étape 1 : ajouter le driver aux refus
     const updatedRide = await prisma.trajet.update({
       where: { id: parseInt(id) },
