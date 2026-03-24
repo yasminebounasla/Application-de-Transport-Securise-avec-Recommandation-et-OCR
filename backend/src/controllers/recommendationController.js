@@ -84,7 +84,9 @@ export const recommendDrivers = async (req, res) => {
     console.log("✅ [recommendDrivers] mlPreferences finales:", JSON.stringify(mlPreferences, null, 2));
     console.log("═══════════════════════════════════════════");
 
-    const drivers = await getRecommendations(passenger_id, mlPreferences);
+    const token = req.headers.authorization?.split(" ")[1];
+
+    const drivers = await getRecommendations(passenger_id, mlPreferences, token);
     return res.status(200).json({ recommendedDrivers: drivers });
 
   } catch (error) {

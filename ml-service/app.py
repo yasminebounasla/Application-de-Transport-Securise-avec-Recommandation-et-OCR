@@ -1,7 +1,7 @@
 import os
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from typing import Dict, Any, Union, Optional
+from typing import Dict, Any, Union, Optional, List
 from urllib.parse import urlparse
 from dotenv import load_dotenv
 from service.recommender import get_recommendations, add_feedback_to_buffer
@@ -14,6 +14,8 @@ class RecommendationRequest(BaseModel):
     passenger_id: Union[int, str]
     preferences: Dict[str, Any] = {}
     trajet: Dict[str, Any] = {}
+    drivers:            List[Dict[str, Any]] = []   # ← AJOUT
+    interaction_counts: Dict[str, int]       = {}   # ← AJOUT
     top_n: int = 5
 
 
@@ -31,6 +33,8 @@ async def recommend(data: RecommendationRequest):
         passenger_id=passenger_id,
         preferences=data.preferences,
         trajet=data.trajet,
+        drivers            = data.drivers,            # ← AJOUT
+        interaction_counts = data.interaction_counts, # ← AJOUT
         top_n=data.top_n,
     )
     return {
