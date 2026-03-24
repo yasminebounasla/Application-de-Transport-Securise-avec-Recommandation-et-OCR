@@ -273,7 +273,7 @@ export const getDriverInteractions = async (req, res) => {
   
   const trajets = await prisma.trajet.findMany({
     where: {
-      passengerId,
+      passagerId: passengerId,
       status: "COMPLETED",
       driverId: { not: null }
     },

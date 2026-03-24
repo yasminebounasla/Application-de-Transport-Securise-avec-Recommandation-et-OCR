@@ -2,7 +2,7 @@ import axios from "axios";
 
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || "http://localhost:8000";
 
-export const getRecommendations = async (passenger_id, mlPreferences = {}) => {
+export const getRecommendations = async (passenger_id, mlPreferences = {}, authToken = null) => {
   console.log("═══════════════════════════════════════════");
   console.log("📡 [getRecommendations] ML_SERVICE_URL:", ML_SERVICE_URL);
   console.log("📡 [getRecommendations] passenger_id:", passenger_id);
@@ -48,14 +48,52 @@ export const getRecommendations = async (passenger_id, mlPreferences = {}) => {
   }
 
   try {
+    const BACKEND_URL = process.env.BACKEND_URL || "http://localhost:5000";
+
+    const headers = {
+      "Content-Type": "application/json",
+      ...(authToken && { Authorization: `Bearer ${authToken}` }),
+    };
+    
+    const [driversRes, interactionsRes] = await Promise.all([
+      axios.get(`${BACKEND_URL}/api/auth/driver/all`, {headers}),
+      axios.get(`${BACKEND_URL}/api/passengers/${passenger_id}/driver-interactions`, {headers}),
+    ]);
+
+    // ── DEBUG COMPLET ──────────────────────────────────────────────────────
+    console.log("🔍 driversRes.status:", driversRes.status);
+    console.log("🔍 driversRes.data type:", typeof driversRes.data);
+    console.log("🔍 driversRes.data keys:", Object.keys(driversRes.data || {}));
+    console.log("🔍 driversRes.data.data type:", typeof driversRes.data?.data);
+    console.log("🔍 driversRes.data.data isArray:", Array.isArray(driversRes.data?.data));
+    console.log("🔍 driversRes.data.data length:", driversRes.data?.data?.length);
+    console.log("🔍 premier driver raw:", JSON.stringify(driversRes.data?.data?.[0]).slice(0, 200));
+
+    const driversArray = driversRes.data?.data || driversRes.data;
+    console.log("🔍 driversArray final isArray:", Array.isArray(driversArray));
+    console.log("🔍 driversArray final length:", driversArray?.length);
+
+    console.log("🔍 interactionsRes.status:", interactionsRes.status);
+    console.log("🔍 interaction_counts:", JSON.stringify(interactionsRes.data?.data || {}).slice(0, 100));
+
     const payload = {
       passenger_id,
       preferences,   // { quiet_ride, smoking_ok, pets_ok, ... }
       trajet,        // { startLat, startLng, endLat, endLng, dateDepart, ... }
       top_n,
+      drivers: driversRes.data?.data || driversRes.data,           // ← AJOUT
+      interaction_counts: interactionsRes.data?.data || {},         // ← AJOUT
     };
 
-    console.log("🚀 [getRecommendations] Payload envoyé au ML:\n", JSON.stringify(payload, null, 2));
+    console.log("🚀 payload.drivers length:", payload.drivers?.length);
+    console.log("🚀 payload.drivers isArray:", Array.isArray(payload.drivers));
+    console.log("🚀 payload complet (sans drivers):", JSON.stringify({
+      passenger_id,
+      preferences,
+      trajet,
+      top_n,
+      interaction_counts: payload.interaction_counts,
+    }));
 
     const response = await axios.post(
       `${ML_SERVICE_URL}/recommend`,
