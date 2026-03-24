@@ -201,7 +201,7 @@ def run_easyocr_with_coords(image, color_image):
             bbox, text, conf = res
             text_clean = text.strip()
 
-            if text_clean and text_clean not in seen:
+            if text_clean and text_clean not in seen and conf >= 0.5:
                 # Calculer position Y moyenne (ligne)
                 y_avg = sum([point[1] for point in bbox]) / 4
                 x_avg = sum([point[0] for point in bbox]) / 4
@@ -387,8 +387,6 @@ def extract_driving_license_info(text, ocr_results):
     info = {
         'type': None,
         'is_driving_license': False,
-        'nom': None,
-        'prenom': None,
         'nin': None,
         'date_creation': None,
         'date_expiration': None,
@@ -446,57 +444,16 @@ def extract_driving_license_info(text, ocr_results):
         if not info['nin']:
             print("   ❌ NIN non trouvé")
 
-    # ===== 3. NOM/PRÉNOM =====
-    print("\n🔍 3. Extraction nom/prénom...")
-
-    if ocr_results and info['nin']:
-        nin_index = -1
-        for i, res in enumerate(ocr_results):
-            if info['nin'] in res['text']:
-                nin_index = i
-                print(f"      • NIN trouvé à l'index {i}")
-                break
-
-        if nin_index > 0:
-            candidates = []
-            for i in range(max(0, nin_index - 10), nin_index):
-                res = ocr_results[i]
-                text_item = res['text']
-
-                if (len(text_item) >= 3 and
-                    text_item.isupper() and
-                    not any(c.isdigit() for c in text_item)):
-
-                    excluded = ['DRIVING', 'LICENSE', 'LICENCE', 'DZ', 'REPUBLIC',
-                                'ALGERIA', 'THE', 'SRE', 'APÛ', 'DJQ', 'UCENSE',
-                                'DRIV', 'LIC', 'UCE', 'NSE', 'ICENSE', '(ICENSE']
-
-                    is_excluded = any(ex in text_item for ex in excluded)
-
-                    if not is_excluded:
-                        candidates.append({'text': text_item, 'index': i})
-                        print(f"      • Candidat: '{text_item}'")
-
-            if len(candidates) >= 1:
-                info['nom'] = candidates[0]['text']
-                print(f"   ✅ Nom: {info['nom']}")
-
-            if len(candidates) >= 2:
-                info['prenom'] = candidates[1]['text']
-                print(f"   ✅ Prénom: {info['prenom']}")
-
-    if not info['nom'] and not info['prenom']:
-        print("   ❌ Nom et prénom non trouvés")
-
-    # ===== 4. DATES =====
-    print("\n🔍 4. Extraction des dates...")
+    
+    # ===== 3. DATES =====
+    print("\n🔍 3. Extraction des dates...")
     date_creation, date_expiration = extract_dates_spatial(text, ocr_results)
 
     info['date_creation'] = date_creation
     info['date_expiration'] = date_expiration
 
-    # ===== 5. VALIDATION =====
-    print("\n🔍 5. Validation du permis...")
+    # ===== 4. VALIDATION =====
+    print("\n🔍 4. Validation du permis...")
 
     if date_expiration:
         try:
