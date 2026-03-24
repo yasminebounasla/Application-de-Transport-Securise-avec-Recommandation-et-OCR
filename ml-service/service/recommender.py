@@ -69,69 +69,76 @@ def max_driver_distance(trajet_distance_km: float, hours_until_departure: float)
     return min(dist_based, time_based)
 
 
-# ── FIX PRINCIPAL : calculate_match_score ─────────────────────────────────────
-# AVANT : score/max_score puis base**2 → écrase tout vers 0, female_driver_pref
-#         ne pesait que (1/13)² ≈ 0.006 → impact quasi nul dans le score final.
-# APRÈS : poids explicites par critère, clamp 0–1, pas d'amplification quadratique.
-#         Chaque critère contribue directement à sa vraie importance relative.
+# ── calculate_match_score ─────────────────────────────────────────────────────
+# 3 états possibles par critère :
+#   - Préférence non renseignée          → ignorée (neutre, pas dans le calcul)
+#   - Préférence renseignée + match      → +points (bonus)
+#   - Préférence renseignée + mismatch   → -points (pénalité)
+# Normalisation finale : (score + max) / (2 * max) → toujours entre 0 et 1
+#   worst case : tous mismatch → 0.0
+#   best  case : tous match    → 1.0
+#   aucune préférence          → 0.5 neutre
 def calculate_match_score(driver: Dict, preferences: Dict) -> float:
-    # Chaque critère vaut 1 point si match, 0 sinon.
-    # Score final = nb_matches / nb_criteres_actifs → toujours entre 0 et 1,
-    # chaque préférence pèse également peu importe combien le passager en a coché.
-    # female_driver_pref garde un poids x2 car c'est un critère d'incompatibilité
-    # plus fort (conducteur fumeur vs non-fumeur reste tolérable, mauvais genre non).
 
     def b(val):
         if isinstance(val, bool): return "yes" if val else "no"
         if val is None: return "no"
         return str(val).lower()
 
-    matches    = 0.0
+    score      = 0.0
     max_points = 0.0
 
-    # Conductrice femme — poids 2 (critère fort)
-    max_points += 2
-    if preferences.get("female_driver_pref") == "yes":
-        if driver.get("sexe") == "F":       matches += 2
-    elif preferences.get("female_driver_pref") == "no":
-        if driver.get("sexe") == "M":       matches += 2
+    # ── Critères forts (±2) ───────────────────────────────────────────────────
 
-    # Fumée — poids 2 (critère fort : allergie, santé)
-    max_points += 2
-    if preferences.get("smoking_ok") == "yes":
-        if b(driver.get("smoking_allowed")) == "yes": matches += 2
-    elif preferences.get("smoking_ok") == "no":
-        if b(driver.get("smoking_allowed")) == "no":  matches += 2
+    pref = preferences.get("female_driver_pref")
+    if pref in ("yes", "no"):
+        max_points += 2
+        match = (pref == "yes" and driver.get("sexe") == "F") or \
+                (pref == "no"  and driver.get("sexe") == "M")
+        score += 2 if match else -2
 
-    # Grand coffre — poids 2 (critère fort : bagages encombrants)
-    max_points += 2
-    if preferences.get("luggage_large") == "yes":
-        if b(driver.get("car_big")) == "yes":         matches += 2
-    elif preferences.get("luggage_large") == "no":
-        if b(driver.get("car_big")) == "no":          matches += 2
+    pref = preferences.get("smoking_ok")
+    if pref in ("yes", "no"):
+        max_points += 2
+        match = (pref == "yes" and b(driver.get("smoking_allowed")) == "yes") or \
+                (pref == "no"  and b(driver.get("smoking_allowed")) == "no")
+        score += 2 if match else -2
 
-    # Animaux — poids 2 (critère fort : allergie possible)
-    max_points += 2
-    if preferences.get("pets_ok") == "yes":
-        if b(driver.get("pets_allowed")) == "yes":    matches += 2
-    elif preferences.get("pets_ok") == "no":
-        if b(driver.get("pets_allowed")) == "no":     matches += 2
+    pref = preferences.get("luggage_large")
+    if pref in ("yes", "no"):
+        max_points += 2
+        match = (pref == "yes" and b(driver.get("car_big")) == "yes") or \
+                (pref == "no"  and b(driver.get("car_big")) == "no")
+        score += 2 if match else -2
 
-    # Trajet calme — poids 1
-    max_points += 1
-    if preferences.get("quiet_ride") == "yes":
-        if b(driver.get("talkative")) == "no":        matches += 1
-    elif preferences.get("quiet_ride") == "no":
-        if b(driver.get("talkative")) == "yes":       matches += 1
+    pref = preferences.get("pets_ok")
+    if pref in ("yes", "no"):
+        max_points += 2
+        match = (pref == "yes" and b(driver.get("pets_allowed")) == "yes") or \
+                (pref == "no"  and b(driver.get("pets_allowed")) == "no")
+        score += 2 if match else -2
 
-    # Radio — poids 1
-    max_points += 1
-    if preferences.get("radio_ok") == "yes":
-        if b(driver.get("radio_on")) == "yes":        matches += 1
-    elif preferences.get("radio_ok") == "no":
-        if b(driver.get("radio_on")) == "no":         matches += 1
+    # ── Critères légers (±1) ──────────────────────────────────────────────────
 
-    return matches / max_points if max_points > 0 else 0.0
+    pref = preferences.get("quiet_ride")
+    if pref in ("yes", "no"):
+        max_points += 1
+        match = (pref == "yes" and b(driver.get("talkative")) == "no") or \
+                (pref == "no"  and b(driver.get("talkative")) == "yes")
+        score += 1 if match else -1
+
+    pref = preferences.get("radio_ok")
+    if pref in ("yes", "no"):
+        max_points += 1
+        match = (pref == "yes" and b(driver.get("radio_on")) == "yes") or \
+                (pref == "no"  and b(driver.get("radio_on")) == "no")
+        score += 1 if match else -1
+
+    if max_points == 0:
+        return 0.5  # aucune préférence → neutre
+
+    # Normalise [-max_points, +max_points] → [0.0, 1.0]
+    return (score + max_points) / (2 * max_points)
 
 
 # ── COLD START ────────────────────────────────────────────────────────────────
@@ -258,7 +265,7 @@ DEFAULT_WEIGHTS_NO_GEO = np.array([0.35, 0.45, 0.00, 0.13, 0.07])
 
 
 def _try_optimize_weights() -> Optional[np.ndarray]:
-    if len(_scores_history) < 50:
+    if len(_scores_history) < 10:
         return None
     try:
         df = pd.DataFrame(_scores_history)
@@ -308,7 +315,10 @@ def add_feedback_to_buffer(ride_id: str, driver_id: str, real_rating: float) -> 
         print(f"[WARNING] Aucun log trouvé pour rideId={ride_id} driverId={driver_id}")
         return False
 
-    target = 1.0  # driver choisi
+    # target = note réelle normalisée 0→1 (1★ = 0.0, 5★ = 1.0)
+    # C'est le vrai signal : l'optimiseur apprend quels scores composantes
+    # prédisent le mieux la satisfaction réelle du passager.
+    target = max(0.0, min(1.0, (real_rating - 1) / 4))
 
     _scores_history.append({
         "lightfm": entry["lightfm"],
@@ -318,6 +328,16 @@ def add_feedback_to_buffer(ride_id: str, driver_id: str, real_rating: float) -> 
         "rating":  entry["rating"],
         "target":  target,
     })
+
+    print(f"✅ Feedback ajouté | rideId={ride_id} | driver={driver_id} | "
+          f"note={real_rating} → target={target:.3f} | buffer={len(_scores_history)}/10")
+
+    # Déclenche l'optimisation dès 10 observations
+    if len(_scores_history) >= 10:
+        new_weights = _try_optimize_weights()
+        if new_weights is not None:
+            _optimized_weights = new_weights
+            print(f"🎯 Poids mis à jour automatiquement après {len(_scores_history)} feedbacks")
 
     return True
 
@@ -553,7 +573,6 @@ async def get_recommendations(
     lightfm_scores_map = recommender.predict_for_passenger(passenger_key)
 
     global _optimized_weights
-    _optimized_weights = None
 
     if _optimized_weights is not None:
         w = _optimized_weights
@@ -562,12 +581,12 @@ async def get_recommendations(
         w = DEFAULT_WEIGHTS_GEO
         print(f"   Poids: hardcodés géoloc dispo | "
               f"LFM={w[0]} Pref={w[1]} Dist={w[2]} Work={w[3]} Rating={w[4]} "
-              f"| ({len(_scores_history)}/50 feedbacks)")
+              f"| ({len(_scores_history)}/10 feedbacks)")
     else:
         w = DEFAULT_WEIGHTS_NO_GEO
         print(f"   Poids: hardcodés géoloc absente | "
               f"LFM={w[0]} Pref={w[1]} Dist={w[2]} Work={w[3]} Rating={w[4]} "
-              f"| ({len(_scores_history)}/50 feedbacks)")
+              f"| ({len(_scores_history)}/10 feedbacks)")
 
     w_lfm, w_pref, w_dist, w_work, w_rating = w
 
