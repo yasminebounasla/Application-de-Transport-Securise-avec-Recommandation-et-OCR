@@ -32,12 +32,10 @@ def haversine(lat1, lng1, lat2, lng2) -> float:
 
 
 def score_distance(distance_km: float, hours_until_departure: float) -> float:
-    """Score basé sur la distance driver↔point_de_départ_passager."""
     if   hours_until_departure < 2:   reference_km = 15
     elif hours_until_departure < 24:  reference_km = 40
     elif hours_until_departure < 168: reference_km = 60
     else:                             reference_km = 80
-    #return 1 / (1 + distance_km / reference_km)
     return math.exp(-distance_km / reference_km)
 
 
@@ -58,7 +56,6 @@ def distance_bucket(km: float) -> str:
 
 
 def max_driver_distance(trajet_distance_km: float, hours_until_departure: float) -> float:
-    """Rayon max autour du point de départ pour filtrer les drivers — INCHANGÉ."""
     if   trajet_distance_km < 30:   dist_based = 30
     elif trajet_distance_km < 100:  dist_based = 60
     elif trajet_distance_km < 300:  dist_based = 100
@@ -72,34 +69,76 @@ def max_driver_distance(trajet_distance_km: float, hours_until_departure: float)
     return min(dist_based, time_based)
 
 
+# ── calculate_match_score ─────────────────────────────────────────────────────
+# 3 états possibles par critère :
+#   - Préférence non renseignée          → ignorée (neutre, pas dans le calcul)
+#   - Préférence renseignée + match      → +points (bonus)
+#   - Préférence renseignée + mismatch   → -points (pénalité)
+# Normalisation finale : (score + max) / (2 * max) → toujours entre 0 et 1
+#   worst case : tous mismatch → 0.0
+#   best  case : tous match    → 1.0
+#   aucune préférence          → 0.5 neutre
 def calculate_match_score(driver: Dict, preferences: Dict) -> float:
-    score = 0
-    max_score = 13
 
     def b(val):
         if isinstance(val, bool): return "yes" if val else "no"
         if val is None: return "no"
         return str(val).lower()
 
-    if   preferences.get("quiet_ride") == "yes" and b(driver.get("talkative")) == "no":        score += 3
-    elif preferences.get("quiet_ride") == "no"  and b(driver.get("talkative")) == "yes":       score += 2
-    if   preferences.get("radio_ok") == "yes" and b(driver.get("radio_on")) == "yes":          score += 1
-    elif preferences.get("radio_ok") == "no"  and b(driver.get("radio_on")) == "no":           score += 1
-    if   preferences.get("smoking_ok") == "yes" and b(driver.get("smoking_allowed")) == "yes": score += 2
-    elif preferences.get("smoking_ok") == "no"  and b(driver.get("smoking_allowed")) == "no":  score += 2
-    if   preferences.get("pets_ok") == "yes" and b(driver.get("pets_allowed")) == "yes":       score += 2
-    elif preferences.get("pets_ok") == "no"  and b(driver.get("pets_allowed")) == "no":        score += 2
-    if   preferences.get("luggage_large") == "yes" and b(driver.get("car_big")) == "yes":      score += 2
-    elif preferences.get("luggage_large") == "no"  and b(driver.get("car_big")) == "no":       score += 2
-    if   preferences.get("female_driver_pref") == "yes" and driver.get("sexe") == "F":         score += 1
-    elif preferences.get("female_driver_pref") == "no"  and driver.get("sexe") == "M":         score += 1
+    score      = 0.0
+    max_points = 0.0
 
-    #return score / max_score
+    # ── Critères forts (±2) ───────────────────────────────────────────────────
 
-    base = score / max_score
+    pref = preferences.get("female_driver_pref")
+    if pref in ("yes", "no"):
+        max_points += 2
+        match = (pref == "yes" and driver.get("sexe") == "F") or \
+                (pref == "no"  and driver.get("sexe") == "M")
+        score += 2 if match else -2
 
-    # FIX: amplification (très important)
-    return base ** 2
+    pref = preferences.get("smoking_ok")
+    if pref in ("yes", "no"):
+        max_points += 2
+        match = (pref == "yes" and b(driver.get("smoking_allowed")) == "yes") or \
+                (pref == "no"  and b(driver.get("smoking_allowed")) == "no")
+        score += 2 if match else -2
+
+    pref = preferences.get("luggage_large")
+    if pref in ("yes", "no"):
+        max_points += 2
+        match = (pref == "yes" and b(driver.get("car_big")) == "yes") or \
+                (pref == "no"  and b(driver.get("car_big")) == "no")
+        score += 2 if match else -2
+
+    pref = preferences.get("pets_ok")
+    if pref in ("yes", "no"):
+        max_points += 2
+        match = (pref == "yes" and b(driver.get("pets_allowed")) == "yes") or \
+                (pref == "no"  and b(driver.get("pets_allowed")) == "no")
+        score += 2 if match else -2
+
+    # ── Critères légers (±1) ──────────────────────────────────────────────────
+
+    pref = preferences.get("quiet_ride")
+    if pref in ("yes", "no"):
+        max_points += 1
+        match = (pref == "yes" and b(driver.get("talkative")) == "no") or \
+                (pref == "no"  and b(driver.get("talkative")) == "yes")
+        score += 1 if match else -1
+
+    pref = preferences.get("radio_ok")
+    if pref in ("yes", "no"):
+        max_points += 1
+        match = (pref == "yes" and b(driver.get("radio_on")) == "yes") or \
+                (pref == "no"  and b(driver.get("radio_on")) == "no")
+        score += 1 if match else -1
+
+    if max_points == 0:
+        return 0.5  # aucune préférence → neutre
+
+    # Normalise [-max_points, +max_points] → [0.0, 1.0]
+    return (score + max_points) / (2 * max_points)
 
 
 # ── COLD START ────────────────────────────────────────────────────────────────
@@ -117,7 +156,6 @@ def cold_start_by_preferences(
     scored = []
 
     for driver in drivers:
-        # Filtrage géographique — INCHANGÉ dans sa logique
         if geo_available and driver.get("latitude") and driver.get("longitude"):
             try:
                 dist_km = haversine(driver["latitude"], driver["longitude"], start_lat, start_lng)
@@ -127,7 +165,6 @@ def cold_start_by_preferences(
         else:
             dist_km = None
 
-        # On filtre par rayon seulement si on a la géoloc
         if dist_km is not None and dist_km > max_km:
             continue
 
@@ -145,7 +182,6 @@ def cold_start_by_preferences(
                 0.10 * rating_score
             )
         else:
-            # Géoloc absente : redistribue le poids distance vers préférences
             final_score = (
                 0.60 * pref_score   +
                 0.25 * work_score   +
@@ -210,29 +246,26 @@ def find_log_entry(ride_id: str, driver_id: str) -> Optional[Dict]:
 _scores_history: List[Dict] = []
 _optimized_weights: Optional[np.ndarray] = None
 
-# Bornes par composante : empêche la régression de tout mettre sur rating ou LightFM
 WEIGHT_BOUNDS = {
-    "lightfm": (0.20, 0.50),   # utile mais pas dominant
-    "pref":    (0.20, 0.45),   # critère principal passager
-    "dist":    (0.10, 0.35),   # important si géoloc dispo
-    "work":    (0.05, 0.20),   # bonus horaire
-    "rating":  (0.02, 0.15),   # tie-break seulement
+    "lightfm": (0.20, 0.50),
+    "pref":    (0.20, 0.45),
+    "dist":    (0.10, 0.35),
+    "work":    (0.05, 0.20),
+    "rating":  (0.02, 0.15),
 }
 WEIGHT_KEYS = ["lightfm", "pref", "dist", "work", "rating"]
-# Poids hardcodés par défaut (géoloc dispo)
-DEFAULT_WEIGHTS_GEO    = np.array([0.30, 0.30, 0.25, 0.10, 0.05])
-# Poids hardcodés par défaut (géoloc absente — dist = 0, redistribué)
-DEFAULT_WEIGHTS_NO_GEO = np.array([0.30, 0.45, 0.00, 0.15, 0.10])
+
+# FIX : poids rééquilibrés — LightFM reste le moteur principal (0.35),
+# mais Pref monte à 0.45 pour que les préférences temps réel renforcent
+# vraiment le résultat. Avant : LFM=0.30/Pref=0.45 → LFM dominait car
+# Pref était écrasé par base**2. Maintenant que Pref est linéaire et bien
+# calibré, 0.45 lui donne un vrai pouvoir de différenciation.
+DEFAULT_WEIGHTS_GEO    = np.array([0.35, 0.45, 0.08, 0.08, 0.04])
+DEFAULT_WEIGHTS_NO_GEO = np.array([0.35, 0.45, 0.00, 0.13, 0.07])
 
 
 def _try_optimize_weights() -> Optional[np.ndarray]:
-    """
-    Optimise les poids via scipy SLSQP avec :
-    - bounds par composante (WEIGHT_BOUNDS)
-    - contrainte sum = 1
-    Remplace la LinearRegression sklearn qui ne pouvait pas contraindre ces deux choses.
-    """
-    if len(_scores_history) < 50:
+    if len(_scores_history) < 10:
         return None
     try:
         df = pd.DataFrame(_scores_history)
@@ -282,11 +315,10 @@ def add_feedback_to_buffer(ride_id: str, driver_id: str, real_rating: float) -> 
         print(f"[WARNING] Aucun log trouvé pour rideId={ride_id} driverId={driver_id}")
         return False
 
-    # 🔥 FIX: NE PLUS utiliser rating comme target
-    # target = (real_rating - 1) / 4
-
-    # 👉 TEMPORAIRE (en attendant mieux)
-    target = 1.0  # driver choisi
+    # target = note réelle normalisée 0→1 (1★ = 0.0, 5★ = 1.0)
+    # C'est le vrai signal : l'optimiseur apprend quels scores composantes
+    # prédisent le mieux la satisfaction réelle du passager.
+    target = max(0.0, min(1.0, (real_rating - 1) / 4))
 
     _scores_history.append({
         "lightfm": entry["lightfm"],
@@ -297,14 +329,15 @@ def add_feedback_to_buffer(ride_id: str, driver_id: str, real_rating: float) -> 
         "target":  target,
     })
 
-    # 🔥 FIX: désactiver optimisation pour l’instant
-    # print(f"✅ Feedback ajouté | rideId={ride_id} | driver={driver_id} | "
-    #       f"rating={real_rating} → target={target:.3f} | buffer={len(_scores_history)}/50")
+    print(f"✅ Feedback ajouté | rideId={ride_id} | driver={driver_id} | "
+          f"note={real_rating} → target={target:.3f} | buffer={len(_scores_history)}/10")
 
-    # if len(_scores_history) >= 50:
-    #     new_weights = _try_optimize_weights()
-    #     if new_weights is not None:
-    #         _optimized_weights = new_weights
+    # Déclenche l'optimisation dès 10 observations
+    if len(_scores_history) >= 10:
+        new_weights = _try_optimize_weights()
+        if new_weights is not None:
+            _optimized_weights = new_weights
+            print(f"🎯 Poids mis à jour automatiquement après {len(_scores_history)} feedbacks")
 
     return True
 
@@ -411,10 +444,11 @@ class Recommender:
 
     def predict_for_passenger(self, passenger_key: str) -> Dict[str, float]:
         """
-        Retourne les scores LightFM normalisés via softmax (température=3.0).
-        Softmax au lieu de min-max : adoucit les écarts entre drivers pour que
-        les préférences et la distance puissent vraiment différencier le résultat.
-        LightFM reste précieux (embeddings, patterns cachés) mais ne domine plus seul.
+        Scores LightFM normalisés via softmax (température=1.0).
+        LightFM est le moteur principal — il capture les patterns comportementaux
+        profonds (quel type de driver ce passager choisit historiquement).
+        Les autres composantes (Pref, Dist, Work, Rating) renforcent le signal
+        avec le contexte temps réel du trajet en cours.
         """
         if not self.model:
             return {}
@@ -443,14 +477,11 @@ class Recommender:
                 print(f"[WARNING] predict fallback failed: {e2}")
                 return {}
 
-        # Softmax avec température pour adoucir les écarts
-        # FIX: température réduite (plus de différence)
-        temperature = 1.0   # AVANT = 3.0
+        temperature = 1.0
         shifted     = raw_scores - raw_scores.max()
         exp_scores  = np.exp(shifted / temperature)
         scores_soft = exp_scores / exp_scores.sum()
 
-        # Re-scale 0→1 pour rester comparable aux autres composantes
         s_min, s_max = scores_soft.min(), scores_soft.max()
         if s_max > s_min:
             scores_norm = (scores_soft - s_min) / (s_max - s_min)
@@ -491,7 +522,7 @@ async def get_recommendations(
         print(f"   [WARNING] startLat/startLng absents → filtrage distance désactivé, "
               f"dist_score=0.5 (neutre) pour tous les drivers")
 
-    trajet_distance_km = float(trajet.get("distanceKm", 50.0))
+    trajet_distance_km = float(trajet.get("distanceKm") or 50.0)
     date_depart_str    = trajet.get("dateDepart")
     heure_depart_str   = trajet.get("heureDepart", "12:00")
     departure_hour     = int(heure_depart_str.split(":")[0]) if heure_depart_str else 12
@@ -513,7 +544,6 @@ async def get_recommendations(
         except Exception:
             pass
 
-    # Rayon de filtrage — INCHANGÉ
     max_km = max_driver_distance(trajet_distance_km, hours_until_departure)
 
     print(f"   rideId: {ride_id}")
@@ -532,7 +562,6 @@ async def get_recommendations(
 
     passenger_key = f"P{str(passenger_id).lstrip('P')}"
 
-    # Cold-start : passager inconnu du modèle
     if passenger_key not in recommender.user_id_map:
         print("   Mode: cold-start (nouveau passager) → filtrage préférences")
         return cold_start_by_preferences(
@@ -541,16 +570,9 @@ async def get_recommendations(
             max_km, top_n
         )
 
-    # Scores LightFM (softmax normalisés)
     lightfm_scores_map = recommender.predict_for_passenger(passenger_key)
 
-
-    # Sélection des poids
     global _optimized_weights
-    # if _optimized_weights is None:
-    #     _optimized_weights = _try_optimize_weights()
-
-    _optimized_weights = None
 
     if _optimized_weights is not None:
         w = _optimized_weights
@@ -559,13 +581,12 @@ async def get_recommendations(
         w = DEFAULT_WEIGHTS_GEO
         print(f"   Poids: hardcodés géoloc dispo | "
               f"LFM={w[0]} Pref={w[1]} Dist={w[2]} Work={w[3]} Rating={w[4]} "
-              f"| ({len(_scores_history)}/50 feedbacks)")
+              f"| ({len(_scores_history)}/10 feedbacks)")
     else:
         w = DEFAULT_WEIGHTS_NO_GEO
         print(f"   Poids: hardcodés géoloc absente | "
               f"LFM={w[0]} Pref={w[1]} Dist={w[2]} Work={w[3]} Rating={w[4]} "
-              f"| ({len(_scores_history)}/50 feedbacks)")
-    
+              f"| ({len(_scores_history)}/10 feedbacks)")
 
     w_lfm, w_pref, w_dist, w_work, w_rating = w
 
@@ -573,7 +594,6 @@ async def get_recommendations(
     for driver in all_drivers:
         driver_id = f"D{driver['id']}"
 
-        # ── Calcul distance driver↔départ passager — FILTRAGE INCHANGÉ ────────
         if geo_available and driver.get("latitude") and driver.get("longitude"):
             try:
                 dist_km = haversine(
@@ -586,11 +606,9 @@ async def get_recommendations(
         else:
             dist_km = None
 
-        # Filtre rayon — INCHANGÉ
         if dist_km is not None and dist_km > max_km:
             continue
 
-        # Scores composantes
         dist_score    = score_distance(dist_km, hours_until_departure) if dist_km is not None else 0.5
         lightfm_score = lightfm_scores_map.get(driver_id, 0.0)
         pref_score    = calculate_match_score(driver, preferences)
@@ -598,8 +616,6 @@ async def get_recommendations(
         avg_rating    = driver.get("avgRating") or 4.0
         rating_score  = (avg_rating - 1) / 4
 
-        # Score final
-        #  FIX
         if lightfm_scores_map and max(lightfm_scores_map.values()) > 0:
             final_score = (
                 w_lfm    * lightfm_score +
@@ -609,7 +625,6 @@ async def get_recommendations(
                 w_rating * rating_score
             )
         else:
-            # Fallback sans LightFM
             if geo_available:
                 final_score = (
                     0.40 * pref_score   +
@@ -638,7 +653,6 @@ async def get_recommendations(
             "rating":  rating_score,
         })
 
-        # Pénalité diversité : éviter de toujours recommander le même driver
         nb_trajets_ensemble = interaction_counts.get(str(driver["id"]), 0)
         if   nb_trajets_ensemble >= 5: final_score *= 0.80
         elif nb_trajets_ensemble >= 3: final_score *= 0.90
@@ -655,6 +669,3 @@ async def get_recommendations(
     print(f"✅ {len(scored_drivers)} drivers dans le rayon | "
           f"Top {min(top_n, len(scored_drivers))} retournés")
     return scored_drivers[:top_n]
-
-
-    
