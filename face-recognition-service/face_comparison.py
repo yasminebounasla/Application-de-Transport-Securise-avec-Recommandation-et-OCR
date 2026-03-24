@@ -395,3 +395,81 @@ class FaceComparisonEngine:
         logger.info("="*70)
         
         return result
+
+
+
+    def compare_faces_from_arrays(
+        self,
+        img_license: np.ndarray,
+        selfie_path: str
+    ) -> Dict:
+        """
+        Compare permis (numpy array en mémoire) avec selfie (chemin fichier)
+        Le permis n'est jamais écrit sur disque.
+        """
+        logger.info("="*70)
+        logger.info("🚀 FACE COMPARISON START (license in memory)")
+        logger.info("="*70)
+
+        img_selfie = cv2.imread(selfie_path)
+        if img_selfie is None:
+            raise FileNotFoundError(f"Cannot load selfie: {selfie_path}")
+
+        (
+            img1_rot, angle1, face1_data,
+            img2_rot, angle2, face2_data,
+            precomputed_similarity
+        ) = self.find_best_rotation_by_similarity(img_license, img_selfie)
+
+        distance = 1.0 - precomputed_similarity
+        similarity_pct = precomputed_similarity * 100
+
+        threshold, adjustments = self.calculate_adaptive_threshold(
+            face1_data, face2_data
+        )
+
+        verified = (distance < threshold)
+        margin = threshold - distance
+
+        verdict = self.determine_verdict(distance, threshold, verified)
+
+        return {
+            "verified": verified,
+            "similarity": float(precomputed_similarity),
+            "distance": float(distance),
+            "similarity_percentage": float(similarity_pct),
+            "threshold": float(threshold),
+            "margin": float(margin),
+            "verdict": verdict["label"],
+            "confidence": verdict["confidence"],
+            "color": verdict["color"],
+            "license_data": {
+                "rotation": angle1,
+                "quality_score": float(face1_data["quality_score"]),
+                "quality_category": face1_data["quality_category"],
+                "occlusion_level": face1_data["occlusion_level"],
+                "age": face1_data["age"],
+                "gender": face1_data["gender"],
+                "sharpness": float(face1_data["sharpness"]),
+                "det_score": float(face1_data["det_score"])
+            },
+            "selfie_data": {
+                "rotation": angle2,
+                "quality_score": float(face2_data["quality_score"]),
+                "quality_category": face2_data["quality_category"],
+                "occlusion_level": face2_data["occlusion_level"],
+                "age": face2_data["age"],
+                "gender": face2_data["gender"],
+                "sharpness": float(face2_data["sharpness"]),
+                "det_score": float(face2_data["det_score"])
+            },
+            "adjustments": [
+                {"reason": reason, "value": float(value)}
+                for reason, value in adjustments
+            ]
+        }
+        
+        
+
+        
+

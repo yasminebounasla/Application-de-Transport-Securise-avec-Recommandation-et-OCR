@@ -26,7 +26,7 @@ class Settings(BaseSettings):
     # ========================================================================
     THRESHOLDS: Dict[str, Dict[str, any]] = {
         "normal": {
-            "value": 1.00,  # Distance euclidienne max pour validation
+            "value": 0.40,  # Distance euclidienne max pour validation
             "label": "NORMAL (KYC)"
         }
     }
@@ -34,14 +34,14 @@ class Settings(BaseSettings):
     # ========================================================================
     # AJUSTEMENTS CONTEXTUELS
     # ========================================================================
-    # Ces ajustements RÉDUISENT le seuil selon le contexte
+    # Ces ajustements Augmentent le seuil selon le contexte
     # (Plus le contexte est difficile, plus on est tolérant)
     CONTEXT_ADJUSTMENTS: Dict[str, float] = {
-        "hijab_heavy": -0.20,      # Voile couvrant (visage très partiellement visible)
-        "hijab_moderate": -0.12,   # Voile léger (visage majoritairement visible)
-        "old_photo": -0.15,        # Photo ancienne/dégradée
-        "low_quality": -0.12,      # Basse qualité d'image
-        "age_gap": -0.10           # Écart d'âge important (>20 ans)
+        "hijab_heavy": +0.20,      # Voile couvrant (visage très partiellement visible)
+        "hijab_moderate": +0.12,   # Voile léger (visage majoritairement visible)
+        "old_photo": +0.15,        # Photo ancienne/dégradée
+        "low_quality": +0.12,      # Basse qualité d'image
+        "age_gap": +0.10           # Écart d'âge important (>20 ans)
     }
     
     # ========================================================================

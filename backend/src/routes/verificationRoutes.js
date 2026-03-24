@@ -15,7 +15,8 @@ import {
     completeVerification, 
     getVerificationStatus, 
     updatePhotoConsent, 
-    healthCheck 
+    healthCheck, 
+    getDriverSelfie
 } from '../controllers/verificationController.js';
 
 const router = express.Router();
@@ -60,6 +61,8 @@ router.post(
   authenticate,
   updatePhotoConsent
 );
+router.get('/driver/:userId/selfie', authenticate, getDriverSelfie);
+
 
 /**
  * Health check des services
