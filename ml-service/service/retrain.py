@@ -245,3 +245,5 @@ print("\n✅ Modèle et données sauvegardés !")
 
 
 
+import httpx
+httpx.post("http://localhost:8000/reload-model")

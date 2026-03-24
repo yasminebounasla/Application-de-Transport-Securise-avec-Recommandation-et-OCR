@@ -5,6 +5,7 @@ from typing import Dict, Any, Union, Optional, List
 from urllib.parse import urlparse
 from dotenv import load_dotenv
 from service.recommender import get_recommendations, add_feedback_to_buffer
+from service import recommender
 
 load_dotenv()
 app = FastAPI(title="Driver Recommendation Service")
@@ -100,3 +101,9 @@ if __name__ == "__main__":
     else:
         host = raw_host
     uvicorn.run(app, host=host, port=port)
+
+
+@app.post("/reload-model")
+async def reload_model():
+    recommender.reload()
+    return {"status": "ok"}

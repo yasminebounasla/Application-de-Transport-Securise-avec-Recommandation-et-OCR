@@ -4,6 +4,7 @@ import pandas as pd
 import math
 import json
 import os
+import threading 
 from lightfm import LightFM
 from typing import List, Dict, Optional
 import httpx
@@ -11,12 +12,16 @@ from dotenv import load_dotenv
 from scipy.sparse import csr_matrix
 from scipy.optimize import minimize
 
+
 load_dotenv()
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:5000")
 
 BASE_DIR   = os.path.dirname(os.path.abspath(__file__))
 MODELS_DIR = os.path.join(BASE_DIR, "..", "model_real")
 LOGS_PATH  = os.path.join(BASE_DIR, "..", "recommendation_logs.jsonl")
+
+# ── FIX : chemin pour sauvegarder les poids optimisés sur disque
+WEIGHTS_PATH = os.path.join(BASE_DIR, "..", "optimized_weights.json")
 
 
 # ── HAVERSINE ─────────────────────────────────────────────────────────────────
@@ -202,6 +207,10 @@ def cold_start_by_preferences(
 
 
 # ── LOG DES SCORES ─────────────────────────────────────────────────────────────
+
+# ── FIX  : verrou pour éviter les écritures simultanées dans le fichier log ──
+_log_lock = threading.Lock()
+
 def save_recommendation_log(ride_id: str, driver_id: str, scores: Dict) -> None:
     entry = {
         "rideId":   ride_id,
@@ -213,8 +222,9 @@ def save_recommendation_log(ride_id: str, driver_id: str, scores: Dict) -> None:
         "rating":   scores["rating"],
     }
     try:
-        with open(LOGS_PATH, "a", encoding="utf-8") as f:
-            f.write(json.dumps(entry) + "\n")
+        with _log_lock:                   # ── FIX : écriture protégée
+            with open(LOGS_PATH, "a", encoding="utf-8") as f:
+                f.write(json.dumps(entry) + "\n")
     except Exception as e:
         print(f"[WARNING] Impossible de sauvegarder le log: {e}")
 
@@ -246,6 +256,17 @@ def find_log_entry(ride_id: str, driver_id: str) -> Optional[Dict]:
 # ── OPTIMISATION POIDS AVEC BOUNDS ───────────────────────────────────────────
 _scores_history: List[Dict] = []
 _optimized_weights: Optional[np.ndarray] = None
+
+# ── FIX  : charger les poids depuis le fichier au démarrage ─────────────────
+if os.path.exists(WEIGHTS_PATH):
+    try:
+        with open(WEIGHTS_PATH, "r") as f:
+            _optimized_weights = np.array(json.load(f))
+        print(f"✅ Poids optimisés rechargés depuis fichier: {_optimized_weights}")
+    except Exception as e:
+        print(f"[WARNING] Impossible de charger les poids sauvegardés: {e}")
+        _optimized_weights = None
+
 
 WEIGHT_BOUNDS = {
     "lightfm": (0.20, 0.50),
@@ -301,6 +322,15 @@ def _try_optimize_weights() -> Optional[np.ndarray]:
             lo, hi = WEIGHT_BOUNDS[k]
             print(f"   {k:10s}: {v:.3f}  [{lo}, {hi}]")
 
+    
+        # ── FIX 2 : sauvegarder les poids sur disque après optimisation ──────
+        try:
+            with open(WEIGHTS_PATH, "w") as f:
+                json.dump(w_norm.tolist(), f)
+            print(f"✅ Poids sauvegardés sur disque → {WEIGHTS_PATH}")
+        except Exception as e:
+            print(f"[WARNING] Impossible de sauvegarder les poids: {e}")
+ 
         return w_norm
 
     except Exception as e:
@@ -388,6 +418,22 @@ class Recommender:
                 print(f"   [LOAD]    pickle : {e1}")
                 print(f"   [LOAD]    joblib : {e2}")
                 return None
+
+    # ── FIX  : méthode pour recharger le modèle sans redémarrer ─────────────
+    def reload(self):
+        self.model         = self._load(os.path.join(MODELS_DIR, "lightfm_model_real.pkl"))
+        self.dataset       = self._load(os.path.join(MODELS_DIR, "dataset_real.pkl"))
+        self.item_features = self._load(os.path.join(MODELS_DIR, "item_features_real.pkl"))
+        self.user_features = self._load(os.path.join(MODELS_DIR, "user_features_real.pkl"))
+        if self.dataset:
+            user_id_map, user_feature_map, item_id_map, _ = self.dataset.mapping()
+            self.user_id_map        = user_id_map
+            self.user_feature_map   = user_feature_map
+            self.item_id_map        = item_id_map
+            self.index_to_driver_id = {v: k for k, v in item_id_map.items()}
+        print("✅ Modèle rechargé en mémoire")
+
+
 
     async def get_all_drivers_from_db(self) -> List[Dict]:
         try:
