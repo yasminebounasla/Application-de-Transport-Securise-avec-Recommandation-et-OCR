@@ -5,7 +5,7 @@ import {
   Pressable, Modal, TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
@@ -275,7 +275,7 @@ export default function ActivityScreen() {
     }
   }, [user?.id]);
 
-  useEffect(() => { loadActivity(); }, [loadActivity]);
+  useFocusEffect(useCallback(() => { loadActivity(); }, [loadActivity]));
 
   useEffect(() => {
     if (!params.rideId) return;
