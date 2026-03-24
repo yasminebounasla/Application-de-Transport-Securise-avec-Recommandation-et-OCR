@@ -219,6 +219,7 @@ def save_recommendation_log(ride_id: str, driver_id: str, scores: Dict) -> None:
         print(f"[WARNING] Impossible de sauvegarder le log: {e}")
 
 
+
 def find_log_entry(ride_id: str, driver_id: str) -> Optional[Dict]:
     if not os.path.exists(LOGS_PATH):
         return None
@@ -265,7 +266,7 @@ DEFAULT_WEIGHTS_NO_GEO = np.array([0.35, 0.45, 0.00, 0.13, 0.07])
 
 
 def _try_optimize_weights() -> Optional[np.ndarray]:
-    if len(_scores_history) < 10:
+    if len(_scores_history) < 50:
         return None
     try:
         df = pd.DataFrame(_scores_history)
@@ -330,10 +331,10 @@ def add_feedback_to_buffer(ride_id: str, driver_id: str, real_rating: float) -> 
     })
 
     print(f"✅ Feedback ajouté | rideId={ride_id} | driver={driver_id} | "
-          f"note={real_rating} → target={target:.3f} | buffer={len(_scores_history)}/10")
+          f"note={real_rating} → target={target:.3f} | buffer={len(_scores_history)}/50")
 
-    # Déclenche l'optimisation dès 10 observations
-    if len(_scores_history) >= 10:
+    # Déclenche l'optimisation dès 50 observations
+    if len(_scores_history) >= 50:
         new_weights = _try_optimize_weights()
         if new_weights is not None:
             _optimized_weights = new_weights
@@ -506,6 +507,8 @@ async def get_recommendations(
     passenger_id: str,
     preferences: Dict = None,
     trajet: Dict = None,
+    drivers: List[Dict] = None,
+    interaction_counts: Dict = None,
     top_n: int = 5
 ) -> List[Dict]:
 
@@ -551,11 +554,9 @@ async def get_recommendations(
     print(f"   Distance trajet: {trajet_distance_km}km | Rayon drivers: {max_km}km")
     print(f"   Géoloc passager: {'✅ disponible' if geo_available else '❌ absente'}")
 
-    import asyncio
-    all_drivers, interaction_counts = await asyncio.gather(
-        recommender.get_all_drivers_from_db(),
-        recommender.get_interaction_counts(passenger_id),
-    )
+    all_drivers        = drivers or []
+    interaction_counts = interaction_counts or {}
+
 
     if not all_drivers:
         return []

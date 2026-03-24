@@ -1,7 +1,7 @@
 # recommendation_router.py  ── FastAPI router  (remplace ton endpoint /recommend actuel)
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, List
 from service.recommender import get_recommendations   # ton fichier existant
 
 router = APIRouter()
@@ -22,16 +22,20 @@ class RecommendPayload(BaseModel):
     passenger_id: str
     preferences:  Dict[str, Any] = {}
     trajet:       TrajetPayload  = TrajetPayload()   # ← OBJET SÉPARÉ maintenant
+    drivers:            List[Dict[str, Any]] = []   # ← AJOUT
+    interaction_counts: Dict[str, int]       = {}
     top_n:        int            = 5
 
 
 @router.post("/recommend")
 async def recommend(payload: RecommendPayload):
     print("═══════════════════════════════════════════")
-    print(f"🐍 [/recommend] passenger_id : {payload.passenger_id}")
-    print(f"🐍 [/recommend] preferences  : {payload.preferences}")
-    print(f"🐍 [/recommend] trajet       : {payload.trajet.dict()}")
-    print(f"🐍 [/recommend] top_n        : {payload.top_n}")
+    print(f"🐍 drivers reçus: {len(payload.drivers)}")
+    print(f"🐍 interaction_counts reçus: {len(payload.interaction_counts)}")
+    print(f"🐍 premier driver: {payload.drivers[0] if payload.drivers else 'VIDE'}")
+    print(f"🐍 passenger_id: {payload.passenger_id}")
+    print(f"🐍 trajet: {payload.trajet.dict()}")
+    print("═══════════════════════════════════════════")
 
     # ── Vérification géoloc ──────────────────────────────────────────────
     trajet_dict = payload.trajet.dict()
@@ -49,6 +53,8 @@ async def recommend(payload: RecommendPayload):
             passenger_id = payload.passenger_id,
             preferences  = payload.preferences,
             trajet       = trajet_dict,      # ← bien passé comme dict séparé
+            drivers            = payload.drivers,            # ← AJOUT
+            interaction_counts = payload.interaction_counts, # ← AJOUT
             top_n        = payload.top_n,
         )
         return {"recommendations": drivers}
