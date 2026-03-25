@@ -7,39 +7,11 @@ import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useRide } from '../../context/RideContext';
 
-<<<<<<< HEAD
-const parseHeureDepart = (value?: string) => {
-  if (!value) return null;
-  const parts = String(value).trim().split(':');
-  const h = Number(parts[0]);
-  const m = Number(parts[1] ?? 0);
-  if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
-  if (h < 0 || h > 23 || m < 0 || m > 59) return null;
-  return { h, m };
-};
-
-const getDepartAt = (ride: any) => {
-  if (!ride?.dateDepart) return null;
-  const d = new Date(ride.dateDepart);
-  if (Number.isNaN(d.getTime())) return null;
-
-  const hm = parseHeureDepart(ride.heureDepart);
-  if (hm) d.setHours(hm.h, hm.m, 0, 0);
-
-  return d;
-};
-
-const formatDateTime = (dateValue?: string | Date) => {
-  if (!dateValue) return 'Date non definie';
-  const d = dateValue instanceof Date ? dateValue : new Date(dateValue);
-  return d.toLocaleString();
-=======
 const TRACKING_WINDOW_MINUTES = 60;
 
 const minutesUntilDeparture = (dateValue?: string) => {
   if (!dateValue) return Number.POSITIVE_INFINITY;
   return (new Date(dateValue).getTime() - Date.now()) / 60000;
->>>>>>> 46ff32f16fb87b43f9091e209998127c51f2ff47
 };
 
 function RideCard({ item, highlighted, onPress }: {
@@ -144,35 +116,6 @@ export default function MesTrajets() {
     }, [])
   );
 
-<<<<<<< HEAD
-  const rides = useMemo(() => {
-    const ONE_HOUR_MS = 60 * 60 * 1000;
-    const now = Date.now();
-    const nowDate = new Date(now);
-
-    return (passengerRides || [])
-      .filter((ride: any) => {
-        if (ride.status !== 'ACCEPTED') return false;
-        const departAt = getDepartAt(ride);
-        if (!departAt) return false;
-        const isSameDate =
-          departAt.getFullYear() === nowDate.getFullYear() &&
-          departAt.getMonth() === nowDate.getMonth() &&
-          departAt.getDate() === nowDate.getDate();
-        if (!isSameDate) return false;
-
-        const diff = departAt.getTime() - now;
-        return diff >= 0 && diff <= ONE_HOUR_MS;
-      })
-      .sort((a: any, b: any) => new Date(a.dateDepart).getTime() - new Date(b.dateDepart).getTime());
-  }, [passengerRides]);
-
-  const openRide = (ride: any) => {
-    router.push({
-      pathname: '/passenger/RideTrackingScreen',
-      params: { trajetId: String(ride.id) },
-    });
-=======
   useEffect(() => {
     if (!params.rideId || params.highlight !== 'true') return;
     pendingHighlight.current = parseInt(params.rideId);
@@ -204,7 +147,6 @@ export default function MesTrajets() {
     } else {
       router.push({ pathname: '/passenger/HistoryScreen', params: { trajetId: String(ride.id) } });
     }
->>>>>>> 46ff32f16fb87b43f9091e209998127c51f2ff47
   };
 
   if ((screenLoading || loading) && rides.length === 0) {
@@ -218,18 +160,12 @@ export default function MesTrajets() {
 
   if (rides.length === 0) {
     return (
-<<<<<<< HEAD
-      <View style={styles.center}>
-        <Text style={styles.emptyTitle}>Aucun trajet dans moins d'1 heure</Text>
-        <Text style={styles.subtle}>Les trajets ACCEPTED qui demarrent bientot apparaitront ici.</Text>
-=======
       <View style={s.center}>
         <View style={s.emptyCircle}>
           <Ionicons name="car-outline" size={30} color="#D1D5DB" />
         </View>
         <Text style={s.emptyTitle}>No active rides</Text>
         <Text style={s.subtle}>Accepted and in-progress rides appear here.</Text>
->>>>>>> 46ff32f16fb87b43f9091e209998127c51f2ff47
       </View>
     );
   }
@@ -240,23 +176,6 @@ export default function MesTrajets() {
         ref={flatListRef}
         data={rides}
         keyExtractor={(item: any) => String(item.id)}
-<<<<<<< HEAD
-        contentContainerStyle={styles.list}
-        renderItem={({ item }: any) => {
-          const departAt = getDepartAt(item);
-
-          return (
-            <TouchableOpacity style={styles.card} onPress={() => openRide(item)} activeOpacity={0.85}>
-              <Text style={styles.route} numberOfLines={1}>
-                {item.startAddress || item.depart || 'Depart'} -> {item.endAddress || item.destination || 'Destination'}
-              </Text>
-              <Text style={styles.meta}>Depart: {formatDateTime(departAt || item.dateDepart)}</Text>
-              <Text style={styles.meta}>Statut: {item.status}</Text>
-              <Text style={styles.hint}>Appuyez pour ouvrir la carte du trajet.</Text>
-            </TouchableOpacity>
-          );
-        }}
-=======
         contentContainerStyle={s.list}
         onScrollToIndexFailed={() => {}}
         renderItem={({ item }: any) => (
@@ -266,7 +185,6 @@ export default function MesTrajets() {
             onPress={() => openRide(item)}
           />
         )}
->>>>>>> 46ff32f16fb87b43f9091e209998127c51f2ff47
       />
     </View>
   );
