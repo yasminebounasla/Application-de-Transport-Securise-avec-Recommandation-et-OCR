@@ -11,6 +11,7 @@ import { useAuth } from '../../context/AuthContext';
 const CATEGORIES = [
   { key: 'completed', label: 'Completed' },
   { key: 'pending', label: 'Pending' },
+  { key: 'accepted', label: 'Accepted' },
   { key: 'cancelled', label: 'Cancelled' },
 ];
 const PRICE_FILTERS = [
@@ -109,7 +110,8 @@ export default function ActivityScreen() {
     setTimeout(() => {
       const tabRides = activity.filter((r: any) => {
         if (tab === 'completed') return r.status === 'COMPLETED';
-        if (tab === 'pending') return ['PENDING', 'ACCEPTED', 'IN_PROGRESS'].includes(r.status);
+        if (tab === 'pending') return r.status === 'PENDING';
+        if (tab === 'accepted') return ['ACCEPTED', 'IN_PROGRESS'].includes(r.status);
         return ['CANCELLED_BY_PASSENGER', 'CANCELLED_BY_DRIVER'].includes(r.status);
       });
       const index = tabRides.findIndex((r: any) => r.rideId === rideId);
@@ -123,7 +125,8 @@ export default function ActivityScreen() {
 
   const categorized = useMemo(() => ({
     completed: activity.filter((r: any) => r.status === 'COMPLETED'),
-    pending: activity.filter((r: any) => ['PENDING', 'ACCEPTED', 'IN_PROGRESS'].includes(r.status)),
+    pending: activity.filter((r: any) => r.status === 'PENDING'),
+    accepted: activity.filter((r: any) => ['ACCEPTED', 'IN_PROGRESS'].includes(r.status)),
     cancelled: activity.filter((r: any) => ['CANCELLED_BY_PASSENGER', 'CANCELLED_BY_DRIVER'].includes(r.status)),
   }), [activity]);
 

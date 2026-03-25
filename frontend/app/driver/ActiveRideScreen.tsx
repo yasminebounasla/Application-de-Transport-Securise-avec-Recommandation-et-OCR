@@ -78,8 +78,13 @@ export default function ActiveRideScreen() {
     };
   }, [trajetId]);
 
+  const syncedSelectedRide =
+    selectedRide && currentRide && selectedRide.id === currentRide.id
+      ? currentRide
+      : selectedRide;
+
   const activeRide =
-    selectedRide ||
+    syncedSelectedRide ||
     (currentRide && (currentRide.status === 'ACCEPTED' || currentRide.status === 'IN_PROGRESS')
       ? currentRide
       : null) ||
@@ -202,7 +207,8 @@ export default function ActiveRideScreen() {
     }
 
     try {
-      await startRide(activeRide.id);
+      const startedRide = await startRide(activeRide.id);
+      setSelectedRide(startedRide);
       Alert.alert('Trip started');
       getDriverActiveRide();
     } catch (err: any) {
@@ -232,7 +238,8 @@ export default function ActiveRideScreen() {
     }
 
     try {
-      await completeRide(activeRide.id);
+      const completedRide = await completeRide(activeRide.id);
+      setSelectedRide(completedRide);
       Alert.alert('Trip Ended');
       getDriverActiveRide();
       router.replace('/(driverTabs)/DriverHomeScreen' as any);

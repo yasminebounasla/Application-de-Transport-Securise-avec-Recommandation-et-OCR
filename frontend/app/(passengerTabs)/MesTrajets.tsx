@@ -3,18 +3,31 @@ import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator }
 import { router, useFocusEffect } from 'expo-router';
 import { useRide } from '../../context/RideContext';
 
-const TRACKING_WINDOW_MINUTES = 60;
-
-const formatDateTime = (dateValue?: string) => {
-  if (!dateValue) return 'Date non definie';
-  const d = new Date(dateValue);
-  return d.toLocaleString();
+const parseHeureDepart = (value?: string) => {
+  if (!value) return null;
+  const parts = String(value).trim().split(':');
+  const h = Number(parts[0]);
+  const m = Number(parts[1] ?? 0);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return null;
+  if (h < 0 || h > 23 || m < 0 || m > 59) return null;
+  return { h, m };
 };
 
-const minutesUntilDeparture = (dateValue?: string) => {
-  if (!dateValue) return Number.POSITIVE_INFINITY;
-  const departure = new Date(dateValue).getTime();
-  return (departure - Date.now()) / 60000;
+const getDepartAt = (ride: any) => {
+  if (!ride?.dateDepart) return null;
+  const d = new Date(ride.dateDepart);
+  if (Number.isNaN(d.getTime())) return null;
+
+  const hm = parseHeureDepart(ride.heureDepart);
+  if (hm) d.setHours(hm.h, hm.m, 0, 0);
+
+  return d;
+};
+
+const formatDateTime = (dateValue?: string | Date) => {
+  if (!dateValue) return 'Date non definie';
+  const d = dateValue instanceof Date ? dateValue : new Date(dateValue);
+  return d.toLocaleString();
 };
 
 export default function MesTrajets() {
@@ -38,28 +51,30 @@ export default function MesTrajets() {
   );
 
   const rides = useMemo(() => {
-    return (passengerRides || []).filter((ride: any) =>
-      ride.status === 'ACCEPTED'
-    );
+    const ONE_HOUR_MS = 60 * 60 * 1000;
+    const now = Date.now();
+    const nowDate = new Date(now);
+
+    return (passengerRides || [])
+      .filter((ride: any) => {
+        if (ride.status !== 'ACCEPTED') return false;
+        const departAt = getDepartAt(ride);
+        if (!departAt) return false;
+        const isSameDate =
+          departAt.getFullYear() === nowDate.getFullYear() &&
+          departAt.getMonth() === nowDate.getMonth() &&
+          departAt.getDate() === nowDate.getDate();
+        if (!isSameDate) return false;
+
+        const diff = departAt.getTime() - now;
+        return diff >= 0 && diff <= ONE_HOUR_MS;
+      })
+      .sort((a: any, b: any) => new Date(a.dateDepart).getTime() - new Date(b.dateDepart).getTime());
   }, [passengerRides]);
 
   const openRide = (ride: any) => {
-    const minsLeft = minutesUntilDeparture(ride.dateDepart);
-    const shouldOpenMap =
-      ride.status === 'ACCEPTED' ||
-      ride.status === 'IN_PROGRESS' ||
-      minsLeft <= TRACKING_WINDOW_MINUTES;
-
-    if (shouldOpenMap) {
-      router.push({
-        pathname: '/passenger/RideTrackingScreen',
-        params: { trajetId: String(ride.id) },
-      });
-      return;
-    }
-
     router.push({
-      pathname: '/passenger/HistoryScreen',
+      pathname: '/passenger/RideTrackingScreen',
       params: { trajetId: String(ride.id) },
     });
   };
@@ -76,8 +91,8 @@ export default function MesTrajets() {
   if (rides.length === 0) {
     return (
       <View style={styles.center}>
-        <Text style={styles.emptyTitle}>Aucun trajet actif</Text>
-        <Text style={styles.subtle}>Vos trajets acceptes et en cours apparaitront ici.</Text>
+        <Text style={styles.emptyTitle}>Aucun trajet dans moins d'1 heure</Text>
+        <Text style={styles.subtle}>Les trajets ACCEPTED qui demarrent bientot apparaitront ici.</Text>
       </View>
     );
   }
@@ -89,24 +104,16 @@ export default function MesTrajets() {
         keyExtractor={(item: any) => String(item.id)}
         contentContainerStyle={styles.list}
         renderItem={({ item }: any) => {
-          const minsLeft = minutesUntilDeparture(item.dateDepart);
-          const canTrack =
-            item.status === 'ACCEPTED' ||
-            item.status === 'IN_PROGRESS' ||
-            minsLeft <= TRACKING_WINDOW_MINUTES;
+          const departAt = getDepartAt(item);
 
           return (
             <TouchableOpacity style={styles.card} onPress={() => openRide(item)} activeOpacity={0.85}>
               <Text style={styles.route} numberOfLines={1}>
-                {item.startAddress || item.depart || 'Depart'} -&gt; {item.endAddress || item.destination || 'Destination'}
+                {item.startAddress || item.depart || 'Depart'} -> {item.endAddress || item.destination || 'Destination'}
               </Text>
-              <Text style={styles.meta}>Depart: {formatDateTime(item.dateDepart)}</Text>
+              <Text style={styles.meta}>Depart: {formatDateTime(departAt || item.dateDepart)}</Text>
               <Text style={styles.meta}>Statut: {item.status}</Text>
-              <Text style={styles.hint}>
-                {canTrack
-                  ? 'Appuyez pour ouvrir la carte de suivi.'
-                  : 'Appuyez pour voir les informations du trajet.'}
-              </Text>
+              <Text style={styles.hint}>Appuyez pour ouvrir la carte du trajet.</Text>
             </TouchableOpacity>
           );
         }}

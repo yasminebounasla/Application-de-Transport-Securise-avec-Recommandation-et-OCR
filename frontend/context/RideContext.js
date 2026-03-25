@@ -1,4 +1,4 @@
-import React, { createContext, useState, useContext, useEffect, useRef } from 'react';
+import React, { createContext, useState, useContext, useEffect, useRef, useCallback } from 'react';
 import api from '../services/api';
 import { initSocket } from '../services/socket';
 import { useAuth } from './AuthContext';
@@ -188,7 +188,7 @@ export const RideProvider = ({ children }) => {
     }
   };
 
-  const getDriverActiveRide = async () => {
+  const getDriverActiveRide = useCallback(async () => {
     setLoading(true);
     try {
       const response = await api.get('/ridesDem/driver/active');
@@ -203,7 +203,7 @@ export const RideProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const acceptRide = async (rideId) => {
     try {
