@@ -31,8 +31,10 @@ export const getRecommendations = async (passenger_id, mlPreferences = {}, authT
     };
 
     const [driversRes, interactionsRes] = await Promise.all([
-      axios.get(`${BACKEND_URL}/api/auth/driver/all`, { headers: authHeaders }),
-      axios.get(`${BACKEND_URL}/api/passengers/${passenger_id}/driver-interactions`, { headers: authHeaders }),
+      axios.get(`${BACKEND_URL}/api/auth/driver/all`, { headers: authHeaders })
+      .catch(e => { console.error("❌ drivers/all:", e.message, e.response?.status); throw e; }),
+      axios.get(`${BACKEND_URL}/api/passengers/${passenger_id}/driver-interactions`, { headers: authHeaders })
+      .catch(e => { console.error("❌ driver-interactions:", e.message, e.response?.status); throw e; }),
     ]);
 
     const payload = {
