@@ -1,6 +1,7 @@
 import { PrismaClient } from '@prisma/client';
 import { getIO } from '../socket/socket.js';
 import { createNotification } from './NotificationController.js';
+import { scheduleDriverTimeout } from './rideController.js'; 
 
 const prisma = new PrismaClient();
 
@@ -86,6 +87,10 @@ export const sendRideRequests = async (req, res) => {
         where: { id: ride.id },
         data:  { notifiedDriversCount: drivers.length },
       });
+
+      // ── AJOUT : démarrer le chronomètre pour ce driver ──────────────────────
+      // Si le driver n'accepte pas / refuse avant expiration → timedOutDriverIds
+      scheduleDriverTimeout(ride.id, driver.id, ride.dateDepart);
 
       notifiedCount++;
     }
