@@ -9,25 +9,8 @@ const parseAndValidateId = (rawId) => {
   return Number.isNaN(id) ? null : id;
 };
 
-// ──────────────────────────────────────────────────────────────────────────────
-// SYSTÈME DE TIMEOUT DRIVERS
-//
-// Quand un driver reçoit une notification de trajet, on démarre un timer
-// (scheduleDriverTimeout). Si le driver ne répond pas avant expiration :
-//   → son id est ajouté à timedOutDriverIds en BDD
-//   → evaluateTrajet() est appelée pour vérifier si tous ont répondu
-//
-// Si le driver répond (accepte OU refuse) avant expiration :
-//   → clearDriverTimeout() annule son timer proprement
-//
-// Si un driver accepte :
-//   → on annule TOUS les timers des autres drivers notifiés
-//   → évite des écritures BDD inutiles après que le trajet est ACCEPTED
-//
-// pendingTimeouts : Map en mémoire { "trajetId_driverId" → timeoutId }
-//   ⚠️  Cette Map est réinitialisée si le serveur redémarre.
-//   Pour une solution production, remplacer par un job schedulé (BullMQ, etc.)
-// ──────────────────────────────────────────────────────────────────────────────
+// ── Map en mémoire pour stocker les timeouts par driver par trajet ─────────────
+// clé : `${trajetId}_${driverId}` → valeur : timeoutId
 const pendingTimeouts = new Map();
 const SIX_HOURS = 6 * 60 * 60 * 1000;
 
