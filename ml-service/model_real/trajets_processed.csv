@@ -3423,6 +3423,12 @@ P376,T67599,no,yes,yes,yes,no,no,349.48,0.1863,0,dist:very_far
 P376,T67600,no,yes,yes,yes,no,no,766.41,0.0945,0,dist:very_far
 P376,T67601,no,yes,yes,yes,no,no,323.88,0.1981,1,dist:very_far
 P376,T67602,no,yes,yes,yes,no,no,111.99,0.4167,1,dist:far
+P1,T67667,no,no,no,no,no,no,9.28,0.8961,1,dist:very_close
+P1,T67676,no,no,no,no,no,no,9.27,0.8962,1,dist:very_close
+P1,T67679,no,no,no,no,no,no,9.27,0.8962,1,dist:very_close
+P1,T67680,no,no,no,no,no,no,9.27,0.8962,1,dist:very_close
+P1,T67677,no,no,no,no,no,no,9.28,0.8961,1,dist:very_close
+P1,T67673,no,no,no,no,no,no,64.31,0.5544,1,dist:medium
 P2,T63472,yes,no,no,no,yes,no,434.48,0.1555,0,dist:very_far
 P2,T63473,yes,no,no,no,no,no,222.45,0.2645,0,dist:very_far
 P2,T63474,yes,no,no,no,no,no,301.47,0.2097,1,dist:very_far

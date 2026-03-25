@@ -230,17 +230,20 @@ print(f"{'='*45}")
 
 
 # ── 10. SAUVEGARDE ────────────────────────────────────────────────────────────
+model.random_state = None
+
+import joblib
+
 os.makedirs(MODELS_DIR, exist_ok=True)
-
-with open(os.path.join(MODELS_DIR, "lightfm_model_real.pkl"),    "wb") as f: pickle.dump(model,        f)
-with open(os.path.join(MODELS_DIR, "dataset_real.pkl"),          "wb") as f: pickle.dump(dataset,      f)
-with open(os.path.join(MODELS_DIR, "user_features_real.pkl"),    "wb") as f: pickle.dump(user_features, f)
-with open(os.path.join(MODELS_DIR, "item_features_real.pkl"),    "wb") as f: pickle.dump(item_features, f)
-
+joblib.dump(model,         os.path.join(MODELS_DIR, "lightfm_model_real.pkl"))
+joblib.dump(dataset,       os.path.join(MODELS_DIR, "dataset_real.pkl"))
+joblib.dump(user_features, os.path.join(MODELS_DIR, "user_features_real.pkl"))
+joblib.dump(item_features, os.path.join(MODELS_DIR, "item_features_real.pkl"))
 t_df.to_csv(os.path.join(MODELS_DIR, "trajets_processed.csv"), index=False)
 d_df.to_csv(os.path.join(MODELS_DIR, "drivers_processed.csv"), index=False)
-
 print("\n✅ Modèle et données sauvegardés !")
 
 
 
+import httpx
+httpx.post("http://localhost:8000/reload-model")

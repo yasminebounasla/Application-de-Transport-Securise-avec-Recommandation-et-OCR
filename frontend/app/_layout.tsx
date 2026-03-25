@@ -11,12 +11,10 @@ import ReminderModal from './shared/ReminderModel';
 
 function ToastManager() {
   const { currentToast, hideToast } = useNotifications();
-
   const handlePress = () => {
     hideToast();
     router.push('/shared/NotificationsScreen' as any);
   };
-
   return (
     <View style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 9999 }} pointerEvents={currentToast ? 'box-none' : 'none'}>
       <TouchableOpacity onPress={handlePress} activeOpacity={0.95}>
@@ -27,7 +25,10 @@ function ToastManager() {
 }
 
 function AppContent() {
-  const { loading } = useAuth();
+  const { loading, isAuthenticated } = useAuth();
+
+  console.log('AppContent render — loading:', loading, 'isAuthenticated:', isAuthenticated);
+
   if (loading) return null;
 
   return (
@@ -45,7 +46,7 @@ function AppContent() {
               <Stack.Screen name="shared/MapScreen" options={{ title: 'Map' }} />
             </Stack>
             <ToastManager />
-            <ReminderModal />
+            {isAuthenticated && <ReminderModal />}
           </SafeAreaProvider>
         </RideProvider>
       </LocationProvider>

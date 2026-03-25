@@ -9,6 +9,72 @@ const parseAndValidateId = (rawId) => {
   return Number.isNaN(id) ? null : id;
 };
 
+// ── Map en mémoire pour stocker les timeouts par driver par trajet ─────────────
+// clé : `${trajetId}_${driverId}` → valeur : timeoutId
+const pendingTimeouts = new Map();
+const SIX_HOURS = 6 * 60 * 60 * 1000;
+
+const evaluateTrajet = async (trajetId) => {
+  const ride = await prisma.trajet.findUnique({ where: { id: trajetId } });
+  if (!ride || ride.status !== 'PENDING') return;
+
+  const resolvedCount = ride.rejectedDriverIds.length + ride.timedOutDriverIds.length;
+  if (resolvedCount < ride.notifiedDriversCount) return;
+
+  await prisma.trajet.update({
+    where: { id: trajetId },
+    data: { status: 'CANCELLED_BY_DRIVER' },
+  });
+
+  const io = getIO();
+  io.to(`passenger_${ride.passagerId}`).emit('rideRejectedByDriver', {
+    rideId: ride.id,
+    status: 'CANCELLED_BY_DRIVER',
+    title: '❌ Demande refusée',
+    message: `Votre demande de trajet a été refusée par tous les conducteurs.`,
+  });
+
+  await createNotification({
+    passengerId:   ride.passagerId,
+    recipientType: 'PASSENGER',
+    type:          'RIDE_REJECTED',
+    title:         '❌ Demande refusée',
+    message:       `Votre demande de trajet a été refusée par tous les conducteurs.`,
+    data: { rideId: ride.id },
+  });
+};
+
+export const scheduleDriverTimeout = (trajetId, driverId, dateDepart) => {
+  const timeAvailable = new Date(dateDepart) - Date.now();
+  const timeout = Math.min(timeAvailable / 2, SIX_HOURS);
+  const key = `${trajetId}_${driverId}`;
+
+  const timeoutId = setTimeout(async () => {
+    pendingTimeouts.delete(key);
+    const ride = await prisma.trajet.findUnique({ where: { id: trajetId } });
+    if (!ride || ride.status !== 'PENDING') return;
+    if (ride.rejectedDriverIds.includes(driverId)) return;
+
+    console.log(`⏱️ Timeout driver ${driverId} pour trajet ${trajetId}`);
+    await prisma.trajet.update({
+      where: { id: trajetId },
+      data: { timedOutDriverIds: { push: driverId }, updatedAt: new Date() },
+    });
+    await evaluateTrajet(trajetId);
+  }, timeout);
+
+  pendingTimeouts.set(key, timeoutId);
+};
+
+const clearDriverTimeout = (trajetId, driverId) => {
+  const key = `${trajetId}_${driverId}`;
+  const timeoutId = pendingTimeouts.get(key);
+  if (timeoutId) {
+    clearTimeout(timeoutId);
+    pendingTimeouts.delete(key);
+  }
+};
+
 export const createRide = async (req, res) => {
   console.log("REQ.USER:", req.user);
   const passengerId = req.user.passengerId;
@@ -123,7 +189,7 @@ export const getRideById = async (req, res) => {
       where: { id: parseInt(id, 10) },
       include: {
         passenger: { select: { id: true, nom: true, prenom: true, numTel: true } },
-        driver: { select: { id: true, nom: true, prenom: true, numTel: true } },
+        driver: { select: { id: true, nom: true, prenom: true, numTel: true , sexe: true} },
       },
     });
 
@@ -202,6 +268,9 @@ export const acceptRide = async (req, res) => {
     if (ride.status !== 'PENDING')
       return res.status(400).json({ success: false, message: `Impossible d'accepter un trajet avec le status ${ride.status}` });
 
+    // AJOUT : annuler le timeout de ce driver — il a répondu explicitement
+    clearDriverTimeout(parseInt(id), driverId);
+
     const updatedRide = await prisma.trajet.update({
       where: { id: parseInt(id) },
       data: {
@@ -227,6 +296,24 @@ export const acceptRide = async (req, res) => {
       title,
       message,
     });
+
+    // Récupérer tous les drivers qui ont ce ride en PENDING dans leur activity
+      const otherDriverNotifs = await prisma.notification.findMany({
+        where: {
+          type: 'RIDE_REQUEST',
+          data: { path: ['rideId'], equals: updatedRide.id },
+          driverId: { not: driverId },
+        },
+        select: { driverId: true },
+      });
+
+      const otherDriverIds = [...new Set(otherDriverNotifs.map(n => n.driverId).filter(Boolean))];
+
+      otherDriverIds.forEach(otherDriverId => {
+        // AJOUT : annuler aussi les timeouts des autres drivers notifiés
+        clearDriverTimeout(parseInt(id), otherDriverId);
+        io.to(`driver_${otherDriverId}`).emit('rideTaken', { rideId: updatedRide.id });
+      });
 
     // FIX : persister la notification en base de données
     await createNotification({
@@ -265,17 +352,49 @@ export const rejectRide = async (req, res) => {
     const ride = await prisma.trajet.findUnique({ where: { id: parseInt(id) } });
     if (!ride) return res.status(404).json({ success: false, message: 'Demande de trajet introuvable' });
     if (ride.status !== 'PENDING')
-      return res.status(400).json({ success: false, message: `Impossible de refuser un trajet avec le status ${ride.status}` });
-    if (ride.driverId && ride.driverId !== driverId)
-      return res.status(403).json({ success: false, message: "Vous ne pouvez refuser que vos propres demandes" });
+    return res.status(400).json({ success: false, message: `Impossible de refuser un trajet avec le status ${ride.status}` });
 
+    // Vérifier que le driver était bien notifié pour ce trajet
+    // (il a reçu une notification RIDE_REQUEST)
+    const wasNotified = await prisma.notification.findFirst({
+      where: {
+       driverId: driverId,
+       type: 'RIDE_REQUEST',
+       data: { path: ['rideId'], equals: parseInt(id) }
+      }
+    });
+
+   if (!wasNotified)
+   return res.status(403).json({ 
+     success: false, 
+     message: "Vous n'êtes pas autorisé à refuser ce trajet" 
+    });
+
+    // AJOUT : annuler le timeout — le driver a répondu explicitement
+    clearDriverTimeout(parseInt(id), driverId);
+
+    //  CORRIGÉ — étape 1 : ajouter le driver aux refus
     const updatedRide = await prisma.trajet.update({
       where: { id: parseInt(id) },
-      data: { status: 'CANCELLED_BY_DRIVER', updatedAt: new Date() },
+      data: {
+       rejectedDriverIds: { push: driverId },
+       updatedAt: new Date(),
+      },
       include: {
         passenger: { select: { id: true, nom: true, prenom: true } },
         driver:    { select: { id: true, nom: true, prenom: true, numTel: true } },
       },
+    });
+
+    // ✅ étape 2 : vérifier si tous ont refusé
+    // MODIFIÉ : condition élargie — rejected + timedOut >= notified
+    const resolvedCount = updatedRide.rejectedDriverIds.length + updatedRide.timedOutDriverIds.length;
+    const allRejected = resolvedCount >= updatedRide.notifiedDriversCount;
+
+    // ✅ étape 3 : mettre à jour le statut
+    await prisma.trajet.update({
+      where: { id: parseInt(id) },
+     data: { status: allRejected ? 'CANCELLED_BY_DRIVER' : 'PENDING' },
     });
 
     const io = getIO();
@@ -488,7 +607,7 @@ export const getPassengerRideActivity = async (req, res) => {
       where: { passagerId: passengerId },
       include: {
         passenger: { select: { id: true, nom: true, prenom: true, numTel: true } },
-        driver:    { select: { id: true, nom: true, prenom: true, numTel: true, avgRating: true } },
+        driver:    { select: { id: true, nom: true, prenom: true, numTel: true, avgRating: true , sexe: true } },
       },
       orderBy: { updatedAt: 'desc' },
     });
@@ -519,14 +638,24 @@ export const getDriverRideActivity = async (req, res) => {
 
   try {
     const rides = await prisma.trajet.findMany({
-      where: {
-        OR: [
+     where: {
+       OR: [
           { driverId: driverId },
-          { driverId: null, status: 'PENDING' } // rides PENDING envoyés à ce driver
+          {
+           status: 'PENDING',
+           driverId: null,
+           NOT: {
+             // MODIFIÉ : exclure aussi les drivers qui ont timeout
+             OR: [
+               { rejectedDriverIds: { has: driverId } },
+               { timedOutDriverIds: { has: driverId } },
+             ]
+            }
+          }
         ]
       },
       include: {
-        driver:    { select: { id: true, nom: true, prenom: true, numTel: true } },
+        driver:    { select: { id: true, nom: true, prenom: true, numTel: true, sexe: true } },
         passenger: { select: { id: true, nom: true, prenom: true, numTel: true, age: true } },
       },
       orderBy: { updatedAt: 'desc' },

@@ -1,83 +1,305 @@
 import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, RefreshControl,
-  ActivityIndicator, TouchableOpacity, TextInput, Animated, Alert, Modal, Pressable,
+  ActivityIndicator, TouchableOpacity, Animated,
+  Pressable, Modal, TextInput, Alert,
 } from 'react-native';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useRide } from '../../context/RideContext';
 
+// ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const CATEGORIES = [
-  { key: 'completed', label: 'Completed' },
-  { key: 'pending', label: 'Pending' },
-  { key: 'accepted', label: 'Accepted' },
-  { key: 'cancelled', label: 'Cancelled' },
+  { key: 'completed', label: 'Completed', icon: 'checkmark-circle-outline' as const },
+  { key: 'pending',   label: 'Requests',  icon: 'time-outline'              as const },
+  { key: 'accepted',  label: 'Active',    icon: 'car-outline'               as const },
+  { key: 'cancelled', label: 'Cancelled', icon: 'close-circle-outline'      as const },
 ];
-const PRICE_FILTERS = [
-  { key: 'none', label: 'None' },
-  { key: 'asc', label: 'Low-High' },
-  { key: 'desc', label: 'High-Low' },
+
+const STATUS_CONFIG: Record<string, { label: string; bg: string; color: string; icon: string }> = {
+  COMPLETED:              { label: 'Completed',            bg: '#D1FAE5', color: '#065F46', icon: 'checkmark-circle' },
+  PENDING:                { label: 'New request',          bg: '#DBEAFE', color: '#1E40AF', icon: 'time'             },
+  ACCEPTED:               { label: 'Accepted',             bg: '#DCFCE7', color: '#166534', icon: 'checkmark'        },
+  IN_PROGRESS:            { label: 'In progress',          bg: '#FEF9C3', color: '#854D0E', icon: 'car-outline'      },
+  CANCELLED_BY_PASSENGER: { label: 'Cancelled by passenger',bg: '#FFEDD5', color: '#9A3412', icon: 'close-circle'   },
+  CANCELLED_BY_DRIVER:    { label: 'Cancelled by you',     bg: '#FEE2E2', color: '#991B1B', icon: 'close-circle'    },
+};
+
+type SortKey = 'date_desc' | 'date_asc' | 'price_desc' | 'price_asc' | 'name_az' | 'name_za' | 'none';
+
+const SORT_OPTIONS: { key: SortKey; label: string; icon: string }[] = [
+  { key: 'date_desc',  label: 'Date: newest first',     icon: 'calendar'         },
+  { key: 'date_asc',   label: 'Date: oldest first',     icon: 'calendar-outline' },
+  { key: 'price_desc', label: 'Price: high to low',     icon: 'trending-down'    },
+  { key: 'price_asc',  label: 'Price: low to high',     icon: 'trending-up'      },
+  { key: 'name_az',    label: 'Passenger: A → Z',       icon: 'text'             },
+  { key: 'name_za',    label: 'Passenger: Z → A',       icon: 'text'             },
 ];
-const NAME_FILTERS = [
-  { key: 'none', label: 'None' },
-  { key: 'az', label: 'A-Z' },
-  { key: 'za', label: 'Z-A' },
-];
-const getPassengerName = (ride: any) =>
-  `${ride.passenger?.prenom || ''} ${ride.passenger?.nom || ''}`.trim();
-function HighlightCard({ highlighted, children }: { highlighted: boolean; children: React.ReactNode }) {
-  const anim = useRef(new Animated.Value(0)).current;
-  useEffect(() => {
-    if (!highlighted) { anim.setValue(0); return; }
-    Animated.sequence([
-      Animated.timing(anim, { toValue: 1, duration: 300, useNativeDriver: false }),
-      Animated.timing(anim, { toValue: 0, duration: 300, useNativeDriver: false }),
-      Animated.timing(anim, { toValue: 1, duration: 300, useNativeDriver: false }),
-      Animated.timing(anim, { toValue: 0, duration: 300, useNativeDriver: false }),
-      Animated.timing(anim, { toValue: 1, duration: 300, useNativeDriver: false }),
-      Animated.delay(1500),
-      Animated.timing(anim, { toValue: 0, duration: 800, useNativeDriver: false }),
-    ]).start();
-  }, [anim, highlighted]);
-  const bgColor = anim.interpolate({ inputRange: [0, 1], outputRange: ['#FFFFFF', '#FFF3CD'] });
-  const borderColor = anim.interpolate({ inputRange: [0, 1], outputRange: ['#E5E7EB', '#F59E0B'] });
+
+// ─── AVATAR ───────────────────────────────────────────────────────────────────
+function getAvatarColor(sexe?: string) {
+  const val = (sexe ?? '').toLowerCase().trim();
+  if (val === 'f' || val === 'female' || val === 'femme' || val === 'woman')
+    return { bg: '#fad0e2', text: '#BE185D' };
+  return { bg: '#d3e4fa', text: '#1B72DA' };
+}
+
+function Avatar({ prenom, nom, sexe }: { prenom?: string; nom?: string; sexe?: string }) {
+  const initials = `${prenom?.[0] ?? ''}${nom?.[0] ?? ''}`.toUpperCase() || '?';
+  const colors   = getAvatarColor(sexe);
   return (
-    <Animated.View style={[styles.rideCard, { backgroundColor: bgColor, borderColor }]}>
-      {children}
-    </Animated.View>
+    <View style={[s.avatar, { backgroundColor: colors.bg }]}>
+      <Text style={[s.avatarText, { color: colors.text }]}>{initials}</Text>
+    </View>
   );
 }
 
+function Tag({ icon, label }: { icon: string; label: string }) {
+  return (
+    <View style={s.tag}>
+      <Ionicons name={icon as any} size={10} color="#9CA3AF" />
+      <Text style={s.tagText}>{label}</Text>
+    </View>
+  );
+}
+
+// ─── FLASH ────────────────────────────────────────────────────────────────────
+function Flash({ flash }: { flash: { type: 'success' | 'error'; text: string } | null }) {
+  if (!flash) return null;
+  const isSuccess = flash.type === 'success';
+  return (
+    <View style={[s.flash, isSuccess ? s.flashSuccess : s.flashError]}>
+      <Ionicons name={isSuccess ? 'checkmark-circle' : 'close-circle'} size={15} color={isSuccess ? '#16A34A' : '#DC2626'} />
+      <Text style={[s.flashText, { color: isSuccess ? '#16A34A' : '#DC2626' }]}>{flash.text}</Text>
+    </View>
+  );
+}
+
+// ─── RIDE CARD ────────────────────────────────────────────────────────────────
+function RideCard({ item, highlighted, onPress, onAccept, onReject, actionLoading }: {
+  item: any;
+  highlighted: boolean;
+  onPress: () => void;
+  onAccept?: () => void;
+  onReject?: () => void;
+  actionLoading?: 'accept' | 'reject' | null;
+}) {
+  const scale    = useRef(new Animated.Value(1)).current;
+  const glowAnim = useRef(new Animated.Value(0)).current;
+
+  const onPressIn  = () => Animated.spring(scale, { toValue: 0.97, useNativeDriver: true }).start();
+  const onPressOut = () => Animated.spring(scale, { toValue: 1,    useNativeDriver: true }).start();
+
+  useEffect(() => {
+    if (!highlighted) { glowAnim.setValue(0); return; }
+    Animated.sequence([
+      Animated.timing(glowAnim, { toValue: 1, duration: 400, useNativeDriver: false }),
+      Animated.timing(glowAnim, { toValue: 0, duration: 400, useNativeDriver: false }),
+      Animated.timing(glowAnim, { toValue: 1, duration: 400, useNativeDriver: false }),
+      Animated.timing(glowAnim, { toValue: 0, duration: 400, useNativeDriver: false }),
+      Animated.timing(glowAnim, { toValue: 1, duration: 400, useNativeDriver: false }),
+      Animated.delay(1200),
+      Animated.timing(glowAnim, { toValue: 0, duration: 800, useNativeDriver: false }),
+    ]).start();
+  }, [highlighted]);
+
+  const borderColor = glowAnim.interpolate({ inputRange: [0, 1], outputRange: ['#F3F4F6', '#111111'] });
+  const bgColor     = glowAnim.interpolate({ inputRange: [0, 1], outputRange: ['#FFFFFF', '#F3F4F6'] });
+
+  const passenger  = item.passenger || {};
+  const cfg        = STATUS_CONFIG[item.status] || { label: item.status, bg: '#F3F4F6', color: '#6B7280', icon: 'ellipse-outline' };
+  const isPending  = item.status === 'PENDING';
+  const hasPass    = !!(passenger.prenom || passenger.nom);
+
+  const dateLabel = item.dateDepart
+    ? new Date(item.dateDepart).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+    : 'N/A';
+  const start = item.startAddress || item.depart      || 'N/A';
+  const end   = item.endAddress   || item.destination || 'N/A';
+  const trunc = (str: string, n = 32) => str.length > n ? str.slice(0, n) + '…' : str;
+
+  const cardContent = (
+    <Animated.View style={[s.card, { borderColor, backgroundColor: bgColor, transform: [{ scale }] }]}>
+
+      {/* ── HEADER ── */}
+      <View style={s.cardHeader}>
+        <View style={s.headerLeft}>
+          {hasPass ? (
+            <>
+              <Avatar prenom={passenger.prenom} nom={passenger.nom} sexe={passenger.sexe} />
+              <View>
+                <Text style={s.passengerName} numberOfLines={1}>{passenger.prenom} {passenger.nom}</Text>
+                <Text style={s.passengerSub}>{passenger.numTel}</Text>
+              </View>
+            </>
+          ) : (
+            <>
+              <View style={s.unknownAvatar}>
+                <Ionicons name="person-outline" size={16} color="#9CA3AF" />
+              </View>
+              <View>
+                <Text style={s.passengerName}>Unknown passenger</Text>
+                <Text style={s.passengerSub}>No info available</Text>
+              </View>
+            </>
+          )}
+        </View>
+        <View style={[s.statusBadge, { backgroundColor: cfg.bg }]}>
+          <Ionicons name={cfg.icon as any} size={11} color={cfg.color} />
+          <Text style={[s.statusText, { color: cfg.color }]}>{cfg.label}</Text>
+        </View>
+      </View>
+
+      {/* ── PRICE ── */}
+      {item.prix != null && (
+        <View style={s.priceRow}>
+          <View style={s.priceBadge}>
+            <Ionicons name="cash-outline" size={12} color="#065F46" />
+            <Text style={s.priceText}>{Number(item.prix).toLocaleString('fr-FR')} DA</Text>
+          </View>
+        </View>
+      )}
+
+      {/* ── ROUTE ── */}
+      <View style={s.routeBox}>
+        <View style={s.routeRow}>
+          <View style={[s.routeDot, { backgroundColor: '#22C55E' }]} />
+          <Text style={s.routeText} numberOfLines={1}>{trunc(start)}</Text>
+        </View>
+        <View style={s.routeLine} />
+        <View style={s.routeRow}>
+          <View style={[s.routeDot, { backgroundColor: '#EF4444' }]} />
+          <Text style={s.routeText} numberOfLines={1}>{trunc(end)}</Text>
+        </View>
+      </View>
+
+      {/* ── TAGS ── */}
+      <View style={s.tagsRow}>
+        <Tag icon="calendar-outline" label={dateLabel} />
+        {item.heureDepart && <Tag icon="time-outline" label={item.heureDepart} />}
+        {item.placesDispo != null && (
+          <Tag icon="people-outline" label={`${item.placesDispo} seat${item.placesDispo > 1 ? 's' : ''}`} />
+        )}
+      </View>
+
+      {/* ── PENDING ACTIONS ou footer ── */}
+      {isPending && onAccept && onReject ? (
+        <View style={s.actionRow}>
+          <TouchableOpacity
+            style={[s.rejectBtn, !!actionLoading && s.btnDisabled]}
+            onPress={onReject}
+            disabled={!!actionLoading}
+            activeOpacity={0.8}
+          >
+            <Text style={s.rejectBtnText}>{actionLoading === 'reject' ? 'Rejecting...' : 'Reject'}</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[s.acceptBtn, !!actionLoading && s.btnDisabled]}
+            onPress={onAccept}
+            disabled={!!actionLoading}
+            activeOpacity={0.8}
+          >
+            <Text style={s.acceptBtnText}>{actionLoading === 'accept' ? 'Accepting...' : 'Accept'}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <View style={s.footer}>
+          <Text style={s.seeMore}>See details →</Text>
+        </View>
+      )}
+
+    </Animated.View>
+  );
+
+  return (
+    <Pressable onPress={onPress} onPressIn={onPressIn} onPressOut={onPressOut}>
+      {cardContent}
+    </Pressable>
+  );
+}
+
+// ─── FILTER MODAL ─────────────────────────────────────────────────────────────
+function FilterModal({ visible, current, nameQuery, onSelect, onNameChange, onReset, onClose }: {
+  visible: boolean; current: SortKey; nameQuery: string;
+  onSelect: (k: SortKey) => void; onNameChange: (v: string) => void;
+  onReset: () => void; onClose: () => void;
+}) {
+  return (
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+      <Pressable style={s.modalOverlay} onPress={onClose}>
+        <Pressable style={s.modalBox} onPress={() => {}}>
+          <View style={s.modalHandle} />
+          <Text style={s.modalTitle}>Filter & Sort</Text>
+
+          <Text style={s.modalSectionLabel}>Search passenger</Text>
+          <View style={s.modalSearchBox}>
+            <Ionicons name="search-outline" size={15} color="#9CA3AF" />
+            <TextInput
+              style={s.modalSearchInput}
+              value={nameQuery}
+              onChangeText={onNameChange}
+              placeholder="Passenger name..."
+              placeholderTextColor="#BBB"
+            />
+            {nameQuery.length > 0 && (
+              <TouchableOpacity onPress={() => onNameChange('')}>
+                <Ionicons name="close-circle" size={16} color="#CCC" />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <Text style={[s.modalSectionLabel, { marginTop: 16 }]}>Sort by</Text>
+          {SORT_OPTIONS.map(opt => (
+            <TouchableOpacity
+              key={opt.key}
+              style={s.modalRow}
+              onPress={() => onSelect(opt.key)}
+            >
+              <Ionicons name={opt.icon as any} size={16} color={current === opt.key ? '#111' : '#9CA3AF'} />
+              <Text style={[s.modalRowText, current === opt.key && s.modalRowTextActive]}>{opt.label}</Text>
+              {current === opt.key && <Ionicons name="checkmark" size={16} color="#111" />}
+            </TouchableOpacity>
+          ))}
+
+          <View style={s.modalFooter}>
+            <TouchableOpacity style={s.modalResetBtn} onPress={onReset}>
+              <Text style={s.modalResetText}>Reset</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={s.modalDoneBtn} onPress={onClose}>
+              <Text style={s.modalDoneText}>Done</Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
+}
+
+// ─── SCREEN ───────────────────────────────────────────────────────────────────
 export default function DriverActivityScreen() {
-  const { user } = useAuth();
+  const { user }               = useAuth();
   const { acceptRide, rejectRide } = useRide();
-  const params = useLocalSearchParams<{ rideId?: string; tab?: string }>();
-  const router = useRouter();
+  const params                 = useLocalSearchParams<{ rideId?: string; tab?: string }>();
+  const router                 = useRouter();
 
-  const [activity, setActivity] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState('');
+  const [activity,       setActivity]       = useState<any[]>([]);
+  const [loading,        setLoading]        = useState(true);
+  const [refreshing,     setRefreshing]     = useState(false);
+  const [error,          setError]          = useState('');
   const [activeCategory, setActiveCategory] = useState('completed');
-  const [showFilters, setShowFilters] = useState(false);
-  const [priceFilter, setPriceFilter] = useState('none');
-  const [nameFilter, setNameFilter] = useState('none');
-  const [nameQuery, setNameQuery] = useState('');
-  const [highlightedId, setHighlightedId] = useState<number | null>(null);
-  const [flash, setFlash] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
-  const [actionLoading, setActionLoading] = useState<{ rideId: number | null; action: 'accept' | 'reject' | null }>({
-    rideId: null,
-    action: null,
-  });
-  const flatListRef = useRef<FlatList>(null);
+  const [sortKey,        setSortKey]        = useState<SortKey>('date_desc');
+  const [nameQuery,      setNameQuery]      = useState('');
+  const [showFilter,     setShowFilter]     = useState(false);
+  const [highlightedId,  setHighlightedId]  = useState<number | null>(null);
+  const [flash,          setFlash]          = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [actionLoading,  setActionLoading]  = useState<{ rideId: number | null; action: 'accept' | 'reject' | null }>({ rideId: null, action: null });
 
-  // ✅ KEY FIX: on garde une ref separee pour le tab et rideId cible
-  // comme ca meme si activity se re-charge, on peut re-appliquer le highlight
+  const flatListRef      = useRef<FlatList>(null);
   const pendingHighlight = useRef<{ rideId: number; tab: string } | null>(null);
 
-  const showFlash = (type: 'success' | 'error', text: string) => {
+  const showFlashMsg = (type: 'success' | 'error', text: string) => {
     setFlash({ type, text });
     setTimeout(() => setFlash(null), 2500);
   };
@@ -86,71 +308,43 @@ export default function DriverActivityScreen() {
     if (!user?.id) { setLoading(false); return; }
     try {
       setError('');
-      const response = await api.get(`/rides/activity/driver/${user.id}`);
-      const data = response?.data?.data || [];
-      setActivity(data);
+      const res = await api.get(`/rides/activity/driver/${user.id}`);
+      setActivity(res?.data?.data || []);
     } catch {
-      setError("Impossible de charger l'activite.");
+      setError('Unable to load activity.');
     } finally {
       setLoading(false);
     }
   }, [user?.id]);
 
-  useFocusEffect(
-    useCallback(() => {
-      loadActivity();
-    }, [loadActivity])
-  );
+  useFocusEffect(useCallback(() => { loadActivity(); }, [loadActivity]));
 
-  // ✅ Step 1: quand les params changent, on sauvegarde la cible dans la ref
-  // et on switch le tab IMMEDIATEMENT
   useEffect(() => {
     if (!params.rideId) return;
     const rideId = parseInt(params.rideId as string);
-    const tab = (params.tab as string) || 'pending';
+    const tab    = (params.tab as string) || 'pending';
     pendingHighlight.current = { rideId, tab };
-    setActiveCategory(tab); // switch tab tout de suite
+    setActiveCategory(tab);
   }, [params.rideId, params.tab]);
 
-  // ✅ Step 2: quand activity EST charge ET qu'on a un highlight en attente,
-  // on applique le highlight + scroll
   useEffect(() => {
-    if (activity.length === 0) return;
-    if (!pendingHighlight.current) return;
-
+    if (activity.length === 0 || !pendingHighlight.current) return;
     const { rideId, tab } = pendingHighlight.current;
-
-    const ride = activity.find((r: any) => r.rideId === rideId);
-    if (!ride) return;
-
-    // consommer seulement si le ride est trouvé
+    if (!activity.find((r: any) => r.rideId === rideId)) return;
     pendingHighlight.current = null;
-
-    // S'assurer que le bon tab est actif
     setActiveCategory(tab);
     setHighlightedId(rideId);
-
-    // Scroll apres que React ait re-rendu avec le bon tab
     setTimeout(() => {
-      const tabRides = activity.filter((r: any) => {
-        if (tab === 'completed') return r.status === 'COMPLETED';
-        if (tab === 'pending') return r.status === 'PENDING';
-        if (tab === 'accepted') return ['ACCEPTED', 'IN_PROGRESS'].includes(r.status);
-        return ['CANCELLED_BY_PASSENGER', 'CANCELLED_BY_DRIVER'].includes(r.status);
-      });
-      const index = tabRides.findIndex((r: any) => r.rideId === rideId);
-      if (index >= 0) {
-        flatListRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.3 });
-      }
-    }, 400);
-
-    setTimeout(() => setHighlightedId(null), 4500);
+      const index = visibleRides.findIndex((r: any) => r.rideId === rideId);
+      if (index >= 0) flatListRef.current?.scrollToIndex({ index, animated: true, viewPosition: 0.3 });
+    }, 600);
+    setTimeout(() => setHighlightedId(null), 5000);
   }, [activity]);
 
   const categorized = useMemo(() => ({
     completed: activity.filter((r: any) => r.status === 'COMPLETED'),
-    pending: activity.filter((r: any) => r.status === 'PENDING'),
-    accepted: activity.filter((r: any) => ['ACCEPTED', 'IN_PROGRESS'].includes(r.status)),
+    pending:   activity.filter((r: any) => r.status === 'PENDING'),
+    accepted:  activity.filter((r: any) => ['ACCEPTED', 'IN_PROGRESS'].includes(r.status)),
     cancelled: activity.filter((r: any) => ['CANCELLED_BY_PASSENGER', 'CANCELLED_BY_DRIVER'].includes(r.status)),
   }), [activity]);
 
@@ -158,368 +352,272 @@ export default function DriverActivityScreen() {
     let rides: any[] = (categorized as any)[activeCategory] || [];
     if (nameQuery.trim()) {
       const q = nameQuery.trim().toLowerCase();
-      rides = rides.filter((ride: any) => getPassengerName(ride).toLowerCase().includes(q));
+      rides = rides.filter((r: any) =>
+        `${r.passenger?.prenom || ''} ${r.passenger?.nom || ''}`.toLowerCase().includes(q)
+      );
     }
     rides = [...rides];
-    if (nameFilter === 'az') rides.sort((a: any, b: any) => getPassengerName(a).localeCompare(getPassengerName(b)));
-    if (nameFilter === 'za') rides.sort((a: any, b: any) => getPassengerName(b).localeCompare(getPassengerName(a)));
-    if (priceFilter === 'asc') rides.sort((a: any, b: any) => (Number(a.prix) || 0) - (Number(b.prix) || 0));
-    if (priceFilter === 'desc') rides.sort((a: any, b: any) => (Number(b.prix) || 0) - (Number(a.prix) || 0));
+    if (sortKey === 'date_desc') rides.sort((a, b) => new Date(b.dateDepart || 0).getTime() - new Date(a.dateDepart || 0).getTime());
+    if (sortKey === 'date_asc')  rides.sort((a, b) => new Date(a.dateDepart || 0).getTime() - new Date(b.dateDepart || 0).getTime());
+    if (sortKey === 'price_desc')rides.sort((a, b) => (Number(b.prix) || 0) - (Number(a.prix) || 0));
+    if (sortKey === 'price_asc') rides.sort((a, b) => (Number(a.prix) || 0) - (Number(b.prix) || 0));
+    if (sortKey === 'name_az')   rides.sort((a, b) => (a.passenger?.prenom || '').localeCompare(b.passenger?.prenom || ''));
+    if (sortKey === 'name_za')   rides.sort((a, b) => (b.passenger?.prenom || '').localeCompare(a.passenger?.prenom || ''));
     return rides;
-  }, [activeCategory, categorized, nameFilter, priceFilter, nameQuery]);
-
-  const getStatusBadgeStyle = (status: string) => {
-    if (status === 'COMPLETED') return styles.completedBadge;
-    if (status === 'CANCELLED_BY_DRIVER') return styles.cancelledDriverBadge;
-    if (status === 'CANCELLED_BY_PASSENGER') return styles.cancelledPassengerBadge;
-    if (status === 'ACCEPTED') return styles.acceptedBadge;
-    return styles.pendingBadge;
-  };
-
-  const getStatusLabel = (status: string) => {
-    if (status === 'CANCELLED_BY_DRIVER') return 'CANCELLED BY YOU';
-    if (status === 'CANCELLED_BY_PASSENGER') return 'CANCELLED BY PASSENGER';
-    return status;
-  };
+  }, [activeCategory, categorized, sortKey, nameQuery]);
 
   const handleRideAction = async (rideId: number, action: 'accept' | 'reject') => {
     try {
       setActionLoading({ rideId, action });
       if (action === 'accept') {
         await acceptRide(rideId);
-        showFlash('success', 'Ride accepted!');
+        showFlashMsg('success', 'Ride accepted!');
         pendingHighlight.current = { rideId, tab: 'accepted' };
         setActiveCategory('accepted');
       } else {
         await rejectRide(rideId);
-        showFlash('error', 'Ride rejected!');
+        showFlashMsg('error', 'Ride rejected.');
       }
       await loadActivity();
     } catch (e: any) {
-      Alert.alert(
-        'Error',
-        e?.response?.data?.message || e?.message || `Failed to ${action} ride.`
-      );
+      Alert.alert('Error', e?.response?.data?.message || `Failed to ${action} ride.`);
     } finally {
       setActionLoading({ rideId: null, action: null });
     }
   };
 
-  const confirmRideAction = (rideId: number, action: 'accept' | 'reject') => {
+  const confirmAction = (rideId: number, action: 'accept' | 'reject') => {
     Alert.alert(
       action === 'accept' ? 'Accept ride?' : 'Reject ride?',
-      action === 'accept'
-        ? 'This pending ride will be assigned to you.'
-        : 'This pending ride will be rejected.',
+      action === 'accept' ? 'This ride will be assigned to you.' : 'This ride will be rejected.',
       [
         { text: 'Cancel', style: 'cancel' },
-        {
-          text: action === 'accept' ? 'Accept' : 'Reject',
-          style: action === 'reject' ? 'destructive' : 'default',
-          onPress: () => handleRideAction(rideId, action),
-        },
+        { text: action === 'accept' ? 'Accept' : 'Reject', style: action === 'reject' ? 'destructive' : 'default', onPress: () => handleRideAction(rideId, action) },
       ]
     );
   };
 
-  const renderRide = ({ item }: { item: any }) => {
-    const dateLabel = item.dateDepart ? new Date(item.dateDepart).toLocaleDateString() : 'N/A';
-    const timeLabel = item.heureDepart || 'N/A';
-    const start = item.startAddress || item.depart || 'N/A';
-    const end = item.endAddress || item.destination || 'N/A';
-    const isHighlighted = item.rideId === highlightedId;
-    const passenger = item.passenger || {};
-    const passengerName = `${passenger.prenom || 'Unknown'} ${passenger.nom || 'Passenger'}`.trim();
-    const passengerPhone = passenger.numTel ? String(passenger.numTel) : 'N/A';
-    const isPendingRequest = item.status === 'PENDING';
-    const isActionLoading = actionLoading.rideId === item.rideId;
-
-    const cardContent = (
-      <HighlightCard highlighted={isHighlighted}>
-        <>
-          <View style={styles.pendingHeader}>
-            <View style={styles.pendingPassengerInfo}>
-              <MaterialIcons name="account-circle" size={40} color="#111" />
-              <View style={styles.pendingPassengerDetails}>
-                <Text style={styles.pendingPassengerName}>{passengerName}</Text>
-                <Text style={styles.pendingPassengerPhone}>{passengerPhone}</Text>
-              </View>
-            </View>
-            <View style={[styles.statusBadge, getStatusBadgeStyle(item.status)]}>
-              <Text style={[styles.statusText, item.status === 'ACCEPTED' && styles.acceptedText]}>
-                {getStatusLabel(item.status)}
-              </Text>
-            </View>
-          </View>
-          <View style={styles.pendingSeparator} />
-          <View style={styles.detailRow}><View style={styles.pendingStartDot} /><Text style={styles.detailText}>{start}</Text></View>
-          <View style={styles.detailRow}><View style={styles.pendingEndDot} /><Text style={styles.detailText}>{end}</Text></View>
-          <View style={styles.detailRow}><MaterialIcons name="event" size={18} color="#444" /><Text style={styles.detailText}>{dateLabel}</Text></View>
-          <View style={styles.detailRow}><MaterialIcons name="schedule" size={18} color="#444" /><Text style={styles.detailText}>{timeLabel}</Text></View>
-          {isPendingRequest ? (
-            <View style={styles.pendingActions}>
-              <TouchableOpacity
-                style={[styles.pendingActionButton, styles.rejectButton, isActionLoading && styles.actionButtonDisabled]}
-                onPress={() => confirmRideAction(item.rideId, 'reject')}
-                disabled={isActionLoading}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="close-circle" size={20} color="#000" />
-                <Text style={styles.rejectButtonText}>
-                  {isActionLoading && actionLoading.action === 'reject' ? 'Rejecting...' : 'Reject'}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.pendingActionButton, styles.acceptButton, isActionLoading && styles.actionButtonDisabled]}
-                onPress={() => confirmRideAction(item.rideId, 'accept')}
-                disabled={isActionLoading}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="checkmark-circle" size={20} color="#FFF" />
-                <Text style={styles.acceptButtonText}>
-                  {isActionLoading && actionLoading.action === 'accept' ? 'Accepting...' : 'Accept'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
-            <Text style={styles.seeMore}>See more infos</Text>
-          )}
-        </>
-      </HighlightCard>
-    );
-
-    if (isPendingRequest) return cardContent;
-
-    return (
-      <TouchableOpacity
-        activeOpacity={0.85}
-        onPress={() =>
-          router.push(`/shared/ride-details/${item.rideId}` as any)
-        }
-      >
-        {cardContent}
-      </TouchableOpacity>
-    );
-  };
+  const activeSortLabel = SORT_OPTIONS.find(o => o.key === sortKey)?.label;
+  const hasActiveFilter = sortKey !== 'none' || nameQuery.trim().length > 0;
 
   if (loading && !refreshing) {
     return (
-      <View style={styles.centerContainer}>
+      <View style={s.center}>
         <ActivityIndicator size="large" color="#000" />
-        <Text style={styles.loadingText}>Chargement de votre activite...</Text>
+        <Text style={s.loadingText}>Loading activity...</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View style={s.screen}>
+      <FilterModal
+        visible={showFilter}
+        current={sortKey}
+        nameQuery={nameQuery}
+        onSelect={setSortKey}
+        onNameChange={setNameQuery}
+        onReset={() => { setSortKey('none'); setNameQuery(''); }}
+        onClose={() => setShowFilter(false)}
+      />
+
       <FlatList
         ref={flatListRef}
         onScrollToIndexFailed={() => {}}
         data={visibleRides}
         keyExtractor={(item: any) => String(item.rideId)}
-        renderItem={renderRide}
+        renderItem={({ item }) => {
+          const isLoading = actionLoading.rideId === item.rideId;
+          return (
+            <RideCard
+              item={item}
+              highlighted={item.rideId === highlightedId}
+              onPress={() => router.push(`/shared/ride-details/${item.rideId}` as any)}
+              onAccept={item.status === 'PENDING' ? () => confirmAction(item.rideId, 'accept') : undefined}
+              onReject={item.status === 'PENDING' ? () => confirmAction(item.rideId, 'reject') : undefined}
+              actionLoading={isLoading ? actionLoading.action : null}
+            />
+          );
+        }}
         ListHeaderComponent={
           <>
-            <View style={styles.categoriesRow}>
-              {CATEGORIES.map((category) => (
-                <TouchableOpacity
-                  key={category.key}
-                  style={[styles.categoryButton, activeCategory === category.key && styles.categoryButtonActive]}
-                  onPress={() => setActiveCategory(category.key)}
-                >
-                  <Text style={[styles.categoryText, activeCategory === category.key && styles.categoryTextActive]}>
-                    {category.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+            {/* TABS + sort button */}
+            <View style={s.tabsRow}>
+              <View style={s.tabs}>
+                {CATEGORIES.map((cat) => {
+                  const count  = (categorized as any)[cat.key]?.length ?? 0;
+                  const active = activeCategory === cat.key;
+                  return (
+                    <TouchableOpacity
+                      key={cat.key}
+                      style={[s.tab, active && s.tabActive]}
+                      onPress={() => setActiveCategory(cat.key)}
+                    >
+                      <Text style={[s.tabText, active && s.tabTextActive]}>{cat.label}</Text>
+                      {count > 0 && (
+                        <View style={[s.tabBadge, active && s.tabBadgeActive]}>
+                          <Text style={[s.tabBadgeText, active && s.tabBadgeTextActive]}>{count}</Text>
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <TouchableOpacity
+                style={[s.sortBtn, hasActiveFilter && s.sortBtnActive]}
+                onPress={() => setShowFilter(true)}
+              >
+                <Ionicons name="funnel-outline" size={15} color={hasActiveFilter ? '#fff' : '#111'} />
+              </TouchableOpacity>
             </View>
-            {!!flash && (
-              <View style={[styles.flash, flash.type === 'success' ? styles.flashSuccess : styles.flashError]}>
-                <Text style={[styles.flashText, flash.type === 'error' && styles.flashTextError]}>{flash.text}</Text>
+
+            <Flash flash={flash} />
+
+            {/* Active filter pills */}
+            {hasActiveFilter && (
+              <View style={s.activeFilterRow}>
+                {nameQuery.trim().length > 0 && (
+                  <View style={s.filterPill}>
+                    <Ionicons name="search-outline" size={11} color="#374151" />
+                    <Text style={s.filterPillText}>"{nameQuery}"</Text>
+                    <TouchableOpacity onPress={() => setNameQuery('')}>
+                      <Ionicons name="close" size={12} color="#6B7280" />
+                    </TouchableOpacity>
+                  </View>
+                )}
+                {sortKey !== 'none' && (
+                  <View style={s.filterPill}>
+                    <Ionicons name="swap-vertical-outline" size={11} color="#374151" />
+                    <Text style={s.filterPillText}>{activeSortLabel}</Text>
+                    <TouchableOpacity onPress={() => setSortKey('none')}>
+                      <Ionicons name="close" size={12} color="#6B7280" />
+                    </TouchableOpacity>
+                  </View>
+                )}
               </View>
             )}
-            {!!error && <View style={styles.errorBox}><Text style={styles.errorText}>{error}</Text></View>}
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>Liste trajets</Text>
-              <View style={styles.sectionActions}>
-                <TouchableOpacity
-                  style={[styles.filterIconButton, showFilters && styles.filterIconButtonActive]}
-                  onPress={() => setShowFilters(true)}
-                  activeOpacity={0.85}
-                >
-                  <MaterialIcons name="filter-list" size={20} color={showFilters ? '#FFF' : '#111'} />
-                </TouchableOpacity>
-                <View style={styles.sectionCountBadge}>
-                  <Text style={styles.sectionCountText}>{visibleRides.length}</Text>
-                </View>
+
+            {!!error && (
+              <View style={s.errorBox}>
+                <Ionicons name="alert-circle" size={14} color="#B42318" />
+                <Text style={s.errorText}>{error}</Text>
               </View>
-            </View>
+            )}
+
+            <Text style={s.countText}>
+              {visibleRides.length} trip{visibleRides.length !== 1 ? 's' : ''}
+            </Text>
           </>
         }
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>.</Text>
-            <Text style={styles.emptyText}>Aucun trajet dans cette categorie</Text>
-            <Text style={styles.emptySubText}>Tirez vers le bas pour actualiser</Text>
+          <View style={s.empty}>
+            <Ionicons name="car-outline" size={48} color="#D1D5DB" />
+            <Text style={s.emptyTitle}>No trips yet</Text>
+            <Text style={s.emptySub}>Pull down to refresh</Text>
           </View>
         }
-        contentContainerStyle={styles.listContainer}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={async () => { setRefreshing(true); await loadActivity(); setRefreshing(false); }} colors={['#000']} />}
+        contentContainerStyle={s.list}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={async () => { setRefreshing(true); await loadActivity(); setRefreshing(false); }}
+            colors={['#000']}
+          />
+        }
       />
-      <Modal
-        transparent
-        animationType="fade"
-        visible={showFilters}
-        onRequestClose={() => setShowFilters(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <Pressable style={styles.modalBackdrop} onPress={() => setShowFilters(false)} />
-          <View style={styles.filterModal}>
-            <View style={styles.filterModalHeader}>
-              <Text style={styles.filterModalTitle}>Filtrage</Text>
-              <TouchableOpacity onPress={() => setShowFilters(false)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                <MaterialIcons name="close" size={22} color="#111" />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.filterSectionLabel}>Price</Text>
-            <View style={styles.filterChoicesWrap}>
-              {PRICE_FILTERS.map((filter) => (
-                <TouchableOpacity
-                  key={filter.key}
-                  style={[styles.filterChoiceButton, priceFilter === filter.key && styles.filterChoiceButtonActive]}
-                  onPress={() => setPriceFilter(filter.key)}
-                >
-                  <Text style={[styles.filterChoiceText, priceFilter === filter.key && styles.filterChoiceTextActive]}>
-                    {filter.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <Text style={styles.filterSectionLabel}>A-Z / Z-A</Text>
-            <View style={styles.filterChoicesWrap}>
-              {NAME_FILTERS.map((filter) => (
-                <TouchableOpacity
-                  key={filter.key}
-                  style={[styles.filterChoiceButton, nameFilter === filter.key && styles.filterChoiceButtonActive]}
-                  onPress={() => setNameFilter(filter.key)}
-                >
-                  <Text style={[styles.filterChoiceText, nameFilter === filter.key && styles.filterChoiceTextActive]}>
-                    {filter.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <Text style={styles.filterSectionLabel}>Name of passenger</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={nameQuery}
-              onChangeText={setNameQuery}
-              placeholder="Name of passenger"
-              placeholderTextColor="#9CA3AF"
-            />
-
-            <View style={styles.filterFooter}>
-              <TouchableOpacity
-                style={styles.filterResetButton}
-                onPress={() => {
-                  setPriceFilter('none');
-                  setNameFilter('none');
-                  setNameQuery('');
-                }}
-              >
-                <Text style={styles.filterResetText}>Reset</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.filterDoneButton} onPress={() => setShowFilters(false)}>
-                <Text style={styles.filterDoneText}>Done</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </View>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F5F5' },
-  centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { marginTop: 12, fontSize: 15, color: '#666' },
-  emptyContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 40 },
-  emptyIcon: { fontSize: 28, marginBottom: 12 },
-  emptyText: { fontSize: 18, fontWeight: '600', color: '#666', marginBottom: 8 },
-  emptySubText: { fontSize: 14, color: '#999' },
-  flash: { marginTop: 10, marginBottom: 4, borderRadius: 12, borderWidth: 1, paddingVertical: 10, paddingHorizontal: 12 },
-  flashSuccess: { backgroundColor: '#ECFDF3', borderColor: '#ABEFC6' },
-  flashError: { backgroundColor: '#FEE2E2', borderColor: '#FCA5A5' },
-  flashText: { fontSize: 13, fontWeight: '800', color: '#111' },
-  flashTextError: { color: '#B42318' },
-  errorBox: { marginTop: 4, marginBottom: 8, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 12, backgroundColor: '#FFF1F1', borderWidth: 1, borderColor: '#FFCACA' },
-  errorText: { color: '#B42318', fontSize: 13, fontWeight: '600' },
-  categoriesRow: { flexDirection: 'row', marginTop: 8, gap: 8 },
-  categoryButton: { flex: 1, alignItems: 'center', paddingVertical: 10, borderRadius: 10, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E5E7EB' },
-  categoryButtonActive: { backgroundColor: '#111', borderColor: '#111' },
-  categoryText: { color: '#111', fontSize: 13, fontWeight: '600' },
-  categoryTextActive: { color: '#FFF' },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 12, marginBottom: 8 },
-  sectionTitle: { fontSize: 18, fontWeight: '700', color: '#111' },
-  sectionActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  filterIconButton: { width: 38, height: 38, borderRadius: 12, backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E5E7EB', alignItems: 'center', justifyContent: 'center' },
-  filterIconButtonActive: { backgroundColor: '#111', borderColor: '#111' },
-  sectionCountBadge: { minWidth: 38, height: 38, borderRadius: 12, backgroundColor: '#111', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 12 },
-  sectionCountText: { color: '#FFF', fontWeight: '700', fontSize: 13 },
-  listContainer: { paddingHorizontal: 16, paddingBottom: 32, flexGrow: 1 },
-  rideCard: { backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 14, padding: 14, marginBottom: 12 },
-  pendingHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, gap: 10 },
-  pendingPassengerInfo: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  pendingPassengerDetails: { marginLeft: 10, flex: 1 },
-  pendingPassengerName: { color: '#111', fontSize: 16, fontWeight: '700' },
-  pendingPassengerPhone: { color: '#666', fontSize: 13, marginTop: 2 },
-  pendingSeparator: { height: 1, backgroundColor: '#E5E7EB', marginBottom: 12 },
-  pendingActions: { flexDirection: 'row', gap: 12, marginTop: 14 },
-  pendingActionButton: { flex: 1, borderRadius: 12, paddingVertical: 12, alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 6 },
-  rideHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  rideId: { color: '#111', fontWeight: '700', fontSize: 14 },
-  statusBadge: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 10 },
-  completedBadge: { backgroundColor: '#D1FAE5' },
-  pendingBadge: { backgroundColor: '#DBEAFE' },
-  acceptedBadge: { backgroundColor: '#DCFCE7' },
-  cancelledDriverBadge: { backgroundColor: '#FEE2E2' },
-  cancelledPassengerBadge: { backgroundColor: '#FFEDD5' },
-  statusText: { fontSize: 11, fontWeight: '700', color: '#111' },
-  acceptedText: { color: '#166534' },
-  detailRow: { flexDirection: 'row', alignItems: 'center', marginTop: 8, gap: 8 },
-  pendingStartDot: { width: 12, height: 12, borderRadius: 6, backgroundColor: '#111' },
-  pendingEndDot: { width: 12, height: 12, borderRadius: 3, backgroundColor: '#6B7280' },
-  acceptButton: { backgroundColor: '#000' },
-  acceptButtonText: { color: '#FFF', fontSize: 14, fontWeight: '600' },
-  rejectButton: { backgroundColor: '#FFF', borderWidth: 2, borderColor: '#000' },
-  rejectButtonText: { color: '#000', fontSize: 14, fontWeight: '600' },
-  actionButtonDisabled: { opacity: 0.6 },
-  detailText: { flex: 1, color: '#333', fontSize: 13 },
-  highlightBanner: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FEF3C7', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6, marginBottom: 10 },
-  highlightText: { fontSize: 11, color: '#92400E', fontWeight: '700', flex: 1 },
-  tripHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  tripTitle: { color: '#111', fontSize: 18, fontWeight: '800', textAlign: 'left' },
-  seeMore: { marginTop: 10, color: '#2563EB', fontWeight: '700', fontSize: 13, textAlign: 'center', alignSelf: 'center' },
-  modalOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
-  modalBackdrop: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, backgroundColor: 'rgba(17, 24, 39, 0.35)' },
-  filterModal: { width: '100%', maxWidth: 360, backgroundColor: '#FFF', borderRadius: 24, padding: 18, gap: 14, borderWidth: 1, borderColor: '#E5E7EB' },
-  filterModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  filterModalTitle: { color: '#111', fontSize: 18, fontWeight: '800' },
-  filterSectionLabel: { color: '#111', fontSize: 13, fontWeight: '700' },
-  filterChoicesWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  filterChoiceButton: { paddingVertical: 10, paddingHorizontal: 14, borderRadius: 12, backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#E5E7EB' },
-  filterChoiceButtonActive: { backgroundColor: '#111', borderColor: '#111' },
-  filterChoiceText: { color: '#111', fontSize: 13, fontWeight: '600' },
-  filterChoiceTextActive: { color: '#FFF' },
-  modalInput: { height: 44, borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 12, paddingHorizontal: 12, color: '#111', backgroundColor: '#F9FAFB', fontSize: 14 },
-  filterFooter: { flexDirection: 'row', gap: 10, marginTop: 4 },
-  filterResetButton: { flex: 1, height: 44, borderRadius: 12, borderWidth: 1, borderColor: '#D1D5DB', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFF' },
-  filterResetText: { color: '#111', fontSize: 14, fontWeight: '700' },
-  filterDoneButton: { flex: 1, height: 44, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: '#111' },
-  filterDoneText: { color: '#FFF', fontSize: 14, fontWeight: '700' },
+// ─── STYLES ───────────────────────────────────────────────────────────────────
+const s = StyleSheet.create({
+  screen:      { flex: 1, backgroundColor: '#F5F5F5' },
+  center:      { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { marginTop: 12, color: '#666', fontSize: 15 },
+  list:        { paddingHorizontal: 16, paddingBottom: 32, paddingTop: 8, flexGrow: 1 },
+
+  tabsRow:            { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
+  tabs:               { flex: 1, flexDirection: 'row', gap: 5 },
+  tab:                { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 3, paddingVertical: 9, borderRadius: 12, backgroundColor: '#fff', borderWidth: 1.5, borderColor: '#F3F4F6' },
+  tabActive:          { backgroundColor: '#111', borderColor: '#111' },
+  tabText:            { fontSize: 10, fontWeight: '700', color: '#6B7280' },
+  tabTextActive:      { color: '#fff' },
+  tabBadge:           { minWidth: 16, height: 16, borderRadius: 8, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 3 },
+  tabBadgeActive:     { backgroundColor: 'rgba(255,255,255,0.2)' },
+  tabBadgeText:       { fontSize: 9, fontWeight: '800', color: '#6B7280' },
+  tabBadgeTextActive: { color: '#fff' },
+  sortBtn:            { width: 36, height: 36, borderRadius: 10, backgroundColor: '#fff', borderWidth: 1.5, borderColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
+  sortBtnActive:      { backgroundColor: '#111', borderColor: '#111' },
+
+  flash:        { flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 10, padding: 10, marginBottom: 8, borderWidth: 1 },
+  flashSuccess: { backgroundColor: '#F0FDF4', borderColor: '#BBF7D0' },
+  flashError:   { backgroundColor: '#FEF2F2', borderColor: '#FECACA' },
+  flashText:    { fontSize: 13, fontWeight: '700', flex: 1 },
+
+  activeFilterRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 },
+  filterPill:      { flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#F0F0F0', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 5 },
+  filterPillText:  { fontSize: 11, color: '#374151', fontWeight: '600' },
+
+  countText: { fontSize: 12, fontWeight: '600', color: '#9CA3AF', marginBottom: 8 },
+  errorBox:  { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#FFF1F1', borderRadius: 10, padding: 10, marginBottom: 8, borderWidth: 1, borderColor: '#FFCACA' },
+  errorText: { color: '#B42318', fontSize: 13, fontWeight: '600', flex: 1 },
+
+  empty:      { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 60, gap: 8 },
+  emptyTitle: { fontSize: 17, fontWeight: '700', color: '#6B7280' },
+  emptySub:   { fontSize: 13, color: '#9CA3AF' },
+
+  card: { backgroundColor: '#fff', borderRadius: 16, borderWidth: 1.5, borderColor: '#F3F4F6', padding: 14, marginBottom: 10, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 1 },
+
+  cardHeader:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
+  headerLeft:    { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, marginRight: 8 },
+  avatar:        { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  avatarText:    { fontSize: 13, fontWeight: '800' },
+  passengerName: { fontSize: 14, fontWeight: '700', color: '#111' },
+  passengerSub:  { fontSize: 11, color: '#9CA3AF', fontWeight: '500' },
+  unknownAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center', borderWidth: 1.5, borderColor: '#E5E7EB', borderStyle: 'dashed' },
+
+  statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 9, paddingVertical: 4, borderRadius: 20 },
+  statusText:  { fontSize: 11, fontWeight: '700' },
+
+  priceRow:   { marginBottom: 10 },
+  priceBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start', backgroundColor: '#F0FDF4', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
+  priceText:  { fontSize: 13, fontWeight: '800', color: '#065F46' },
+
+  routeBox:  { backgroundColor: '#FAFAFA', borderRadius: 10, padding: 10, marginBottom: 10, gap: 4 },
+  routeRow:  { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  routeDot:  { width: 8, height: 8, borderRadius: 4 },
+  routeLine: { width: 1.5, height: 10, backgroundColor: '#E5E7EB', marginLeft: 3.25 },
+  routeText: { fontSize: 13, color: '#374151', fontWeight: '500', flex: 1 },
+
+  tagsRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginBottom: 10 },
+  tag:     { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: '#F5F5F5', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 6 },
+  tagText: { fontSize: 10, fontWeight: '600', color: '#9CA3AF' },
+
+  footer:  { borderTopWidth: 1, borderTopColor: '#F3F4F6', paddingTop: 8 },
+  seeMore: { fontSize: 12, fontWeight: '700', color: '#2563EB', textAlign: 'center' },
+
+  // Accept / Reject buttons
+  actionRow:      { flexDirection: 'row', gap: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: '#F3F4F6' },
+  rejectBtn:      { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#F5F5F5', borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 12, paddingVertical: 13 },
+  rejectBtnText:  { fontSize: 14, fontWeight: '700', color: '#374151' },
+  acceptBtn:      { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#111', borderRadius: 12, paddingVertical: 13 },
+  acceptBtnText:  { fontSize: 14, fontWeight: '700', color: '#fff' },
+  btnDisabled:    { opacity: 0.6 },
+
+  // Modal
+  modalOverlay:      { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
+  modalBox:          { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 20, paddingBottom: 40 },
+  modalHandle:       { width: 40, height: 4, borderRadius: 2, backgroundColor: '#E5E7EB', alignSelf: 'center', marginBottom: 16 },
+  modalTitle:        { fontSize: 16, fontWeight: '800', color: '#111', marginBottom: 16 },
+  modalSectionLabel: { fontSize: 12, fontWeight: '700', color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 8 },
+  modalSearchBox:    { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#F9FAFB', borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', paddingHorizontal: 12, height: 44 },
+  modalSearchInput:  { flex: 1, fontSize: 14, color: '#111' },
+  modalRow:          { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 13, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+  modalRowText:      { flex: 1, fontSize: 14, color: '#6B7280', fontWeight: '500' },
+  modalRowTextActive:{ color: '#111', fontWeight: '700' },
+  modalFooter:       { flexDirection: 'row', gap: 10, marginTop: 20 },
+  modalResetBtn:     { flex: 1, height: 44, borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB', alignItems: 'center', justifyContent: 'center' },
+  modalResetText:    { fontSize: 14, fontWeight: '700', color: '#111' },
+  modalDoneBtn:      { flex: 1, height: 44, borderRadius: 12, backgroundColor: '#111', alignItems: 'center', justifyContent: 'center' },
+  modalDoneText:     { fontSize: 14, fontWeight: '700', color: '#fff' },
 });

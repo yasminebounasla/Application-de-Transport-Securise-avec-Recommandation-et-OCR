@@ -143,6 +143,11 @@ model Trajet {
   prix        Float
   status      TrajetStatus @default(PENDING)
 
+  // gestion des refus
+  notifiedDriversCount  Int   @default(0)
+  rejectedDriverIds     Int[] @default([])
+  timedOutDriverIds     Int[] @default([])   
+
   // Préférences du passager pour CE trajet (user features LightFM)
   quiet_ride         String @default("no")
   radio_ok           String @default("no")
@@ -150,6 +155,8 @@ model Trajet {
   pets_ok            String @default("no")
   luggage_large      String @default("no")
   female_driver_pref String @default("no")
+
+  mlScores     Json? 
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

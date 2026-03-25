@@ -6,6 +6,8 @@ FACE RECOGNITION SERVICE - API
 ============================================================================
 API REST pour la comparaison faciale permis vs selfie
 """
+import cv2
+import numpy as np
 
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import JSONResponse
@@ -142,157 +144,55 @@ async def health_check():
 
 @app.post("/compare", response_model=ComparisonResult)
 async def compare_faces(
-    license_image: UploadFile = File(..., description="Image du permis de conduire"),
-    selfie_image: UploadFile = File(..., description="Image du selfie")
+    license_image: UploadFile = File(...),
+    selfie_image: UploadFile = File(...)
 ):
-    """
-    Compare un permis de conduire avec un selfie
-    
-    ### Paramètres:
-    - **license_image**: Image du permis de conduire (JPEG, PNG)
-    - **selfie_image**: Image du selfie (JPEG, PNG)
-    
-    ### Retourne:
-    - Résultat de la comparaison avec verdict (verified: true/false)
-    - Métriques détaillées (similarité, distance, seuil adaptatif)
-    - Données d'analyse pour chaque visage
-    
-    ### Exemple d'utilisation:
-    ```python
-    import requests
-    
-    files = {
-        'license_image': open('permis.jpg', 'rb'),
-        'selfie_image': open('selfie.jpg', 'rb')
-    }
-    response = requests.post('http://localhost:8001/compare', files=files)
-    result = response.json()
-    print(f"Verified: {result['verified']}")
-    ```
-    """
     if not face_engine:
         raise HTTPException(status_code=503, detail="Face engine not initialized")
-    
-    # Validation des formats
+
     allowed_formats = ["image/jpeg", "image/png", "image/jpg"]
-    
     if license_image.content_type not in allowed_formats:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid license image format. Allowed: {allowed_formats}"
-        )
-    
+        raise HTTPException(status_code=400, detail="Format permis invalide")
     if selfie_image.content_type not in allowed_formats:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid selfie image format. Allowed: {allowed_formats}"
-        )
-    
-    # Sauvegarder temporairement les images
+        raise HTTPException(status_code=400, detail="Format selfie invalide")
+
+    # ✅ PERMIS — traitement en mémoire uniquement, jamais sur disque
+    license_bytes = await license_image.read()
+    license_array = np.frombuffer(license_bytes, np.uint8)
+    img_license = cv2.imdecode(license_array, cv2.IMREAD_COLOR)
+    if img_license is None:
+        raise HTTPException(status_code=400, detail="Image permis invalide")
+
+    # ✅ SELFIE — sauvegardé sur disque pour le profil
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    
-    license_filename = f"license_{timestamp}.jpg"
     selfie_filename = f"selfie_{timestamp}.jpg"
-    
-    license_path = os.path.join(settings.LICENSE_DIR, license_filename)
     selfie_path = os.path.join(settings.SELFIE_DIR, selfie_filename)
-    
+
     try:
-        # Sauvegarder les fichiers
-        with open(license_path, "wb") as buffer:
-            shutil.copyfileobj(license_image.file, buffer)
-        
-        with open(selfie_path, "wb") as buffer:
-            shutil.copyfileobj(selfie_image.file, buffer)
-        
-        logger.info(f"📂 Saved files: {license_filename}, {selfie_filename}")
-        
-        # Comparaison
-        result = face_engine.compare_faces(license_path, selfie_path)
-        
+        selfie_bytes = await selfie_image.read()
+        with open(selfie_path, "wb") as f:
+            f.write(selfie_bytes)
+
+        logger.info(f"✅ Selfie sauvegardé: {selfie_filename}")
+        logger.info(f"🔒 Permis traité en mémoire — non sauvegardé")
+
+        result = face_engine.compare_faces_from_arrays(img_license, selfie_path)
+
+        # Ajouter le chemin du selfie dans le résultat
+        result["selfie_path"] = selfie_filename
+
         return JSONResponse(content=result)
-    
-    except FileNotFoundError as e:
-        logger.error(f"File not found: {e}")
-        raise HTTPException(status_code=404, detail=str(e))
-    
+
     except ValueError as e:
-        logger.error(f"Validation error: {e}")
-        raise HTTPException(status_code=400, detail=str(e))
-    
-    except Exception as e:
-        logger.error(f"Comparison error: {e}")
-        raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
-    
-    finally:
-        # Nettoyage optionnel (décommenter pour supprimer après traitement)
-        # if os.path.exists(license_path):
-        #     os.remove(license_path)
-        # if os.path.exists(selfie_path):
-        #     os.remove(selfie_path)
-        pass
-
-
-@app.post("/compare-with-stored-license")
-async def compare_with_stored_license(
-    user_id: str,
-    selfie_image: UploadFile = File(..., description="Image du selfie")
-):
-    """
-    Compare un selfie avec un permis déjà stocké en base de données
-    
-    ### Usage en production:
-    1. Le permis est uploadé lors de l'inscription et stocké
-    2. L'utilisateur prend un selfie en temps réel
-    3. Cette API compare le selfie avec le permis stocké
-    
-    ### Paramètres:
-    - **user_id**: ID de l'utilisateur (pour récupérer le permis)
-    - **selfie_image**: Image du selfie en temps réel
-    
-    ### Note:
-    Cette implémentation suppose que le permis est stocké comme:
-    `data/license_images/user_{user_id}.jpg`
-    
-    En production, vous récupéreriez le chemin depuis votre base de données.
-    """
-    if not face_engine:
-        raise HTTPException(status_code=503, detail="Face engine not initialized")
-    
-    # Récupérer le chemin du permis stocké
-    # EN PRODUCTION: Récupérer depuis votre base de données
-    license_path = os.path.join(settings.LICENSE_DIR, f"user_{user_id}.jpg")
-    
-    if not os.path.exists(license_path):
-        raise HTTPException(
-            status_code=404,
-            detail=f"License not found for user {user_id}"
-        )
-    
-    # Sauvegarder temporairement le selfie
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    selfie_filename = f"selfie_{user_id}_{timestamp}.jpg"
-    selfie_path = os.path.join(settings.SELFIE_DIR, selfie_filename)
-    
-    try:
-        with open(selfie_path, "wb") as buffer:
-            shutil.copyfileobj(selfie_image.file, buffer)
-        
-        logger.info(f"📂 Comparing with stored license for user {user_id}")
-        
-        # Comparaison
-        result = face_engine.compare_faces(license_path, selfie_path)
-        
-        return JSONResponse(content=result)
-    
-    except Exception as e:
-        logger.error(f"Comparison error: {e}")
-        raise HTTPException(status_code=500, detail=f"Internal error: {str(e)}")
-    
-    finally:
-        # Nettoyage du selfie temporaire
+        # Si la comparaison échoue, supprimer le selfie
         if os.path.exists(selfie_path):
             os.remove(selfie_path)
+        raise HTTPException(status_code=400, detail=str(e))
+
+    except Exception as e:
+        if os.path.exists(selfie_path):
+            os.remove(selfie_path)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ============================================================================

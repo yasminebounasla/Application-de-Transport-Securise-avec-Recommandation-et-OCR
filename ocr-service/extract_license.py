@@ -69,8 +69,6 @@ Exemples:
         print("📋 RÉSUMÉ DES RÉSULTATS")
         print("="*80)
         print(f"✅ Type: {result.get('type', 'NON DÉTECTÉ')}")
-        print(f"👤 Nom: {result.get('nom', 'Non trouvé')}")
-        print(f"👤 Prénom: {result.get('prenom', 'Non trouvé')}")
         print(f"🆔 NIN: {result.get('nin', 'Non trouvé')}")
         print(f"📅 Date création: {result.get('date_creation', 'Non trouvée')}")
         print(f"📅 Date expiration: {result.get('date_expiration', 'Non trouvée')}")

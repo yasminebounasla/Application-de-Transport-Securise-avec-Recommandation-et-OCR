@@ -71,7 +71,7 @@ useEffect(() => {
 
   const activeTrips = useMemo(() =>
     (passengerRides || []).filter(
-      (ride: any) => ride.status === 'ACCEPTED' || ride.status === 'IN_PROGRESS',
+      (ride: any) => ride.status === 'IN_PROGRESS',
     ), [passengerRides]);
 
   const initialRegion = {

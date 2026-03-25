@@ -1,92 +1,5 @@
 import { prisma } from "../config/prisma.js";
 
-export const addPassengerPreferences = async (req, res) => {
-  // On prend l'ID directement depuis le token
-  const passengerId = req.user.passengerId;
-
-  if (!passengerId) {
-    return res.status(403).json({ message: "Access restricted to passengers only." });
-  }
-
-  try {
-    const {
-      quiet_ride,
-      radio_ok,
-      smoking_ok,
-      pets_ok,
-      luggage_large,
-      female_driver_pref
-    } = req.body;
-
-    const updatedPassenger = await prisma.passenger.update({
-      where: { id: passengerId },
-      data: { quiet_ride,
-              radio_ok, 
-              smoking_ok, 
-              pets_ok, 
-              luggage_large, 
-              female_driver_pref 
-            }
-    });
-    
-    const { password, ...passengerData } = updatedPassenger;
-    
-    res.status(200).json({
-      message: "Passenger preferences updated successfully.",
-      data: passengerData,
-    });
-
-  } catch (err) {
-    res.status(500).json({
-      message: "Failed to update passenger preferences.",
-      error: err.message,
-    });
-  }
-};
-
-// Récupérer les préférences du passager authentifié Private (Passenger only)
-export const getPassengerPreferences = async (req, res) => {
-  const passengerId = req.user.passengerId;
-
-  if (!passengerId) {
-    return res.status(403).json({ 
-      message: "Access restricted to passengers only." 
-    });
-  }
-
-  try {
-    const passenger = await prisma.passenger.findUnique({
-      where: { id: passengerId },
-      select: {
-        id: true,
-        quiet_ride: true,
-        radio_ok: true,
-        smoking_ok: true,
-        pets_ok: true,
-        luggage_large: true,
-        female_driver_pref: true,
-      },
-    });
-
-    if (!passenger) {
-      return res.status(404).json({ 
-        message: "Passenger not found." 
-      });
-    }
-
-    res.status(200).json({
-      message: "Passenger preferences retrieved successfully.",
-      data: passenger,
-    });
-  } catch (err) {
-    console.error("Error retrieving passenger preferences:", err);
-    res.status(500).json({
-      message: "Failed to retrieve passenger preferences.",
-      error: err.message,
-    });
-  }
-};
-
 //Récupérer le profil complet du passager authentifié Private (Passenger only)
 export const getMyPassengerProfile = async (req, res) => {
   const passengerId = req.user.passengerId;
@@ -129,16 +42,6 @@ export const getMyPassengerProfile = async (req, res) => {
       });
     }
 
-    // Préférences
-    const preferences = {
-      quiet_ride: passenger.quiet_ride,
-      radio_ok: passenger.radio_ok,
-      smoking_ok: passenger.smoking_ok,
-      pets_ok: passenger.pets_ok,
-      luggage_large: passenger.luggage_large,
-      female_driver_pref: passenger.female_driver_pref,
-    };
-
     // Historique des trajets
     const ridesHistory = passenger.trajets.map(t => ({
       id: t.id,
@@ -166,7 +69,6 @@ export const getMyPassengerProfile = async (req, res) => {
       message: "Your passenger profile retrieved successfully.",
       data: {
         ...passengerData,
-        preferences,
         stats,
         ridesHistory,
       },
@@ -195,15 +97,6 @@ export const getPassengerProfile = async (req, res) => {
       });
     }
 
-    const preferences = {
-      quiet_ride: passenger.quiet_ride,
-      radio_ok: passenger.radio_ok,
-      smoking_ok: passenger.smoking_ok,
-      pets_ok: passenger.pets_ok,
-      luggage_large: passenger.luggage_large,
-      female_driver_pref: passenger.female_driver_pref,
-    };
-
     const { 
       password, 
       email,
@@ -215,7 +108,6 @@ export const getPassengerProfile = async (req, res) => {
       message: "Passenger profile retrieved successfully.",
       data: {
         ...publicData,
-        preferences,
       },
     });
   } catch (err) {
@@ -273,7 +165,7 @@ export const getDriverInteractions = async (req, res) => {
   
   const trajets = await prisma.trajet.findMany({
     where: {
-      passengerId,
+      passagerId: passengerId,
       status: "COMPLETED",
       driverId: { not: null }
     },

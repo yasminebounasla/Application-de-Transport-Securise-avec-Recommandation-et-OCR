@@ -250,6 +250,28 @@ export async function uploadSelfie(req, res) {
   }
 }
 
+export async function getDriverSelfie(req, res) {
+  try {
+    const { userId } = req.params;
+
+    const verification = await prisma.verification.findUnique({
+      where: { driverId: parseInt(userId) },
+      select: { selfieImage: true }
+    });
+
+    if (!verification || !verification.selfieImage) {
+      return res.status(404).json({ error: 'Selfie not found' });
+    }
+
+    res.set('Content-Type', 'image/jpeg');
+    res.send(verification.selfieImage);
+
+  } catch (error) {
+    console.error('Get Selfie Error:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
 export async function completeVerification(req, res) {
   try {
     const { userId } = req.body;

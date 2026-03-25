@@ -1,7 +1,6 @@
 import express from "express";
 import { authenticate } from "../middleware/authMiddleware.js";
-import { addPassengerPreferences ,
-  getPassengerPreferences,
+import { 
   getMyPassengerProfile,
   getPassengerProfile,
   updatePassengerProfile,
@@ -9,9 +8,6 @@ import { addPassengerPreferences ,
 } from "../controllers/passengerController.js";
 
 const router = express.Router();
-
-router.patch("/preferences", authenticate, addPassengerPreferences);
-router.get("/preferences", authenticate, getPassengerPreferences);
 
 router.get("/me", authenticate, getMyPassengerProfile);
 router.put("/profile", authenticate, updatePassengerProfile);
