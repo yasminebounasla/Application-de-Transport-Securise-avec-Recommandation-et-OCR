@@ -49,7 +49,7 @@ async def recommend(payload: RecommendPayload):
 # ── FEEDBACK DIRECT ───────────────────────────────────────────────────────────
 class FeedbackPayload(BaseModel):
     rating: float                    # note réelle 1–5
-    scores: Dict[str, float]         # { lightfm, pref, dist, work, rating }
+    scores: Dict[str, Optional[float]]        # { lightfm, pref, dist, work, rating }
     # scores envoyés directement depuis Express avec le feedback
     # → plus besoin de fichier log intermédiaire
 

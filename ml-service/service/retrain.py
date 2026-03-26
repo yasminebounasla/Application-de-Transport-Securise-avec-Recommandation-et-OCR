@@ -1,5 +1,5 @@
 """
-retrain.py — CORRIGÉ
+retrain.py — ✅ CORRIGÉ
 User = Passenger (pas Trajet)
 Un passager accumule plusieurs interactions → LightFM apprend son profil réel.
 Les features du trajet (quiet_ride, heure, distance) sont agrégées par passager
@@ -15,7 +15,7 @@ from lightfm.data import Dataset
 from lightfm.evaluation import auc_score, precision_at_k
 from lightfm.cross_validation import random_train_test_split
 
-# ── CHEMINS ──────────────────────────────────────────────────────────────────
+# ── 1. CHARGEMENT ─────────────────────────────────────────────────────────────
 BASE_DIR   = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR   = os.path.join(BASE_DIR, "lightfm_data")
 MODELS_DIR = os.path.join(BASE_DIR, "model_real")
@@ -92,7 +92,7 @@ item_features_list = [
     "rating:excellent","rating:good","rating:average","rating:poor",
 ]
 
-# CHANGEMENT : users = passagers uniques (plus trajets uniques)
+# ✅ CHANGEMENT : users = passagers uniques (plus trajets uniques)
 dataset.fit(
     users=t_df["passenger_id"].unique(),   # ← P1, P2, P3... (plus T1, T2, T3...)
     items=d_df["driver_id"].unique(),
@@ -101,7 +101,7 @@ dataset.fit(
 )
 
 # ── 5. MATRICES ───────────────────────────────────────────────────────────────
-#  CHANGEMENT : interactions indexées par passenger_id
+# ✅ CHANGEMENT : interactions indexées par passenger_id
 (interactions, weights_matrix) = dataset.build_interactions(
     [(row["passenger_id"], row["driver_id"], float(row["weight"]))
      for _, row in good_interactions.iterrows()]
@@ -142,26 +142,47 @@ item_features = dataset.build_item_features(
 print(f"\n✅ Matrices construites — {interactions.nnz} interactions")
 
 # ── 6. TRAIN/TEST SPLIT ───────────────────────────────────────────────────────
-train_interactions, test_interactions = random_train_test_split(
-    interactions, test_percentage=0.2, random_state=42
-)
-print(f"📊 Train : {train_interactions.nnz} | Test : {test_interactions.nnz}")
+# train_interactions, test_interactions = random_train_test_split(
+#     interactions, test_percentage=0.2, random_state=42
+# )
+# from scipy.sparse import coo_matrix
+# import numpy as np
 
-# ── 7. BASELINE ───────────────────────────────────────────────────────────────
-print("\n🔁 Baseline...")
-baseline = LightFM(loss="warp", no_components=1, random_state=42)
-baseline.fit(train_interactions, item_features=item_features, epochs=10, num_threads=4)
-baseline_auc = auc_score(
-    baseline, test_interactions,
-    train_interactions=train_interactions,
-    item_features=item_features, num_threads=4,
-).mean()
-baseline_p5 = precision_at_k(
-    baseline, test_interactions,
-    train_interactions=train_interactions,
-    item_features=item_features, k=5, num_threads=4,
-).mean()
-print(f"   Baseline AUC: {baseline_auc:.4f} | P@5: {baseline_p5:.4f}")
+# # Convertir en COO
+# train_coo = train_interactions.tocoo()
+# test_coo  = test_interactions.tocoo()
+
+# # Convertir les indices en array 2D de paires
+# train_pairs = np.array(list(zip(train_coo.row, train_coo.col)))
+# test_pairs  = np.array(list(zip(test_coo.row, test_coo.col)))
+
+# # Mask : garder seulement ce qui n'est pas dans train
+# mask = np.array([tuple(pair) not in map(tuple, train_pairs) for pair in test_pairs])
+
+# # Reconstruire test_interactions filtré
+# test_interactions = coo_matrix(
+#     (test_coo.data[mask], (test_coo.row[mask], test_coo.col[mask])),
+#     shape=test_coo.shape
+# )
+
+# print(f"Train nnz: {train_interactions.nnz} | Test nnz filtré: {test_interactions.nnz}")
+# # ── 7. BASELINE ───────────────────────────────────────────────────────────────
+# print("\n🔁 Baseline...")
+# baseline = LightFM(loss="warp", no_components=1, random_state=42)
+# baseline.fit(train_interactions, item_features=item_features, epochs=10, num_threads=4)
+# baseline_auc = auc_score(
+#     baseline, test_interactions,
+#     train_interactions=train_interactions,
+#     item_features=item_features, num_threads=4,
+#     check_intersections=False, 
+# ).mean()
+# baseline_p5 = precision_at_k(
+#     baseline, test_interactions,
+#     train_interactions=train_interactions,
+#     item_features=item_features, k=5, num_threads=4,
+#     check_intersections=False, 
+# ).mean()
+# print(f"   Baseline AUC: {baseline_auc:.4f} | P@5: {baseline_p5:.4f}")
 
 # ── 8. MODÈLE ────────────────────────────────────────────────────────────────
 model = LightFM(
@@ -173,7 +194,7 @@ model = LightFM(
     random_state=42,
 )
 
-n_train = train_interactions.nnz
+n_train = interactions.nnz
 if   n_train < 500:   epochs = 60
 elif n_train < 2000:  epochs = 120
 elif n_train < 5000:  epochs = 200
@@ -186,48 +207,49 @@ best_auc = 0.0; best_epoch = 0
 
 for epoch in range(1, epochs + 1):
     model.fit_partial(
-        train_interactions,
+        interactions,
         user_features=user_features,
         item_features=item_features,
         epochs=1, num_threads=4,
     )
-    if epoch % 10 == 0:
-        test_auc = auc_score(
-            model, test_interactions,
-            train_interactions=train_interactions,
-            user_features=user_features,
-            item_features=item_features,
-            num_threads=4,
-        ).mean()
-        marker = ""
-        if test_auc > best_auc:
-            best_auc = test_auc; best_epoch = epoch; marker = " ← meilleur"
-        print(f"   Époque {epoch:3d} | AUC test: {test_auc:.4f}{marker}")
+#     if epoch % 10 == 0:
+#         test_auc = auc_score(
+#             model, test_interactions,
+#             train_interactions=train_interactions,
+#             user_features=user_features,
+#             item_features=item_features,
+#             num_threads=4,
+#         ).mean()
+#         marker = ""
+#         if test_auc > best_auc:
+#             best_auc = test_auc; best_epoch = epoch; marker = " ← meilleur"
+#         print(f"   Époque {epoch:3d} | AUC test: {test_auc:.4f}{marker}")
 
 # ── 9. ÉVALUATION FINALE ──────────────────────────────────────────────────────
-final_auc = auc_score(
-    model, test_interactions,
-    train_interactions=train_interactions,
-    user_features=user_features,
-    item_features=item_features, num_threads=4,
-).mean()
-final_p5 = precision_at_k(
-    model, test_interactions,
-    train_interactions=train_interactions,
-    user_features=user_features,
-    item_features=item_features, k=5, num_threads=4,
-).mean()
+# final_auc = auc_score(
+#     model, test_interactions,
+#     train_interactions=train_interactions,
+#     user_features=user_features,
+#     item_features=item_features, num_threads=4,
+#     check_intersections=False, 
+# ).mean()
+# final_p5 = precision_at_k(
+#     model, test_interactions,
+#     train_interactions=train_interactions,
+#     user_features=user_features,
+#     item_features=item_features, k=5, num_threads=4,
+#     check_intersections=False, 
+# ).mean()
 
-print(f"\n{'='*45}")
-print(f"  RÉSULTATS FINAUX")
-print(f"{'='*45}")
-print(f"  Baseline     — AUC: {baseline_auc:.4f} | P@5: {baseline_p5:.4f}")
-print(f"  Notre modèle — AUC: {final_auc:.4f} | P@5: {final_p5:.4f}")
-print(f"  Gain AUC        : +{(final_auc - baseline_auc):.4f}")
-print(f"  Gain Precision@5: +{(final_p5  - baseline_p5):.4f}")
-print(f"  Meilleur epoch  : {best_epoch} (AUC: {best_auc:.4f})")
-print(f"{'='*45}")
-
+# print(f"\n{'='*45}")
+# print(f"  RÉSULTATS FINAUX")
+# print(f"{'='*45}")
+# print(f"  Baseline     — AUC: {baseline_auc:.4f} | P@5: {baseline_p5:.4f}")
+# print(f"  Notre modèle — AUC: {final_auc:.4f} | P@5: {final_p5:.4f}")
+# print(f"  Gain AUC        : +{(final_auc - baseline_auc):.4f}")
+# print(f"  Gain Precision@5: +{(final_p5  - baseline_p5):.4f}")
+# print(f"  Meilleur epoch  : {best_epoch} (AUC: {best_auc:.4f})")
+# print(f"{'='*45}")
 
 # ── 10. SAUVEGARDE ────────────────────────────────────────────────────────────
 model.random_state = None
@@ -245,5 +267,5 @@ print("\n✅ Modèle et données sauvegardés !")
 
 
 
-import httpx
-httpx.post("http://localhost:8000/reload-model")
+# import httpx
+# httpx.post("http://localhost:8000/reload-model")

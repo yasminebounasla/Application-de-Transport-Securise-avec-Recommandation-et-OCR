@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 scheduler = AsyncIOScheduler()
 
-@scheduler.scheduled_job(CronTrigger(day_of_week='Sat', hour=9, minute=58))
+@scheduler.scheduled_job(CronTrigger(day_of_week='Thu', hour=17, minute=36))
 async def retrain_weekly():
     logger.info("🔄 Réentraînement hebdomadaire démarré...")
     try:

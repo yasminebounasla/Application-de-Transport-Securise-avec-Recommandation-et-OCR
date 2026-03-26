@@ -227,7 +227,7 @@ def add_feedback_to_buffer(scores: Dict, real_rating: float) -> bool:
     global _optimized_weights
 
     target = max(0.0, min(1.0, (real_rating - 1) / 4))
-    entry  = {**{k: scores[k] for k in WEIGHT_KEYS}, "target": target}
+    entry = {**{k: scores.get(k) or 0.0 for k in WEIGHT_KEYS}, "target": target}
 
     with _feedback_lock:
         _scores_history.append(entry)
@@ -425,6 +425,20 @@ async def get_recommendations(
             "rating":  rating_score,
         }
         scored_drivers.append(driver)
+
+    
+        # ── LOGS : avant vs après optimisation ──────────────────────────────────
+    print(f"\n📊 Poids utilisés : lightfm={w_lfm} | pref={w_pref} | dist={w_dist} | work={w_work} | rating={w_rating}")
+    print(f"   Source poids   : {'SLSQP optimisé' if _optimized_weights is not None else 'DEFAULT (pas encore optimisé)'}")
+    print(f"{'─'*60}")
+    for d in scored_drivers[:5]:
+        s = d["_scores"]
+        # Score SANS optim (poids égaux 0.2 chacun)
+        score_before = 0.2*s["lightfm"] + 0.2*s["pref"] + 0.2*s["dist"] + 0.2*s["work"] + 0.2*s["rating"]
+        # Score AVEC optim (poids SLSQP)
+        score_after  = w_lfm*s["lightfm"] + w_pref*s["pref"] + w_dist*s["dist"] + w_work*s["work"] + w_rating*s["rating"]
+        print(f"   🚗 Driver {d['id']} | sans_optim={score_before:.4f} | avec_optim={score_after:.4f} | diff={score_after - score_before:+.4f}")
+    print(f"{'─'*60}\n")
 
     scored_drivers.sort(key=lambda d: d.get("final_score", 0), reverse=True)
     for driver in scored_drivers:
