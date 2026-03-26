@@ -9,6 +9,7 @@ export default function Layout() {
       <Stack.Screen name="MyFeedbacksScreen" />
       <Stack.Screen name="PassengerProfileScreen" options={{ 
         title: "Passenger Profile",
+        headerShown: false,
         headerStyle: {
           backgroundColor: '#ffffff',
         },
