@@ -11,6 +11,25 @@ from dotenv import load_dotenv
 from scipy.sparse import csr_matrix
 from scipy.optimize import minimize
 
+import json
+import os
+import logging
+
+logger = logging.getLogger(__name__)
+BUFFER_FILE = os.path.join(os.path.dirname(__file__), "feedback_buffer.json")
+
+# Charger le buffer existant si le fichier existe
+if os.path.exists(BUFFER_FILE):
+    try:
+        with open(BUFFER_FILE, "r") as f:
+            feedback_buffer = json.load(f)
+        logger.info(f"📂 Feedback buffer chargé depuis {BUFFER_FILE} ({len(feedback_buffer)} entrées)")
+    except Exception as e:
+        logger.error(f"❌ Impossible de charger le feedback buffer : {e}")
+        feedback_buffer = []
+else:
+    feedback_buffer = []
+
 load_dotenv()
 
 BASE_DIR     = os.path.dirname(os.path.abspath(__file__))

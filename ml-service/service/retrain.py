@@ -140,6 +140,10 @@ item_features = dataset.build_item_features(
 )
 
 print(f"\n✅ Matrices construites — {interactions.nnz} interactions")
+# ← AJOUT pour log
+import logging
+logger = logging.getLogger(__name__)
+logger.info(f"📊 {interactions.nnz} interactions utilisées pour l'entraînement")
 
 # ── 6. TRAIN/TEST SPLIT ───────────────────────────────────────────────────────
 # train_interactions, test_interactions = random_train_test_split(
@@ -251,8 +255,12 @@ for epoch in range(1, epochs + 1):
 # print(f"  Meilleur epoch  : {best_epoch} (AUC: {best_auc:.4f})")
 # print(f"{'='*45}")
 
+
 # ── 10. SAUVEGARDE ────────────────────────────────────────────────────────────
 model.random_state = None
+
+
+print(f"📊 {interactions.nnz} interactions utilisées pour l'entraînement")
 
 import joblib
 
