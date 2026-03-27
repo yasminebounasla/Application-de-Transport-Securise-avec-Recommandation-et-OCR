@@ -80,12 +80,13 @@ const evaluateTrajet = async (trajetId) => {
 export const scheduleDriverTimeout = (trajetId, driverId, dateDepart) => {
   const hoursUntil = (new Date(dateDepart) - Date.now()) / 3600000;
   // if (hoursUntil < 1) return; // trop proche, pas de timeout
-  const timeout = hoursUntil < 2  ? 10 * 1000      // si trajet aprés 1h --> 30min
-                : hoursUntil < 24 ? 10 * 1000  // si trajte aprés 24h --> 2h
-                :                   6  * 60 * 60 * 1000;  // si > 24h --> 6h
+  const timeout = hoursUntil < 1   ? 5  * 60 * 1000        // < 1h   → 5 min  (très urgent)
+              : hoursUntil < 3   ? 15 * 60 * 1000        // 1h-3h  → 15 min
+              : hoursUntil < 24  ? 30 * 60 * 1000        // 3h-24h → 30 min
+              :                    2  * 60 * 60 * 1000;  // > 24h  → 2h
   const key = `${trajetId}_${driverId}`;
 
-  const timeoutId = setTimeout(async () => {
+  const timeoutId = setTimeout(async () => { 
     pendingTimeouts.delete(key);
     const ride = await prisma.trajet.findUnique({ where: { id: trajetId } });
     if (!ride || ride.status !== 'PENDING') return;
