@@ -9,6 +9,8 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import api from '../../services/api';
+import { initSocket, getSocket } from '../../services/socket';
+import { FallbackModal } from '../../components/FallbackModel';
 
 const FEEDBACK_REQUESTED_KEY = 'feedback_requested_rides';
 
@@ -27,7 +29,43 @@ export default function Home() {
   const [showFeedbackModal, setShowFeedbackModal] = useState<boolean>(false);
   const [completedRideId, setCompletedRideId] = useState<number | null>(null);
 
+  // États à ajouter pour le fallback 
+  const [fallbackVisible, setFallbackVisible]   = useState(false);
+  const [fallbackType, setFallbackType]         = useState<'BACKUP_AVAILABLE' | 'NEW_SEARCH'>('BACKUP_AVAILABLE');
+  const [fallbackDrivers, setFallbackDrivers]   = useState<any[]>([]);
+  const [currentRideId, setCurrentRideId]       = useState<number | null>(null);
+
+
   useEffect(() => { getPassengerRides(); }, []);
+  // useEffect à ajouter
+  useEffect(() => {
+    const setup = async () => {
+      const s = await initSocket();
+
+      // Récupérer le passengerId depuis AsyncStorage
+      const userRaw = await AsyncStorage.getItem('user');
+      if (userRaw) {
+        const user = JSON.parse(userRaw);
+        s.emit('registerUser', user.passengerId || user.id);
+        console.log('📡 registerUser depuis HomeScreen:', user.passengerId || user.id);
+      }
+
+      s.on('fallbackRequired', (data: any) => {
+        console.log('🔥 fallbackRequired reçu dans HomeScreen:', data);
+        setFallbackType(data.type);
+        setFallbackDrivers(data.backupDrivers || []);
+        setCurrentRideId(data.rideId);
+        setFallbackVisible(true);
+      });
+    };
+
+    setup();
+
+    return () => {
+      const current = getSocket();
+      if (current) current.off('fallbackRequired');
+    };
+  }, []);
 
   const isFeedbackRequested = async (rideId: number): Promise<boolean> => {
     try {
@@ -109,6 +147,21 @@ useEffect(() => {
 
   return (
     <>
+        <FallbackModal
+        visible={fallbackVisible}
+        type={fallbackType}
+        backupDrivers={fallbackDrivers}
+        rideId={currentRideId}
+        onClose={(reason: string) => {
+          setFallbackVisible(false);
+        }}
+        onSent={(count: number) => {
+          setFallbackVisible(false);
+          console.log(`✅ Fallback envoyé à ${count} drivers`);
+        }}
+      />
+  
+
       <MapView
         ref={mapRef}
         style={StyleSheet.absoluteFillObject}

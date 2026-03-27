@@ -82,7 +82,7 @@ export default function DriverRecoCard({
               {driver.work_match && (
                 <View style={styles.dispoBadge}>
                   <View style={styles.dispoDot} />
-                  <Text style={styles.dispoText}>Dispo</Text>
+                  <Text style={styles.dispoText}>Horaires ✓</Text>
                 </View>
               )}
             </View>

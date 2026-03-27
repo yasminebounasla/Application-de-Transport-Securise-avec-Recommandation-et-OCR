@@ -29,40 +29,30 @@ const evaluateTrajet = async (trajetId) => {
   const sentSet        = new Set(ride.sentDrivers || []);
 
   // Drivers recommandés mais jamais contactés (les 5 du batch 2)
-  const backupDrivers = allRecommended.filter(d => !sentSet.has(d.id));
+  const backupDrivers = allRecommended
+    .filter(d => !sentSet.has(d.id))  // pas encore contactés
+    .sort((a, b) => a.rank - b.rank)  // trier par rank
+    .slice(0, 5);                      // max 5
 
   const io = getIO();
 
-  if (backupDrivers.length > 0 && ride.fallbackStep < 1) {
-    // ── CAS 1 : Il reste des drivers dans les 10 recommandés → proposer fallback
-    console.log(`🔄 Fallback disponible pour trajet ${trajetId}: ${backupDrivers.length} drivers restants`);
+ if (backupDrivers.length > 0 && ride.fallbackStep === 0) {
 
-    // Émettre l'événement au passager avec les drivers de backup
-    io.to(`passenger_${ride.passagerId}`).emit('fallbackRequired', {
-      rideId:         ride.id,
-      type:           'BACKUP_AVAILABLE',   // Il reste des drivers du batch initial
-      backupDrivers:  backupDrivers,        // Les 5 drivers non contactés
-      message:        'Aucun conducteur n\'a répondu. Voulez-vous contacter d\'autres conducteurs ?',
-    });
+  await prisma.trajet.update({
+    where: { id: trajetId },
+    data: { fallbackStep: 1 }, // ← marquer comme envoyé, ne sera plus jamais 0
+  });
 
-    // Pas de notification push — juste socket (le passager est sur l'app)
-    return; // ← Ne pas cancel le trajet, laisser le passager décider
-  }
+  io.to(`passenger_${ride.passagerId}`).emit('fallbackRequired', {
+    rideId:        ride.id,
+    type:          'BACKUP_AVAILABLE',
+    backupDrivers: backupDrivers,
+    message:       "Aucun conducteur n'a répondu. Voulez-vous contacter d'autres conducteurs ?",
+  });
 
-  if (ride.fallbackStep >= 1) {
-    // ── CAS 2 : Fallback déjà utilisé (batch 2 aussi épuisé)
-    //           Proposer 5 drivers complètement nouveaux via re-reco
-    console.log(`🔄 Fallback step 2 pour trajet ${trajetId}: proposer nouveaux drivers`);
+  return;
+}
 
-    io.to(`passenger_${ride.passagerId}`).emit('fallbackRequired', {
-      rideId:        ride.id,
-      type:          'NEW_SEARCH',   // Pas de backup restant → recherche fraîche
-      backupDrivers: [],
-      message:       'Tous les conducteurs ont refusé. Voulez-vous chercher de nouveaux conducteurs ?',
-    });
-
-    return;
-  }
 
   // ── CAS 3 : Aucune option disponible → cancel définitif ───────────────────
   await prisma.trajet.update({
