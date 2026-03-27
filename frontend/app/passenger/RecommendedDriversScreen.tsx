@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity,
-  ActivityIndicator, StyleSheet, Modal, Dimensions
+  ActivityIndicator, StyleSheet, Modal, Dimensions, Animated
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -9,6 +9,7 @@ import { recommendDrivers } from '../../services/recommendationService';
 import DriverRecoCard from '../../components/DriverRecommendationCard';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { getSocket } from '../../services/socket';
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get('screen');
 const API_URL = process.env.EXPO_PUBLIC_API_URL;
@@ -90,23 +91,242 @@ function SentModal({ visible, count, onClose }: any) {
   );
 }
 
+// ── MODAL FALLBACK ✅ NOUVEAU ──────────────────────────────────────────────────
+// S'affiche quand tous les drivers contactés ont refusé/timeout
+// Propose soit les 5 restants, soit une nouvelle recherche
+function FallbackModal({ visible, type, backupDrivers, rideId, onClose, onSent }: any) {
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+  const [sending, setSending]         = useState(false);
+  const [loadingNew, setLoadingNew]   = useState(false);
+  const slideAnim = useRef(new Animated.Value(300)).current;
+
+  useEffect(() => {
+    if (visible) {
+      setSelectedIds(new Set());
+      Animated.spring(slideAnim, {
+        toValue: 0, useNativeDriver: true,
+        tension: 65, friction: 11,
+      }).start();
+    } else {
+      slideAnim.setValue(300);
+    }
+  }, [visible]);
+
+  const toggleSelect = (id: number) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  // ── Envoyer aux drivers de backup sélectionnés ────────────────────────────
+  const handleSendBackup = async () => {
+    if (selectedIds.size === 0) return;
+    try {
+      setSending(true);
+      const token = await AsyncStorage.getItem('token');
+      const response = await fetch(`${API_URL}/ridesDem/send-fallback`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body:    JSON.stringify({ rideId, driverIds: Array.from(selectedIds) }),
+      });
+      const data = await response.json();
+      if (response.ok) {
+        onSent(data.driversNotified);
+      } else {
+        console.error('Fallback error:', data.message);
+      }
+    } catch (e: any) {
+      console.error('Fallback error:', e.message);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  // ── Lancer une nouvelle recherche de drivers ──────────────────────────────
+  const handleNewSearch = async () => {
+    try {
+      setLoadingNew(true);
+      const raw = await AsyncStorage.getItem('tripRequest');
+      if (!raw) return;
+      const trip = JSON.parse(raw);
+
+      // Appeler FastAPI avec top_n=10 et exclure les drivers déjà contactés
+      const sentIds = backupDrivers.map((d: any) => d.id); // déjà envoyés
+      const response = await recommendDrivers(
+        trip.passengerId,
+        trip.preferences || {},
+        trip.trajet || {},
+        10
+      );
+
+      // Filtrer les drivers déjà contactés
+      const fresh = (response?.recommendedDrivers || []).filter(
+        (d: any) => !sentIds.includes(d.id)
+      ).slice(0, 5);
+
+      if (fresh.length === 0) {
+        onClose('NO_DRIVERS');
+        return;
+      }
+
+      // Envoyer directement les 5 nouveaux
+      const token = await AsyncStorage.getItem('token');
+      const res2 = await fetch(`${API_URL}/ridesDem/send-fallback`, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+        body:    JSON.stringify({ rideId, driverIds: fresh.map((d: any) => d.id) }),
+      });
+      const data = await res2.json();
+      if (res2.ok) {
+        onSent(data.driversNotified);
+      }
+    } catch (e: any) {
+      console.error('New search error:', e.message);
+    } finally {
+      setLoadingNew(false);
+    }
+  };
+
+  if (!visible) return null;
+
+  return (
+    <Modal visible={visible} transparent statusBarTranslucent animationType="fade" onRequestClose={() => onClose('DISMISSED')}>
+      <View style={fbStyles.overlay}>
+        <Animated.View style={[fbStyles.sheet, { transform: [{ translateY: slideAnim }] }]}>
+
+          {/* Header */}
+          <View style={fbStyles.header}>
+            <View style={fbStyles.warningCircle}>
+              <Ionicons name="time-outline" size={28} color="#F59E0B" />
+            </View>
+            <Text style={fbStyles.title}>Aucune réponse reçue</Text>
+            <Text style={fbStyles.subtitle}>
+              {type === 'BACKUP_AVAILABLE'
+                ? 'Les conducteurs contactés n\'ont pas répondu. Voici d\'autres conducteurs recommandés pour vous.'
+                : 'Tous les conducteurs recommandés ont été contactés. Voulez-vous lancer une nouvelle recherche ?'
+              }
+            </Text>
+          </View>
+
+          {/* CAS 1 : Backup disponible → afficher les 5 restants */}
+          {type === 'BACKUP_AVAILABLE' && backupDrivers.length > 0 && (
+            <>
+              <Text style={fbStyles.sectionLabel}>Conducteurs disponibles</Text>
+              <View style={fbStyles.driversList}>
+                {backupDrivers.slice(0, 5).map((d: any) => (
+                  <TouchableOpacity
+                    key={d.id}
+                    style={[fbStyles.driverRow, selectedIds.has(d.id) && fbStyles.driverRowSelected]}
+                    onPress={() => toggleSelect(d.id)}
+                    activeOpacity={0.8}
+                  >
+                    <View style={[fbStyles.avatar, { backgroundColor: d.sexe === 'F' ? '#FCE4EC' : '#E8F0FE' }]}>
+                      <Text style={[fbStyles.avatarText, { color: d.sexe === 'F' ? '#C2185B' : '#1A73E8' }]}>
+                        {d.prenom?.[0]}{d.nom?.[0]}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={fbStyles.driverName}>{d.prenom} {d.nom}</Text>
+                      <Text style={fbStyles.driverSub}>
+                        {d.distance_km ? `${d.distance_km} km · ` : ''}
+                        ⭐ {d.avgRating?.toFixed(1) ?? '—'}
+                        {d.work_match ? ' · 🕐 Disponible' : ''}
+                      </Text>
+                    </View>
+                    <View style={[fbStyles.checkbox, selectedIds.has(d.id) && fbStyles.checkboxSelected]}>
+                      {selectedIds.has(d.id) && <Ionicons name="checkmark" size={14} color="#fff" />}
+                    </View>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <TouchableOpacity
+                style={[fbStyles.primaryBtn, (selectedIds.size === 0 || sending) && fbStyles.primaryBtnOff]}
+                onPress={handleSendBackup}
+                disabled={selectedIds.size === 0 || sending}
+              >
+                {sending
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <Ionicons name="paper-plane-outline" size={16} color={selectedIds.size > 0 ? '#fff' : '#9CA3AF'} />
+                }
+                <Text style={[fbStyles.primaryBtnText, (selectedIds.size === 0 || sending) && fbStyles.primaryBtnTextOff]}>
+                  {sending
+                    ? 'Envoi...'
+                    : selectedIds.size > 0
+                      ? `Contacter ${selectedIds.size} conducteur${selectedIds.size > 1 ? 's' : ''}`
+                      : 'Sélectionnez au moins un conducteur'
+                  }
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
+
+          {/* CAS 2 : Nouvelle recherche */}
+          {type === 'NEW_SEARCH' && (
+            <TouchableOpacity
+              style={[fbStyles.primaryBtn, loadingNew && fbStyles.primaryBtnOff]}
+              onPress={handleNewSearch}
+              disabled={loadingNew}
+            >
+              {loadingNew
+                ? <ActivityIndicator size="small" color="#fff" />
+                : <Ionicons name="search-outline" size={16} color="#fff" />
+              }
+              <Text style={fbStyles.primaryBtnText}>
+                {loadingNew ? 'Recherche en cours...' : 'Chercher de nouveaux conducteurs'}
+              </Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Annuler le trajet */}
+          <TouchableOpacity style={fbStyles.cancelBtn} onPress={() => onClose('CANCEL_RIDE')}>
+            <Text style={fbStyles.cancelBtnText}>Annuler le trajet</Text>
+          </TouchableOpacity>
+
+        </Animated.View>
+      </View>
+    </Modal>
+  );
+}
+
 // ── SCREEN PRINCIPAL ──────────────────────────────────────────────────────────
 export default function RecommendedDriversScreen() {
-  const params = useLocalSearchParams();
-  const insets = useSafeAreaInsets();
+  const params     = useLocalSearchParams();
+  const insets     = useSafeAreaInsets();
+  
 
-  const [drivers, setDrivers]         = useState<any[]>([]);
-  const [loading, setLoading]         = useState(true);
-  const [sending, setSending]         = useState(false);
-  const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [showSent, setShowSent]       = useState(false);
-  const [tripRequest, setTripRequest] = useState<any>(null);
+  const [drivers, setDrivers]                 = useState<any[]>([]);
+  const [allRecommended, setAllRecommended]   = useState<any[]>([]); // ✅ Les 10
+  const [loading, setLoading]                 = useState(true);
+  const [sending, setSending]                 = useState(false);
+  const [selectedIds, setSelectedIds]         = useState<Set<number>>(new Set());
+  const [showConfirm, setShowConfirm]         = useState(false);
+  const [showSent, setShowSent]               = useState(false);
+  const [sentCount, setSentCount]             = useState(0);
+  const [tripRequest, setTripRequest]         = useState<any>(null);
 
+  // ✅ États pour le fallback modal
+  const [fallbackVisible, setFallbackVisible] = useState(false);
+  const [fallbackType, setFallbackType]       = useState<'BACKUP_AVAILABLE' | 'NEW_SEARCH'>('BACKUP_AVAILABLE');
+  const [fallbackDrivers, setFallbackDrivers] = useState<any[]>([]);
+
+  useEffect(() => {
+    const socket = getSocket();
+    if (!socket) return;
+    socket.on('fallbackRequired', (data) => {
+      setFallbackType(data.type);
+      setFallbackDrivers(data.backupDrivers || []);
+      setFallbackVisible(true);
+    });
+    return () => socket.off('fallbackRequired');
+  }, []);
   useEffect(() => { loadRecommendations(); }, []);
 
   const loadRecommendations = async () => {
     try {
+  
       setLoading(true);
 
       const raw = await AsyncStorage.getItem('tripRequest');
@@ -115,35 +335,14 @@ export default function RecommendedDriversScreen() {
       const trip = JSON.parse(raw);
       setTripRequest(trip);
 
-      // ── LOG pour debug ───────────────────────────────────────────────────
-      console.log('═══════════════════════════════════════════');
-      console.log('📦 [RecommendedDrivers] tripRequest lu depuis AsyncStorage:');
-      console.log('   passengerId :', trip.passengerId);
-      console.log('   rideId      :', trip.rideId);
-      console.log('   trajet      :', JSON.stringify(trip.trajet));
-      console.log('   preferences :', JSON.stringify(trip.preferences));
-
-      // ── Validation géo ───────────────────────────────────────────────────
       const trajet = trip.trajet || {};
-      if (trajet.startLat == null || trajet.startLng == null) {
-        console.warn('⚠️  [RecommendedDrivers] startLat/startLng manquants dans tripRequest.trajet !');
-        console.warn('   → Vérifie que SearchRideScreen stocke bien trajet dans AsyncStorage');
-      } else {
-        console.log(`✅ [RecommendedDrivers] Géo OK: (${trajet.startLat}, ${trajet.startLng})`);
-      }
-      console.log('═══════════════════════════════════════════');
 
-      // ── Appel API recommendation ─────────────────────────────────────────
-      const response = await recommendDrivers(
-        trip.passengerId,
-        trip.preferences || {},
-        trajet,           // ✅ passé séparément, jamais undefined
-        5
-      );
+      // ── Appel API recommendation — top_n=10 ✅ ─────────────────────────────
+      const response = await recommendDrivers(trip.passengerId, trip.preferences || {}, trajet, 10);
 
-      if (response?.recommendedDrivers?.length > 0) {
-        setDrivers(response.recommendedDrivers);
-      }
+      const all = response?.recommendedDrivers || [];
+      setAllRecommended(all);       // Stocker les 10
+      setDrivers(all.slice(0, 5)); // Afficher les 5 premiers
 
     } catch (error: any) {
       console.error('❌ [RecommendedDrivers] Erreur:', error.message);
@@ -181,6 +380,9 @@ export default function RecommendedDriversScreen() {
 
       const token = await AsyncStorage.getItem('token');
 
+      // Trouver les scores du premier driver sélectionné
+      const firstSelected = allRecommended.find(d => selectedIds.has(d.id));
+
       const response = await fetch(`${API_URL}/ridesDem/send-requests`, {
         method: 'POST',
         headers: {
@@ -188,9 +390,12 @@ export default function RecommendedDriversScreen() {
           'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
-          rideId:      tripRequest.rideId,
-          driverIds:   Array.from(selectedIds),
-          preferences: tripRequest.preferences || {},
+          rideId:                tripRequest.rideId,
+          driverIds:             Array.from(selectedIds),
+          preferences:           tripRequest.preferences || {},
+          chosenDriverScores:    firstSelected?._scores || null,
+          // ✅ NOUVEAU : envoyer les 10 pour stockage en DB
+          allRecommendedDrivers: allRecommended,
         }),
       });
 
@@ -200,6 +405,7 @@ export default function RecommendedDriversScreen() {
         console.error('❌ Erreur sendRideRequests:', data.message);
       } else {
         console.log(`✅ ${data.driversNotified} drivers notifiés`);
+        setSentCount(data.driversNotified);
       }
 
       await AsyncStorage.removeItem('tripRequest');
@@ -212,6 +418,32 @@ export default function RecommendedDriversScreen() {
     } finally {
       setSending(false);
     }
+  };
+
+  // ✅ Gérer la fermeture du fallback modal
+  const handleFallbackClose = async (reason: string) => {
+    setFallbackVisible(false);
+    if (reason === 'CANCEL_RIDE') {
+      // Annuler le trajet via l'API
+      try {
+        const token = await AsyncStorage.getItem('token');
+        await fetch(`${API_URL}/rides/${tripRequest?.rideId}/cancel`, {
+          method:  'PATCH',
+          headers: { 'Authorization': `Bearer ${token}` },
+        });
+      } catch (e) {
+        console.error('Cancel ride error:', e);
+      }
+      router.replace('/(passengerTabs)/PassengerHomeScreen');
+    }
+    // Si 'DISMISSED' → ne rien faire, le modal se ferme juste
+  };
+
+  // ✅ Gérer quand le fallback a envoyé les demandes
+  const handleFallbackSent = (count: number) => {
+    setFallbackVisible(false);
+    setSentCount(count);
+    setShowSent(true);
   };
 
   const handleCloseSent = () => {
@@ -261,7 +493,7 @@ export default function RecommendedDriversScreen() {
         </View>
       )}
 
-      {/* Liste */}
+      {/* Liste — 5 premiers seulement */}
       <FlatList
         data={drivers}
         keyExtractor={item => item.id.toString()}
@@ -324,14 +556,24 @@ export default function RecommendedDriversScreen() {
       />
       <SentModal
         visible={showSent}
-        count={selectedIds.size}
+        count={sentCount}
         onClose={handleCloseSent}
+      />
+
+      {/* ✅ NOUVEAU : Modal fallback */}
+      <FallbackModal
+        visible={fallbackVisible}
+        type={fallbackType}
+        backupDrivers={fallbackDrivers}
+        rideId={tripRequest?.rideId}
+        onClose={handleFallbackClose}
+        onSent={handleFallbackSent}
       />
     </View>
   );
 }
 
-// ── STYLES ────────────────────────────────────────────────────────────────────
+// ── STYLES screen ─────────────────────────────────────────────────────────────
 const s = StyleSheet.create({
   bg: { flex: 1, backgroundColor: '#F7F7F7' },
   header: {
@@ -371,6 +613,7 @@ const s = StyleSheet.create({
   confirmBtnTextOff: { color: '#9CA3AF' },
 });
 
+// ── STYLES modals existants ───────────────────────────────────────────────────
 const mStyles = StyleSheet.create({
   overlay: {
     flex: 1, width: SCREEN_WIDTH, height: SCREEN_HEIGHT,
@@ -395,4 +638,54 @@ const mStyles = StyleSheet.create({
   sendBtn:    { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#111', borderRadius: 12, paddingVertical: 14 },
   sendBtnText:{ fontSize: 15, fontWeight: '700', color: '#ffffff' },
   sendBtn2:   { width: '100%', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, backgroundColor: '#111', borderRadius: 12, paddingVertical: 14 },
+});
+
+// ── STYLES fallback modal ✅ NOUVEAU ──────────────────────────────────────────
+const fbStyles = StyleSheet.create({
+  overlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.65)',
+    justifyContent: 'flex-end',
+  },
+  sheet: {
+    backgroundColor: '#fff', borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    padding: 24, paddingBottom: 36, gap: 12,
+  },
+  header:       { alignItems: 'center', gap: 10, marginBottom: 4 },
+  warningCircle: {
+    width: 60, height: 60, borderRadius: 30,
+    backgroundColor: '#FFFBEB', alignItems: 'center', justifyContent: 'center',
+  },
+  title:     { fontSize: 20, fontWeight: '800', color: '#111', textAlign: 'center' },
+  subtitle:  { fontSize: 14, color: '#6B7280', textAlign: 'center', lineHeight: 20 },
+  sectionLabel: { fontSize: 13, fontWeight: '700', color: '#374151', marginTop: 4 },
+  driversList: { gap: 8 },
+  driverRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#F9FAFB', borderRadius: 14, padding: 12,
+    borderWidth: 2, borderColor: 'transparent',
+  },
+  driverRowSelected: { borderColor: '#111', backgroundColor: '#F0F0F0' },
+  avatar:     { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontSize: 13, fontWeight: '800' },
+  driverName: { fontSize: 14, fontWeight: '700', color: '#111' },
+  driverSub:  { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
+  checkbox: {
+    width: 24, height: 24, borderRadius: 12,
+    borderWidth: 2, borderColor: '#D1D5DB',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  checkboxSelected: { backgroundColor: '#111', borderColor: '#111' },
+  primaryBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 8, backgroundColor: '#111', borderRadius: 14, paddingVertical: 15,
+    marginTop: 8,
+  },
+  primaryBtnOff:     { backgroundColor: '#F5F5F5' },
+  primaryBtnText:    { fontSize: 15, fontWeight: '700', color: '#fff' },
+  primaryBtnTextOff: { color: '#9CA3AF' },
+  cancelBtn: {
+    alignItems: 'center', paddingVertical: 12, borderRadius: 14,
+    backgroundColor: '#FEF2F2',
+  },
+  cancelBtnText: { fontSize: 14, fontWeight: '600', color: '#EF4444' },
 });

@@ -146,7 +146,16 @@ model Trajet {
   // gestion des refus
   notifiedDriversCount  Int   @default(0)
   rejectedDriverIds     Int[] @default([])
-  timedOutDriverIds     Int[] @default([])   
+  timedOutDriverIds     Int[] @default([]) 
+
+  
+
+  recommendedDrivers   Json?     // [{id: 1, rank: 1}, ...]
+  sentDrivers          Int[]    @default([])
+
+  // gestion timeout
+  fallbackStep Int @default(0)
+  
 
   // Préférences du passager pour CE trajet (user features LightFM)
   quiet_ride         String @default("no")

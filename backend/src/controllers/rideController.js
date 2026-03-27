@@ -14,6 +14,9 @@ const parseAndValidateId = (rawId) => {
 const pendingTimeouts = new Map();
 const SIX_HOURS = 6 * 60 * 60 * 1000;
 
+// ── evaluateTrajet ────────────────────────────────────────────────────────────
+// ✅ MODIFIÉ : au lieu de cancel direct → émet fallbackRequired si des drivers
+
 const evaluateTrajet = async (trajetId) => {
   const ride = await prisma.trajet.findUnique({ where: { id: trajetId } });
   if (!ride || ride.status !== 'PENDING') return;
@@ -21,17 +24,57 @@ const evaluateTrajet = async (trajetId) => {
   const resolvedCount = ride.rejectedDriverIds.length + ride.timedOutDriverIds.length;
   if (resolvedCount < ride.notifiedDriversCount) return;
 
-  await prisma.trajet.update({
-    where: { id: trajetId },
-    data: { status: 'CANCELLED_BY_DRIVER' },
-  });
+  // ── Chercher les drivers de backup non encore contactés ───────────────────
+  const allRecommended = Array.isArray(ride.recommendedDrivers) ? ride.recommendedDrivers : [];
+  const sentSet        = new Set(ride.sentDrivers || []);
+
+  // Drivers recommandés mais jamais contactés (les 5 du batch 2)
+  const backupDrivers = allRecommended.filter(d => !sentSet.has(d.id));
 
   const io = getIO();
+
+  if (backupDrivers.length > 0 && ride.fallbackStep < 1) {
+    // ── CAS 1 : Il reste des drivers dans les 10 recommandés → proposer fallback
+    console.log(`🔄 Fallback disponible pour trajet ${trajetId}: ${backupDrivers.length} drivers restants`);
+
+    // Émettre l'événement au passager avec les drivers de backup
+    io.to(`passenger_${ride.passagerId}`).emit('fallbackRequired', {
+      rideId:         ride.id,
+      type:           'BACKUP_AVAILABLE',   // Il reste des drivers du batch initial
+      backupDrivers:  backupDrivers,        // Les 5 drivers non contactés
+      message:        'Aucun conducteur n\'a répondu. Voulez-vous contacter d\'autres conducteurs ?',
+    });
+
+    // Pas de notification push — juste socket (le passager est sur l'app)
+    return; // ← Ne pas cancel le trajet, laisser le passager décider
+  }
+
+  if (ride.fallbackStep >= 1) {
+    // ── CAS 2 : Fallback déjà utilisé (batch 2 aussi épuisé)
+    //           Proposer 5 drivers complètement nouveaux via re-reco
+    console.log(`🔄 Fallback step 2 pour trajet ${trajetId}: proposer nouveaux drivers`);
+
+    io.to(`passenger_${ride.passagerId}`).emit('fallbackRequired', {
+      rideId:        ride.id,
+      type:          'NEW_SEARCH',   // Pas de backup restant → recherche fraîche
+      backupDrivers: [],
+      message:       'Tous les conducteurs ont refusé. Voulez-vous chercher de nouveaux conducteurs ?',
+    });
+
+    return;
+  }
+
+  // ── CAS 3 : Aucune option disponible → cancel définitif ───────────────────
+  await prisma.trajet.update({
+    where: { id: trajetId },
+    data:  { status: 'CANCELLED_BY_DRIVER' },
+  });
+
   io.to(`passenger_${ride.passagerId}`).emit('rideRejectedByDriver', {
-    rideId: ride.id,
-    status: 'CANCELLED_BY_DRIVER',
-    title: '❌ Demande refusée',
-    message: `Votre demande de trajet a été refusée par tous les conducteurs.`,
+    rideId:  ride.id,
+    status:  'CANCELLED_BY_DRIVER',
+    title:   '❌ Demande refusée',
+    message: 'Votre demande de trajet a été refusée par tous les conducteurs.',
   });
 
   await createNotification({
@@ -39,14 +82,17 @@ const evaluateTrajet = async (trajetId) => {
     recipientType: 'PASSENGER',
     type:          'RIDE_REJECTED',
     title:         '❌ Demande refusée',
-    message:       `Votre demande de trajet a été refusée par tous les conducteurs.`,
-    data: { rideId: ride.id },
+    message:       'Votre demande de trajet a été refusée par tous les conducteurs.',
+    data:          { rideId: ride.id },
   });
 };
 
 export const scheduleDriverTimeout = (trajetId, driverId, dateDepart) => {
-  const timeAvailable = new Date(dateDepart) - Date.now();
-  const timeout = Math.min(timeAvailable / 2, SIX_HOURS);
+  const hoursUntil = (new Date(dateDepart) - Date.now()) / 3600000;
+  if (hoursUntil < 1) return; // trop proche, pas de timeout
+  const timeout = hoursUntil < 2  ? 60 * 30 * 1000       // si trajet aprés 1h --> 30min
+                : hoursUntil < 24 ? 2  * 60 * 60 * 1000  // si trajte aprés 24h --> 2h
+                :                   6  * 60 * 60 * 1000;  // si > 24h --> 6h
   const key = `${trajetId}_${driverId}`;
 
   const timeoutId = setTimeout(async () => {
@@ -58,7 +104,7 @@ export const scheduleDriverTimeout = (trajetId, driverId, dateDepart) => {
     console.log(`⏱️ Timeout driver ${driverId} pour trajet ${trajetId}`);
     await prisma.trajet.update({
       where: { id: trajetId },
-      data: { timedOutDriverIds: { push: driverId }, updatedAt: new Date() },
+      data:  { timedOutDriverIds: { push: driverId }, updatedAt: new Date() },
     });
     await evaluateTrajet(trajetId);
   }, timeout);
@@ -66,7 +112,7 @@ export const scheduleDriverTimeout = (trajetId, driverId, dateDepart) => {
   pendingTimeouts.set(key, timeoutId);
 };
 
-const clearDriverTimeout = (trajetId, driverId) => {
+export const clearDriverTimeout = (trajetId, driverId) => {
   const key = `${trajetId}_${driverId}`;
   const timeoutId = pendingTimeouts.get(key);
   if (timeoutId) {
@@ -74,6 +120,8 @@ const clearDriverTimeout = (trajetId, driverId) => {
     pendingTimeouts.delete(key);
   }
 };
+
+export { evaluateTrajet };
 
 export const createRide = async (req, res) => {
   console.log("REQ.USER:", req.user);
@@ -386,39 +434,7 @@ export const rejectRide = async (req, res) => {
       },
     });
 
-    // ✅ étape 2 : vérifier si tous ont refusé
-    // MODIFIÉ : condition élargie — rejected + timedOut >= notified
-    const resolvedCount = updatedRide.rejectedDriverIds.length + updatedRide.timedOutDriverIds.length;
-    const allRejected = resolvedCount >= updatedRide.notifiedDriversCount;
-
-    // ✅ étape 3 : mettre à jour le statut
-    await prisma.trajet.update({
-      where: { id: parseInt(id) },
-     data: { status: allRejected ? 'CANCELLED_BY_DRIVER' : 'PENDING' },
-    });
-
-    const io = getIO();
-    const title   = '❌ Demande refusée';
-    const message = `Votre demande de trajet a été refusée.`;
-
-    // FIX CRITIQUE : notifier le PASSAGER (pas le driver)
-    io.to(`passenger_${updatedRide.passenger.id}`).emit('rideRejectedByDriver', {
-      rideId:  updatedRide.id,
-      status:  updatedRide.status,
-      driver:  updatedRide.driver,
-      title,
-      message,
-    });
-
-    // FIX : persister la notification en base de données
-    await createNotification({
-      passengerId:   updatedRide.passagerId,
-      recipientType: 'PASSENGER',
-      type:          'RIDE_REJECTED',
-      title,
-      message,
-      data: { rideId: updatedRide.id },
-    });
+    await evaluateTrajet(parseInt(id));
 
     return res.status(200).json({ success: true, message: 'Demande refusée avec succès', data: updatedRide });
 
@@ -677,3 +693,4 @@ export const getDriverRideActivity = async (req, res) => {
     return res.status(500).json({ success: false, message: "Erreur lors de la recuperation de l'activite conducteur", error: error.message });
   }
 };
+

@@ -23,7 +23,7 @@ class RecommendPayload(BaseModel):
     trajet:             TrajetPayload        = TrajetPayload()
     drivers:            List[Dict[str, Any]] = []
     interaction_counts: Dict[str, int]       = {}
-    top_n:              int                  = 5
+    top_n:              int                  = 10
 
 
 @router.post("/recommend")

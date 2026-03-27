@@ -16,7 +16,7 @@ import {
   cancelRide,
 } from '../controllers/rideController.js';
 
-import { sendRideRequests } from '../controllers/sendRequestRide.js';
+import { sendRideRequests, sendFallbackRequests } from '../controllers/sendRequestRide.js';
 
 import { authenticate } from '../middleware/authMiddleware.js';
 
@@ -28,6 +28,7 @@ router.put('/:id/cancel',                 authenticate, cancelRide);            
 
 
 router.post('/send-requests',             authenticate, sendRideRequests);
+router.post('/send-fallback',             authenticate, sendFallbackRequests),
 
 // ── Routes CONDUCTEUR ─────────────────────────────────────────────────────────
 router.get('/driver/requests',            authenticate, getDriverRequests);          // Demandes PENDING
