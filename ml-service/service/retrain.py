@@ -227,3 +227,6 @@ logger.info(f"   dataset_real.pkl")
 logger.info(f"   user_features_real.pkl")
 logger.info(f"   item_features_real.pkl")
 logger.info(f"   trajets_processed.csv + drivers_processed.csv")
+
+import httpx
+httpx.post("http://localhost:8000/reload-model")

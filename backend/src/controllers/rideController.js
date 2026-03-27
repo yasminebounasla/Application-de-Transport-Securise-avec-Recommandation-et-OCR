@@ -89,9 +89,9 @@ const evaluateTrajet = async (trajetId) => {
 
 export const scheduleDriverTimeout = (trajetId, driverId, dateDepart) => {
   const hoursUntil = (new Date(dateDepart) - Date.now()) / 3600000;
-  if (hoursUntil < 1) return; // trop proche, pas de timeout
-  const timeout = hoursUntil < 2  ? 60 * 30 * 1000       // si trajet aprés 1h --> 30min
-                : hoursUntil < 24 ? 2  * 60 * 60 * 1000  // si trajte aprés 24h --> 2h
+  // if (hoursUntil < 1) return; // trop proche, pas de timeout
+  const timeout = hoursUntil < 2  ? 10 * 1000      // si trajet aprés 1h --> 30min
+                : hoursUntil < 24 ? 10 * 1000  // si trajte aprés 24h --> 2h
                 :                   6  * 60 * 60 * 1000;  // si > 24h --> 6h
   const key = `${trajetId}_${driverId}`;
 

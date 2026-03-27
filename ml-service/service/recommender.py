@@ -156,14 +156,14 @@ def cold_start_by_preferences(
 # ── OPTIMISATION POIDS ────────────────────────────────────────────────────────
 WEIGHT_KEYS   = ["lightfm", "pref", "dist", "work", "rating"]
 WEIGHT_BOUNDS = {
-    "lightfm": (0.20, 0.50),
-    "pref":    (0.20, 0.45),
-    "dist":    (0.10, 0.35),
-    "work":    (0.05, 0.20),
-    "rating":  (0.02, 0.15),
+    "lightfm": (0.30, 0.50), 
+    "pref":    (0.20, 0.40), 
+    "dist":    (0.05, 0.30),
+    "work":    (0.08, 0.15),
+    "rating":  (0.02, 0.10),
 }
-DEFAULT_WEIGHTS_GEO    = np.array([0.35, 0.45, 0.08, 0.08, 0.04])
-DEFAULT_WEIGHTS_NO_GEO = np.array([0.35, 0.45, 0.00, 0.13, 0.07])
+DEFAULT_WEIGHTS_GEO    = np.array([0.40, 0.35, 0.10, 0.10, 0.05])
+DEFAULT_WEIGHTS_NO_GEO = np.array([0.40, 0.40, 0.00, 0.13, 0.07])
 
 # ── État global ───────────────────────────────────────────────────────────────
 _scores_history: List[Dict]      = []
