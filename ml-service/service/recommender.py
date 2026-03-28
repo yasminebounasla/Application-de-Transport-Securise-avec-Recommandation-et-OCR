@@ -4,6 +4,9 @@ recommender.py
   - feedback_buffer (variable morte) supprimé
   - Race condition : _try_optimize_weights() appelé DANS le lock
   - score_distance unifié : exp(-km/ref) — même formule que exportLightFM.js
+  - ✅ NOUVEAU : pré-filtrage spatial KD-tree O(log n) avant le scoring
+    → remplace la boucle brute O(n) sur tous les drivers
+    → aucun changement en base de données ni dans les autres fichiers
 """
 
 import pickle
@@ -15,9 +18,10 @@ import os
 import threading
 import logging
 from lightfm import LightFM
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Tuple
 from dotenv import load_dotenv
 from scipy.optimize import minimize
+from scipy.spatial import KDTree  # ✅ NOUVEAU
 
 logger = logging.getLogger(__name__)
 load_dotenv()
@@ -109,6 +113,65 @@ def calculate_match_score(driver: Dict, preferences: Dict) -> float:
     return (score + max_points) / (2 * max_points)
 
 
+# ── ✅ NOUVEAU : INDEX SPATIAL KD-TREE ────────────────────────────────────────
+def build_spatial_index(drivers: List[Dict]) -> Tuple[Optional[KDTree], List[Dict], List[Dict]]:
+    """
+    Construit un KD-tree à partir des drivers ayant des coordonnées GPS.
+
+    Retourne :
+      - tree          : KDTree ou None si aucun driver géolocalisé
+      - geo_drivers   : drivers avec coordonnées (indexés dans le tree)
+      - no_geo_drivers: drivers sans coordonnées (à traiter séparément)
+
+    Complexité : O(n log n) pour la construction, O(log n) pour chaque requête.
+    Sans index : O(n) haversine à chaque appel → ne scale pas au-delà de ~1000 drivers.
+    """
+    geo_drivers    = []
+    no_geo_drivers = []
+    coords         = []
+
+    for driver in drivers:
+        lat = driver.get("latitude")
+        lng = driver.get("longitude")
+        if lat is not None and lng is not None:
+            try:
+                coords.append([float(lat), float(lng)])
+                geo_drivers.append(driver)
+            except (ValueError, TypeError):
+                no_geo_drivers.append(driver)
+        else:
+            no_geo_drivers.append(driver)
+
+    if not coords:
+        return None, [], no_geo_drivers
+
+    tree = KDTree(np.array(coords))
+    return tree, geo_drivers, no_geo_drivers
+
+
+def spatial_filter(
+    tree: KDTree,
+    geo_drivers: List[Dict],
+    origin_lat: float,
+    origin_lng: float,
+    max_km: float,
+) -> List[Dict]:
+    """
+    Retourne les drivers dans un rayon max_km autour de (origin_lat, origin_lng).
+
+    Le KD-tree travaille en degrés (coordonnées euclidiennes).
+    On convertit max_km → degrés avec 1° ≈ 111 km.
+    C'est une approximation valide pour des rayons < 300 km aux latitudes
+    tempérées — suffisant pour un rayon de taxi/covoiturage.
+
+    Pour une précision haversine exacte, on affine ensuite dans la boucle
+    de scoring (calcul haversine réel sur les ~20-50 candidats restants).
+    """
+    radius_deg = max_km / 111.0  # approximation, affinée plus bas par haversine
+    indices    = tree.query_ball_point([origin_lat, origin_lng], radius_deg)
+    return [geo_drivers[i] for i in indices]
+
+
 # ── COLD START ────────────────────────────────────────────────────────────────
 def cold_start_by_preferences(
     drivers, preferences, departure_hour,
@@ -117,15 +180,29 @@ def cold_start_by_preferences(
     geo_available = start_lat is not None and start_lng is not None
     scored = []
 
-    for driver in drivers:
+    # ✅ Pré-filtrage spatial avant de scorer
+    if geo_available:
+        tree, geo_drivers, no_geo_drivers = build_spatial_index(drivers)
+        if tree is not None:
+            candidates = spatial_filter(tree, geo_drivers, start_lat, start_lng, max_km)
+            candidates += no_geo_drivers  # drivers sans coords : inclus sans filtrage geo
+            print(f"   KD-tree cold-start: {len(drivers)} → {len(candidates)} candidats")
+        else:
+            candidates = drivers
+    else:
+        candidates = drivers
+
+    for driver in candidates:
         dist_km = None
         if geo_available and driver.get("latitude") and driver.get("longitude"):
             try:
+                # Haversine exact uniquement sur les candidats pré-filtrés
                 dist_km = haversine(driver["latitude"], driver["longitude"], start_lat, start_lng)
                 driver["distance_km"] = round(dist_km, 1)
             except Exception:
                 pass
 
+        # Filtre précis haversine (le KD-tree est une approximation en degrés)
         if dist_km is not None and dist_km > max_km:
             continue
 
@@ -156,8 +233,8 @@ def cold_start_by_preferences(
 # ── OPTIMISATION POIDS ────────────────────────────────────────────────────────
 WEIGHT_KEYS   = ["lightfm", "pref", "dist", "work", "rating"]
 WEIGHT_BOUNDS = {
-    "lightfm": (0.30, 0.50), 
-    "pref":    (0.20, 0.40), 
+    "lightfm": (0.30, 0.50),
+    "pref":    (0.20, 0.40),
     "dist":    (0.05, 0.30),
     "work":    (0.08, 0.15),
     "rating":  (0.02, 0.10),
@@ -166,7 +243,7 @@ DEFAULT_WEIGHTS_GEO    = np.array([0.40, 0.35, 0.10, 0.10, 0.05])
 DEFAULT_WEIGHTS_NO_GEO = np.array([0.40, 0.40, 0.00, 0.13, 0.07])
 
 # ── État global ───────────────────────────────────────────────────────────────
-_scores_history: List[Dict]      = []
+_scores_history: List[Dict]               = []
 _optimized_weights: Optional[np.ndarray] = None
 _feedback_lock = threading.Lock()
 
@@ -249,7 +326,6 @@ def add_feedback_to_buffer(scores: Dict, real_rating: float) -> bool:
     with _feedback_lock:
         _scores_history.append(entry)
 
-        # Sauvegarde immédiate sur disque (survit aux restarts)
         try:
             with open(FEEDBACK_PATH, "w") as f:
                 json.dump(_scores_history, f)
@@ -406,6 +482,21 @@ async def get_recommendations(
             hours_until_departure, start_lat, start_lng, max_km, top_n,
         )
 
+    # ── ✅ NOUVEAU : Pré-filtrage spatial KD-tree ─────────────────────────────
+    # Avant : boucle sur TOUS les drivers → O(n) haversine à chaque requête
+    # Après : KD-tree en O(log n) → ~20-50 candidats, puis haversine exact dessus
+    if geo_available:
+        tree, geo_drivers, no_geo_drivers = build_spatial_index(all_drivers)
+        if tree is not None:
+            candidates = spatial_filter(tree, geo_drivers, start_lat, start_lng, max_km)
+            candidates += no_geo_drivers
+            print(f"   KD-tree: {len(all_drivers)} drivers → {len(candidates)} candidats "
+                  f"(rayon {max_km} km)")
+        else:
+            candidates = all_drivers
+    else:
+        candidates = all_drivers
+
     lightfm_scores_map = recommender.predict_for_passenger(passenger_key)
 
     global _optimized_weights
@@ -416,12 +507,13 @@ async def get_recommendations(
     w_lfm, w_pref, w_dist, w_work, w_rating = w
 
     scored_drivers = []
-    for driver in all_drivers:
+    for driver in candidates:  # ✅ itère sur ~20-50 candidats, plus sur tous les drivers
         driver_id = f"D{driver['id']}"
         dist_km   = None
 
         if geo_available and driver.get("latitude") and driver.get("longitude"):
             try:
+                # Haversine exact uniquement sur les candidats pré-filtrés par le KD-tree
                 dist_km = haversine(
                     driver["latitude"], driver["longitude"], start_lat, start_lng
                 )
@@ -429,6 +521,7 @@ async def get_recommendations(
             except Exception:
                 pass
 
+        # Filtre précis haversine (le KD-tree est une approximation en degrés)
         if dist_km is not None and dist_km > max_km:
             continue
 

@@ -12,7 +12,7 @@ P5,T89890,no,yes,no,yes,no,no,5.79,0.9715,0,dist:very_close
 P5,T89891,no,yes,yes,yes,no,no,11.83,0.9426,0,dist:close
 P5,T89892,no,yes,no,yes,no,no,1.7,0.9915,0,dist:very_close
 P5,T89893,no,yes,yes,yes,no,no,3.75,0.9814,1,dist:very_close
-P5,T89894,no,yes,no,yes,no,no,5.27,0.9362,1,dist:very_close
+P5,T89894,no,yes,no,yes,no,no,5.27,0.974,1,dist:very_close
 P5,T89895,no,yes,yes,yes,no,no,4.06,0.9799,0,dist:very_close
 P5,T89896,no,yes,yes,yes,no,no,5.57,0.9725,0,dist:very_close
 P5,T89898,no,yes,yes,yes,no,no,5.13,0.9747,1,dist:very_close
@@ -206,7 +206,7 @@ P19,T90099,no,yes,yes,yes,no,no,10.82,0.9473,0,dist:close
 P19,T90101,no,yes,yes,yes,no,no,1.66,0.9917,1,dist:very_close
 P19,T90102,no,yes,yes,yes,no,no,1.59,0.9921,1,dist:very_close
 P20,T90103,no,yes,no,yes,no,no,7.89,0.9613,1,dist:very_close
-P20,T90104,no,yes,yes,yes,no,no,11.12,0.8702,0,dist:close
+P20,T90104,no,yes,yes,yes,no,no,11.12,0.9459,0,dist:close
 P20,T90105,no,yes,yes,yes,no,no,9.84,0.952,1,dist:very_close
 P20,T90106,no,yes,no,yes,no,no,20.77,0.9014,1,dist:close
 P20,T90107,no,yes,no,yes,no,no,15.6,0.925,1,dist:close
@@ -337,7 +337,7 @@ P28,T90231,yes,no,no,no,yes,no,5.25,0.9741,0,dist:very_close
 P28,T90232,yes,no,no,no,yes,no,48.92,0.783,1,dist:medium
 P28,T90233,yes,no,no,no,yes,no,3.31,0.9836,0,dist:very_close
 P28,T90234,yes,no,no,no,no,no,42.52,0.8085,1,dist:medium
-P28,T90235,yes,no,no,no,yes,no,4.65,0.9435,1,dist:very_close
+P28,T90235,yes,no,no,no,yes,no,4.65,0.977,1,dist:very_close
 P29,T90237,yes,no,no,no,yes,no,11.73,0.943,1,dist:close
 P29,T90238,yes,no,no,no,no,no,19.38,0.7849,0,dist:close
 P29,T90239,yes,no,no,no,no,no,17.32,0.917,1,dist:close
@@ -364,10 +364,10 @@ P31,T90259,yes,no,no,no,no,no,17.46,0.9164,1,dist:close
 P31,T90260,yes,no,no,no,no,no,18.68,0.9108,1,dist:close
 P31,T90261,yes,no,no,no,yes,no,4.32,0.9786,0,dist:very_close
 P31,T90262,yes,no,no,no,yes,no,14.5,0.9301,1,dist:close
-P31,T90263,yes,no,no,no,yes,no,21.06,0.7685,0,dist:close
+P31,T90263,yes,no,no,no,yes,no,21.06,0.9001,0,dist:close
 P31,T90264,yes,no,no,no,no,no,13.53,0.9346,0,dist:close
 P31,T90265,yes,no,no,no,no,no,3.95,0.9518,0,dist:very_close
-P31,T90266,yes,no,no,no,yes,no,4.18,0.9491,1,dist:very_close
+P31,T90266,yes,no,no,no,yes,no,4.18,0.9793,1,dist:very_close
 P31,T90267,yes,no,no,no,yes,no,25.61,0.8798,1,dist:close
 P31,T90268,yes,no,no,no,yes,no,5.13,0.9747,1,dist:very_close
 P32,T90269,yes,no,no,no,no,no,16.5,0.9208,0,dist:close
@@ -600,7 +600,7 @@ P183,T91176,yes,no,no,no,yes,no,767.91,0.0215,0,dist:very_far
 P183,T91177,yes,no,no,no,yes,no,4.18,0.9793,1,dist:very_close
 P183,T91178,yes,no,no,no,yes,no,23.74,0.8881,1,dist:close
 P184,T91179,yes,no,no,no,yes,no,6.74,0.9669,0,dist:very_close
-P184,T91180,yes,no,no,no,no,no,15.76,0.8212,0,dist:close
+P184,T91180,yes,no,no,no,no,no,15.76,0.9242,0,dist:close
 P184,T91181,yes,no,no,no,no,no,23.07,0.8911,0,dist:close
 P184,T91182,yes,no,no,no,no,no,9.84,0.952,1,dist:very_close
 P48,T90496,no,yes,yes,yes,no,no,2.79,0.9861,1,dist:very_close
@@ -643,7 +643,7 @@ P52,T90532,yes,no,no,no,no,yes,5.03,0.9752,1,dist:very_close
 P52,T90533,no,yes,no,no,no,yes,10.82,0.8735,1,dist:close
 P52,T90535,yes,yes,no,no,no,yes,763.02,0.022,1,dist:very_far
 P52,T90536,no,yes,no,no,no,yes,1.66,0.9917,1,dist:very_close
-P52,T90537,yes,yes,no,no,no,yes,3.61,0.9559,1,dist:very_close
+P52,T90537,yes,yes,no,no,no,yes,3.61,0.9821,1,dist:very_close
 P52,T90538,no,no,no,no,no,yes,1.66,0.9917,1,dist:very_close
 P52,T90539,no,yes,no,no,no,yes,42.96,0.8067,0,dist:medium
 P53,T90540,yes,yes,no,no,no,yes,12.16,0.941,1,dist:close
@@ -766,7 +766,7 @@ P62,T90671,no,yes,yes,yes,no,no,48.92,0.783,1,dist:medium
 P62,T90672,no,yes,no,yes,no,no,1.13,0.9944,0,dist:very_close
 P63,T90674,no,yes,no,yes,no,no,2.62,0.987,1,dist:very_close
 P63,T90675,no,yes,yes,yes,no,no,9.17,0.9552,0,dist:very_close
-P63,T90676,no,yes,no,yes,no,no,1.82,0.9775,1,dist:very_close
+P63,T90676,no,yes,no,yes,no,no,1.82,0.9909,1,dist:very_close
 P63,T90677,no,yes,yes,yes,no,no,1.36,0.9932,1,dist:very_close
 P63,T90678,no,yes,no,yes,no,no,16.67,0.92,0,dist:close
 P63,T90679,no,yes,yes,yes,no,no,27.08,0.8734,0,dist:close
@@ -882,7 +882,7 @@ P71,T90796,yes,no,no,no,no,no,12.49,0.9395,0,dist:close
 P71,T90797,yes,no,no,no,yes,no,11.57,0.9438,1,dist:close
 P71,T90798,yes,no,no,no,no,no,5.61,0.9723,1,dist:very_close
 P71,T90799,yes,no,no,no,no,no,37.92,0.8273,1,dist:medium
-P71,T90800,yes,no,no,no,yes,no,3.17,0.9611,0,dist:very_close
+P71,T90800,yes,no,no,no,yes,no,3.17,0.9843,0,dist:very_close
 P71,T90801,yes,no,no,no,yes,no,28.25,0.7025,0,dist:close
 P71,T90802,yes,no,no,no,yes,no,3.87,0.9808,1,dist:very_close
 P72,T90804,yes,no,no,no,yes,no,14.28,0.9311,0,dist:close
@@ -890,7 +890,7 @@ P72,T90805,yes,no,no,no,yes,no,1.01,0.995,1,dist:very_close
 P72,T90806,yes,no,no,no,no,no,15.67,0.9246,1,dist:close
 P72,T90807,yes,no,no,no,yes,no,1.06,0.9947,0,dist:very_close
 P72,T90808,yes,no,no,no,yes,no,18.47,0.9118,1,dist:close
-P72,T90809,yes,no,no,no,no,no,20.79,0.7711,1,dist:close
+P72,T90809,yes,no,no,no,no,no,20.79,0.9013,1,dist:close
 P72,T90810,yes,no,no,no,yes,no,10.76,0.9476,1,dist:close
 P184,T91183,yes,no,no,no,no,no,16.67,0.92,1,dist:close
 P184,T91184,yes,no,no,no,no,no,14.46,0.9303,0,dist:close
@@ -1072,7 +1072,7 @@ P166,T90980,no,no,no,no,no,yes,5.65,0.9721,1,dist:very_close
 P166,T90981,yes,no,no,no,no,yes,5.74,0.9308,0,dist:very_close
 P166,T90982,yes,no,no,no,no,yes,5.35,0.9736,1,dist:very_close
 P166,T90983,no,no,no,no,no,yes,16.97,0.9187,0,dist:close
-P166,T90984,no,yes,no,no,no,yes,1.01,0.9875,1,dist:very_close
+P166,T90984,no,yes,no,no,no,yes,1.01,0.995,1,dist:very_close
 P166,T90985,yes,no,no,no,no,yes,5.46,0.9731,0,dist:very_close
 P166,T90986,no,yes,no,no,no,yes,3.78,0.9813,1,dist:very_close
 P167,T90987,no,no,no,no,no,yes,2.91,0.9856,1,dist:very_close
@@ -1265,7 +1265,7 @@ P188,T91244,yes,no,no,no,no,no,2.16,0.9893,0,dist:very_close
 P188,T91245,yes,no,no,no,no,no,3.85,0.953,0,dist:very_close
 P188,T91246,yes,no,no,no,yes,no,28.57,0.8669,0,dist:close
 P189,T91247,yes,no,no,no,yes,no,21.1,0.8999,0,dist:close
-P189,T91248,yes,no,no,no,no,no,10.93,0.8723,1,dist:close
+P189,T91248,yes,no,no,no,no,no,10.93,0.9468,1,dist:close
 P189,T91249,yes,no,no,no,yes,no,17.19,0.9176,1,dist:close
 P189,T91250,yes,no,no,no,yes,no,13.75,0.9336,1,dist:close
 P189,T91251,yes,no,no,no,no,no,9.23,0.9549,0,dist:very_close
@@ -1430,7 +1430,7 @@ P199,T91403,yes,no,no,no,yes,no,23.75,0.888,1,dist:close
 P199,T91404,yes,no,no,no,no,no,2.85,0.9859,0,dist:very_close
 P199,T91405,yes,no,no,no,no,no,12.49,0.9395,0,dist:close
 P199,T91407,yes,no,no,no,yes,no,11.83,0.9426,0,dist:close
-P199,T91408,yes,no,no,no,yes,no,48.92,0.5425,1,dist:medium
+P199,T91408,yes,no,no,no,yes,no,48.92,0.783,1,dist:medium
 P199,T91409,yes,no,no,no,yes,no,2.26,0.9721,0,dist:very_close
 P199,T91410,yes,no,no,no,no,no,28.57,0.8669,0,dist:close
 P199,T91411,yes,no,no,no,no,no,37.92,0.8273,1,dist:medium
@@ -1622,7 +1622,7 @@ P215,T91609,yes,no,no,no,no,no,4.74,0.9766,0,dist:very_close
 P215,T91610,yes,no,no,no,no,no,763.02,0.022,0,dist:very_far
 P215,T91611,yes,no,no,no,no,no,3.87,0.9808,0,dist:very_close
 P216,T91612,yes,no,no,no,no,no,6.08,0.9701,1,dist:very_close
-P216,T91613,yes,no,no,no,yes,no,33.91,0.6545,1,dist:medium
+P216,T91613,yes,no,no,no,yes,no,33.91,0.844,1,dist:medium
 P216,T91614,yes,no,no,no,no,no,1.71,0.9915,1,dist:very_close
 P216,T91615,yes,no,no,no,no,no,3.95,0.9804,0,dist:very_close
 P216,T91616,yes,no,no,no,yes,no,18.47,0.9118,0,dist:close
@@ -1661,7 +1661,7 @@ P218,T91649,yes,no,no,no,no,no,2.36,0.9883,1,dist:very_close
 P218,T91650,yes,no,no,no,yes,no,3.25,0.9839,0,dist:very_close
 P218,T91651,yes,no,no,no,no,no,4.88,0.9759,0,dist:very_close
 P218,T91652,yes,no,no,no,no,no,2.2,0.9891,1,dist:very_close
-P219,T91653,no,yes,yes,yes,no,no,5.04,0.9389,1,dist:very_close
+P219,T91653,no,yes,yes,yes,no,no,5.04,0.9751,1,dist:very_close
 P219,T91655,no,yes,yes,yes,no,no,13.84,0.9331,1,dist:close
 P219,T91656,no,yes,no,yes,no,no,26.4,0.8763,0,dist:close
 P219,T91658,no,yes,no,yes,no,no,9.41,0.954,0,dist:very_close
@@ -1679,7 +1679,7 @@ P220,T91670,no,yes,no,yes,no,no,16.22,0.9221,1,dist:close
 P220,T91671,no,yes,no,yes,no,no,21.78,0.8968,0,dist:close
 P220,T91672,no,yes,yes,yes,no,no,2.65,0.9868,1,dist:very_close
 P220,T91673,no,yes,no,yes,no,no,8.62,0.9578,0,dist:very_close
-P220,T91674,no,yes,no,yes,no,no,10.24,0.8799,0,dist:close
+P220,T91674,no,yes,no,yes,no,no,10.24,0.9501,0,dist:close
 P220,T91675,no,yes,no,yes,no,no,12.51,0.9394,0,dist:close
 P220,T91676,no,yes,yes,yes,no,no,39.85,0.8193,0,dist:medium
 P220,T91677,no,yes,yes,yes,no,no,2.26,0.9888,1,dist:very_close
@@ -1765,7 +1765,7 @@ P227,T91762,yes,no,no,no,no,no,25.19,0.8817,0,dist:close
 P227,T91764,yes,no,no,no,yes,no,17.48,0.9163,1,dist:close
 P299,T92729,yes,no,no,no,yes,no,27.7,0.8707,1,dist:close
 P299,T92730,yes,no,no,no,yes,no,18.28,0.9127,1,dist:close
-P227,T91765,yes,no,no,no,no,no,33.37,0.6589,1,dist:medium
+P227,T91765,yes,no,no,no,no,no,33.37,0.8463,1,dist:medium
 P227,T91766,yes,no,no,no,no,no,5.65,0.9721,0,dist:very_close
 P227,T91767,yes,no,no,no,yes,no,18.44,0.9119,0,dist:close
 P227,T91768,yes,no,no,no,yes,no,4.82,0.9762,0,dist:very_close
@@ -1828,7 +1828,7 @@ P232,T91828,yes,no,no,no,yes,no,34.07,0.8434,1,dist:medium
 P232,T91829,yes,no,no,no,no,no,3.85,0.9809,0,dist:very_close
 P232,T91830,yes,no,no,no,no,no,1.13,0.9944,1,dist:very_close
 P232,T91831,yes,no,no,no,yes,no,2.16,0.9893,1,dist:very_close
-P232,T91832,yes,no,no,no,no,no,2.05,0.9747,1,dist:very_close
+P232,T91832,yes,no,no,no,no,no,2.05,0.9898,1,dist:very_close
 P233,T91833,no,yes,no,yes,no,no,16.66,0.9201,0,dist:close
 P233,T91834,no,yes,yes,yes,no,no,11.08,0.9461,0,dist:close
 P233,T91835,no,yes,yes,yes,no,no,16.04,0.9229,0,dist:close
@@ -1933,7 +1933,7 @@ P241,T91942,yes,no,no,no,yes,no,3.13,0.9845,0,dist:very_close
 P241,T91943,yes,no,no,no,no,no,14.69,0.9292,1,dist:close
 P241,T91944,yes,no,no,no,no,no,13.76,0.9335,1,dist:close
 P241,T91946,yes,no,no,no,yes,no,23.62,0.8886,0,dist:close
-P241,T91947,yes,no,no,no,no,no,3.95,0.9518,1,dist:very_close
+P241,T91947,yes,no,no,no,no,no,3.95,0.9804,1,dist:very_close
 P241,T91948,yes,no,no,no,no,no,27.1,0.8733,0,dist:close
 P241,T91949,yes,no,no,no,yes,no,4.65,0.977,0,dist:very_close
 P241,T91950,yes,no,no,no,yes,no,5.13,0.9747,1,dist:very_close
@@ -1973,7 +1973,7 @@ P244,T91985,yes,no,no,no,yes,no,39.83,0.8194,1,dist:medium
 P244,T91986,yes,no,no,no,no,no,5.96,0.9706,0,dist:very_close
 P244,T91987,yes,no,no,no,no,no,2.26,0.9888,1,dist:very_close
 P245,T91988,yes,no,no,no,yes,no,30.65,0.8579,1,dist:medium
-P245,T91989,yes,no,no,no,yes,no,1.71,0.9789,0,dist:very_close
+P245,T91989,yes,no,no,no,yes,no,1.71,0.9915,0,dist:very_close
 P245,T91990,yes,no,no,no,no,no,18.08,0.9136,0,dist:close
 P245,T91991,yes,no,no,no,yes,no,10.04,0.951,0,dist:close
 P245,T91992,yes,no,no,no,no,no,21.69,0.8972,0,dist:close
@@ -2275,7 +2275,7 @@ P268,T92308,yes,no,no,no,yes,no,11.13,0.9459,1,dist:close
 P268,T92309,yes,no,no,no,yes,no,16.96,0.9187,1,dist:close
 P268,T92310,yes,no,no,no,yes,no,21.42,0.8984,1,dist:close
 P268,T92311,yes,no,no,no,yes,no,11.12,0.9459,1,dist:close
-P268,T92312,yes,no,no,no,yes,no,4.98,0.9396,1,dist:very_close
+P268,T92312,yes,no,no,no,yes,no,4.98,0.9754,1,dist:very_close
 P268,T92313,yes,no,no,no,yes,no,24.78,0.8835,0,dist:close
 P268,T92314,yes,no,no,no,yes,no,23.63,0.8886,1,dist:close
 P268,T92315,yes,no,no,no,yes,no,23.74,0.8881,0,dist:close
@@ -2329,7 +2329,7 @@ P272,T92363,yes,no,no,no,no,no,6.66,0.9672,0,dist:very_close
 P272,T92364,yes,no,no,no,yes,no,18.44,0.9119,0,dist:close
 P272,T92365,yes,no,no,no,yes,no,9.26,0.9548,0,dist:very_close
 P272,T92366,yes,no,no,no,yes,no,7.32,0.9641,1,dist:very_close
-P272,T92367,yes,no,no,no,yes,no,9.3,0.8903,1,dist:very_close
+P272,T92367,yes,no,no,no,yes,no,9.3,0.9546,1,dist:very_close
 P272,T92368,yes,no,no,no,no,no,4.37,0.9784,0,dist:very_close
 P272,T92369,yes,no,no,no,no,no,5.96,0.9706,1,dist:very_close
 P272,T92370,yes,no,no,no,yes,no,1.65,0.9918,1,dist:very_close
@@ -2465,7 +2465,7 @@ P283,T92510,yes,no,no,no,yes,no,4.58,0.9774,0,dist:very_close
 P283,T92511,yes,no,no,no,yes,no,5.13,0.9747,0,dist:very_close
 P283,T92512,yes,no,no,no,yes,no,2.96,0.9637,1,dist:very_close
 P283,T92513,yes,no,no,no,yes,no,5.69,0.972,0,dist:very_close
-P283,T92514,yes,no,no,no,yes,no,23.22,0.7481,1,dist:close
+P283,T92514,yes,no,no,no,yes,no,23.22,0.8904,1,dist:close
 P283,T92515,yes,no,no,no,yes,no,4.86,0.976,0,dist:very_close
 P283,T92516,yes,no,no,no,yes,no,4.65,0.977,1,dist:very_close
 P284,T92517,yes,no,no,no,yes,no,14.28,0.9311,0,dist:close
@@ -2486,10 +2486,10 @@ P285,T92532,yes,no,no,no,yes,no,3.53,0.9825,0,dist:very_close
 P285,T92533,yes,no,no,no,no,no,2.85,0.9859,1,dist:very_close
 P285,T92534,yes,no,no,no,no,no,18.28,0.9127,1,dist:close
 P285,T92535,yes,no,no,no,yes,no,12.85,0.9378,0,dist:close
-P285,T92536,yes,no,no,no,no,no,23.62,0.7443,0,dist:close
+P285,T92536,yes,no,no,no,no,no,23.62,0.8886,0,dist:close
 P285,T92537,yes,no,no,no,no,no,4.12,0.9796,1,dist:very_close
 P285,T92538,yes,no,no,no,yes,no,3.14,0.9844,0,dist:very_close
-P285,T92539,yes,no,no,no,yes,no,3.78,0.9538,1,dist:very_close
+P285,T92539,yes,no,no,no,yes,no,3.78,0.9813,1,dist:very_close
 P285,T92540,yes,no,no,no,yes,no,6.32,0.9689,0,dist:very_close
 P285,T92541,yes,no,no,no,yes,no,2.92,0.9855,0,dist:very_close
 P285,T92542,yes,no,no,no,yes,no,2.17,0.9892,0,dist:very_close
@@ -2550,7 +2550,7 @@ P289,T92597,yes,no,no,no,yes,no,2.77,0.9862,0,dist:very_close
 P289,T92598,yes,no,no,no,yes,no,2.82,0.986,1,dist:very_close
 P289,T92599,yes,no,no,no,yes,no,433.78,0.1143,0,dist:very_far
 P290,T92600,no,yes,no,yes,no,no,13.77,0.9335,1,dist:close
-P290,T92601,no,yes,yes,yes,no,no,1.82,0.9775,0,dist:very_close
+P290,T92601,no,yes,yes,yes,no,no,1.82,0.9909,0,dist:very_close
 P290,T92602,no,yes,yes,yes,no,no,11.85,0.9425,0,dist:close
 P290,T92603,no,yes,no,yes,no,no,19.88,0.9054,1,dist:close
 P290,T92604,no,yes,yes,yes,no,no,18.66,0.9109,0,dist:close
@@ -2637,7 +2637,7 @@ P296,T92687,yes,no,no,no,yes,no,5.96,0.9706,1,dist:very_close
 P296,T92688,yes,no,no,no,yes,no,10.34,0.9496,0,dist:close
 P296,T92689,yes,no,no,no,yes,no,12.86,0.9377,1,dist:close
 P296,T92690,yes,no,no,no,yes,no,10.85,0.9472,1,dist:close
-P296,T92692,yes,no,no,no,yes,no,5.97,0.9281,1,dist:very_close
+P296,T92692,yes,no,no,no,yes,no,5.97,0.9706,1,dist:very_close
 P296,T92693,yes,no,no,no,yes,no,4.62,0.9772,0,dist:very_close
 P296,T92694,yes,no,no,no,yes,no,0.56,0.9972,0,dist:very_close
 P296,T92695,yes,no,no,no,yes,no,4.59,0.9773,1,dist:very_close
@@ -2840,7 +2840,7 @@ P315,T92940,yes,no,no,no,yes,no,3.64,0.982,0,dist:very_close
 P315,T92941,yes,no,no,no,yes,no,22.19,0.895,1,dist:close
 P315,T92942,yes,no,no,no,no,no,12.85,0.9378,0,dist:close
 P315,T92943,yes,no,no,no,no,no,9.87,0.9518,1,dist:very_close
-P315,T92944,yes,no,no,no,no,no,7.63,0.909,1,dist:very_close
+P315,T92944,yes,no,no,no,no,no,7.63,0.9626,1,dist:very_close
 P2,T89839,yes,no,no,no,no,no,18.7,0.9107,0,dist:close
 P2,T89840,yes,no,no,no,no,no,7.13,0.965,0,dist:very_close
 P2,T89841,yes,no,no,no,yes,no,19.97,0.905,1,dist:close
@@ -2969,7 +2969,7 @@ P323,T93056,yes,no,no,no,no,yes,13.44,0.935,1,dist:close
 P323,T93057,no,no,no,no,no,yes,10.1,0.9508,1,dist:close
 P323,T93058,yes,yes,no,no,no,yes,45.65,0.7959,0,dist:medium
 P323,T93059,yes,yes,no,no,no,yes,48.44,0.7849,0,dist:medium
-P323,T93060,no,yes,no,no,no,yes,2.16,0.9734,0,dist:very_close
+P323,T93060,no,yes,no,no,no,yes,2.16,0.9893,0,dist:very_close
 P323,T93061,no,yes,no,no,no,yes,0.83,0.9959,1,dist:very_close
 P323,T93062,no,yes,no,no,no,yes,5.13,0.9747,0,dist:very_close
 P324,T93063,yes,no,no,no,no,yes,23.12,0.8908,1,dist:close
@@ -3202,7 +3202,7 @@ P343,T93304,yes,no,no,no,no,no,27.11,0.8732,0,dist:close
 P343,T93305,yes,no,no,no,no,no,5.2,0.9743,1,dist:very_close
 P343,T93306,yes,no,no,no,yes,no,4.06,0.9799,1,dist:very_close
 P343,T93307,yes,no,no,no,yes,no,16.97,0.9187,0,dist:close
-P343,T93308,yes,no,no,no,no,no,11.73,0.8636,1,dist:close
+P343,T93308,yes,no,no,no,no,no,11.73,0.943,1,dist:close
 P343,T93309,yes,no,no,no,yes,no,9.84,0.952,1,dist:very_close
 P343,T93310,yes,no,no,no,no,no,6.03,0.9703,0,dist:very_close
 P343,T93311,yes,no,no,no,no,no,5.96,0.9706,0,dist:very_close
@@ -3533,7 +3533,7 @@ P369,T93657,yes,no,no,no,yes,no,10.43,0.9492,0,dist:close
 P369,T93658,yes,no,no,no,yes,no,20.12,0.9043,1,dist:close
 P369,T93659,yes,no,no,no,yes,no,19.46,0.9073,0,dist:close
 P369,T93660,yes,no,no,no,yes,no,12.55,0.9392,0,dist:close
-P369,T93661,yes,no,no,no,yes,no,3.85,0.953,1,dist:very_close
+P369,T93661,yes,no,no,no,yes,no,3.85,0.9809,1,dist:very_close
 P369,T93662,yes,no,no,no,yes,no,3.17,0.9843,1,dist:very_close
 P369,T93663,yes,no,no,no,yes,no,1.01,0.995,1,dist:very_close
 P369,T93664,yes,no,no,no,yes,no,4.29,0.9788,1,dist:very_close
@@ -3614,7 +3614,7 @@ P1,T93745,yes,no,no,no,no,no,4.71,0.9767,0,dist:very_close
 P1,T93746,yes,no,no,no,yes,no,5.89,0.971,0,dist:very_close
 P1,T93747,yes,no,no,no,no,no,39.83,0.8194,1,dist:medium
 P1,T93748,yes,no,no,no,no,no,1.66,0.9917,1,dist:very_close
-P1,T93749,yes,no,no,no,no,no,3.3,0.9596,1,dist:very_close
+P1,T93749,yes,no,no,no,no,no,3.3,0.9836,1,dist:very_close
 P37,T93750,no,yes,no,no,no,yes,10.28,0.9499,1,dist:close
 P37,T93752,no,yes,no,no,no,yes,2.95,0.9854,0,dist:very_close
 P37,T93753,yes,yes,no,no,no,yes,14.72,0.929,1,dist:close
@@ -3671,7 +3671,7 @@ P213,T93808,yes,no,no,no,yes,no,4.86,0.976,0,dist:very_close
 P213,T93809,yes,no,no,no,no,no,4.25,0.979,1,dist:very_close
 P213,T93810,yes,no,no,no,no,no,2.96,0.9853,1,dist:very_close
 P228,T93812,yes,no,no,no,yes,no,3.32,0.9835,1,dist:very_close
-P228,T93813,yes,no,no,no,no,no,6.1,0.9266,1,dist:very_close
+P228,T93813,yes,no,no,no,no,no,6.1,0.97,1,dist:very_close
 P228,T93814,yes,no,no,no,no,no,9.04,0.9558,1,dist:very_close
 P228,T93815,yes,no,no,no,yes,no,3.32,0.9835,1,dist:very_close
 P228,T93816,yes,no,no,no,yes,no,15,0.9277,0,dist:close
@@ -3774,7 +3774,7 @@ P377,T93917,no,yes,no,yes,no,no,34.13,0.8431,0,dist:medium
 P377,T93918,no,yes,yes,yes,no,no,9.76,0.9524,0,dist:very_close
 P377,T93919,no,yes,yes,yes,no,no,14.74,0.929,1,dist:close
 P377,T93920,no,yes,yes,yes,no,no,21.18,0.8995,0,dist:close
-P377,T93921,no,yes,no,yes,no,no,13.1,0.849,1,dist:close
+P377,T93921,no,yes,no,yes,no,no,13.1,0.9366,1,dist:close
 P377,T93922,no,yes,no,yes,no,no,18.63,0.9111,0,dist:close
 P377,T93923,no,yes,no,yes,no,no,23.69,0.8883,0,dist:close
 P377,T93924,no,yes,yes,yes,no,no,23.63,0.8886,1,dist:close
