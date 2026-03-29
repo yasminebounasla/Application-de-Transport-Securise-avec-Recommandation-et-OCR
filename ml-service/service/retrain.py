@@ -1,23 +1,18 @@
 """
-retrain.py — CORRIGÉ
+retrain.py — EXCLUSION STRICTE DES PRÉFÉRENCES
 
-BUGS CORRIGÉS DANS CETTE VERSION :
+CHANGEMENTS PAR RAPPORT À LA VERSION PRÉCÉDENTE :
 
-  ✅ Bug 3 — Signal prefMatch renforcé dans le weight d'entraînement :
-             Ancienne formule : weight = noteNorm × (0.70 + 0.30 × prefMatch)
-             → max boost pref = 0.30  → signal content-based trop faible
-             Nouvelle formule : weight = noteNorm × (0.50 + 0.50 × prefMatch)
-             → max boost pref = 0.50  → LightFM apprend vraiment les prefs
-             Avec bonne note ET bon match : weight jusqu'à 1.0
-             Avec bonne note ET mauvais match : weight plafonné à 0.50
+  ✅ Les interactions avec weight=0.0 (violation stricte) sont incluses
+     dans la matrice WARP comme signal négatif pur — LightFM les interprète
+     comme "ce driver ne doit jamais être recommandé à ce passager".
 
-  ✅ Bug 5 — user_features construites PAR INTERACTION (pas par moyenne passager) :
-             Chaque interaction apporte ses propres prefs.
-             LightFM apprend "quand ce passager veut quiet=yes, il note mieux
-             les drivers calmes" — pas un profil moyen flou.
+  ✅ build_weighted_pref_features — pondéré par weight :
+     weight=0.0 → interaction ignorée dans le profil passager
+     → un profil n'est pas pollué par les trajets où les prefs étaient violées.
 
-  ✅ Epochs augmentés pour compenser le signal plus contrasté.
-  ✅ Diagnostic post-entraînement enrichi.
+  ✅ Diagnostic post-entraînement : vérifie que les violations strictes
+     ont bien créé du contraste dans les embeddings.
 """
 
 import pandas as pd
@@ -32,12 +27,11 @@ from lightfm.data import Dataset
 logging.basicConfig(level=logging.INFO, format="%(levelname)s — %(message)s")
 logger = logging.getLogger(__name__)
 
-# ── 1. CHEMINS ────────────────────────────────────────────────────────────────
 BASE_DIR   = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR   = os.path.join(BASE_DIR, "lightfm_data")
 MODELS_DIR = os.path.join(BASE_DIR, "model_real")
 
-# ── 2. CHARGEMENT ─────────────────────────────────────────────────────────────
+# ── 1. CHARGEMENT ─────────────────────────────────────────────────────────────
 t_df = pd.read_csv(os.path.join(DATA_DIR, "trajets.csv"))
 d_df = pd.read_csv(os.path.join(DATA_DIR, "drivers.csv"))
 i_df = pd.read_csv(os.path.join(DATA_DIR, "interactions.csv"))
@@ -46,7 +40,7 @@ logger.info(f"Trajets     : {len(t_df)}")
 logger.info(f"Drivers     : {len(d_df)}")
 logger.info(f"Interactions: {len(i_df)}")
 
-# ── 3. NETTOYAGE ──────────────────────────────────────────────────────────────
+# ── 2. NETTOYAGE ──────────────────────────────────────────────────────────────
 yes_no_cols = [
     "quiet_ride", "radio_ok", "smoking_ok", "pets_ok",
     "luggage_large", "female_driver_pref",
@@ -74,32 +68,31 @@ def rating_bucket(r):
 
 d_df["rating_bucket"] = d_df["avg_rating"].apply(rating_bucket)
 
-# ── 4. WEIGHTS ────────────────────────────────────────────────────────────────
-#
-# ✅ Bug 3 FIX : Le weight exporté par exportDataService.js utilise maintenant
-# la formule renforcée (voir exportDataService.js corrigé) :
-#   weight = noteNorm × (0.50 + 0.50 × prefMatch)
-#
-# Ici on recharge simplement ce weight et on le clamp [0.01, 1.0].
-# Pas de recalcul ici — le calcul est centralisé dans exportDataService.js.
-
-logger.info(f"\nDistribution weights (depuis exportDataService.js CORRIGÉ) :")
+# ── 3. DIAGNOSTIC WEIGHTS ─────────────────────────────────────────────────────
+logger.info(f"\nDistribution weights (exclusion stricte) :")
 w = i_df["weight"]
-logger.info(f"  >= 0.75 (très positif)  : {(w >= 0.75).sum()}")
-logger.info(f"  0.40-0.75 (positif)     : {((w >= 0.40) & (w < 0.75)).sum()}")
-logger.info(f"  0.10-0.40 (neutre/neg)  : {((w >= 0.10) & (w < 0.40)).sum()}")
-logger.info(f"  < 0.10 (très négatif)   : {(w < 0.10).sum()}")
-logger.info(f"  Contraste max-min       : {w.max() - w.min():.3f}  (> 0.50 = bon signal corrigé)")
-logger.info(f"  Total                   : {len(i_df)}")
+nb_zero = (w == 0.0).sum()
+logger.info(f"  0.0 (violation stricte)  : {nb_zero}  ({100*nb_zero/len(w):.1f}%)")
+logger.info(f"  0.01–0.30 (négatif)      : {((w > 0.00) & (w < 0.30)).sum()}")
+logger.info(f"  0.30–0.60 (neutre)       : {((w >= 0.30) & (w < 0.60)).sum()}")
+logger.info(f"  >= 0.60 (positif)        : {(w >= 0.60).sum()}")
+logger.info(f"  Contraste max-min        : {w.max() - w.min():.3f}  (> 0.50 = bon signal)")
 
-if w.max() - w.min() < 0.40:
-    logger.warning("⚠️  Contraste encore faible — vérifier exportDataService.js corrigé")
+if nb_zero < len(w) * 0.05:
+    logger.warning("⚠️  Peu de violations strictes (< 5%) — les prefs sont peut-être trop permissives dans le seed")
+elif nb_zero > len(w) * 0.70:
+    logger.warning("⚠️  Trop de violations (> 70%) — les drivers et passagers ne matchent presque jamais")
 else:
-    logger.info("  ✅ Contraste suffisant pour le content-based")
+    logger.info(f"  ✅ {nb_zero/len(w)*100:.0f}% de violations strictes — contraste suffisant")
 
-i_df["weight_final"] = i_df["weight"].clip(lower=0.01, upper=1.0)
+# ✅ Les interactions à weight=0.0 sont gardées dans la matrice WARP.
+# LightFM interprète weight=0 comme "pas d'intérêt" dans WARP — c'est exactement
+# le signal qu'on veut pour les violations strictes.
+# On ne les supprime PAS : leur présence avec weight=0 aide le modèle à apprendre
+# "ce type de driver n'est pas apprécié par ce passager".
+i_df["weight_final"] = i_df["weight"].clip(lower=0.0, upper=1.0)
 
-# ── 5. MERGE interactions + prefs du trajet EXACT ────────────────────────────
+# ── 4. MERGE interactions + prefs du trajet ───────────────────────────────────
 PREF_COLS = [
     "quiet_ride", "radio_ok", "smoking_ok",
     "pets_ok", "luggage_large", "female_driver_pref",
@@ -114,8 +107,6 @@ if "trajet_id" in i_df.columns and "trajet_id" in t_df.columns:
     )
     nb_ok = i_merged[PREF_COLS[0]].notna().sum()
     logger.info(f"   {nb_ok}/{len(i_merged)} interactions matchées avec leurs prefs")
-    if nb_ok < len(i_merged) * 0.5:
-        logger.warning("⚠️  Moins de 50% matchées — vérifier trajet_id dans les 2 CSV")
 else:
     logger.warning("⚠️  trajet_id absent → fallback sur le dernier trajet par passager")
     last_trajet = t_df.sort_values("trajet_id").drop_duplicates("passenger_id", keep="last")
@@ -130,53 +121,18 @@ for col in PREF_COLS:
 
 all_interactions = i_merged.copy()
 
-# ── 6. DIAGNOSTIC pref_match ─────────────────────────────────────────────────
-pref_yes_rates = {}
-for col in PREF_COLS:
-    rate = (all_interactions[col].str.lower() == "yes").mean()
-    pref_yes_rates[col] = rate
-
-logger.info(f"\nDiagnostic prefs passagers (% de 'yes' dans les interactions) :")
-all_uniform = True
-for col, rate in pref_yes_rates.items():
-    status = "✅" if 0.10 < rate < 0.90 else "⚠️ "
-    logger.info(f"  {col:<22} : {rate:.1%}  {status}")
-    if 0.10 < rate < 0.90:
-        all_uniform = False
-
-if all_uniform:
-    logger.warning("⚠️  Toutes les prefs sont quasi-uniformes")
-    logger.warning("   LightFM ne pourra pas apprendre le content-based")
-else:
-    logger.info("  ✅ Prefs suffisamment variées pour le content-based")
-
-# ── 7. USER FEATURES — ✅ Bug 5 FIX : PAR INTERACTION, PAS PAR MOYENNE ───────
-#
-# ANCIENNE APPROCHE (bugée) :
-#   passenger_agg = t_df.groupby("passenger_id").mean()
-#   → LightFM apprend un profil moyen flou par passager
-#
-# NOUVELLE APPROCHE (corrigée) :
-#   On construit les user_features directement depuis les prefs
-#   de chaque interaction (les prefs du trajet exact).
-#   LightFM reçoit les vraies prefs pour chaque paire (passager, trajet).
-#
-# Pour les user_features statiques du dataset (utilisées en cold-start
-# ou quand dynamic_uf est indisponible), on garde la moyenne —
-# mais c'est secondaire car le predict runtime utilise build_dynamic_user_features().
-
+# ── 5. USER FEATURES ─────────────────────────────────────────────────────────
 for col in PREF_COLS:
     t_df[f"{col}_bin"] = (t_df[col].str.lower() == "yes").astype(float)
 
-# Moyenne par passager — utilisée uniquement pour les embeddings statiques LightFM
 passenger_agg = (
     t_df.groupby("passenger_id")[[f"{c}_bin" for c in PREF_COLS]]
     .mean()
     .reset_index()
 )
-logger.info(f"\nPassagers uniques pour user_features statiques : {len(passenger_agg)}")
+logger.info(f"\nPassagers uniques : {len(passenger_agg)}")
 
-# ── 8. DATASET LIGHTFM ───────────────────────────────────────────────────────
+# ── 6. DATASET LIGHTFM ───────────────────────────────────────────────────────
 dataset = Dataset()
 
 user_features_list = []
@@ -205,7 +161,7 @@ dataset.fit(
     item_features=item_features_list,
 )
 
-# ── 9. MATRICES ───────────────────────────────────────────────────────────────
+# ── 7. MATRICES ───────────────────────────────────────────────────────────────
 (interactions_matrix, weights_matrix) = dataset.build_interactions(
     [
         (row["passenger_id"], row["driver_id"], float(row["weight_final"]))
@@ -213,32 +169,28 @@ dataset.fit(
     ]
 )
 
-# ✅ Bug 5 FIX : user_features construites depuis les prefs de CHAQUE interaction
-# On utilise les prefs du trajet exact (i_merged) plutôt que la moyenne passager.
-#
-# Pour chaque passager, on agrège TOUTES les prefs de ses interactions
-# en les pondérant par le weight → les prefs qui mènent aux bonnes notes
-# ont plus de poids dans l'embedding.
+# ── 8. USER FEATURES pondérées par weight ────────────────────────────────────
+# ✅ On exclut les interactions avec weight=0.0 du calcul du profil passager.
+# Un trajet où une pref a été violée ne doit pas influencer le profil LightFM.
 
 def build_weighted_pref_features(interactions_df: pd.DataFrame, pref_cols: list) -> dict:
-    """
-    Pour chaque passager, calcule un profil pondéré par le weight.
-    Passager avec quiet_ride=yes et weight=0.9 → quiet_ride très important.
-    Passager avec quiet_ride=yes et weight=0.1 → ignoré (mauvaise expérience).
-    """
     passenger_features = {}
     grouped = interactions_df.groupby("passenger_id")
 
     for passenger_id, group in grouped:
-        total_weight = group["weight_final"].sum()
+        # ✅ Exclure les interactions à weight=0.0 (violations strictes)
+        valid_group = group[group["weight_final"] > 0.0]
+        if valid_group.empty:
+            continue
+
+        total_weight = valid_group["weight_final"].sum()
         if total_weight == 0:
             continue
 
         pref_scores = {}
         for col in pref_cols:
-            # Moyenne pondérée : prefs qui mènent aux bonnes notes sont privilégiées
-            yes_weight = group.loc[group[col].str.lower() == "yes", "weight_final"].sum()
-            pref_scores[col] = yes_weight / total_weight  # [0.0, 1.0]
+            yes_weight = valid_group.loc[valid_group[col].str.lower() == "yes", "weight_final"].sum()
+            pref_scores[col] = yes_weight / total_weight
 
         passenger_features[passenger_id] = pref_scores
 
@@ -246,12 +198,9 @@ def build_weighted_pref_features(interactions_df: pd.DataFrame, pref_cols: list)
 
 passenger_weighted_prefs = build_weighted_pref_features(all_interactions, PREF_COLS)
 logger.info(f"\nUser features pondérées calculées pour {len(passenger_weighted_prefs)} passagers")
+logger.info(f"(interactions à weight=0.0 exclues du profil)")
 
 def prefs_to_features_weighted(passenger_id: str, pref_scores: dict) -> list:
-    """
-    Convertit le profil pondéré en features LightFM.
-    Seuil 0.6 → :yes, seuil 0.4 → :no, entre les deux → les deux (incertain).
-    """
     features = []
     for col in PREF_COLS:
         val = pref_scores.get(col, 0.5)
@@ -262,7 +211,6 @@ def prefs_to_features_weighted(passenger_id: str, pref_scores: dict) -> list:
             features.append(f"{col}:no")
     return features
 
-# Fallback pour passagers sans interactions dans i_merged : utiliser la moyenne
 def prefs_to_features_avg(row):
     features = []
     for col in PREF_COLS:
@@ -274,7 +222,6 @@ def prefs_to_features_avg(row):
             features.append(f"{col}:no")
     return features
 
-# Construire les user_features en priorisant la version pondérée
 user_feature_rows = []
 for _, row in passenger_agg.iterrows():
     pid = row["passenger_id"]
@@ -309,8 +256,9 @@ item_features = dataset.build_item_features(
 )
 
 logger.info(f"\nMatrices construites — {interactions_matrix.nnz} interactions")
+logger.info(f"  dont {(i_df['weight_final'] == 0.0).sum()} à weight=0.0 (signal négatif strict)")
 
-# ── 10. MODÈLE ────────────────────────────────────────────────────────────────
+# ── 9. MODÈLE ────────────────────────────────────────────────────────────────
 model = LightFM(
     loss="warp",
     no_components=64,
@@ -321,7 +269,6 @@ model = LightFM(
 )
 
 n_train = interactions_matrix.nnz
-# ✅ Epochs augmentés : signal plus contrasté → plus d'itérations pour converger
 if   n_train < 500:   epochs = 150
 elif n_train < 2000:  epochs = 200
 elif n_train < 5000:  epochs = 350
@@ -339,9 +286,9 @@ model.fit(
     verbose=False,
 )
 
-logger.info("Entrainement terminé.")
+logger.info("Entraînement terminé.")
 
-# ── 11. DIAGNOSTIC POST-ENTRAÎNEMENT ─────────────────────────────────────────
+# ── 10. DIAGNOSTIC POST-ENTRAÎNEMENT ─────────────────────────────────────────
 try:
     item_biases = model.item_biases
     item_emb    = model.item_embeddings
@@ -354,29 +301,34 @@ try:
 
     if item_emb.std() < 0.02:
         logger.warning("⚠️  item_embeddings uniformes → content-based pas appris")
-        logger.warning("   Causes possibles :")
-        logger.warning("   1. Contraste weights trop faible")
-        logger.warning("   2. Prefs passagers trop uniformes dans trajets.csv")
-        logger.warning("   3. Drivers trop similaires entre eux dans drivers.csv")
     else:
         logger.info("  ✅ Content-based appris correctement")
 
-    # Diagnostic supplémentaire : cohérence pref → driver
-    logger.info(f"\n  Diagnostic contrastes item_biases :")
-    try:
-        _, _, item_id_map, _ = dataset.mapping()
-        biases_by_driver = {k: item_biases[v] for k, v in item_id_map.items()}
-        top5 = sorted(biases_by_driver.items(), key=lambda x: x[1], reverse=True)[:5]
-        bot5 = sorted(biases_by_driver.items(), key=lambda x: x[1])[:5]
-        logger.info(f"  Top 5 biais positifs  : {[(k, round(v,3)) for k,v in top5]}")
-        logger.info(f"  Top 5 biais négatifs  : {[(k, round(v,3)) for k,v in bot5]}")
-    except Exception:
-        pass
+    # Vérifie que les embeddings pour :yes et :no sont bien opposés
+    logger.info(f"\n  Diagnostic cohérence yes/no :")
+    _, _, _, user_feature_map = dataset.mapping()
+    for col in PREF_COLS[:3]:
+        yes_feat = f"{col}:yes"
+        no_feat  = f"{col}:no"
+        if yes_feat in user_feature_map and no_feat in user_feature_map:
+            yes_emb = user_emb[user_feature_map[yes_feat]]
+            no_emb  = user_emb[user_feature_map[no_feat]]
+            cosine  = np.dot(yes_emb, no_emb) / (np.linalg.norm(yes_emb) * np.linalg.norm(no_emb) + 1e-8)
+            status  = "✅ opposés" if cosine < -0.1 else ("⚠️  neutres" if cosine < 0.3 else "❌ similaires")
+            logger.info(f"  {col}: cosine(yes, no) = {cosine:.3f}  {status}")
+
+    logger.info(f"\n  Top 5 biais drivers :")
+    _, _, item_id_map, _ = dataset.mapping()
+    biases_by_driver = {k: item_biases[v] for k, v in item_id_map.items()}
+    top5 = sorted(biases_by_driver.items(), key=lambda x: x[1], reverse=True)[:5]
+    bot5 = sorted(biases_by_driver.items(), key=lambda x: x[1])[:5]
+    logger.info(f"  Positifs : {[(k, round(v,3)) for k,v in top5]}")
+    logger.info(f"  Négatifs : {[(k, round(v,3)) for k,v in bot5]}")
 
 except Exception as e:
     logger.warning(f"Diagnostic échoué : {e}")
 
-# ── 12. SAUVEGARDE ────────────────────────────────────────────────────────────
+# ── 11. SAUVEGARDE ────────────────────────────────────────────────────────────
 model.random_state = None
 os.makedirs(MODELS_DIR, exist_ok=True)
 

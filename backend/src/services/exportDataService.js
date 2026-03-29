@@ -1,32 +1,21 @@
-// exportDataService.js — CORRIGÉ
+// exportDataService.js — EXCLUSION STRICTE DES PRÉFÉRENCES
 //
-// ✅ Bug 3 FIX — Signal prefMatch renforcé dans le weight :
+// CHANGEMENTS PAR RAPPORT À LA VERSION PRÉCÉDENTE :
 //
-//   ANCIENNE FORMULE :
-//     weight = noteNorm × (0.70 + 0.30 × prefMatch)
-//     → si noteNorm=1.0 et prefMatch=0.0 : weight = 0.70
-//     → si noteNorm=1.0 et prefMatch=1.0 : weight = 1.00
-//     → DELTA = 0.30 seulement → LightFM voit peu de différence entre
-//       "bonne note + bon match" et "bonne note + mauvais match"
+//   ✅ prefMatch — logique exclusion stricte :
+//        oui → driver DOIT avoir la feature
+//        non → driver NE DOIT PAS avoir la feature
+//        Toute violation = mismatch TOTAL (score = 0) pour cette pref.
+//        C'était du scoring souple avant — maintenant c'est binaire par pref.
 //
-//   NOUVELLE FORMULE :
-//     weight = noteNorm × (0.50 + 0.50 × prefMatch)
-//     → si noteNorm=1.0 et prefMatch=0.0 : weight = 0.50
-//     → si noteNorm=1.0 et prefMatch=1.0 : weight = 1.00
-//     → DELTA = 0.50 → signal 67% plus fort pour le content-based
-//     → LightFM apprend "bonne note AVEC bon match prefs" = vraiment positif
-//     → LightFM apprend "bonne note SANS match prefs"  = signal moyen
+//   ✅ computeWeight — pénalité dure sur les mismatches stricts :
+//        Un mismatch strict (driver présent alors que pref=non, ou absent alors
+//        que pref=oui) tire le weight à 0.0 immédiatement.
+//        LightFM n'apprend JAMAIS "ce passager est content avec ce driver"
+//        si une pref stricte est violée.
 //
-//   TABLE DE CONVERSION CORRIGÉE :
-//     Annulation                    → 0.05  (signal négatif fort — inchangé)
-//     Complété sans évaluation      → 0.30  (signal neutre — inchangé)
-//     Note 1 + mismatch (pm=0)      → 0.00 × 0.50 = 0.00
-//     Note 2 + mismatch (pm=0)      → 0.25 × 0.50 = 0.12
-//     Note 3 + neutre   (pm=0.5)    → 0.50 × 0.75 = 0.37
-//     Note 4 + bon match (pm=1.0)   → 0.75 × 1.00 = 0.75
-//     Note 5 + bon match (pm=1.0)   → 1.00 × 1.00 = 1.00
-//     Note 5 + mismatch (pm=0.0)    → 1.00 × 0.50 = 0.50  ← ici le changement clé
-//     → WARP voit un contraste max-min de ~1.00 au lieu de ~0.70
+//   ✅ prefMatch retourne maintenant {score, hasStrictViolation} pour
+//        que computeWeight puisse appliquer la pénalité dure.
 
 import { prisma } from "../config/prisma.js";
 import fs from "fs";
@@ -70,57 +59,111 @@ function workHourMatch(driver, departureHour) {
   return 0;
 }
 
-// ── PREF MATCH — même logique que recommender.py ─────────────────────────────
-function prefMatch(trajet, driver) {
-  const b = (val) => {
-    if (val === null || val === undefined) return "no";
-    if (typeof val === "boolean") return val ? "yes" : "no";
-    return String(val).trim().toLowerCase();
-  };
-
-  const checks = [
-    ["female_driver_pref", b(driver.sexe),             "f",   "m",   2],
-    ["smoking_ok",         b(driver.smoking_allowed),   "yes", "no",  2],
-    ["luggage_large",      b(driver.car_big),           "yes", "no",  2],
-    ["pets_ok",            b(driver.pets_allowed),      "yes", "no",  2],
-    ["quiet_ride",         b(driver.talkative),         "no",  "yes", 1],
-    ["radio_ok",           b(driver.radio_on),          "yes", "no",  1],
-  ];
-
-  let score = 0, maxPoints = 0;
-  for (const [prefKey, driverVal, matchIfYes, matchIfNo, points] of checks) {
-    const pref = b(trajet[prefKey]);
-    if (pref !== "yes" && pref !== "no") continue;
-    maxPoints += points;
-    const target = pref === "yes" ? matchIfYes : matchIfNo;
-    score += driverVal === target ? points : -points;
-  }
-
-  if (maxPoints === 0) return 0.5;
-  return (score + maxPoints) / (2 * maxPoints);
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+function toBool(val) {
+  if (val === null || val === undefined) return false;
+  if (typeof val === "boolean") return val;
+  const s = String(val).trim().toLowerCase();
+  return s === "yes" || s === "true" || s === "1" || s === "oui";
 }
 
-// ── ✅ Bug 3 FIX — WEIGHT ENRICHI avec signal prefMatch renforcé ──────────────
+function toPref(val) {
+  // Retourne true (oui), false (non), ou null (absent)
+  if (val === null || val === undefined) return null;
+  const s = String(val).trim().toLowerCase();
+  if (s === "yes" || s === "oui" || s === "true" || s === "1") return true;
+  if (s === "no"  || s === "non" || s === "false" || s === "0") return false;
+  return null;
+}
+
+// ── PREF MATCH — EXCLUSION STRICTE ───────────────────────────────────────────
+//
+// Règles (même table que recommender.py) :
+//   female_driver_pref | driver.sexe == "f"        | oui→F requis,  non→M requis
+//   smoking_ok         | driver.smoking_allowed    | oui→fumeur,    non→non-fumeur
+//   luggage_large      | driver.car_big            | oui→grand,     non→petit
+//   pets_ok            | driver.pets_allowed       | oui→animaux,   non→sans animaux
+//   quiet_ride         | NOT driver.talkative      | oui→calme,     non→bavard
+//   radio_ok           | driver.radio_on           | oui→radio,     non→silence
+//
+// Retourne { score: [0,1], hasStrictViolation: bool }
+//   score = fraction de prefs actives satisfaites (toutes binaires)
+//   hasStrictViolation = true si AU MOINS UNE pref active est violée
+
+function prefMatch(trajet, driver) {
+  const RULES = [
+    // [prefKey,             getDriverVal,                          wantTrueWhenYes]
+    ["female_driver_pref",  () => String(driver.sexe || "").trim().toLowerCase() === "f",  true],
+    ["smoking_ok",          () => toBool(driver.smoking_allowed),                          true],
+    ["luggage_large",       () => toBool(driver.car_big),                                  true],
+    ["pets_ok",             () => toBool(driver.pets_allowed),                             true],
+    ["quiet_ride",          () => toBool(driver.talkative),                               false],  // oui=calme → talkative doit être false
+    ["radio_ok",            () => toBool(driver.radio_on),                                 true],
+  ];
+
+  let matched       = 0;
+  let total         = 0;
+  let hasViolation  = false;
+
+  for (const [prefKey, getDriverVal, wantTrueWhenYes] of RULES) {
+    const prefVal = toPref(trajet[prefKey]);
+    if (prefVal === null) continue;  // préf non spécifiée → pas de contrainte
+
+    total++;
+    const driverHas = getDriverVal();
+    const expected  = prefVal ? wantTrueWhenYes : !wantTrueWhenYes;
+
+    if (driverHas === expected) {
+      matched++;
+    } else {
+      hasViolation = true;
+    }
+  }
+
+  const score = total === 0 ? 0.5 : matched / total;
+  return { score, hasStrictViolation: hasViolation };
+}
+
+// ── WEIGHT — PÉNALITÉ DURE SUR VIOLATION STRICTE ─────────────────────────────
+//
+//   Annulation                       → 0.05
+//   Complété sans évaluation         → 0.30
+//   Violation stricte (pref bafouée) → 0.00  ← NOUVEAU : signal négatif absolu
+//   Bonne note + 0 violation         → noteNorm × 1.0 (max = 1.0)
+//   Bonne note + violation partielle → ne peut pas arriver (toutes ou aucune)
+//
+// LightFM reçoit 0.0 sur toute interaction où une pref a été violée.
+// Il apprend ainsi qu'un driver qui viole une pref = expérience nulle.
+
 function computeWeight(trajet, driver) {
   if (trajet.status === "CANCELLED_BY_PASSENGER") {
     return 0.05;
   }
+
+  const { score: pm, hasStrictViolation } = prefMatch(trajet, driver);
+
+  // ✅ NOUVEAU : violation stricte = weight 0.0 (signal négatif max pour LightFM)
+  if (hasStrictViolation) {
+    return 0.00;
+  }
+
   if (!trajet.evaluation) {
     return 0.30;
   }
 
-  const noteNorm = (trajet.evaluation.rating - 1.0) / 4.0; // [0.0, 1.0]
-  const pm       = prefMatch(trajet, driver);               // [0.0, 1.0]
+  const noteNorm = (trajet.evaluation.rating - 1.0) / 4.0;  // [0.0, 1.0]
 
-  // ✅ ANCIENNE : weight = noteNorm × (0.70 + 0.30 × prefMatch)  → delta max = 0.30
-  // ✅ NOUVELLE : weight = noteNorm × (0.50 + 0.50 × prefMatch)  → delta max = 0.50
+  // Toutes les prefs actives sont satisfaites (hasStrictViolation=false)
+  // → on utilise la note directement comme weight
+  // pm = 1.0 ici (toutes satisfaites) → weight = noteNorm × 1.0
+  // Si aucune pref active (pm=0.5 défaut) → weight = noteNorm × 0.75
   const w = noteNorm * (0.50 + 0.50 * pm);
   return parseFloat(Math.max(0.01, Math.min(1.0, w)).toFixed(4));
 }
 
 // ── EXPORT PRINCIPAL ──────────────────────────────────────────────────────────
 async function exportLightFM() {
-  console.log("🚀 Export LightFM CORRIGÉ — formule weight renforcée\n");
+  console.log("🚀 Export LightFM — exclusion stricte des préférences\n");
 
   try {
     const drivers = await prisma.driver.findMany();
@@ -140,10 +183,14 @@ async function exportLightFM() {
 
     const interactions = [];
     const trajetRows   = [];
+    let strictViolations = 0;
 
     for (const t of trajets) {
       const driver = driverMap[t.driverId];
       if (!driver) continue;
+
+      const { hasStrictViolation } = prefMatch(t, driver);
+      if (hasStrictViolation) strictViolations++;
 
       const weight = computeWeight(t, driver);
 
@@ -224,24 +271,25 @@ async function exportLightFM() {
     const wMax             = Math.max(...wArr);
     const wMin             = Math.min(...wArr);
     const contraste        = wMax - wMin;
+    const nbZero           = wArr.filter((x) => x === 0.0).length;
 
-    console.log(`\n📊 Résumé export :`);
+    console.log(`\n📊 Résumé export (exclusion stricte) :`);
     console.log(`   Drivers              : ${drivers.length}`);
     console.log(`   Passagers uniques    : ${uniquePassengers}`);
     console.log(`   Interactions totales : ${interactions.length}`);
-    console.log(`   Moy/passager         : ${(interactions.length / uniquePassengers).toFixed(1)}`);
-    console.log(`\n📊 Distribution weights CORRIGÉS (formule 0.50 + 0.50×pm) :`);
+    console.log(`   Violations strictes  : ${strictViolations} → weight=0.0`);
+    console.log(`   Weights à 0.0        : ${nbZero}`);
+    console.log(`\n📊 Distribution weights :`);
     console.log(`   ≥ 0.75 (très positif)  : ${wArr.filter((x) => x >= 0.75).length}`);
     console.log(`   0.40–0.75 (positif)    : ${wArr.filter((x) => x >= 0.40 && x < 0.75).length}`);
-    console.log(`   0.10–0.40 (neutre/neg) : ${wArr.filter((x) => x >= 0.10 && x < 0.40).length}`);
-    console.log(`   < 0.10 (très négatif)  : ${wArr.filter((x) => x < 0.10).length}`);
-    console.log(`   Contraste max-min      : ${contraste.toFixed(3)}`);
+    console.log(`   0.10–0.40 (neutre)     : ${wArr.filter((x) => x >= 0.10 && x < 0.40).length}`);
+    console.log(`   0.0–0.10 (pref violée) : ${wArr.filter((x) => x < 0.10).length}`);
+    console.log(`   Contraste max-min      : ${contraste.toFixed(3)}  (> 0.50 = bon signal)`);
 
     if (contraste < 0.50) {
-      console.warn("\n⚠️  Contraste < 0.50 — signal content-based encore insuffisant");
-      console.warn("   → Vérifie que tes passagers ont des prefs variées et des notes variées");
+      console.warn("\n⚠️  Contraste encore faible — vérifier la diversité des prefs dans les trajets");
     } else {
-      console.log("\n✅ Contraste ≥ 0.50 — LightFM peut apprendre le content-based correctement");
+      console.log("\n✅ Contraste ≥ 0.50 — LightFM peut apprendre correctement");
     }
 
     console.log(`\n✅ Export terminé → ${exportDir}`);

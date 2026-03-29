@@ -1,35 +1,11 @@
 """
-recommender.py — CORRIGÉ v2
+recommender.py — HYBRIDE LIGHTFM (content-based + collaboratif)
 
-BUGS CORRIGÉS DANS CETTE VERSION :
-
-  ✅ Bug 1 — Retrieval fusionné LightFM + Pref (déjà corrigé v1, conservé)
-
-  ✅ Bug 2 + 6 — user_features dynamiques : REFONTE COMPLÈTE
-                L'ancien build_dynamic_user_features() + predict(user_index=0)
-                était silencieusement cassé :
-                  - predict(0, ..., user_features=mat_1xF) utilise l'embedding
-                    du passager N°0 dans le modèle, pas un vecteur neutre.
-                  - Les features de la matrice 1×F sont additionnées à cet
-                    embedding biaisé → score faussé.
-
-                NOUVELLE APPROCHE — predict_with_dynamic_features() :
-                  - Reconstruit manuellement l'embedding utilisateur
-                    en sommant les feature embeddings du modèle entraîné
-                    pour les prefs actives du trajet ACTUEL.
-                  - Calcule le score = item_bias + dot(user_emb, item_emb)
-                    exactement comme LightFM le ferait en interne.
-                  - Aucun biais lié à un user_index particulier.
-
-  ✅ Bug 7 — Poids DEFAULT rééquilibrés :
-                Ancien : w_lfm=0.18, w_pref=0.62
-                → pref_score calculé en dur masquait complètement LightFM
-                → impossible de savoir si LightFM contribuait vraiment
-
-                Nouveau : w_lfm=0.45, w_pref=0.35
-                → LightFM est vraiment testé
-                → pref_score reste présent mais ne domine plus
-                → si LightFM est bien entraîné, ses scores correront avec pref
+LOGIQUE PRÉFÉRENCES :
+  Pas de filtre dur — LightFM + scoring souple gèrent tout.
+  Un driver qui viole une pref reçoit un pref_score bas → rank bas naturellement.
+  oui  → driver idéalement DOIT avoir la feature   (pref_score élevé si présent)
+  non  → driver idéalement NE DOIT PAS avoir la feature (pref_score élevé si absent)
 """
 
 import pickle
@@ -46,7 +22,6 @@ from typing import List, Dict, Optional, Tuple
 from dotenv import load_dotenv
 from scipy.optimize import minimize
 from scipy.spatial import KDTree
-import scipy.sparse as sp
 
 logger = logging.getLogger(__name__)
 load_dotenv()
@@ -68,11 +43,10 @@ def reset_weights():
     for path in [WEIGHTS_PATH, FEEDBACK_PATH]:
         if os.path.exists(path):
             os.remove(path)
-            print(f"🗑️  Supprimé : {path}")
-    print("✅ Reset complet — poids DEFAULT actifs")
+    print("Reset complet — poids DEFAULT actifs")
 
 
-# ── GÉO ───────────────────────────────────────────────────────────────────────
+# ── GEO ───────────────────────────────────────────────────────────────────────
 def haversine(lat1, lng1, lat2, lng2) -> float:
     R    = 6371
     dLat = math.radians(lat2 - lat1)
@@ -97,7 +71,7 @@ def work_hour_match(driver: Dict, departure_hour: int) -> float:
     if departure_hour >= 12 and departure_hour < 18  and driver.get("works_afternoon"): return 1.0
     if departure_hour >= 18 and departure_hour < 22  and driver.get("works_evening"):   return 1.0
     if (departure_hour >= 22 or departure_hour < 5)  and driver.get("works_night"):     return 1.0
-    return 0.2
+    return 0.0
 
 
 def max_driver_distance(trajet_distance_km: float, hours_until_departure: float) -> float:
@@ -112,42 +86,92 @@ def max_driver_distance(trajet_distance_km: float, hours_until_departure: float)
     return min(dist_based, time_based)
 
 
-# ── PREF SCORE ────────────────────────────────────────────────────────────────
-def calculate_match_score(driver: Dict, preferences: Dict) -> float:
-    def b(val):
-        if isinstance(val, bool): return "yes" if val else "no"
-        if val is None: return "no"
-        return str(val).strip().lower()
+# ── PREF SCORE (scoring souple) ───────────────────────────────────────────────
+def _b(val) -> str:
+    """Normalise n'importe quelle valeur en 'yes' ou 'no'."""
+    if isinstance(val, bool):
+        return "yes" if val else "no"
+    if val is None:
+        return "no"
+    return str(val).strip().lower()
 
-    checks = [
-        ("female_driver_pref", "sexe",           "f",   "m",   2),
-        ("smoking_ok",         "smoking_allowed", "yes", "no",  2),
-        ("luggage_large",      "car_big",         "yes", "no",  2),
-        ("pets_ok",            "pets_allowed",    "yes", "no",  2),
-        ("quiet_ride",         "talkative",       "no",  "yes", 1),
-        ("radio_ok",           "radio_on",        "yes", "no",  1),
-    ]
-    score, max_points = 0.0, 0.0
-    for pref_key, driver_key, match_val, mismatch_val, points in checks:
-        pref = b(preferences.get(pref_key, "no"))
-        if pref not in ("yes", "no"):
+
+def _pref(val) -> Optional[str]:
+    """
+    Retourne 'yes', 'no', ou None si la préférence n'est pas spécifiée.
+    None = passager indifférent -> aucun impact sur le score.
+    """
+    if val is None:
+        return None
+    s = str(val).strip().lower()
+    if s in ("yes", "oui", "true", "1"):
+        return "yes"
+    if s in ("no", "non", "false", "0"):
+        return "no"
+    return None
+
+
+# Table des règles :
+# (pref_key, driver_key_or_special, want_driver_yes_when_pref_yes, points)
+#   want_driver_yes_when_pref_yes=True  : pref=oui -> on veut driver_field=yes
+#   want_driver_yes_when_pref_yes=False : pref=oui -> on veut driver_field=no
+#     ex: quiet_ride=oui -> talkative doit être no (driver calme)
+PREF_RULES = [
+    ("female_driver_pref", "_female",         True,  3.0),
+    ("smoking_ok",         "smoking_allowed", True,  2.0),
+    ("luggage_large",      "car_big",         True,  2.0),
+    ("pets_ok",            "pets_allowed",    True,  2.0),
+    ("quiet_ride",         "talkative",       False, 1.5),
+    ("radio_ok",           "radio_on",        True,  1.0),
+]
+
+
+def _driver_field(driver: Dict, key: str) -> str:
+    if key == "_female":
+        return "yes" if str(driver.get("sexe", "")).strip().lower() == "f" else "no"
+    return _b(driver.get(key))
+
+
+def calculate_match_score(driver: Dict, preferences: Dict) -> float:
+    """
+    Score [0, 1].
+    Pref spécifiée et respectée  -> +points
+    Pref spécifiée et violée     -> -points * 0.5 (pénalité modérée, pas d'élimination)
+    Pref absente (None)          -> ignorée
+    """
+    score      = 0.0
+    max_points = 0.0
+
+    for pref_key, driver_key, want_yes_when_pref_yes, points in PREF_RULES:
+        pref_val = _pref(preferences.get(pref_key))
+        if pref_val is None:
             continue
+
         max_points += points
-        driver_val = b(driver.get(driver_key))
-        target = match_val if pref == "yes" else mismatch_val
-        score += points if driver_val == target else -points
+        driver_val  = _driver_field(driver, driver_key)
+
+        if pref_val == "yes":
+            wanted = "yes" if want_yes_when_pref_yes else "no"
+        else:
+            wanted = "no" if want_yes_when_pref_yes else "yes"
+
+        if driver_val == wanted:
+            score += points
+        else:
+            score -= points * 0.5
 
     if max_points == 0:
         return 0.5
-    return (score + max_points) / (2 * max_points)
+
+    normalized = (score + max_points) / (2 * max_points)
+    return max(0.0, min(1.0, normalized))
 
 
 def count_active_prefs(preferences: Dict) -> int:
-    pref_keys = [
-        "female_driver_pref", "smoking_ok", "luggage_large",
-        "pets_ok", "quiet_ride", "radio_ok"
-    ]
-    return sum(1 for k in pref_keys if str(preferences.get(k, "no")).lower() == "yes")
+    return sum(
+        1 for pref_key, _, _, _ in PREF_RULES
+        if _pref(preferences.get(pref_key)) is not None
+    )
 
 
 # ── KD-TREE ───────────────────────────────────────────────────────────────────
@@ -183,11 +207,12 @@ def cold_start_by_preferences(
 
     if geo_available:
         tree, geo_drivers, no_geo_drivers = build_spatial_index(drivers)
-        candidates = spatial_filter(tree, geo_drivers, start_lat, start_lng, max_km) + no_geo_drivers if tree else drivers
+        candidates = (
+            spatial_filter(tree, geo_drivers, start_lat, start_lng, max_km) + no_geo_drivers
+            if tree else drivers
+        )
     else:
         candidates = drivers
-
-    nb_active_prefs = count_active_prefs(preferences)
 
     for driver in candidates:
         dist_km = None
@@ -206,13 +231,15 @@ def cold_start_by_preferences(
         rating_score = ((driver.get("avgRating") or 4.0) - 1) / 4
 
         final_score = (
-            0.60 * pref_score + 0.20 * dist_score + 0.12 * work_score + 0.08 * rating_score
+            0.55 * pref_score + 0.25 * dist_score + 0.12 * work_score + 0.08 * rating_score
             if geo_available else
             0.70 * pref_score + 0.18 * work_score + 0.12 * rating_score
         )
 
-        if nb_active_prefs > 0 and pref_score < 0.30:
-            final_score *= 0.50
+        if pref_score < 0.30:
+            final_score *= 0.20
+        elif pref_score < 0.50:
+            final_score *= 0.55
 
         driver["final_score"] = round(final_score, 4)
         driver["work_match"]  = work_score == 1.0
@@ -222,11 +249,11 @@ def cold_start_by_preferences(
     scored.sort(key=lambda d: d.get("final_score", 0), reverse=True)
     for d in scored:
         d.pop("final_score", None)
-    print(f"✅ Cold-start: {len(scored)} drivers | Top {min(top_n, len(scored))} retournés")
+    print(f"Cold-start: {len(scored)} drivers scorés | Top {min(top_n, len(scored))} retournés")
     return scored[:top_n]
 
 
-# ── NORMALISATION LIGHTFM — min-max ───────────────────────────────────────────
+# ── NORMALISATION LIGHTFM ─────────────────────────────────────────────────────
 def normalize_lightfm_scores(raw_scores: np.ndarray) -> np.ndarray:
     s_min, s_max = raw_scores.min(), raw_scores.max()
     if s_max > s_min:
@@ -235,22 +262,18 @@ def normalize_lightfm_scores(raw_scores: np.ndarray) -> np.ndarray:
 
 
 # ── POIDS ─────────────────────────────────────────────────────────────────────
-WEIGHT_KEYS   = ["lightfm", "pref", "dist", "rating"]   # work retiré des poids — géré en pénalité dure
+WEIGHT_KEYS   = ["lightfm", "pref", "dist", "rating"]
 WEIGHT_BOUNDS = {
-    "lightfm": (0.30, 0.55),
-    "pref":    (0.20, 0.40),
+    "lightfm": (0.20, 0.50),
+    "pref":    (0.30, 0.55),
     "dist":    (0.05, 0.20),
     "rating":  (0.02, 0.08),
 }
 
-# work n'est plus un poids souple (0.04 → ignoré par SLSQP).
-# Il devient une pénalité DURE dans le ranking : driver qui ne travaille
-# pas à l'heure du trajet reçoit un malus fixe de -0.15 sur le score final.
-# C'est plus lisible et plus robuste que de compter sur w_work=0.04.
-WORK_HOUR_PENALTY = 0.15   # soustrait du score final si work_score != 1.0
+WORK_HOUR_PENALTY = 0.15
 
-DEFAULT_WEIGHTS_GEO    = np.array([0.45, 0.38, 0.13, 0.04])
-DEFAULT_WEIGHTS_NO_GEO = np.array([0.48, 0.44, 0.00, 0.08])
+DEFAULT_WEIGHTS_GEO    = np.array([0.35, 0.45, 0.15, 0.05])
+DEFAULT_WEIGHTS_NO_GEO = np.array([0.40, 0.50, 0.00, 0.10])
 
 _scores_history: List[Dict]              = []
 _optimized_weights: Optional[np.ndarray] = None
@@ -261,15 +284,9 @@ if not FORCE_DEFAULT_WEIGHTS:
         try:
             with open(FEEDBACK_PATH, "r") as f:
                 raw_history = json.load(f)
-            # ✅ Rejeter les anciens feedbacks qui ont "work" comme clé
-            # (format 5-clés obsolète) — ils fausseraient le SLSQP
             valid = [e for e in raw_history if set(WEIGHT_KEYS).issubset(set(e.keys()))]
-            invalid = len(raw_history) - len(valid)
-            if invalid > 0:
-                print(f"⚠️  {invalid} anciens feedbacks (format obsolète) ignorés")
-                print(f"   → Supprimer {FEEDBACK_PATH} pour nettoyer complètement")
             _scores_history = valid
-            print(f"✅ {len(_scores_history)} feedbacks valides rechargés")
+            print(f"{len(_scores_history)} feedbacks valides rechargés")
         except Exception as e:
             print(f"[WARNING] Feedbacks: {e}")
 
@@ -278,19 +295,15 @@ if not FORCE_DEFAULT_WEIGHTS:
             with open(WEIGHTS_PATH, "r") as f:
                 loaded = json.load(f)
             loaded_arr = np.array(loaded)
-            # ✅ Rejeter les poids de l'ancien format (5 valeurs au lieu de 4)
-            if len(loaded_arr) != len(WEIGHT_KEYS):
-                print(f"⚠️  Poids format obsolète ({len(loaded_arr)} valeurs) → DEFAULT utilisé")
-                print(f"   → Supprimer {WEIGHTS_PATH} pour nettoyer complètement")
-            elif loaded_arr.max() > 0.95:
-                print(f"⚠️  Poids stuqués détectés {loaded_arr} → DEFAULT utilisé")
-            else:
+            if len(loaded_arr) == len(WEIGHT_KEYS) and loaded_arr.max() <= 0.95:
                 _optimized_weights = loaded_arr
-                print(f"✅ Poids rechargés: {_optimized_weights}")
+                print(f"Poids rechargés: {_optimized_weights}")
+            else:
+                print("Poids invalides -> DEFAULT utilisé")
         except Exception as e:
             print(f"[WARNING] Poids: {e}")
 else:
-    print("⚙️  FORCE_DEFAULT_WEIGHTS=True → poids DEFAULT actifs")
+    print("FORCE_DEFAULT_WEIGHTS=True -> poids DEFAULT actifs")
 
 
 def _try_optimize_weights() -> Optional[np.ndarray]:
@@ -308,34 +321,26 @@ def _try_optimize_weights() -> Optional[np.ndarray]:
             bounds=[WEIGHT_BOUNDS[k] for k in WEIGHT_KEYS],
             constraints=[
                 {"type": "eq",   "fun": lambda w: w.sum() - 1},
-                {"type": "ineq", "fun": lambda w: w[0] - 0.30},  # lightfm >= 0.30
+                {"type": "ineq", "fun": lambda w: w[1] - 0.30},
             ],
             options={"ftol": 1e-9, "maxiter": 1000},
         )
-        if not result.success:
-            print(f"[WARNING] Optimisation échouée: {result.message}")
+        if not result.success or result.x.max() > 0.95:
             return None
         w_norm = result.x
-        if w_norm.max() > 0.95:
-            print(f"[WARNING] Poids optimisés stuqués {w_norm} → DEFAULT gardé")
-            return None
-        print(f"📊 Poids optimisés: {dict(zip(WEIGHT_KEYS, w_norm.round(3)))}")
+        print(f"Poids optimisés: {dict(zip(WEIGHT_KEYS, w_norm.round(3)))}")
         if not FORCE_DEFAULT_WEIGHTS:
-            try:
-                with open(WEIGHTS_PATH, "w") as f:
-                    json.dump(w_norm.tolist(), f)
-            except Exception as e:
-                print(f"[WARNING] Sauvegarde poids: {e}")
+            with open(WEIGHTS_PATH, "w") as f:
+                json.dump(w_norm.tolist(), f)
         return w_norm
     except Exception as e:
-        print(f"[WARNING] Régression: {e}")
+        print(f"[WARNING] Optimisation: {e}")
         return None
 
 
 def add_feedback_to_buffer(scores: Dict, real_rating: float) -> bool:
     global _optimized_weights
     target = max(0.0, min(1.0, (real_rating - 1) / 4))
-    # ✅ Sauvegarder seulement les 4 clés du nouveau format (sans "work")
     entry  = {**{k: scores.get(k) or 0.0 for k in WEIGHT_KEYS}, "target": target}
     with _feedback_lock:
         _scores_history.append(entry)
@@ -345,7 +350,7 @@ def add_feedback_to_buffer(scores: Dict, real_rating: float) -> bool:
                     json.dump(_scores_history, f)
             except Exception as e:
                 print(f"[WARNING] Sauvegarde feedback: {e}")
-        print(f"✅ Feedback | note={real_rating} → target={target:.3f} | buffer={len(_scores_history)}/50")
+        print(f"Feedback | note={real_rating} -> target={target:.3f} | buffer={len(_scores_history)}/50")
         if len(_scores_history) >= 50:
             new_weights = _try_optimize_weights()
             if new_weights is not None and not FORCE_DEFAULT_WEIGHTS:
@@ -369,7 +374,7 @@ class Recommender:
         self._refresh_mappings()
         try:
             self.drivers_df = pd.read_csv(os.path.join(MODELS_DIR, "drivers_processed.csv"))
-            print(f"✅ {len(self.drivers_df)} drivers chargés")
+            print(f"{len(self.drivers_df)} drivers chargés")
         except Exception:
             self.drivers_df = None
 
@@ -377,7 +382,7 @@ class Recommender:
         if self.dataset:
             user_id_map, user_feature_map, item_id_map, item_feature_map = self.dataset.mapping()
             self.user_id_map        = user_id_map
-            self.user_feature_map   = user_feature_map   # nom → index dans les feature embeddings
+            self.user_feature_map   = user_feature_map
             self.item_id_map        = item_id_map
             self.item_feature_map   = item_feature_map
             self.index_to_driver_id = {v: k for k, v in item_id_map.items()}
@@ -395,81 +400,54 @@ class Recommender:
                 import joblib
                 return joblib.load(path)
             except Exception as e:
-                print(f"[LOAD] ❌ {path}: {e}")
+                print(f"[LOAD] {path}: {e}")
                 return None
 
     def reload(self):
         self.__init__()
-        print("✅ Modèle rechargé")
+        print("Modèle rechargé")
 
-    # ── ✅ Bug 2+6 FIX COMPLET — predict avec features dynamiques ─────────────
     def predict_with_dynamic_features(
         self,
         preferences: Dict,
         candidate_indices: List[int],
     ) -> Optional[np.ndarray]:
         """
-        Calcule les scores LightFM en utilisant les prefs du trajet ACTUEL,
-        sans dépendre d'un user_index particulier dans le modèle.
-
-        Pourquoi l'ancienne approche (predict(user_index=0, user_features=mat))
-        était cassée :
-          - LightFM calcule : score = user_bias[idx] + item_bias[j]
-                                      + (user_emb[idx] + sum(feat_emb)) · item_emb[j]
-          - user_emb[0] = embedding du PREMIER passager dans le dataset
-          - Ce passager a un profil particulier → le score est biaisé
-          - On voulait user_emb = 0 (vecteur neutre) + sum(feat_emb pour prefs actives)
-
-        Nouvelle approche :
-          - user_emb = sum des feature_embeddings pour les prefs actives du trajet
-          - score = item_bias[j] + dot(user_emb, item_emb[j])
-          - Pas de user_bias (=0 car passager inconnu/neutre)
-          - Résultat : score pur content-based, ancré dans les prefs du trajet actuel
+        Injecte les features passager dynamiquement dans l'espace LightFM.
+        col:yes si pref=oui, col:no si pref=non.
+        Normalise par nb features pour éviter l'effet amplitude.
         """
         if self.model is None or not candidate_indices:
             return None
 
-        def b(val):
-            if isinstance(val, bool): return "yes" if val else "no"
-            if val is None: return "no"
-            return str(val).strip().lower()
-
-        # Récupérer la dimension des embeddings
-        n_components = self.model.user_embeddings.shape[1]
-
-        # Construire l'embedding utilisateur en sommant les feature embeddings
-        # pour les prefs actives du trajet actuel.
-        user_emb = np.zeros(n_components, dtype=np.float32)
+        n_components  = self.model.user_embeddings.shape[1]
+        user_emb      = np.zeros(n_components, dtype=np.float32)
         features_used = []
 
         for col in self.PREF_COLS:
-            val       = b(preferences.get(col, "no"))
-            feat_name = f"{col}:{val}"
+            pref_val = _pref(preferences.get(col))
+            if pref_val is None:
+                continue
+            feat_name = f"{col}:{pref_val}"
 
             if feat_name in self.user_feature_map:
                 feat_idx = self.user_feature_map[feat_name]
-                # Les feature embeddings sont dans model.user_embeddings
-                # Les n premiers indices = user identities, les suivants = features
-                # user_feature_map donne les indices dans la matrice features
-                # qui correspondent aux colonnes de user_embeddings
                 if feat_idx < self.model.user_embeddings.shape[0]:
                     user_emb += self.model.user_embeddings[feat_idx]
                     features_used.append(feat_name)
 
         if not features_used:
-            print(f"[WARNING] predict_dynamic: aucune feature trouvée dans user_feature_map")
+            print("   predict_dynamic: aucune feature trouvée dans user_feature_map")
             return None
 
-        # Calculer les scores pour chaque driver candidat
-        item_biases    = self.model.item_biases      # shape: (n_items,)
-        item_embeddings = self.model.item_embeddings  # shape: (n_items, n_components)
+        user_emb /= len(features_used)
 
         scores = np.array([
-            float(item_biases[j]) + float(np.dot(user_emb, item_embeddings[j]))
+            float(self.model.item_biases[j]) + float(np.dot(user_emb, self.model.item_embeddings[j]))
             for j in candidate_indices
         ], dtype=np.float32)
 
-        print(f"   ✅ predict_dynamic: {len(features_used)} features actives → scores calculés")
+        print(f"   predict_dynamic: {len(features_used)} features -> scores calculés")
         return scores
 
     def retrieval_top_k(
@@ -479,11 +457,6 @@ class Recommender:
         k: int,
         preferences: Dict = None,
     ) -> List[str]:
-        """
-        Étape 1 — LightFM score sur les candidats géo → top-k retenus.
-        Utilise predict_with_dynamic_features() si preferences fourni,
-        sinon fallback sur predict() avec le user_index classique.
-        """
         if not self.model:
             return candidate_driver_ids
 
@@ -496,13 +469,16 @@ class Recommender:
             return candidate_driver_ids
 
         try:
-            # ✅ Bug 2+6 fix : utiliser les features dynamiques en priorité
+            raw_scores = None
+
+            # Priorité 1 : content-based dynamique
             if preferences is not None:
                 raw_scores = self.predict_with_dynamic_features(preferences, candidate_indices)
-                if raw_scores is None:
-                    raise ValueError("predict_dynamic retourné None")
-                print(f"   Retrieval: scores dynamiques (content-based)")
-            elif passenger_key in self.user_id_map:
+                if raw_scores is not None:
+                    print("   Retrieval: content-based dynamique")
+
+            # Priorité 2 : collaboratif classique
+            if raw_scores is None and passenger_key in self.user_id_map:
                 user_index = self.user_id_map[passenger_key]
                 raw_scores = self.model.predict(
                     user_index,
@@ -510,8 +486,9 @@ class Recommender:
                     user_features=self.user_features,
                     item_features=self.item_features,
                 )
-                print(f"   Retrieval: scores collaboratifs (user_index={user_index})")
-            else:
+                print("   Retrieval: collaboratif")
+
+            if raw_scores is None:
                 return candidate_driver_ids
 
         except Exception as e:
@@ -524,7 +501,7 @@ class Recommender:
             for pos in top_k_positions
             if candidate_indices[pos] in self.index_to_driver_id
         ]
-        print(f"   Retrieval LightFM: {len(candidate_indices)} → top {len(top_k_driver_ids)} candidats")
+        print(f"   Retrieval LightFM: {len(candidate_indices)} -> top {len(top_k_driver_ids)}")
         return top_k_driver_ids
 
 
@@ -576,14 +553,14 @@ async def get_recommendations(
 
     # ── Cold start ────────────────────────────────────────────────────────────
     if passenger_key not in recommender.user_id_map:
-        print("   Mode: cold-start")
+        print(f"   Mode: cold-start (passager {passenger_key} inconnu du modèle)")
         return cold_start_by_preferences(
             all_drivers, preferences, departure_hour,
             hours_until_departure, start_lat, start_lng, max_km, top_n,
         )
 
     # ══════════════════════════════════════════════════════════════════════════
-    # ÉTAPE 1 — RETRIEVAL (LightFM + Pref)
+    # ÉTAPE 1 — FILTRAGE GÉO
     # ══════════════════════════════════════════════════════════════════════════
     if geo_available:
         tree, geo_drivers, no_geo_drivers = build_spatial_index(all_drivers)
@@ -599,19 +576,25 @@ async def get_recommendations(
     else:
         all_candidates = all_drivers
 
-    print(f"   Géo-filtre: {len(all_drivers)} → {len(all_candidates)} candidats (rayon {max_km} km)")
+    print(f"   Geo-filtre: {len(all_drivers)} -> {len(all_candidates)} candidats (rayon {max_km} km)")
 
+    if not all_candidates:
+        print("   [WARN] Aucun candidat géo — fallback tous les drivers")
+        all_candidates = all_drivers
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # ÉTAPE 2 — RETRIEVAL LIGHTFM (content-based + collaboratif)
+    # ══════════════════════════════════════════════════════════════════════════
     candidate_driver_ids = [f"D{d['id']}" for d in all_candidates]
 
-    # ✅ Bug 2+6 fix : passer les prefs pour le predict dynamique
     top_k_lfm_ids = set(recommender.retrieval_top_k(
         passenger_key,
         candidate_driver_ids,
         k=RETRIEVAL_TOP_K,
-        preferences=preferences,  # ← les prefs du trajet actuel
+        preferences=preferences,
     ))
 
-    # ✅ Bug 1 fix : top-K par pref_score pur (garanti de n'éliminer aucun bon match)
+    # Union LightFM + top pref_score pour garantir les meilleurs matchs de prefs
     if nb_active_prefs > 0:
         pref_scored = sorted(
             all_candidates,
@@ -619,7 +602,7 @@ async def get_recommendations(
             reverse=True,
         )
         top_k_pref_ids = {f"D{d['id']}" for d in pref_scored[:PREF_TOP_K]}
-        print(f"   Pref top-{PREF_TOP_K} ajoutés aux candidats retrieval")
+        print(f"   Pref top-{PREF_TOP_K} ajoutés au pool")
     else:
         top_k_pref_ids = set()
 
@@ -628,26 +611,23 @@ async def get_recommendations(
 
     if not retrieval_candidates:
         retrieval_candidates = all_candidates
-        print("   [FALLBACK] Retrieval vide → tous les candidats géo")
+        print("   [FALLBACK] Retrieval vide -> tous les candidats géo")
 
-    print(f"   Retrieval final: {len(retrieval_candidates)} candidats "
-          f"(LightFM: {len(top_k_lfm_ids)}, Pref: {len(top_k_pref_ids)}, "
-          f"Union: {len(merged_ids)})")
+    print(f"   Retrieval final: {len(retrieval_candidates)} candidats")
 
     # ══════════════════════════════════════════════════════════════════════════
-    # ÉTAPE 2 — RANKING FIN
+    # ÉTAPE 3 — RANKING FIN (score hybride pondéré)
     # ══════════════════════════════════════════════════════════════════════════
     global _optimized_weights
     if FORCE_DEFAULT_WEIGHTS or _optimized_weights is None:
         w = DEFAULT_WEIGHTS_GEO if geo_available else DEFAULT_WEIGHTS_NO_GEO
-        weight_source = "DEFAULT (FORCE)" if FORCE_DEFAULT_WEIGHTS else "DEFAULT"
+        weight_source = "DEFAULT"
     else:
         w = _optimized_weights
         weight_source = "SLSQP optimisé"
 
     w_lfm, w_pref, w_dist, w_rating = w
 
-    # Scores LightFM dynamiques pour le ranking final
     candidate_indices_ret = [
         recommender.item_id_map[f"D{d['id']}"]
         for d in retrieval_candidates
@@ -657,21 +637,18 @@ async def get_recommendations(
     lightfm_scores_map = {}
     if candidate_indices_ret and recommender.model:
         try:
-            # ✅ Bug 2+6 fix : predict dynamique pour le ranking aussi
             raw = recommender.predict_with_dynamic_features(preferences, candidate_indices_ret)
-
             if raw is None:
-                raise ValueError("predict_dynamic retourné None pour ranking")
-
+                raise ValueError("predict_dynamic retourne None")
             norm = normalize_lightfm_scores(raw)
             lightfm_scores_map = {
                 recommender.index_to_driver_id[candidate_indices_ret[i]]: float(norm[i])
                 for i in range(len(candidate_indices_ret))
                 if candidate_indices_ret[i] in recommender.index_to_driver_id
             }
+            print("   Ranking: content-based dynamique")
         except Exception as e:
-            print(f"[WARNING] predict ranking: {e} → fallback scores collaboratifs")
-            # Fallback : predict classique avec user_index
+            print(f"   Ranking: content-based échoué ({e}) -> fallback collaboratif")
             try:
                 user_index = recommender.user_id_map[passenger_key]
                 raw = recommender.model.predict(
@@ -686,8 +663,9 @@ async def get_recommendations(
                     for i in range(len(candidate_indices_ret))
                     if candidate_indices_ret[i] in recommender.index_to_driver_id
                 }
+                print("   Ranking: collaboratif")
             except Exception as e2:
-                print(f"[WARNING] fallback predict aussi échoué: {e2}")
+                print(f"[WARNING] Fallback ranking échoué: {e2}")
 
     scored_drivers = []
     for driver in retrieval_candidates:
@@ -707,6 +685,7 @@ async def get_recommendations(
         work_score    = work_hour_match(driver, departure_hour)
         rating_score  = ((driver.get("avgRating") or 4.0) - 1) / 4
 
+        # Score hybride pondéré — cœur du système
         final_score = (
             w_lfm    * lightfm_score +
             w_pref   * pref_score    +
@@ -714,22 +693,19 @@ async def get_recommendations(
             w_rating * rating_score
         )
 
-        # ── Pénalité horaire DURE ─────────────────────────────────────────────
-        # work_score != 1.0 = driver ne travaille pas à cette heure
-        # On soustrait un malus fixe — plus robuste que w_work=0.04
-        # qui était trop faible pour compenser un bon pref_score
+        # Pénalité horaire
         if work_score < 1.0:
             final_score -= WORK_HOUR_PENALTY
 
-        # ── Pénalités pref ────────────────────────────────────────────────────
-        if nb_active_prefs >= 3 and pref_score < 0.25:
-            final_score *= 0.40
-        elif nb_active_prefs >= 2 and pref_score < 0.30:
-            final_score *= 0.50
-        elif nb_active_prefs >= 1 and pref_score < 0.20:
-            final_score *= 0.60
+        # Pénalités pref souples — ranking bas, pas d'élimination
+        if pref_score < 0.30:
+            final_score *= 0.20
+        elif pref_score < 0.50:
+            final_score *= 0.55
+        elif pref_score < 0.70:
+            final_score *= 0.80
 
-        # ── Pénalité diversité ────────────────────────────────────────────────
+        # Pénalité diversité
         nb = interaction_counts.get(str(driver["id"]), 0)
         if   nb >= 5: final_score *= 0.80
         elif nb >= 3: final_score *= 0.90
@@ -741,24 +717,24 @@ async def get_recommendations(
             "lightfm": round(lightfm_score, 3),
             "pref":    round(pref_score, 3),
             "dist":    round(dist_score, 3),
-            "work_ok": work_score == 1.0,   # booléen — pénalité dure si False
+            "work_ok": work_score == 1.0,
             "rating":  round(rating_score, 3),
         }
         scored_drivers.append(driver)
 
-    print(f"\n📊 Poids [{weight_source}]: lfm={w_lfm:.2f} pref={w_pref:.2f} dist={w_dist:.2f} rating={w_rating:.2f} | work_penalty={WORK_HOUR_PENALTY}")
-    print(f"   Prefs actives du passager : {nb_active_prefs}")
-    print("─" * 60)
+    print(f"\nPoids [{weight_source}]: lfm={w_lfm:.2f} pref={w_pref:.2f} dist={w_dist:.2f} rating={w_rating:.2f}")
+    print(f"   Prefs actives: {nb_active_prefs}")
+    print("-" * 60)
     for d in sorted(scored_drivers, key=lambda x: x.get("final_score", 0), reverse=True)[:top_n]:
         s = d["_scores"]
-        work_flag = "✅" if s["work_ok"] else f"❌ -{WORK_HOUR_PENALTY}"
+        work_flag = "OK" if s["work_ok"] else f"NON -{WORK_HOUR_PENALTY}"
         print(f"   Driver {d['id']} | lfm={s['lightfm']:.3f} pref={s['pref']:.3f} "
-              f"dist={s['dist']:.3f} work={work_flag} → {d['final_score']:.4f}")
-    print("─" * 60 + "\n")
+              f"dist={s['dist']:.3f} work={work_flag} -> {d['final_score']:.4f}")
+    print("-" * 60 + "\n")
 
     scored_drivers.sort(key=lambda d: d.get("final_score", 0), reverse=True)
     for driver in scored_drivers:
         driver.pop("final_score", None)
 
-    print(f"✅ {len(scored_drivers)} drivers rankés | Top {min(top_n, len(scored_drivers))} retournés")
+    print(f"{len(scored_drivers)} drivers rankés | Top {min(top_n, len(scored_drivers))} retournés")
     return scored_drivers[:top_n]

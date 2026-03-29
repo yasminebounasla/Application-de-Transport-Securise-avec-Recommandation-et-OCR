@@ -1,27 +1,20 @@
-// seed.trajets.js — CORRIGÉ
+// seed.trajets.js — EXCLUSION STRICTE DES PRÉFÉRENCES
 //
-// BUGS CORRIGÉS :
+// CHANGEMENT PAR RAPPORT À LA VERSION PRÉCÉDENTE :
 //
-//   ✅ Bug T1 — Le profil passager est LU depuis la base (profile_type)
-//              et NON recalculé aléatoirement à chaque seed.
-//              → relancer seed.trajets.js ne change pas le profil
-//                d'un passager qui a déjà des interactions → cohérence garantie.
+//   ✅ computeRealisticRating — logique exclusion stricte :
+//        oui → driver DOIT avoir la feature, sinon pénalité maximale
+//        non → driver NE DOIT PAS avoir la feature, sinon pénalité maximale
 //
-//   ✅ Bug T2 — Les prefs changent PAR TRAJET (comportement voulu) :
-//              On tire les prefs de chaque trajet depuis les probabilités
-//              du profil → variance intra-passager réaliste.
-//              Ex : passager "quiet_comfort" → quiet_ride=yes dans ~90%
-//              de ses trajets, mais radio_ok peut varier.
-//              LightFM apprend "quand quiet_ride=yes ET driver calme → bonne note"
-//              et non pas un profil figé.
+//        Avant : un mismatch = pénalité douce (matchScore -= weight)
+//        Maintenant : toute violation stricte → note 1 ou 2 directement.
+//        LightFM reçoit un signal clair : viole une pref = mauvaise note.
 //
-//   ✅ Bug T3 — Rating basé sur le match RÉEL prefs×driver de CE trajet.
-//              Le signal content-based est ainsi ancré dans les prefs
-//              du trajet exact, pas dans une moyenne passager.
+//   ✅ Les prefs "non" ont exactement la même force que "oui".
+//        Un passager qui dit quiet_ride=non veut un driver BAVARD.
+//        Si le driver est calme → même pénalité que quiet_ride=oui + driver bavard.
 
 import { prisma } from "../config/prisma.js";
-// On importe les profils depuis seed.passengers.js pour éviter la duplication
-// Si l'import ESM pose problème, copier-coller PASSENGER_PROFILES ci-dessous.
 import { PASSENGER_PROFILES } from "./seedPassengers.js";
 
 const randomInt    = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
@@ -29,15 +22,9 @@ const randomFloat  = (min, max) => parseFloat((Math.random() * (max - min) + min
 const randomChoice = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const randomBool   = (pTrue = 0.5) => Math.random() < pTrue;
 
-// ── PROFIL FALLBACK ───────────────────────────────────────────────────────────
-// Si le passager n'a pas de profile_type en base (migration pas encore faite),
-// on utilise le profil "neutral" par défaut.
-const PROFILE_MAP = Object.fromEntries(
-  PASSENGER_PROFILES.map((p) => [p.name, p])
-);
+const PROFILE_MAP     = Object.fromEntries(PASSENGER_PROFILES.map((p) => [p.name, p]));
 const NEUTRAL_PROFILE = PROFILE_MAP["neutral"];
 
-// ── ZONES GPS ALGER ────────────────────────────────────────────────────────────
 const ALGER_ZONES = [
   { lat: 36.7538, lng: 3.0588, name: "Alger Centre" },
   { lat: 36.7197, lng: 3.1833, name: "El Harrach" },
@@ -51,57 +38,73 @@ const ALGER_ZONES = [
 
 const HEURES = ["06:00", "07:30", "08:00", "09:00", "12:00", "14:00", "17:00", "18:30", "20:00", "22:00"];
 
-// ── RATING BASÉ SUR LE MATCH PREFS×DRIVER DE CE TRAJET ───────────────────────
-//
-// C'est le cœur du signal content-based pour LightFM.
-// La note reflète si les prefs du TRAJET ACTUEL sont satisfaites par le driver.
-// Note : un passager peut avoir quiet_ride=yes dans 90% de ses trajets,
-// mais la note dépend du driver de CHAQUE trajet.
-function computeRealisticRating(trajetPrefs, driver) {
-  const b = (val) => {
-    if (val === null || val === undefined) return "no";
-    if (typeof val === "boolean") return val ? "yes" : "no";
-    return String(val).trim().toLowerCase();
-  };
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+function toBool(val) {
+  if (val === null || val === undefined) return false;
+  if (typeof val === "boolean") return val;
+  const s = String(val).trim().toLowerCase();
+  return s === "yes" || s === "true" || s === "1" || s === "oui";
+}
 
-  const checks = [
-    [trajetPrefs.quiet_ride,         b(driver.talkative) === "no",        2],
-    [trajetPrefs.radio_ok,           b(driver.radio_on) === "yes",        1],
-    [trajetPrefs.smoking_ok,         b(driver.smoking_allowed) === "yes", 2],
-    [trajetPrefs.pets_ok,            b(driver.pets_allowed) === "yes",    2],
-    [trajetPrefs.luggage_large,      b(driver.car_big) === "yes",         2],
-    [trajetPrefs.female_driver_pref, driver.sexe?.toLowerCase() === "f",  2],
+// ── RATING — EXCLUSION STRICTE ────────────────────────────────────────────────
+//
+// Règle : si UNE SEULE pref active est violée → note mauvaise (1-2)
+// Règle : si TOUTES les prefs actives sont satisfaites → note bonne (4-5)
+// Règle : si aucune pref active → note aléatoire centrée sur 4
+//
+// C'est intentionnellement tranché pour que LightFM voie un signal fort.
+// En réalité les passagers sont aussi tranchés : si tu fumes dans ma voiture
+// alors que j'ai dit non, je mets 1 étoile, peu importe le reste.
+
+function computeRealisticRating(trajetPrefs, driver) {
+  const RULES = [
+    // [prefActive, driverSatisfiesIfYes,                                         weight]
+    [trajetPrefs.quiet_ride,          () => !toBool(driver.talkative),           2],
+    [trajetPrefs.radio_ok,            () => toBool(driver.radio_on),             1],
+    [trajetPrefs.smoking_ok,          () => toBool(driver.smoking_allowed),      2],
+    [trajetPrefs.pets_ok,             () => toBool(driver.pets_allowed),         2],
+    [trajetPrefs.luggage_large,       () => toBool(driver.car_big),              2],
+    [trajetPrefs.female_driver_pref,  () => String(driver.sexe || "").trim().toLowerCase() === "f", 2],
   ];
 
-  let matchScore = 0;
-  let totalChecks = 0;
+  // prefActive est un booléen (true = oui, false = non)
+  // driverSatisfiesIfYes() = true si driver match quand pref=oui
+  // Si pref=non → on veut l'inverse de driverSatisfiesIfYes()
 
-  for (const [prefActive, driverMatches, weight] of checks) {
-    if (!prefActive) continue;
-    totalChecks += weight;
-    if (driverMatches) matchScore += weight;
-    else matchScore -= weight;
+  let strictViolations = 0;
+  let totalActive      = 0;
+
+  for (const [prefActive, driverSatisfiesIfYes, weight] of RULES) {
+    // prefActive ici est bool (issu de trajetPrefs.xxx = randomBool(prob))
+    // Mais la sémantique est : true = "oui je veux ça", false = "non je ne veux pas ça"
+    // → les deux sont des prefs actives, juste dans des directions opposées
+
+    totalActive++;  // toutes les features comptent
+
+    const driverHasFeature = driverSatisfiesIfYes();
+
+    if (prefActive === true  && !driverHasFeature) strictViolations++;
+    if (prefActive === false &&  driverHasFeature) strictViolations++;
   }
 
-  // Aucune préf active → note aléatoire centrée sur 4
-  if (totalChecks === 0) return randomChoice([3, 4, 4, 4, 5]);
+  // Aucune pref active pertinente → note aléatoire
+  if (totalActive === 0) return randomChoice([3, 4, 4, 4, 5]);
 
-  const matchRatio = (matchScore + totalChecks) / (2 * totalChecks); // [0, 1]
+  const violationRatio = strictViolations / totalActive;
 
-  // Ajouter du bruit réaliste sur la note
-  if      (matchRatio >= 0.80) return randomChoice([4, 5, 5]);
-  else if (matchRatio >= 0.60) return randomChoice([3, 4, 4, 5]);
-  else if (matchRatio >= 0.40) return randomChoice([3, 3, 4]);
-  else if (matchRatio >= 0.20) return randomChoice([2, 2, 3]);
-  else                         return randomChoice([1, 2]);
+  // ✅ Signal tranché :
+  if      (violationRatio === 0)    return randomChoice([4, 5, 5]);         // tout OK
+  else if (violationRatio <= 0.17)  return randomChoice([3, 4, 4, 5]);     // 1/6 violée
+  else if (violationRatio <= 0.33)  return randomChoice([3, 3, 4]);        // 2/6 violées
+  else if (violationRatio <= 0.50)  return randomChoice([2, 2, 3]);        // 3/6 violées
+  else                              return randomChoice([1, 2]);            // > 3/6 violées
 }
 
 // ── SEED PRINCIPAL ────────────────────────────────────────────────────────────
 async function seedTrajets(trajetsPerPassenger = 10) {
-  console.log(`\n🚀 Seed trajets (${trajetsPerPassenger} trajets/passager en moyenne)\n`);
+  console.log(`\n🚀 Seed trajets (${trajetsPerPassenger} trajets/passager en moyenne) — exclusion stricte\n`);
 
   try {
-    // ✅ Bug T1 FIX : charger profile_type depuis la base
     const passengers = await prisma.passenger.findMany({
       select: { id: true, profile_type: true },
     });
@@ -116,23 +119,18 @@ async function seedTrajets(trajetsPerPassenger = 10) {
       return;
     }
 
-    // Compter les passagers sans profile_type (migration pas encore faite)
     const noProfile = passengers.filter((p) => !p.profile_type).length;
     if (noProfile > 0) {
       console.warn(`⚠️  ${noProfile} passagers sans profile_type → fallback "neutral"`);
-      console.warn(`   Lancer seed.passengers.js d'abord pour assigner les profils.\n`);
     }
 
-    console.log(`✅ ${passengers.length} passagers chargés (avec profils)`);
-    console.log(`✅ ${drivers.length} drivers chargés\n`);
+    console.log(`✅ ${passengers.length} passagers | ${drivers.length} drivers\n`);
 
     let created = 0;
     let skipped = 0;
 
     for (const passenger of passengers) {
-      // ✅ Bug T1 FIX : utiliser le profil stocké en base, pas un random
       const profile = PROFILE_MAP[passenger.profile_type] ?? NEUTRAL_PROFILE;
-
       const nbTrajets = randomInt(
         Math.max(1, trajetsPerPassenger - 2),
         trajetsPerPassenger + 3,
@@ -144,8 +142,7 @@ async function seedTrajets(trajetsPerPassenger = 10) {
         const zoneEnd = randomChoice(ALGER_ZONES);
         const heure   = randomChoice(HEURES);
 
-        // ✅ Bug T2 : prefs tirées depuis les probabilités du profil
-        // Chaque trajet a ses propres prefs → variance intra-passager voulue
+        // Prefs tirées depuis les probabilités du profil (par trajet)
         const trajetPrefs = {
           quiet_ride:         randomBool(profile.prefs.quiet_ride),
           radio_ok:           randomBool(profile.prefs.radio_ok),
@@ -155,12 +152,10 @@ async function seedTrajets(trajetsPerPassenger = 10) {
           female_driver_pref: randomBool(profile.prefs.female_driver_pref),
         };
 
-        // 10% d'annulations
         const isCancelled = randomBool(0.10);
         const status      = isCancelled ? "CANCELLED_BY_PASSENGER" : "COMPLETED";
-
-        const daysAgo    = randomInt(1, 180);
-        const dateDepart = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
+        const daysAgo     = randomInt(1, 180);
+        const dateDepart  = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
 
         try {
           const startLat = zone.lat    + randomFloat(-0.02, 0.02);
@@ -183,7 +178,6 @@ async function seedTrajets(trajetsPerPassenger = 10) {
               startLng,
               endLat,
               endLng,
-              // Prefs stockées sur le trajet (pas sur le passager)
               quiet_ride:         trajetPrefs.quiet_ride         ? "yes" : "no",
               radio_ok:           trajetPrefs.radio_ok           ? "yes" : "no",
               smoking_ok:         trajetPrefs.smoking_ok         ? "yes" : "no",
@@ -193,7 +187,7 @@ async function seedTrajets(trajetsPerPassenger = 10) {
             },
           });
 
-          // ✅ Bug T3 : rating basé sur le match prefs×driver de CE trajet
+          // ✅ Rating basé sur exclusion stricte
           if (status === "COMPLETED") {
             const rating = computeRealisticRating(trajetPrefs, driver);
             await prisma.evaluation.create({
@@ -210,23 +204,22 @@ async function seedTrajets(trajetsPerPassenger = 10) {
     }
 
     console.log(`\n✅ ${created} trajets créés`);
-    if (skipped > 0) console.log(`⚠️  ${skipped} trajets ignorés (erreur schema)`);
+    if (skipped > 0) console.log(`⚠️  ${skipped} trajets ignorés`);
 
-    // ── Résumé distribution prefs ─────────────────────────────────────────
-    const sample = await prisma.trajet.findMany({
-      where: { status: "COMPLETED" },
-      take:  500,
-    });
+    // ── Résumé distribution notes ─────────────────────────────────────────
+    const evaluations = await prisma.evaluation.findMany({ take: 1000 });
+    const ratingDist  = [1, 2, 3, 4, 5].map((r) => ({
+      note: r,
+      nb: evaluations.filter((e) => e.rating === r).length,
+    }));
 
-    console.log("\n📊 Distribution prefs dans les trajets COMPLETED (échantillon 500) :");
-    for (const col of ["quiet_ride", "radio_ok", "smoking_ok", "pets_ok", "luggage_large", "female_driver_pref"]) {
-      const yes = sample.filter((t) => t[col] === "yes").length;
-      const pct = sample.length > 0 ? Math.round((yes / sample.length) * 100) : 0;
-      const ok  = pct >= 15 && pct <= 85 ? "✅" : "⚠️ ";
-      console.log(`   ${col.padEnd(22)} : ${pct}% yes  ${ok}`);
+    console.log("\n📊 Distribution notes (exclusion stricte — idéal : contraste 1-2 vs 4-5) :");
+    for (const { note, nb } of ratingDist) {
+      const bar = "█".repeat(Math.round((nb / evaluations.length) * 30));
+      console.log(`   Note ${note} : ${nb.toString().padStart(4)} ${bar}`);
     }
-    console.log("\n💡 Idéal : entre 15% et 85% pour chaque pref.");
-    console.log("   Hors de cette fourchette → pref_match pas contrasté → LightFM n'apprend rien.\n");
+    console.log("\n💡 Bon signal : beaucoup de 1-2 ET beaucoup de 4-5, peu de 3.");
+    console.log("   Si tout est groupé autour de 3-4, les prefs ne sont pas assez contrastées.\n");
 
   } catch (error) {
     console.error("❌ Erreur:", error.message);
