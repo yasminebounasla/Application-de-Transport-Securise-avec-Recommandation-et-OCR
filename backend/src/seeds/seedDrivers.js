@@ -1,4 +1,22 @@
-﻿// seed.drivers.js
+﻿// seed.drivers.js — CORRIGÉ
+//
+// ✅ Bug 4 FIX — Les features des drivers ne sont plus 100% aléatoires.
+//
+// PROBLÈME ORIGINAL :
+//   Chaque feature (talkative, radio_on, smoking_allowed...) = randomBool() = 50/50.
+//   Résultat : statistiquement 50% de drivers pour chaque préférence.
+//   LightFM ne peut pas apprendre "ce passager préfère les drivers calmes"
+//   si 50% des drivers sont calmes ET 50% sont bavards — aucun signal discriminant.
+//
+// SOLUTION :
+//   Les drivers ont maintenant des PROFILS cohérents (comme les passagers dans seed.trajets.js).
+//   Ex : profil "chauffeur_pro" → souvent calme, pas fumeur, grand coffre
+//        profil "conducteur_cool" → souvent bavard, radio, fumeur OK
+//   → LightFM peut apprendre que passager quiet_ride → driver calme = bonne note
+//
+// NOTE : La distribution reste variée (20-80% pour chaque feature)
+// pour que le modèle voie du contraste.
+
 import { prisma } from "../config/prisma.js";
 import bcrypt from "bcrypt";
 
@@ -7,20 +25,13 @@ const PRENOMS_M = ["Hawas", "Mohamed", "Yassine", "Karim", "Mehdi", "Hamza", "Ra
 const NOMS = ["Benali", "Mansouri", "Bouzid", "Belkacem", "Haddad", "Amrani", "Slimani", "Meziane", "Bouaziz", "Cherif"];
 
 const ALGER_ZONES = [
-  { lat: 36.7538, lng: 3.0588 },
-  { lat: 36.7197, lng: 3.1833 },
-  { lat: 36.7456, lng: 3.0231 },
-  { lat: 36.7631, lng: 2.9997 },
-  { lat: 36.7272, lng: 3.0939 },
-  { lat: 36.7167, lng: 3.1333 },
-  { lat: 36.6961, lng: 3.2150 },
-  { lat: 36.7069, lng: 3.0514 },
-  { lat: 36.7378, lng: 3.1108 },
-  { lat: 36.7406, lng: 3.1856 },
-  { lat: 36.7333, lng: 3.2833 },
-  { lat: 36.7167, lng: 3.3500 },
-  { lat: 36.7667, lng: 2.9667 },
-  { lat: 36.7500, lng: 2.8833 },
+  { lat: 36.7538, lng: 3.0588 }, { lat: 36.7197, lng: 3.1833 },
+  { lat: 36.7456, lng: 3.0231 }, { lat: 36.7631, lng: 2.9997 },
+  { lat: 36.7272, lng: 3.0939 }, { lat: 36.7167, lng: 3.1333 },
+  { lat: 36.6961, lng: 3.2150 }, { lat: 36.7069, lng: 3.0514 },
+  { lat: 36.7378, lng: 3.1108 }, { lat: 36.7406, lng: 3.1856 },
+  { lat: 36.7333, lng: 3.2833 }, { lat: 36.7167, lng: 3.3500 },
+  { lat: 36.7667, lng: 2.9667 }, { lat: 36.7500, lng: 2.8833 },
   { lat: 36.6833, lng: 2.8333 },
 ];
 
@@ -32,13 +43,73 @@ const AUTRES_WILAYAS = [
   { wilaya: "Bejaia",      lat: 36.7515, lng: 5.0564 },
 ];
 
-const randomChoice = (arr) => arr[Math.floor(Math.random() * arr.length)];
-const randomBool   = () => Math.random() > 0.5;
-const randomInt    = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
-const randomFloat  = (min, max) => parseFloat((Math.random() * (max - min) + min).toFixed(6));
+// ── ✅ Bug 4 FIX — PROFILS DRIVER COHÉRENTS ────────────────────────────────
+// Chaque profil a des probabilités différentes par feature.
+// 6 profils variés pour couvrir tout le spectre des préférences passagers.
+const DRIVER_PROFILES = [
+  {
+    name: "chauffeur_pro",
+    // Calme, pas de fumée, grand coffre, pas de radio → matche les passagers business/quiet
+    probs: {
+      talkative: 0.10, radio_on: 0.20, smoking_allowed: 0.05,
+      pets_allowed: 0.30, car_big: 0.85,
+      works_morning: 0.80, works_afternoon: 0.70, works_evening: 0.50, works_night: 0.20,
+    },
+  },
+  {
+    name: "conducteur_cool",
+    // Bavard, radio, fumeur OK, accepte animaux → matche les passagers sociaux/relaxed
+    probs: {
+      talkative: 0.85, radio_on: 0.90, smoking_allowed: 0.75,
+      pets_allowed: 0.70, car_big: 0.35,
+      works_morning: 0.40, works_afternoon: 0.80, works_evening: 0.85, works_night: 0.40,
+    },
+  },
+  {
+    name: "chauffeur_famille",
+    // Grand coffre, accepte animaux, calme, pas fumeur
+    probs: {
+      talkative: 0.30, radio_on: 0.50, smoking_allowed: 0.10,
+      pets_allowed: 0.90, car_big: 0.90,
+      works_morning: 0.70, works_afternoon: 0.80, works_evening: 0.60, works_night: 0.15,
+    },
+  },
+  {
+    name: "conducteur_nuit",
+    // Travaille surtout la nuit et le soir, relaxed sur fumée et radio
+    probs: {
+      talkative: 0.50, radio_on: 0.70, smoking_allowed: 0.60,
+      pets_allowed: 0.40, car_big: 0.40,
+      works_morning: 0.15, works_afternoon: 0.30, works_evening: 0.90, works_night: 0.95,
+    },
+  },
+  {
+    name: "chauffeur_standard",
+    // Profil équilibré — ni très calme ni très bavard
+    probs: {
+      talkative: 0.45, radio_on: 0.55, smoking_allowed: 0.35,
+      pets_allowed: 0.45, car_big: 0.50,
+      works_morning: 0.60, works_afternoon: 0.60, works_evening: 0.60, works_night: 0.30,
+    },
+  },
+  {
+    name: "chauffeur_matin",
+    // Très matinal, calme (préfère le silence le matin), pas fumeur
+    probs: {
+      talkative: 0.15, radio_on: 0.30, smoking_allowed: 0.08,
+      pets_allowed: 0.35, car_big: 0.55,
+      works_morning: 0.95, works_afternoon: 0.40, works_evening: 0.20, works_night: 0.05,
+    },
+  },
+];
+
+const randomChoice  = (arr) => arr[Math.floor(Math.random() * arr.length)];
+const randomBoolP   = (p)   => Math.random() < p;   // ✅ probabilité configurable
+const randomInt     = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+const randomFloat   = (min, max) => parseFloat((Math.random() * (max - min) + min).toFixed(6));
 
 async function seedDrivers(count = 100) {
-  console.log(`Création de ${count} drivers (80 Alger + 20 autres wilayas)...\n`);
+  console.log(`Création de ${count} drivers avec profils cohérents (80 Alger + 20 autres wilayas)...\n`);
   const hashedPassword = await bcrypt.hash("Test123!", 10);
   const drivers = [];
 
@@ -47,8 +118,10 @@ async function seedDrivers(count = 100) {
     const prenom = randomChoice(sexe === "F" ? PRENOMS_F : PRENOMS_M);
     const nom    = randomChoice(NOMS);
 
-    let wilaya, latitude, longitude;
+    // ✅ Bug 4 FIX : assigner un profil cohérent à chaque driver
+    const profile = randomChoice(DRIVER_PROFILES);
 
+    let wilaya, latitude, longitude;
     if (i <= 80) {
       const zone = randomChoice(ALGER_ZONES);
       wilaya    = "Alger";
@@ -74,15 +147,16 @@ async function seedDrivers(count = 100) {
       wilaya,
       latitude,
       longitude,
-      talkative:               randomBool(),
-      radio_on:                randomBool(),
-      smoking_allowed:         randomBool(),
-      pets_allowed:            randomBool(),
-      car_big:                 randomBool(),
-      works_morning:           randomBool(),
-      works_afternoon:         randomBool(),
-      works_evening:           randomBool(),
-      works_night:             randomBool(),
+      // ✅ Bug 4 FIX : features basées sur le profil, pas randomBool() pur
+      talkative:               randomBoolP(profile.probs.talkative),
+      radio_on:                randomBoolP(profile.probs.radio_on),
+      smoking_allowed:         randomBoolP(profile.probs.smoking_allowed),
+      pets_allowed:            randomBoolP(profile.probs.pets_allowed),
+      car_big:                 randomBoolP(profile.probs.car_big),
+      works_morning:           randomBoolP(profile.probs.works_morning),
+      works_afternoon:         randomBoolP(profile.probs.works_afternoon),
+      works_evening:           randomBoolP(profile.probs.works_evening),
+      works_night:             randomBoolP(profile.probs.works_night),
       avgRating:               parseFloat((randomFloat(3.0, 5.0)).toFixed(1)),
       ratingsCount:            randomInt(5, 150),
     });
@@ -109,13 +183,18 @@ async function seedDrivers(count = 100) {
     console.log(`✅ ${createdCount} drivers créés avec succès!`);
     console.log(`✅ ${updatedCount} drivers mis à jour!\n`);
 
-    const exemples = await prisma.driver.findMany({ take: 5 });
-    console.log("Exemples de drivers:");
-    exemples.forEach((d) => {
-      console.log(
-        `  - ${d.prenom} ${d.nom} (${d.sexe}) | ${d.wilaya} | lat: ${d.latitude?.toFixed(4)}, lng: ${d.longitude?.toFixed(4)}`
-      );
-    });
+    // Résumé distribution features (doit être 20-80% pour chaque feature)
+    const sample = await prisma.driver.findMany({ take: count });
+    console.log("📊 Distribution features drivers (idéal : 20-80% pour chaque) :");
+    for (const col of ["talkative", "radio_on", "smoking_allowed", "pets_allowed", "car_big",
+                        "works_morning", "works_afternoon", "works_evening", "works_night"]) {
+      const yes = sample.filter((d) => d[col] === true).length;
+      const pct = Math.round((yes / sample.length) * 100);
+      const status = pct >= 15 && pct <= 85 ? "✅" : "⚠️ ";
+      console.log(`   ${col.padEnd(20)} : ${pct}%  ${status}`);
+    }
+    console.log("\n💡 Si une feature est < 15% ou > 85%, LightFM ne peut pas l'apprendre correctement.");
+
   } catch (error) {
     console.error("❌ Erreur:", error.message);
   } finally {
@@ -123,4 +202,4 @@ async function seedDrivers(count = 100) {
   }
 }
 
-seedDrivers(100);
+seedDrivers(140);

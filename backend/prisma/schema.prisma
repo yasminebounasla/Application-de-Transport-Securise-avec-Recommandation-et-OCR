@@ -15,6 +15,9 @@ model Passenger {
   prenom    String
   numTel    String
   age       Int
+
+  profile_type String?  @default("neutral")
+  
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

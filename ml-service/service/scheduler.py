@@ -40,7 +40,7 @@ scheduler = AsyncIOScheduler()
 #     except Exception as e:
 #         logger.error(f"❌ Erreur scheduler : {e}")
 
-@scheduler.scheduled_job(CronTrigger(day_of_week='Thu', hour=18, minute=48))
+@scheduler.scheduled_job(CronTrigger(day_of_week='Sun', hour=8, minute=52))
 async def retrain_weekly():
     logger.info("🔄 Réentraînement hebdomadaire démarré...")
 
@@ -76,7 +76,7 @@ async def retrain_weekly():
 
 if __name__ == "__main__":
     scheduler.start()
-    logger.info("✅ Scheduler en marche — prochain run: lundi 02:00")
+    logger.info("✅ Scheduler en marche ")
     try:
         asyncio.get_event_loop().run_forever()
     except (KeyboardInterrupt, SystemExit):
