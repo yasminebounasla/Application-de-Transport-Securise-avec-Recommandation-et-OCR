@@ -152,8 +152,15 @@ useEffect(() => {
         type={fallbackType}
         backupDrivers={fallbackDrivers}
         rideId={currentRideId}
-        onClose={(reason: string) => {
-          setFallbackVisible(false);
+       onClose={async (reason: string) => {
+         setFallbackVisible(false);
+         if (reason === 'CANCEL_RIDE') {
+           try {
+             await api.put(`/rides/${currentRideId}/cancel`);
+            } catch (e) {
+             console.error('Cancel ride error:', e);
+            }
+          }
         }}
         onSent={(count: number) => {
           setFallbackVisible(false);
