@@ -35,6 +35,7 @@ export default function Home() {
   const [fallbackDrivers, setFallbackDrivers]   = useState<any[]>([]);
   const [currentRideId, setCurrentRideId]       = useState<number | null>(null);
   const [fallbackMessage, setFallbackMessage]   = useState<string>('');
+  const [fallbackReason, setFallbackReason]     = useState<string>('TIMEOUT');
 
 
   useEffect(() => { getPassengerRides(); }, []);
@@ -57,6 +58,7 @@ export default function Home() {
         setFallbackDrivers(data.backupDrivers || []);
         setCurrentRideId(data.rideId);
         setFallbackMessage(data.message);
+        setFallbackReason(data.reason || 'TIMEOUT');
         setFallbackVisible(true);
       });
     };
@@ -155,6 +157,7 @@ useEffect(() => {
         backupDrivers={fallbackDrivers}
         rideId={currentRideId}
         message={fallbackMessage}  
+        reason={fallbackReason} 
        onClose={async (reason: string) => {
          setFallbackVisible(false);
          if (reason === 'CANCEL_RIDE') {

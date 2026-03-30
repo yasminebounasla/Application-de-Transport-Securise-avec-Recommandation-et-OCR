@@ -46,17 +46,29 @@ const evaluateTrajet = async (trajetId) => {
     data: { fallbackStep: 1 }, // ← marquer comme envoyé, ne sera plus jamais 0
   });
 
+  const rejCount      = ride.rejectedDriverIds.length;
+  const timedOutCount = ride.timedOutDriverIds.length;
+
+  const message = rejCount > 0 && timedOutCount === 0
+    ? "Les conducteurs ont refusé votre demande. Voulez-vous contacter d'autres conducteurs ?"
+    : rejCount === 0 && timedOutCount > 0
+      ? "Les conducteurs contactés n'ont pas répondu. Voici d'autres conducteurs recommandés."
+      : "Certains conducteurs ont refusé et d'autres n'ont pas répondu. Voulez-vous contacter d'autres conducteurs ?";
+
+  const reason = rejCount > 0 && timedOutCount === 0 ? 'REJECTED'
+    : rejCount === 0 && timedOutCount > 0 ? 'TIMEOUT'
+    : 'MIXED';
+
   io.to(`passenger_${ride.passagerId}`).emit('fallbackRequired', {
     rideId:        ride.id,
     type:          'BACKUP_AVAILABLE',
     backupDrivers: backupDrivers,
-    message: ride.rejectedDriverIds.length >= ride.notifiedDriversCount
-    ? "Les conducteurs ont refusé votre demande. Voulez-vous contacter d'autres conducteurs ?"
-    : "Aucun conducteur n'a répondu. Voulez-vous contacter d'autres conducteurs ?",
+    message,   
+    reason,    
   });
 
   return;
-}
+ }
 
 
   // ── CAS 3 : Aucune option disponible → cancel définitif ───────────────────

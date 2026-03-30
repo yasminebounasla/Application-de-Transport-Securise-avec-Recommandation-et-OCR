@@ -135,6 +135,7 @@ export default function RecommendedDriversScreen() {
   const [fallbackType, setFallbackType]       = useState<'BACKUP_AVAILABLE' | 'NEW_SEARCH'>('BACKUP_AVAILABLE');
   const [fallbackDrivers, setFallbackDrivers] = useState<any[]>([]);
   const [fallbackMessage, setFallbackMessage] = useState<string>('');
+  const [fallbackReason, setFallbackReason]   = useState<string>('TIMEOUT');
 
   // ── useEffect 1 : charger les drivers (NE PAS TOUCHER) ──
     useEffect(() => { loadRecommendations(); }, []);
@@ -163,6 +164,7 @@ export default function RecommendedDriversScreen() {
           setFallbackDrivers(data.backupDrivers || []);
           setFallbackVisible(true);
           setFallbackMessage(data.message || '');
+          setFallbackReason(data.reason || 'TIMEOUT');
         });
       };
 
@@ -416,6 +418,7 @@ export default function RecommendedDriversScreen() {
         backupDrivers={fallbackDrivers}
         rideId={tripRequest?.rideId}
         message={fallbackMessage}
+        reason={fallbackReason} 
         onClose={handleFallbackClose}
         onSent={handleFallbackSent}
       />
