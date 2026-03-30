@@ -265,7 +265,7 @@ def normalize_lightfm_scores(raw_scores: np.ndarray) -> np.ndarray:
 WEIGHT_KEYS   = ["lightfm", "pref", "dist", "rating"]
 WEIGHT_BOUNDS = {
     "lightfm": (0.20, 0.50),
-    "pref":    (0.30, 0.55),
+    "pref":    (0.30, 0.50),
     "dist":    (0.05, 0.20),
     "rating":  (0.02, 0.08),
 }
