@@ -34,6 +34,8 @@ export default function Home() {
   const [fallbackType, setFallbackType]         = useState<'BACKUP_AVAILABLE' | 'NEW_SEARCH'>('BACKUP_AVAILABLE');
   const [fallbackDrivers, setFallbackDrivers]   = useState<any[]>([]);
   const [currentRideId, setCurrentRideId]       = useState<number | null>(null);
+  const [fallbackMessage, setFallbackMessage]   = useState<string>('');
+  const [fallbackReason, setFallbackReason]     = useState<string>('TIMEOUT');
 
 
   useEffect(() => { getPassengerRides(); }, []);
@@ -55,6 +57,8 @@ export default function Home() {
         setFallbackType(data.type);
         setFallbackDrivers(data.backupDrivers || []);
         setCurrentRideId(data.rideId);
+        setFallbackMessage(data.message);
+        setFallbackReason(data.reason || 'TIMEOUT');
         setFallbackVisible(true);
       });
     };
@@ -152,8 +156,17 @@ useEffect(() => {
         type={fallbackType}
         backupDrivers={fallbackDrivers}
         rideId={currentRideId}
-        onClose={(reason: string) => {
-          setFallbackVisible(false);
+        message={fallbackMessage}  
+        reason={fallbackReason} 
+       onClose={async (reason: string) => {
+         setFallbackVisible(false);
+         if (reason === 'CANCEL_RIDE') {
+           try {
+             await api.put(`/rides/${currentRideId}/cancel`);
+            } catch (e) {
+             console.error('Cancel ride error:', e);
+            }
+          }
         }}
         onSent={(count: number) => {
           setFallbackVisible(false);

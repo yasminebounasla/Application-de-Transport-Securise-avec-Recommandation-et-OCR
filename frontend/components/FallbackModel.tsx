@@ -25,11 +25,24 @@ function Stars({ rating }: { rating: number }) {
   );
 }
 
-export function FallbackModal({ visible, type, backupDrivers, rideId, onClose, onSent }: any) {
+export function FallbackModal({ visible, type, backupDrivers,rideId, message, reason, onClose, onSent }: any) {
+
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
   const [sending, setSending]         = useState(false);
   const [loadingNew, setLoadingNew]   = useState(false);
   const slideAnim = useRef(new Animated.Value(300)).current;
+
+  const title = reason === 'REJECTED' ? 'Demande refusée'
+              : reason === 'TIMEOUT'  ? 'Aucune réponse reçue'
+              : 'Conducteurs non disponibles';  // MIXED
+
+  const iconName = reason === 'REJECTED' ? 'close-circle-outline'
+                 : reason === 'TIMEOUT'  ? 'time-outline'
+                 : 'alert-circle-outline';
+
+  const iconColor = reason === 'REJECTED' ? '#EF4444'
+                  : reason === 'TIMEOUT'  ? '#F59E0B'
+                  : '#8B5CF6';
 
   useEffect(() => {
     if (visible) {
@@ -82,15 +95,10 @@ export function FallbackModal({ visible, type, backupDrivers, rideId, onClose, o
           {/* Header */}
           <View style={fb.header}>
             <View style={fb.warningCircle}>
-              <Ionicons name="time-outline" size={28} color="#F59E0B" />
+              <Ionicons name={iconName} size={28} color={iconColor} />
             </View>
-            <Text style={fb.title}>Aucune réponse reçue</Text>
-            <Text style={fb.subtitle}>
-              {type === 'BACKUP_AVAILABLE'
-                ? "Les conducteurs contactés n'ont pas répondu. Voici d'autres conducteurs recommandés."
-                : "Tous les conducteurs ont été contactés. Voulez-vous lancer une nouvelle recherche ?"
-              }
-            </Text>
+              <Text style={fb.title}>{title}</Text>
+              <Text style={fb.subtitle}>{message}</Text>
           </View>
 
           {/* CAS 1 : backup drivers */}
