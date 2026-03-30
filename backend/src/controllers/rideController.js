@@ -19,9 +19,12 @@ const SIX_HOURS = 6 * 60 * 60 * 1000;
 
 const evaluateTrajet = async (trajetId) => {
   const ride = await prisma.trajet.findUnique({ where: { id: trajetId } });
+  console.log('🔍 evaluateTrajet:', trajetId, 'status:', ride?.status);
   if (!ride || ride.status !== 'PENDING') return;
 
   const resolvedCount = ride.rejectedDriverIds.length + ride.timedOutDriverIds.length;
+  console.log('📊 resolvedCount:', resolvedCount, '/ notifiedDriversCount:', ride.notifiedDriversCount);
+  
   if (resolvedCount < ride.notifiedDriversCount) return;
 
   // ── Chercher les drivers de backup non encore contactés ───────────────────
@@ -47,7 +50,9 @@ const evaluateTrajet = async (trajetId) => {
     rideId:        ride.id,
     type:          'BACKUP_AVAILABLE',
     backupDrivers: backupDrivers,
-    message:       "Aucun conducteur n'a répondu. Voulez-vous contacter d'autres conducteurs ?",
+    message: ride.rejectedDriverIds.length >= ride.notifiedDriversCount
+    ? "Les conducteurs ont refusé votre demande. Voulez-vous contacter d'autres conducteurs ?"
+    : "Aucun conducteur n'a répondu. Voulez-vous contacter d'autres conducteurs ?",
   });
 
   return;

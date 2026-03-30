@@ -34,6 +34,7 @@ export default function Home() {
   const [fallbackType, setFallbackType]         = useState<'BACKUP_AVAILABLE' | 'NEW_SEARCH'>('BACKUP_AVAILABLE');
   const [fallbackDrivers, setFallbackDrivers]   = useState<any[]>([]);
   const [currentRideId, setCurrentRideId]       = useState<number | null>(null);
+  const [fallbackMessage, setFallbackMessage]   = useState<string>('');
 
 
   useEffect(() => { getPassengerRides(); }, []);
@@ -55,6 +56,7 @@ export default function Home() {
         setFallbackType(data.type);
         setFallbackDrivers(data.backupDrivers || []);
         setCurrentRideId(data.rideId);
+        setFallbackMessage(data.message);
         setFallbackVisible(true);
       });
     };
@@ -152,6 +154,7 @@ useEffect(() => {
         type={fallbackType}
         backupDrivers={fallbackDrivers}
         rideId={currentRideId}
+        message={fallbackMessage}  
        onClose={async (reason: string) => {
          setFallbackVisible(false);
          if (reason === 'CANCEL_RIDE') {
