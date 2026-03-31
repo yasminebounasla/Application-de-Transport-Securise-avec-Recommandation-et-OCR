@@ -1,5 +1,5 @@
 passenger_id,trajet_id,quiet_ride,radio_ok,smoking_ok,pets_ok,luggage_large,female_driver_pref,distance_km,score_distance,work_hour_match,distance_bucket
-P1,T4402,no,no,no,no,no,no,212.17,0.0705,1,dist:very_far
+P1,T4402,no,no,no,no,no,no,212.17,0.3462,1,dist:very_far
 P5,T952,no,yes,no,yes,no,no,5.55,0.9726,0,dist:very_close
 P2,T916,yes,no,no,no,no,no,138.35,0.5007,1,dist:far
 P2,T917,yes,no,no,no,yes,no,65.63,0.7203,1,dist:medium
