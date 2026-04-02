@@ -1,6 +1,8 @@
 import { PrismaClient } from '@prisma/client';
 import { getIO } from '../socket/socket.js';
 import { createNotification } from './NotificationController.js';
+import { calculateRoute }  from '../services/geoService.js';
+import { calculatePrice }  from '../utils/priceCalculator.js';
 
 const prisma = new PrismaClient();
 
@@ -170,6 +172,22 @@ export const createRide = async (req, res) => {
     if (!passengerExists)
       return res.status(404).json({ message: 'Passager introuvable' });
 
+      const routeResult = await calculateRoute(
+       { latitude: parseFloat(startLat), longitude: parseFloat(startLng) },
+       { latitude: parseFloat(endLat),   longitude: parseFloat(endLng) }
+      );
+
+    if (!routeResult.success) {
+      return res.status(503).json({
+        message: "Impossible de calculer l'itinéraire. Veuillez réessayer."
+      });
+    }
+
+    const { price: prix } = calculatePrice(  
+      parseFloat(routeResult.distanceKm),
+      routeResult.durationMin
+    );
+
     const newRide = await prisma.trajet.create({
       data: {
         passenger: { connect: { id: passengerId } },
@@ -184,7 +202,7 @@ export const createRide = async (req, res) => {
         dateDepart: departure,
         heureDepart: departure.toTimeString().slice(0, 5),
         placesDispo: 1,
-        prix: 0,
+        prix,
         status: 'PENDING',
       },
       include: {
