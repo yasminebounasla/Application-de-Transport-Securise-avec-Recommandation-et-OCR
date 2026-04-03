@@ -17,7 +17,6 @@ import { formatDuration, formatDistance } from "../../utils/formatUtils";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from '@expo/vector-icons';
 import api from "../../services/api";
-import { calculatePrice } from "../../utils/priceCalculator";
 
 
 function LocationNotSupported({ onTryAnother }) {
@@ -168,15 +167,11 @@ export default function MapScreen() {
         const durMin = parseInt(data.durationMin, 10);
         setRouteDistance(distKm);
         setRouteDuration(durMin);
-        const { price } = calculatePrice(distKm, durMin);
-        setEstimatedPrice(price);
         if (rideId && rideId !== "" && rideId !== "undefined") {
-          try {
-            await api.patch(`/ridesDem/${rideId}/price`, { prix: price });
-          } catch (e) {
-            console.warn('⚠️ Price update skipped:', e.message);
-          }
+         const rideResponse = await api.get(`/ridesDem/${rideId}`);
+         setEstimatedPrice(rideResponse.data.data.prix);
         }
+
         if (mapRef.current && coords.length > 0) {
           mapRef.current.fitToCoordinates(coords, {
             edgePadding: { top: 200, right: 60, bottom: 280, left: 60 },
