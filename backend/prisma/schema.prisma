@@ -144,6 +144,8 @@ model Trajet {
   heureDepart String?
   placesDispo Int
   prix        Float
+  distanceKm  Float?
+  durationMin Int?
   status      TrajetStatus @default(PENDING)
 
   // gestion des refus
