@@ -8,13 +8,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import api from '../../../services/api';
 import { useAuth } from '../../../context/AuthContext';
 import { useRide } from '../../../context/RideContext';
-
-// ── HELPERS ───────────────────────────────────────────────────────────────────
-const formatDuration = (min: number) => {
-  const m = Math.max(0, Math.round(min));
-  if (m < 60) return `${m} min`;
-  return `${Math.floor(m / 60)} h ${String(m % 60).padStart(2, '0')} min`;
-};
+import { formatDuration, formatDistance } from '../../../utils/formatUtils';
 
 const FALLBACK = '—';
 
@@ -106,22 +100,13 @@ export default function RideDetailsScreen() {
   }, [id]);
 
   useEffect(() => {
-    let mounted = true;
-    const { startLat, startLng, endLat, endLng } = ride || {};
-    const coords = [startLat, startLng, endLat, endLng].map(Number);
-    if (!coords.every(Number.isFinite)) { setDurationLabel(FALLBACK); return; }
-    (async () => {
-      try {
-        const res = await api.post('/ride/estimate', {
-          start: { latitude: coords[0], longitude: coords[1] },
-          end:   { latitude: coords[2], longitude: coords[3] },
-        });
-        const min = Number(res?.data?.durationMin);
-        if (mounted) setDurationLabel(Number.isFinite(min) ? formatDuration(min) : FALLBACK);
-      } catch { if (mounted) setDurationLabel(FALLBACK); }
-    })();
-    return () => { mounted = false; };
-  }, [ride?.startLat, ride?.startLng, ride?.endLat, ride?.endLng]);
+   if (!ride) return;
+    if (ride.durationMin) {
+     setDurationLabel(formatDuration(ride.durationMin));
+    } else {
+      setDurationLabel(FALLBACK);
+    }
+  }, [ride?.durationMin]);
 
   const isPassenger = user?.role === 'passenger';
   const isDriver    = user?.role === 'driver';
@@ -256,6 +241,9 @@ export default function RideDetailsScreen() {
         <InfoRow icon="time-outline"      label="Time"           value={ride?.heureDepart || FALLBACK}      />
         <InfoRow icon="people-outline"    label="Seats"          value={String(ride?.placesDispo ?? FALLBACK)} />
         <InfoRow icon="timer-outline"     label="Est. duration"  value={durationLabel}                      />
+        {ride?.distanceKm && (
+          <InfoRow icon="navigate-outline" label="Distance"     value={formatDistance(ride.distanceKm)}   />
+        )}
       </Section>
 
       {/* ── TIMESTAMPS ── */}

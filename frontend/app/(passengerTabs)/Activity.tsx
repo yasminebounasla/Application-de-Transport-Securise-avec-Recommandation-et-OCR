@@ -9,6 +9,9 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
+import { formatDuration, formatDistance } from '../../utils/formatUtils';
+
+
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const CATEGORIES = [
@@ -168,7 +171,7 @@ function RideCard({ item, highlighted, onPress }: {
             <Tag icon="people-outline" label={`${item.placesDispo} seat${item.placesDispo > 1 ? 's' : ''}`} />
           )}
         </View>
-
+        
         {/* ── FOOTER ── */}
         <View style={s.footer}>
           <Text style={s.seeMore}>See details →</Text>
