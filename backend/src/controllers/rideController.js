@@ -183,7 +183,7 @@ export const createRide = async (req, res) => {
       });
     }
 
-    const { price: prix } = calculatePrice(  
+    const { price: prix } = calculatePrice(  // ← destructure .price
       parseFloat(routeResult.distanceKm),
       routeResult.durationMin
     );
