@@ -14,7 +14,7 @@ export const useRide = () => {
 };
 
 export const RideProvider = ({ children }) => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const [passengerRides, setPassengerRides] = useState([]);
   const [driverRequests, setDriverRequests] = useState([]);
   const [currentRide, setCurrentRide] = useState(null);
@@ -132,6 +132,11 @@ export const RideProvider = ({ children }) => {
       
       return newRide;
     } catch (error) {
+      if (error?.response?.status === 401) {
+        await logout();
+        setCurrentRide(null);
+        return null;
+      }
       console.error('❌ Erreur createRide:', error.response?.data || error.message);
       throw error;
     } finally {
@@ -189,6 +194,17 @@ export const RideProvider = ({ children }) => {
   };
 
   const getDriverActiveRide = useCallback(async () => {
+    if (!user || user.role !== 'driver') {
+      if (error?.response?.status === 401) {
+        await logout();
+        setCurrentRide(null);
+        return null;
+      }
+
+      setCurrentRide(null);
+      return null;
+    }
+
     setLoading(true);
     try {
       const response = await api.get('/ridesDem/driver/active');
@@ -203,7 +219,7 @@ export const RideProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [logout, user]);
 
   const acceptRide = async (rideId) => {
     try {

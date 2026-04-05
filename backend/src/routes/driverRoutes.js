@@ -6,6 +6,7 @@ import { addDriverPreferences, getDriverRating ,
   getDriverVehicles,
   deleteVehicle ,
   getDriverPreferences,
+  getDriverDashboardAnalytics,
   getDriverProfile,
   getMyDriverProfile,
   updateDriverProfile ,
@@ -17,6 +18,7 @@ const router = express.Router();
 router.put("/preferences", authenticate, addDriverPreferences);  
 router.get("/:driverId/rating", authenticate, getDriverRating);
 router.get("/preferences", authenticate, getDriverPreferences);
+router.get("/dashboard/analytics", authenticate, getDriverDashboardAnalytics);
 
 router.post("/vehicle", authenticate, addVehicle);
 router.get("/vehicle", authenticate, getDriverVehicles);

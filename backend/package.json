@@ -1,16 +1,18 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "",
+  "description": "Central backend API for handling authentication, data processing, and communication between services",
   "main": "index.js",
   "type": "module",
   "scripts": {
     "dev": "nodemon index.js",
+    "start": "node index.js",
     "prisma:migrate": "prisma migrate dev",
-    "prisma:generate": "prisma generate"
+    "prisma:generate": "prisma generate",
+    "prisma:studio": "prisma studio"
   },
   "keywords": [],
-  "author": "",
+  "author": "Backend Team",
   "license": "ISC",
   "dependencies": {
     "@prisma/client": "^5.22.0",

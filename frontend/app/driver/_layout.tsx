@@ -5,6 +5,15 @@ export default function Layout() {
     <Stack>
       <Stack.Screen name="HomeScreen" />
       <Stack.Screen name="ActiveRideScreen" />
+      <Stack.Screen
+        name="DriverDashboardScreen"
+        options={{
+          title: "Driver Dashboard",
+          headerStyle: { backgroundColor: '#060B16' },
+          headerTintColor: '#FFFFFF',
+          headerTitleStyle: { color: '#FFFFFF', fontWeight: '800' },
+        }}
+      />
       <Stack.Screen name="ProfileSetupScreen" />
       <Stack.Screen name="MyFeedbacksScreen" />
       <Stack.Screen name="PassengerProfileScreen" options={{ 

@@ -16,8 +16,8 @@ import { formatDuration, formatDistance } from '../../utils/formatUtils';
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const CATEGORIES = [
   { key: 'completed', label: 'Completed' },
-  { key: 'active',    label: 'Active'    },
   { key: 'pending',   label: 'Pending'   },
+  { key: 'active',    label: 'Active'    },
   { key: 'cancelled', label: 'Cancelled' },
 ];
 

@@ -1,3 +1,2 @@
-.env
-/venv
+# Data
 lightfm_data/
