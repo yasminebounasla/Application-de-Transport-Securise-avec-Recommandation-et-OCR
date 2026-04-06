@@ -53,5 +53,8 @@ htmlcov/
 test_images/
 test_output/
 
-# Data and uploads
+# Data
 data/
+
+# VSCode settings
+.vscode/

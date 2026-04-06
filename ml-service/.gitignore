@@ -1,2 +1,5 @@
 # Data
 lightfm_data/
+
+# VSCode settings
+.vscode/

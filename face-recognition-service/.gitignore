@@ -3,3 +3,6 @@ data/
 
 # Python
 __pycache__/
+
+# VSCode settings
+.vscode/
