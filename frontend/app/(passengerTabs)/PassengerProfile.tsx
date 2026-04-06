@@ -18,13 +18,13 @@ import { useAuth } from '../../context/AuthContext';
 
 
 export default function PassengerProfileScreen() {
-  const [profile, setProfile]          = useState(null);
-  const [loading, setLoading]          = useState(true);
-  const [refreshing, setRefreshing]    = useState(false);
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [settingsVisible, setSettings] = useState(false);
-  const [loggingOut, setLoggingOut]    = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
-  const { logout } = useAuth(); 
+  const { logout } = useAuth();
 
   useFocusEffect(
     useCallback(() => {
@@ -161,11 +161,11 @@ export default function PassengerProfileScreen() {
           backgroundColor: '#fff', marginHorizontal: 16, marginTop: 20,
           borderRadius: 16, borderWidth: 1, borderColor: '#F0F0F0', overflow: 'hidden',
         }}>
-          <InfoRow icon="person-outline"   label="First Name" value={profile.prenom} />
-          <InfoRow icon="person-outline"   label="Last Name"  value={profile.nom} />
-          <InfoRow icon="mail-outline"     label="Email"      value={profile.email} />
-          <InfoRow icon="call-outline"     label="Phone"      value={profile.numTel} />
-          <InfoRow icon="calendar-outline" label="Age"        value={profile.age?.toString()} last />
+          <InfoRow icon="person-outline" label="First Name" value={profile.prenom} />
+          <InfoRow icon="person-outline" label="Last Name" value={profile.nom} />
+          <InfoRow icon="mail-outline" label="Email" value={profile.email} />
+          <InfoRow icon="call-outline" label="Phone" value={profile.numTel} />
+          <InfoRow icon="calendar-outline" label="Age" value={profile.age?.toString()} last />
         </View>
 
         {/* ── MY ADDRESS ── */}

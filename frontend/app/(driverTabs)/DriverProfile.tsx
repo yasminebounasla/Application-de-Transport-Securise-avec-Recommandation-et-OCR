@@ -16,11 +16,11 @@ import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
 export default function DriverProfileScreen() {
-  const [profile, setProfile]          = useState(null);
-  const [loading, setLoading]          = useState(true);
-  const [refreshing, setRefreshing]    = useState(false);
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [settingsVisible, setSettings] = useState(false);
-  const [loggingOut, setLoggingOut]    = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const { logout } = useAuth()
 
@@ -38,17 +38,17 @@ export default function DriverProfileScreen() {
 
       setProfile({
         ...data,
-        allVehicles:     data.vehicules || [],
+        allVehicles: data.vehicules || [],
         workZoneAddress: data.workZoneAddress || data.wilaya || null,
-        talkative:       prefs.talkative,
-        radio_on:        prefs.radio_on,
+        talkative: prefs.talkative,
+        radio_on: prefs.radio_on,
         smoking_allowed: prefs.smoking_allowed,
-        pets_allowed:    prefs.pets_allowed,
-        car_big:         prefs.car_big,
-        works_morning:   prefs.works_morning,
+        pets_allowed: prefs.pets_allowed,
+        car_big: prefs.car_big,
+        works_morning: prefs.works_morning,
         works_afternoon: prefs.works_afternoon,
-        works_evening:   prefs.works_evening,
-        works_night:     prefs.works_night,
+        works_evening: prefs.works_evening,
+        works_night: prefs.works_night,
       });
     } catch (error) {
       console.error('Erreur driver profile:', error);
@@ -191,12 +191,12 @@ export default function DriverProfileScreen() {
           backgroundColor: '#fff', marginHorizontal: 16, marginTop: 20,
           borderRadius: 16, borderWidth: 1, borderColor: '#F0F0F0', overflow: 'hidden',
         }}>
-          <InfoRow icon="person-outline"      label="First Name" value={profile.prenom} />
-          <InfoRow icon="person-outline"      label="Last Name"  value={profile.nom} />
-          <InfoRow icon="location-outline"    label="Work Zone"  value={profile.workZoneAddress || profile.wilaya || '—'} last/>
-          <InfoRow icon="mail-outline"        label="Email"      value={profile.email} />
-          <InfoRow icon="call-outline"        label="Phone"      value={profile.numTel} />
-          <InfoRow icon="calendar-outline"    label="Age"        value={profile.age?.toString()} />
+          <InfoRow icon="person-outline" label="First Name" value={profile.prenom} />
+          <InfoRow icon="person-outline" label="Last Name" value={profile.nom} />
+          <InfoRow icon="location-outline" label="Work Zone" value={profile.workZoneAddress || profile.wilaya || '—'} last />
+          <InfoRow icon="mail-outline" label="Email" value={profile.email} />
+          <InfoRow icon="call-outline" label="Phone" value={profile.numTel} />
+          <InfoRow icon="calendar-outline" label="Age" value={profile.age?.toString()} />
           <InfoRow icon="male-female-outline" label="Gender" value={profile.sexe === 'M' ? 'Male' : profile.sexe === 'F' ? 'Female' : profile.sexe} last />
         </View>
 
@@ -239,11 +239,11 @@ export default function DriverProfileScreen() {
           </View>
           <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
             {[
-              { icon: 'chatbubbles-outline',   label: 'Talkative',      value: profile.talkative },
-              { icon: 'musical-notes-outline', label: 'Radio On',        value: profile.radio_on },
-              { icon: 'flame-outline',         label: 'Smoking Allowed', value: profile.smoking_allowed },
-              { icon: 'paw-outline',           label: 'Pets Allowed',    value: profile.pets_allowed },
-              { icon: 'car-sport-outline',     label: 'Large Car',       value: profile.car_big },
+              { icon: 'chatbubbles-outline', label: 'Talkative', value: profile.talkative },
+              { icon: 'musical-notes-outline', label: 'Radio On', value: profile.radio_on },
+              { icon: 'flame-outline', label: 'Smoking Allowed', value: profile.smoking_allowed },
+              { icon: 'paw-outline', label: 'Pets Allowed', value: profile.pets_allowed },
+              { icon: 'car-sport-outline', label: 'Large Car', value: profile.car_big },
             ].map((pref, i) => <PreferenceRow key={i} {...pref} />)}
 
             <Text style={{
@@ -254,10 +254,10 @@ export default function DriverProfileScreen() {
             </Text>
 
             {[
-              { icon: 'sunny-outline',        label: 'Morning (6am–12pm)',   value: profile.works_morning },
+              { icon: 'sunny-outline', label: 'Morning (6am–12pm)', value: profile.works_morning },
               { icon: 'partly-sunny-outline', label: 'Afternoon (12pm–6pm)', value: profile.works_afternoon },
-              { icon: 'moon-outline',         label: 'Evening (6pm–10pm)',   value: profile.works_evening },
-              { icon: 'cloudy-night-outline', label: 'Night (10pm–6am)',     value: profile.works_night },
+              { icon: 'moon-outline', label: 'Evening (6pm–10pm)', value: profile.works_evening },
+              { icon: 'cloudy-night-outline', label: 'Night (10pm–6am)', value: profile.works_night },
             ].map((hour, i) => <PreferenceRow key={i} {...hour} />)}
           </View>
         </View>

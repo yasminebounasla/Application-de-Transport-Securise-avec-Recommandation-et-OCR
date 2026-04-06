@@ -3,6 +3,7 @@ import { Stack } from 'expo-router';
 export default function Layout() {
   return (
     <Stack>
+      <Stack.Screen name="EditProfileScreen" />
       <Stack.Screen name="HomeScreen" />
       <Stack.Screen name="ActiveRideScreen" />
       <Stack.Screen
@@ -16,7 +17,7 @@ export default function Layout() {
       />
       <Stack.Screen name="ProfileSetupScreen" />
       <Stack.Screen name="MyFeedbacksScreen" />
-      <Stack.Screen name="PassengerProfileScreen" options={{ 
+      <Stack.Screen name="PassengerProfileScreen" options={{
         title: "Passenger Profile",
         headerShown: false,
         headerStyle: {
