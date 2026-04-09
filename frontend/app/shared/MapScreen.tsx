@@ -61,7 +61,7 @@ export default function MapScreen() {
     endLng,
     targetKey:   _targetKey,
     targetLabel: _targetLabel,
-    fromOnboarding,   
+    fromOnboarding,
   } = useLocalSearchParams();
   const targetKey   = (Array.isArray(_targetKey)   ? _targetKey[0]   : _targetKey)   as string;
   const targetLabel = (Array.isArray(_targetLabel)  ? _targetLabel[0] : _targetLabel) as string;
@@ -250,7 +250,7 @@ export default function MapScreen() {
       setSavingAddress(false);
     }
   };
-   
+
   // ── ✅ FIXED: fromOnboarding → router.back() pour retourner au step 3 ─────
   const handleConfirmWorkZone = async () => {
     if (!selectedLocation) return;
@@ -258,7 +258,7 @@ export default function MapScreen() {
     try {
       await api.patch('/drivers/profile/location', {
         latitude:  selectedLocation.latitude,
-        longitude: selectedLocation.longitude, 
+        longitude: selectedLocation.longitude,
       });
       if (fromOnboarding === 'true') {
         router.back();                                      // ← retour → step 3 (Your Style)
@@ -310,7 +310,14 @@ export default function MapScreen() {
     };
   };
 
-  if (!currentLocation) return null;
+  if (!currentLocation) {
+  return (
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#fff' }}>
+      <ActivityIndicator size="large" color="#111" />
+      <Text style={{ marginTop: 12, color: '#666' }}>Getting your location...</Text>
+    </View>
+  );
+ }
 
   // ── MODE: saved_address ──────────────────────
   if (selectionType === "saved_address") {
@@ -428,7 +435,7 @@ export default function MapScreen() {
     </View>
   );
  }
- 
+
   // ── MODE: route ──────────────────────────────
   if (selectionType === "route") {
     return (
@@ -1161,7 +1168,7 @@ const wzStyles = StyleSheet.create({
     backgroundColor:   '#1a1a2e',
     borderRadius: 50,
     paddingHorizontal: 16,
-    paddingVertical:   8, 
+    paddingVertical:   8,
     alignItems:        'center',
     shadowColor:       '#000000',
     shadowOpacity:     0.25,
@@ -1198,10 +1205,10 @@ const wzStyles = StyleSheet.create({
     alignItems:      'center',
     justifyContent:  'center',
     backgroundColor: '#0a3980',
-    borderRadius:    50,  
-    paddingVertical: 14,        
-    paddingHorizontal: 170,     
-    alignSelf:       'center',  
+    borderRadius:    50,
+    paddingVertical: 14,
+    paddingHorizontal: 170,
+    alignSelf:       'center',
   },
   ctaDisabled: {
     backgroundColor: 'rgba(41,65,144,0.4)',
