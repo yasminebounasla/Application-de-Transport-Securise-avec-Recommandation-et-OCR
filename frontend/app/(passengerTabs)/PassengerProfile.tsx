@@ -15,10 +15,18 @@ import { Ionicons } from '@expo/vector-icons';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
-
+interface PassengerProfile {
+  id?: number;
+  prenom: string;
+  nom: string;
+  email: string;
+  numTel: string;
+  age?: number;
+  photoUrl?: string;
+}
 
 export default function PassengerProfileScreen() {
-  const [profile, setProfile] = useState(null);
+  const [profile, setProfile] = useState<PassengerProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [settingsVisible, setSettings] = useState(false);
@@ -275,7 +283,7 @@ export default function PassengerProfileScreen() {
   );
 }
 
-function InfoRow({ icon, label, value, last = false }) {
+function InfoRow({ icon, label, value, last = false }: { icon: keyof typeof Ionicons.glyphMap; label: string; value?: string; last?: boolean }) {
   return (
     <View style={{
       flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14,

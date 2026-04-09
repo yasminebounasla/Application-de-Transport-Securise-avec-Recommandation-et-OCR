@@ -3,7 +3,7 @@ import { Stack } from 'expo-router';
 export default function Layout() {
   return (
     <Stack>
-      <Stack.Screen name="EditProfileScreen" />
+      <Stack.Screen name="Editprofilescreen" />
       <Stack.Screen name="HomeScreen" />
       <Stack.Screen name="ActiveRideScreen" />
       <Stack.Screen
