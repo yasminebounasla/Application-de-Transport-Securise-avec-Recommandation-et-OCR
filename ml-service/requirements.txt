@@ -10,3 +10,4 @@ fastapi
 httpx
 uvicorn
 logging
+apscheduler
