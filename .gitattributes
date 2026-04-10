@@ -1,5 +1,8 @@
+# Select all text files, ignore binary files (ex: .mp4 .png ...etc)
 * text=auto
 
+# Force all code/config files to use LF line endings for compatibility with Linux enviromnents
+# And because some of us use Windows and others use Linux
 *.js text eol=lf
 *.ts text eol=lf
 *.tsx text eol=lf

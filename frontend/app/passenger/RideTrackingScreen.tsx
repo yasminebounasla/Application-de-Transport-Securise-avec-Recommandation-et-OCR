@@ -6,19 +6,7 @@ import { useRide } from '../../context/RideContext';
 import { initSocket } from '../../services/socket';
 import { LocationContext } from '../../context/LocationContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-
-// simple haversine distance (km)
-const haversine = (a, b) => {
-  const toRad = (x) => (x * Math.PI) / 180;
-  const R = 6371; // km
-  const dLat = toRad(b.latitude - a.latitude);
-  const dLon = toRad(b.longitude - a.longitude);
-  const lat1 = toRad(a.latitude);
-  const lat2 = toRad(b.latitude);
-  const aa = Math.sin(dLat / 2) ** 2 + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) ** 2;
-  const c = 2 * Math.atan2(Math.sqrt(aa), Math.sqrt(1 - aa));
-  return R * c;
-};
+import { haversine } from '../../utils/geoUtils';
 
 const toValidCoord = (lat: any, lng: any) => {
   const latitude = Number(lat);
@@ -40,7 +28,7 @@ export default function RideTrackingScreen() {
   const [driverLocation, setDriverLocation] = useState<any>(null);
   const [etaMinutes, setEtaMinutes] = useState<number | null>(null);
 
-  const driverMarkerRef = useRef(null);
+  const driverMarkerRef = useRef<any>(null);
   const mapRef = useRef<MapView | null>(null);
   const hasAutoFittedRef = useRef(false);
 
@@ -56,12 +44,12 @@ export default function RideTrackingScreen() {
   useEffect(() => {
     if (!trajetId) return;
     getRideById(trajetId)
-      .then((r) => {
-        setRide(r);
-        setStatus(r?.status || 'ACCEPTED');
-      })
-      .catch((e) => console.error('fetch ride failed', e))
-      .finally(() => setLoading(false));
+     .then((r: any) => {
+      setRide(r);
+      setStatus(r?.status || 'ACCEPTED');
+   })
+    .catch((e: any) => console.error('fetch ride failed', e))
+    .finally(() => setLoading(false));
   }, [trajetId, getRideById]);
 
   // listen status (existing polling) plus transitions
@@ -84,14 +72,14 @@ export default function RideTrackingScreen() {
 
   // websocket subscribe + receive driver coords
   useEffect(() => {
-    let sock;
+    let sock: any;
     if (!trajetId) return;
     const setup = async () => {
       try {
         sock = await initSocket();
         sock.emit('subscribeToRide', trajetId);
         console.log('📡 Passenger subscribed to ride room:', trajetId);
-        sock.on('driverLocationUpdate', ({ rideId, location }) => {
+        sock.on('driverLocationUpdate', ({ rideId, location }: { rideId: string | number; location: { latitude: number; longitude: number } }) => {
           if (String(rideId) !== String(trajetId)) return;
           console.log('📍 Passenger received driver location:', rideId, location);
           setDriverLocation(location);

@@ -19,3 +19,7 @@ export function calculateDistance(lat1, lon1, lat2, lon2) {
 
   return R * c;
 }
+
+export function haversine(a, b) {
+  return calculateDistance(a.latitude, a.longitude, b.latitude, b.longitude);
+}

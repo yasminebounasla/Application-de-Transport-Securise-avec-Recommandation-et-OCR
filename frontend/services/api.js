@@ -17,17 +17,26 @@ api.interceptors.request.use(
   async (config) => {
     const token = await AsyncStorage.getItem('token');
 
-    if (token) {
+    if (token && token.trim() !== '' && token !== 'null' && token !== 'undefined') {
       config.headers.Authorization = `Bearer ${token}`;
+    } else if (config.headers?.Authorization) {
+      delete config.headers.Authorization;
     }
-
-    console.log('?? Token:', token ? token.substring(0, 30) + '...' : 'ABSENT');
-    console.log('?? Base URL:', config.baseURL);
-    console.log('?? URL called:', config.url);
 
     return config;
   },
   (error) => Promise.reject(error)
+);
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error?.response?.status === 401) {
+      await AsyncStorage.multiRemove(['token', 'user']);
+    }
+
+    return Promise.reject(error);
+  }
 );
 
 export default api;

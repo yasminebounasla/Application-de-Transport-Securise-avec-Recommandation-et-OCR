@@ -1,1 +1,8 @@
-.env
+# Data 
+data/
+
+# Python
+__pycache__/
+
+# VSCode settings
+.vscode/

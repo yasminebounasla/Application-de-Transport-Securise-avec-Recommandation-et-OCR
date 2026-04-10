@@ -56,21 +56,22 @@ export default function MesTrajets() {
 
     const map = new Map();
     (driverRequests || []).forEach((ride: any) => {
-      if (ride.status === 'ACCEPTED') {
-        map.set(ride.id, ride);
+      if (ride.status === 'ACCEPTED' || ride.status === 'IN_PROGRESS') {
+       map.set(ride.id, ride);
       }
     });
-    if (currentRide && currentRide.status === 'ACCEPTED') {
+    if (currentRide && (currentRide.status === 'ACCEPTED' || currentRide.status === 'IN_PROGRESS')) {
       map.set(currentRide.id, currentRide);
     }
 
     return Array.from(map.values())
       .filter((ride: any) => {
-        const departAt = getDepartAt(ride);
-        if (!departAt) return false;
-        const diff = departAt.getTime() - now;
-        return diff >= 0 && diff <= ONE_HOUR_MS;
-      })
+       if (ride.status === 'IN_PROGRESS') return true; // toujours visible
+       const departAt = getDepartAt(ride);
+       if (!departAt) return false;
+       const diff = departAt.getTime() - now;
+       return diff >= 0 && diff <= ONE_HOUR_MS;
+     })
       .sort(
       (a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );

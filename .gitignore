@@ -1,11 +1,12 @@
-node_modules
-ml-service/lightfm_data/
-face-recognition-service/venv
-face-recognition-service/.env
+node_modules/
+
+# Python
 __pycache__/
-*.pyc
-face-recognition-service/data/
-face-recognition-service/.env.backup
-frontend/android/
-ocr-service/venv
-*.env.backup
+.Python
+
+# Environment variables
+.env
+
+# Python virtual environment
+venv/
+env/

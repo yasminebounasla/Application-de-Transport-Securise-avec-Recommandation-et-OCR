@@ -54,6 +54,166 @@ export const addDriverPreferences = async (req, res) => {
   }
 };
 
+export const getDriverDashboardAnalytics = async (req, res) => {
+  const driverId = req.user?.driverId;
+
+  if (!driverId) {
+    return res.status(403).json({ message: "Access restricted to drivers only." });
+  }
+
+  try {
+    const driver = await prisma.driver.findUnique({
+      where: { id: driverId },
+      select: { id: true, createdAt: true, prenom: true, nom: true },
+    });
+
+    if (!driver) {
+      return res.status(404).json({ message: "Driver not found." });
+    }
+
+    const rides = await prisma.trajet.findMany({
+      where: {
+        OR: [
+          { driverId },
+          { sentDrivers: { has: driverId } },
+        ],
+      },
+      select: {
+        id: true,
+        driverId: true,
+        sentDrivers: true,
+        status: true,
+        prix: true,
+        createdAt: true,
+        updatedAt: true,
+        completedAt: true,
+        quiet_ride: true,
+        radio_ok: true,
+        smoking_ok: true,
+        pets_ok: true,
+        luggage_large: true,
+        female_driver_pref: true,
+      },
+      orderBy: { createdAt: 'asc' },
+    });
+
+    const startMonth = new Date(driver.createdAt);
+    startMonth.setDate(1);
+    startMonth.setHours(0, 0, 0, 0);
+
+    const currentMonth = new Date();
+    currentMonth.setDate(1);
+    currentMonth.setHours(0, 0, 0, 0);
+
+    const monthCursor = new Date(startMonth);
+    const monthMap = new Map();
+
+    while (monthCursor <= currentMonth) {
+      const key = `${monthCursor.getFullYear()}-${String(monthCursor.getMonth() + 1).padStart(2, '0')}`;
+      monthMap.set(key, {
+        key,
+        label: monthCursor.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }),
+        requests: 0,
+        earnings: 0,
+      });
+      monthCursor.setMonth(monthCursor.getMonth() + 1);
+    }
+
+    const preferenceDefs = [
+      { key: 'quiet_ride', label: 'Quiet ride', color: '#16A34A' },
+      { key: 'radio_ok', label: 'Music allowed', color: '#2563EB' },
+      { key: 'smoking_ok', label: 'Smoking allowed', color: '#DC2626' },
+      { key: 'pets_ok', label: 'Pets allowed', color: '#F59E0B' },
+      { key: 'luggage_large', label: 'Large luggage', color: '#8B5E3C' },
+      { key: 'female_driver_pref', label: 'Female driver', color: '#EC4899' },
+    ];
+
+    const preferenceCounts = Object.fromEntries(
+      preferenceDefs.map((pref) => [pref.key, 0])
+    );
+
+    let totalEarnings = 0;
+    let completedTrips = 0;
+    let acceptedTrips = 0;
+    let cancelledTrips = 0;
+
+    rides.forEach((ride) => {
+      const requestDate = ride.createdAt || ride.updatedAt;
+      const requestKey = `${requestDate.getFullYear()}-${String(requestDate.getMonth() + 1).padStart(2, '0')}`;
+      const requestBucket = monthMap.get(requestKey);
+      if (requestBucket && (ride.driverId === driverId || (ride.sentDrivers || []).includes(driverId))) {
+        requestBucket.requests += 1;
+      }
+
+      if (ride.driverId === driverId && ride.status === 'COMPLETED') {
+        const earningDate = ride.completedAt || ride.updatedAt || ride.createdAt;
+        const earningKey = `${earningDate.getFullYear()}-${String(earningDate.getMonth() + 1).padStart(2, '0')}`;
+        const earningBucket = monthMap.get(earningKey);
+        if (earningBucket) {
+          earningBucket.earnings += Number(ride.prix || 0);
+        }
+        totalEarnings += Number(ride.prix || 0);
+        completedTrips += 1;
+
+        preferenceDefs.forEach((pref) => {
+          if ((ride[pref.key] || '').toLowerCase() === 'yes') {
+            preferenceCounts[pref.key] += 1;
+          }
+        });
+      }
+
+      if (ride.driverId === driverId && ['ACCEPTED', 'IN_PROGRESS'].includes(ride.status)) {
+        acceptedTrips += 1;
+      }
+
+      if (ride.driverId === driverId && ['CANCELLED_BY_PASSENGER', 'CANCELLED_BY_DRIVER'].includes(ride.status)) {
+        cancelledTrips += 1;
+      }
+    });
+
+    const monthly = Array.from(monthMap.values()).map((item) => ({
+      ...item,
+      earnings: Number(item.earnings.toFixed(2)),
+    }));
+
+    const preferenceBreakdown = preferenceDefs
+      .map((pref) => ({
+        key: pref.key,
+        label: pref.label,
+        value: preferenceCounts[pref.key],
+        color: pref.color,
+      }))
+      .filter((item) => item.value > 0);
+
+    return res.status(200).json({
+      success: true,
+      data: {
+        driver: {
+          id: driver.id,
+          prenom: driver.prenom,
+          nom: driver.nom,
+          createdAt: driver.createdAt,
+        },
+        summary: {
+          totalEarnings: Number(totalEarnings.toFixed(2)),
+          completedTrips,
+          acceptedTrips,
+          cancelledTrips,
+        },
+        monthly,
+        preferences: preferenceBreakdown,
+      },
+    });
+  } catch (error) {
+    console.error("Error retrieving driver dashboard analytics:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Failed to retrieve driver dashboard analytics.",
+      error: error.message,
+    });
+  }
+};
+
 // Feedback related controllers
 export const getDriverRating = async (req, res) => {
     const driverId = req.user.driverId;

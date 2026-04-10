@@ -130,7 +130,7 @@ export default function PublicDriverProfileScreen() {
 
   const vehicule     = driver.vehicules?.[0];
   // Backend returns preferences as nested object AND at top-level — check both
-  const prefs = {
+  const prefs: { [key: string]: any } = {
     talkative:       driver.preferences?.talkative       ?? driver.talkative,
     radio_on:        driver.preferences?.radio_on        ?? driver.radio_on,
     smoking_allowed: driver.preferences?.smoking_allowed ?? driver.smoking_allowed,
@@ -342,7 +342,7 @@ const styles = StyleSheet.create({
   // Top nav
   topNav: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 14, paddingBottom: 14, 
+    paddingHorizontal: 16, paddingVertical: 14, paddingBottom: 14,
     backgroundColor: '#FAFAFA',
   },
   navBtn:   { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F0F0F0', alignItems: 'center', justifyContent: 'center' },

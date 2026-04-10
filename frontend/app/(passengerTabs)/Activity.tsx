@@ -9,12 +9,15 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
+import { formatDuration, formatDistance } from '../../utils/formatUtils';
+
+
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const CATEGORIES = [
   { key: 'completed', label: 'Completed' },
-  { key: 'active',    label: 'Active'    },
   { key: 'pending',   label: 'Pending'   },
+  { key: 'active',    label: 'Active'    },
   { key: 'cancelled', label: 'Cancelled' },
 ];
 
@@ -168,7 +171,7 @@ function RideCard({ item, highlighted, onPress }: {
             <Tag icon="people-outline" label={`${item.placesDispo} seat${item.placesDispo > 1 ? 's' : ''}`} />
           )}
         </View>
-
+        
         {/* ── FOOTER ── */}
         <View style={s.footer}>
           <Text style={s.seeMore}>See details →</Text>
@@ -277,45 +280,6 @@ export default function ActivityScreen() {
 
   useFocusEffect(useCallback(() => { loadActivity(); }, [loadActivity]));
 
-  useEffect(() => {
-    if (!params.rideId) return;
-    const rideId = parseInt(params.rideId as string);
-    // ✅ "active" pour les accepted/in_progress, "pending" pour les pending
-    const tab = (params.tab as string) || 'completed';
-    pendingHighlight.current = { rideId, tab };
-    setActiveCategory(tab);
-  }, [params.rideId, params.tab]);
-
-  useEffect(() => {
-    if (activity.length === 0 || !pendingHighlight.current) return;
-    const { rideId, tab } = pendingHighlight.current;
-    const ride = activity.find((r: any) => r.rideId === rideId);
-    if (!ride) return;
-    pendingHighlight.current = null;
-    setActiveCategory(tab);
-    setHighlightedId(rideId);
-
-    // ✅ scroll amélioré — attend que le tab soit rendu
-    setTimeout(() => {
-      const tabRides = activity.filter((r: any) => {
-        if (tab === 'completed') return r.status === 'COMPLETED';
-        if (tab === 'pending')   return r.status ==='PENDING';
-        if (tab === 'active') return ['ACCEPTED', 'IN_PROGRESS'].includes(r.status);
-        return ['CANCELLED_BY_PASSENGER', 'CANCELLED_BY_DRIVER'].includes(r.status);
-      });
-      const index = tabRides.findIndex((r: any) => r.rideId === rideId);
-      if (index >= 0) {
-        flatListRef.current?.scrollToIndex({
-          index,
-          animated: true,
-          viewPosition: 0.3,
-        });
-      }
-    }, 600);
-
-    setTimeout(() => setHighlightedId(null), 5000);
-  }, [activity]);
-
   const categorized = useMemo(() => ({
     completed: activity.filter((r: any) => r.status === 'COMPLETED'),
     active:    activity.filter((r: any) => ['ACCEPTED', 'IN_PROGRESS'].includes(r.status)),
@@ -343,6 +307,36 @@ export default function ActivityScreen() {
     if (sortKey === 'name_za')   rides.sort((a, b) => (b.driver?.prenom || '').localeCompare(a.driver?.prenom || ''));
     return rides;
   }, [activeCategory, categorized, sortKey, nameQuery]);
+
+   useEffect(() => {
+  if (!params.rideId) return;
+  const rideId = parseInt(params.rideId as string);
+  const tab = (params.tab as string) || 'completed';
+  setActiveCategory(tab);
+  pendingHighlight.current = { rideId, tab };
+}, [params.rideId, params.tab]);
+
+useEffect(() => {
+  if (activity.length === 0 || !pendingHighlight.current) return;
+  const { rideId } = pendingHighlight.current;
+  const ride = activity.find((r: any) => r.rideId === rideId);
+  if (!ride) return;
+  pendingHighlight.current = null;
+  setHighlightedId(rideId);
+
+  setTimeout(() => {
+    const index = visibleRides.findIndex((r: any) => r.rideId === rideId);
+    if (index >= 0) {
+      flatListRef.current?.scrollToIndex({
+        index,
+        animated: true,
+        viewPosition: 0.3,
+      });
+    }
+  }, 800);
+
+  setTimeout(() => setHighlightedId(null), 5000);
+}, [activity, visibleRides]);
 
   const activeSortLabel = SORT_OPTIONS.find(o => o.key === sortKey)?.label;
   const hasActiveFilter = sortKey !== 'none' || nameQuery.trim().length > 0;

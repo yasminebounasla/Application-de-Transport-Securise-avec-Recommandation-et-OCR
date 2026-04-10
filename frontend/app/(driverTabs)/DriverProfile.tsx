@@ -15,14 +15,59 @@ import { Ionicons } from '@expo/vector-icons';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
-export default function DriverProfileScreen() {
-  const [profile, setProfile]          = useState(null);
-  const [loading, setLoading]          = useState(true);
-  const [refreshing, setRefreshing]    = useState(false);
-  const [settingsVisible, setSettings] = useState(false);
-  const [loggingOut, setLoggingOut]    = useState(false);
+interface Vehicule {
+  marque: string;
+  modele?: string;
+  annee?: number;
+  couleur?: string;
+  nbPlaces?: number;
+  plaque?: string;
+}
 
-  const { logout } = useAuth()
+interface DriverProfile {
+  prenom: string;
+  nom: string;
+  email: string;
+  numTel: string;
+  age?: number;
+  sexe?: string;
+  wilaya?: string;
+  photoUrl?: string;
+  avgRating?: number;
+  stats?: { averageRating: number };
+  allVehicles: Vehicule[];
+  vehicules?: Vehicule[];
+  workZoneAddress?: string | null;
+  talkative?: boolean;
+  radio_on?: boolean;
+  smoking_allowed?: boolean;
+  pets_allowed?: boolean;
+  car_big?: boolean;
+  works_morning?: boolean;
+  works_afternoon?: boolean;
+  works_evening?: boolean;
+  works_night?: boolean;
+  preferences?: {
+    talkative?: boolean;
+    radio_on?: boolean;
+    smoking_allowed?: boolean;
+    pets_allowed?: boolean;
+    car_big?: boolean;
+    works_morning?: boolean;
+    works_afternoon?: boolean;
+    works_evening?: boolean;
+    works_night?: boolean;
+  };
+}
+
+export default function DriverProfileScreen() {
+  const [profile, setProfile] = useState<DriverProfile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [settingsVisible, setSettings] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
+
+  const { logout } = useAuth();
 
   useFocusEffect(
     useCallback(() => {
@@ -38,17 +83,17 @@ export default function DriverProfileScreen() {
 
       setProfile({
         ...data,
-        allVehicles:     data.vehicules || [],
+        allVehicles: data.vehicules || [],
         workZoneAddress: data.workZoneAddress || data.wilaya || null,
-        talkative:       prefs.talkative,
-        radio_on:        prefs.radio_on,
+        talkative: prefs.talkative,
+        radio_on: prefs.radio_on,
         smoking_allowed: prefs.smoking_allowed,
-        pets_allowed:    prefs.pets_allowed,
-        car_big:         prefs.car_big,
-        works_morning:   prefs.works_morning,
+        pets_allowed: prefs.pets_allowed,
+        car_big: prefs.car_big,
+        works_morning: prefs.works_morning,
         works_afternoon: prefs.works_afternoon,
-        works_evening:   prefs.works_evening,
-        works_night:     prefs.works_night,
+        works_evening: prefs.works_evening,
+        works_night: prefs.works_night,
       });
     } catch (error) {
       console.error('Erreur driver profile:', error);
@@ -64,7 +109,7 @@ export default function DriverProfileScreen() {
     setRefreshing(false);
   };
 
-  const goToEdit = () => router.push('../driver/EditProfileScreen');
+  const goToEdit = () => router.push('/driver/Editprofilescreen');
 
   const handleLogout = () => {
     Alert.alert(
@@ -112,6 +157,22 @@ export default function DriverProfileScreen() {
     );
   }
 
+  // ── Typed arrays pour éviter les erreurs TypeScript ──
+  const prefs: { icon: keyof typeof Ionicons.glyphMap; label: string; value: boolean }[] = [
+    { icon: 'chatbubbles-outline', label: 'Talkative', value: profile.talkative ?? false },
+    { icon: 'musical-notes-outline', label: 'Radio On', value: profile.radio_on ?? false },
+    { icon: 'flame-outline', label: 'Smoking Allowed', value: profile.smoking_allowed ?? false },
+    { icon: 'paw-outline', label: 'Pets Allowed', value: profile.pets_allowed ?? false },
+    { icon: 'car-sport-outline', label: 'Large Car', value: profile.car_big ?? false },
+  ];
+
+  const hours: { icon: keyof typeof Ionicons.glyphMap; label: string; value: boolean }[] = [
+    { icon: 'sunny-outline', label: 'Morning (6am–12pm)', value: profile.works_morning ?? false },
+    { icon: 'partly-sunny-outline', label: 'Afternoon (12pm–6pm)', value: profile.works_afternoon ?? false },
+    { icon: 'moon-outline', label: 'Evening (6pm–10pm)', value: profile.works_evening ?? false },
+    { icon: 'cloudy-night-outline', label: 'Night (10pm–6am)', value: profile.works_night ?? false },
+  ];
+
   return (
     <>
       <ScrollView
@@ -119,15 +180,13 @@ export default function DriverProfileScreen() {
         contentContainerStyle={{ paddingBottom: 100 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
       >
-        {/* ── AVATAR + NOM (centré) ── */}
+        {/* ── AVATAR + NOM ── */}
         <View style={{
           backgroundColor: '#fff', alignItems: 'center',
           paddingTop: 40, paddingBottom: 28,
           borderBottomLeftRadius: 24, borderBottomRightRadius: 24,
           shadowColor: '#000', shadowOpacity: 0.06, shadowRadius: 10, elevation: 3,
         }}>
-
-          {/* Settings en haut à droite */}
           <TouchableOpacity
             onPress={() => setSettings(true)}
             style={{ position: 'absolute', top: 16, right: 16 }}
@@ -136,7 +195,6 @@ export default function DriverProfileScreen() {
             <Ionicons name="settings-outline" size={22} color="#111" />
           </TouchableOpacity>
 
-          {/* Avatar — plus cliquable */}
           <View>
             {profile.photoUrl ? (
               <Image
@@ -153,12 +211,10 @@ export default function DriverProfileScreen() {
             )}
           </View>
 
-          {/* Nom */}
           <Text style={{ fontSize: 22, fontWeight: '800', color: '#111', marginTop: 14 }}>
             {profile.prenom} {profile.nom}
           </Text>
 
-          {/* ⭐ Rating */}
           <TouchableOpacity
             onPress={() => router.push('/driver/MyFeedbacksScreen')}
             activeOpacity={0.7}
@@ -175,7 +231,6 @@ export default function DriverProfileScreen() {
             <Text style={{ fontSize: 12, color: '#CA8A04' }}>· See reviews</Text>
           </TouchableOpacity>
 
-          {/* Badge */}
           <View style={{
             marginTop: 8, backgroundColor: '#111',
             paddingHorizontal: 14, paddingVertical: 4, borderRadius: 20,
@@ -186,18 +241,23 @@ export default function DriverProfileScreen() {
           </View>
         </View>
 
-        {/* ── INFOS VERTICALES ── */}
+        {/* ── INFOS ── */}
         <View style={{
           backgroundColor: '#fff', marginHorizontal: 16, marginTop: 20,
           borderRadius: 16, borderWidth: 1, borderColor: '#F0F0F0', overflow: 'hidden',
         }}>
-          <InfoRow icon="person-outline"      label="First Name" value={profile.prenom} />
-          <InfoRow icon="person-outline"      label="Last Name"  value={profile.nom} />
-          <InfoRow icon="location-outline"    label="Work Zone"  value={profile.workZoneAddress || profile.wilaya || '—'} last/>
-          <InfoRow icon="mail-outline"        label="Email"      value={profile.email} />
-          <InfoRow icon="call-outline"        label="Phone"      value={profile.numTel} />
-          <InfoRow icon="calendar-outline"    label="Age"        value={profile.age?.toString()} />
-          <InfoRow icon="male-female-outline" label="Gender" value={profile.sexe === 'M' ? 'Male' : profile.sexe === 'F' ? 'Female' : profile.sexe} last />
+          <InfoRow icon="person-outline" label="First Name" value={profile.prenom} />
+          <InfoRow icon="person-outline" label="Last Name" value={profile.nom} />
+          <InfoRow icon="location-outline" label="Work Zone" value={profile.workZoneAddress || profile.wilaya || '—'} />
+          <InfoRow icon="mail-outline" label="Email" value={profile.email} />
+          <InfoRow icon="call-outline" label="Phone" value={profile.numTel} />
+          <InfoRow icon="calendar-outline" label="Age" value={profile.age?.toString()} />
+          <InfoRow
+            icon="male-female-outline"
+            label="Gender"
+            value={profile.sexe === 'M' ? 'Male' : profile.sexe === 'F' ? 'Female' : profile.sexe}
+            last
+          />
         </View>
 
         {/* ── VÉHICULES ── */}
@@ -238,13 +298,9 @@ export default function DriverProfileScreen() {
             <Text style={{ fontSize: 16, fontWeight: '800', color: '#111' }}>Preferences</Text>
           </View>
           <View style={{ paddingHorizontal: 16, paddingBottom: 12 }}>
-            {[
-              { icon: 'chatbubbles-outline',   label: 'Talkative',      value: profile.talkative },
-              { icon: 'musical-notes-outline', label: 'Radio On',        value: profile.radio_on },
-              { icon: 'flame-outline',         label: 'Smoking Allowed', value: profile.smoking_allowed },
-              { icon: 'paw-outline',           label: 'Pets Allowed',    value: profile.pets_allowed },
-              { icon: 'car-sport-outline',     label: 'Large Car',       value: profile.car_big },
-            ].map((pref, i) => <PreferenceRow key={i} {...pref} />)}
+
+            {/* ✅ utilise la variable prefs */}
+            {prefs.map((pref, i) => <PreferenceRow key={i} {...pref} />)}
 
             <Text style={{
               fontSize: 12, fontWeight: '700', color: '#999',
@@ -253,12 +309,8 @@ export default function DriverProfileScreen() {
               Working Hours
             </Text>
 
-            {[
-              { icon: 'sunny-outline',        label: 'Morning (6am–12pm)',   value: profile.works_morning },
-              { icon: 'partly-sunny-outline', label: 'Afternoon (12pm–6pm)', value: profile.works_afternoon },
-              { icon: 'moon-outline',         label: 'Evening (6pm–10pm)',   value: profile.works_evening },
-              { icon: 'cloudy-night-outline', label: 'Night (10pm–6am)',     value: profile.works_night },
-            ].map((hour, i) => <PreferenceRow key={i} {...hour} />)}
+            {/* ✅ utilise la variable hours */}
+            {hours.map((hour, i) => <PreferenceRow key={i} {...hour} />)}
           </View>
         </View>
 
@@ -271,21 +323,18 @@ export default function DriverProfileScreen() {
         animationType="fade"
         onRequestClose={() => setSettings(false)}
       >
-        {/* Backdrop */}
         <TouchableOpacity
           style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.35)' }}
           activeOpacity={1}
           onPress={() => setSettings(false)}
         />
 
-        {/* Sheet */}
         <View style={{
           position: 'absolute', bottom: 0, left: 0, right: 0,
           backgroundColor: '#fff',
           borderTopLeftRadius: 24, borderTopRightRadius: 24,
           paddingBottom: 36, paddingTop: 12,
         }}>
-          {/* Drag handle */}
           <View style={{
             width: 40, height: 4, borderRadius: 2, backgroundColor: '#E0E0E0',
             alignSelf: 'center', marginBottom: 20,
@@ -299,7 +348,6 @@ export default function DriverProfileScreen() {
             Settings
           </Text>
 
-          {/* Edit profile */}
           <TouchableOpacity
             onPress={() => { setSettings(false); goToEdit(); }}
             activeOpacity={0.7}
@@ -319,7 +367,6 @@ export default function DriverProfileScreen() {
             <Ionicons name="chevron-forward" size={16} color="#CCC" style={{ marginLeft: 'auto' }} />
           </TouchableOpacity>
 
-          {/* Log out */}
           <TouchableOpacity
             onPress={handleLogout}
             activeOpacity={0.7}
@@ -336,14 +383,20 @@ export default function DriverProfileScreen() {
             </View>
             <Text style={{ fontSize: 15, fontWeight: '600', color: '#EF4444' }}>Log out</Text>
           </TouchableOpacity>
-
         </View>
       </Modal>
     </>
   );
 }
 
-function InfoRow({ icon, label, value, last = false }) {
+function InfoRow({
+  icon, label, value, last = false
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value?: string;
+  last?: boolean;
+}) {
   return (
     <View style={{
       flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 14,
@@ -362,7 +415,13 @@ function InfoRow({ icon, label, value, last = false }) {
   );
 }
 
-function PreferenceRow({ icon, label, value }) {
+function PreferenceRow({
+  icon, label, value
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value: boolean;
+}) {
   return (
     <View style={{
       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',

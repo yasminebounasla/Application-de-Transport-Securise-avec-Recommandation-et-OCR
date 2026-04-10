@@ -1,4 +1,11 @@
 {
-    "python-envs.defaultEnvManager": "ms-python.python:system",
-    "python-envs.defaultPackageManager": "ms-python.python:pip"
+    // Trim extra whitespace when saving
+    "files.trimTrailingWhitespace": true,
+
+    // Ensure every file ends with a newline
+    "files.insertFinalNewline": true,
+
+    // Format code automatically when saving
+    "editor.formatOnSave": true
+    
 }

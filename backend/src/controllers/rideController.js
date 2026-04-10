@@ -1,6 +1,8 @@
 import { PrismaClient } from '@prisma/client';
 import { getIO } from '../socket/socket.js';
 import { createNotification } from './NotificationController.js';
+import { calculateRoute }  from '../services/geoService.js';
+import { calculatePrice }  from '../utils/priceCalculator.js';
 
 const prisma = new PrismaClient();
 
@@ -170,6 +172,22 @@ export const createRide = async (req, res) => {
     if (!passengerExists)
       return res.status(404).json({ message: 'Passager introuvable' });
 
+      const routeResult = await calculateRoute(
+       { latitude: parseFloat(startLat), longitude: parseFloat(startLng) },
+       { latitude: parseFloat(endLat),   longitude: parseFloat(endLng) }
+      );
+
+    if (!routeResult.success) {
+      return res.status(503).json({
+        message: "Impossible de calculer l'itinéraire. Veuillez réessayer."
+      });
+    }
+
+    const { price: prix } = calculatePrice(  // ← destructure .price
+      parseFloat(routeResult.distanceKm),
+      routeResult.durationMin
+    );
+
     const newRide = await prisma.trajet.create({
       data: {
         passenger: { connect: { id: passengerId } },
@@ -184,7 +202,9 @@ export const createRide = async (req, res) => {
         dateDepart: departure,
         heureDepart: departure.toTimeString().slice(0, 5),
         placesDispo: 1,
-        prix: 0,
+        prix,
+        distanceKm:  parseFloat(routeResult.distanceKm),
+        durationMin: routeResult.durationMin,
         status: 'PENDING',
       },
       include: {
@@ -641,6 +661,8 @@ export const getPassengerRideActivity = async (req, res) => {
       activityAt: ride.updatedAt, createdAt: ride.createdAt,
       updatedAt: ride.updatedAt, completedAt: ride.completedAt,
       prix: ride.prix, depart: ride.depart, destination: ride.destination,
+      distanceKm:  ride.distanceKm  || null,   
+      durationMin: ride.durationMin || null,   
       startAddress: ride.startAddress, endAddress: ride.endAddress,
       dateDepart: ride.dateDepart, heureDepart: ride.heureDepart,
       passenger: ride.passenger || null, driver: ride.driver || null,
@@ -690,6 +712,8 @@ export const getDriverRideActivity = async (req, res) => {
       activityAt: ride.updatedAt, createdAt: ride.createdAt,
       updatedAt: ride.updatedAt, completedAt: ride.completedAt,
       prix: ride.prix, depart: ride.depart, destination: ride.destination,
+      distanceKm:  ride.distanceKm  || null,  
+      durationMin: ride.durationMin || null,  
       startAddress: ride.startAddress, endAddress: ride.endAddress,
       dateDepart: ride.dateDepart, heureDepart: ride.heureDepart,
       driver: ride.driver || null, passenger: ride.passenger || null,

@@ -4,13 +4,39 @@ import { Ionicons } from '@expo/vector-icons';
 import RatingStars from '../../components/RatingStars';
 import { getDriverStats, getDriverFeedback } from '../../services/feedbackService';
 
+interface Feedback {
+  id: number;
+  rating: number;
+  comment?: string;
+  createdAt: string;
+  trajet: {
+    startAddress: string;
+    endAddress: string;
+    passenger: {
+      prenom: string;
+      nom: string;
+    };
+  };
+}
+
+interface Stats {
+  averageRating: number;
+  totalFeedbacks: number;
+}
+
+interface Pagination {
+  currentPage: number;
+  totalPages: number;
+  hasNextPage: boolean;
+}
+
 export default function MyFeedbacksScreen() {
-  const [feedbacks, setFeedbacks] = useState([]);
-  const [stats, setStats] = useState({ averageRating: 0, totalFeedbacks: 0 });
+  const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
+  const [stats, setStats] = useState<Stats>({ averageRating: 0, totalFeedbacks: 0 });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [pagination, setPagination] = useState({
+  const [pagination, setPagination] = useState<Pagination>({
     currentPage: 1,
     totalPages: 1,
     hasNextPage: false
@@ -37,7 +63,7 @@ export default function MyFeedbacksScreen() {
 
       const response = await getDriverFeedback(page, 10);
       const newFeedbacks = response.data;
-      
+
       if (append) {
         setFeedbacks(prev => [...prev, ...newFeedbacks]);
       } else {
@@ -77,12 +103,12 @@ export default function MyFeedbacksScreen() {
   }, []);
 
   // Format date
-  const formatDate = (dateString) => {
+  const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleDateString('fr-FR', { 
-      day: 'numeric', 
-      month: 'short', 
-      year: 'numeric' 
+    return date.toLocaleDateString('fr-FR', {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric'
     });
   };
 
@@ -95,7 +121,7 @@ export default function MyFeedbacksScreen() {
   }
 
   return (
-    <ScrollView 
+    <ScrollView
       className="flex-1 bg-white"
       refreshControl={
         <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
@@ -106,15 +132,15 @@ export default function MyFeedbacksScreen() {
         <Text className="text-3xl font-bold text-black mb-6">
           Mes Avis
         </Text>
-        
+
         {/* Stats Card - Noir et Blanc */}
         <View className="bg-black p-6 rounded-2xl">
           <View className="items-center">
             <Text className="text-5xl font-bold text-white mb-3">
               {stats.averageRating.toFixed(1)}
             </Text>
-            <RatingStars 
-              rating={stats.averageRating} 
+            <RatingStars
+              rating={stats.averageRating}
               size={28}
               showValue={false}
             />
@@ -140,8 +166,8 @@ export default function MyFeedbacksScreen() {
         ) : (
           <>
             {feedbacks.map((feedback) => (
-              <View 
-                key={feedback.id} 
+              <View
+                key={feedback.id}
                 className="bg-white border border-gray-200 p-5 rounded-xl mb-3"
               >
                 {/* Header du feedback */}
@@ -150,8 +176,8 @@ export default function MyFeedbacksScreen() {
                     <Text className="text-base font-bold text-black mb-2">
                       {feedback.trajet.passenger.prenom} {feedback.trajet.passenger.nom}
                     </Text>
-                    <RatingStars 
-                      rating={feedback.rating} 
+                    <RatingStars
+                      rating={feedback.rating}
                       size={18}
                       showValue={false}
                     />
@@ -188,7 +214,7 @@ export default function MyFeedbacksScreen() {
 
             {/* Bouton charger plus - Noir et Blanc */}
             {pagination.hasNextPage && (
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={loadMore}
                 disabled={loadingMore}
                 className="bg-black py-4 rounded-xl items-center mt-3 shadow-sm"

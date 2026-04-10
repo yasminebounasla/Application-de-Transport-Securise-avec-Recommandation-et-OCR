@@ -412,12 +412,12 @@ export default function SearchRideScreen() {
         const places = res.data.data || [];
         applyPlaces(places);
         await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(places));
-      } catch (e) {
+      } catch (e: any) {
         console.error(
-          "Failed to fetch saved places (using cache):",
-          e?.response?.status,
-          e?.response?.data || e?.message || e
-        );
+        "Failed to fetch saved places (using cache):",
+        e?.response?.status,
+        e?.response?.data || e?.message || e
+       );
       }
     };
 
