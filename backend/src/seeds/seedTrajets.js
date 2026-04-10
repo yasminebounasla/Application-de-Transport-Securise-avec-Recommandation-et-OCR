@@ -38,6 +38,55 @@ const ALGER_ZONES = [
 
 const HEURES = ["06:00", "07:30", "08:00", "09:00", "12:00", "14:00", "17:00", "18:30", "20:00", "22:00"];
 
+function compatibilityScore(driver, prefs) {
+  let score = 0;
+
+  if (prefs.quiet_ride  && !toBool(driver.talkative)) score++;
+  if (!prefs.quiet_ride &&  toBool(driver.talkative)) score++;
+
+  if (prefs.radio_ok    && toBool(driver.radio_on)) score++;
+  if (!prefs.radio_ok   && !toBool(driver.radio_on)) score++;
+
+  if (prefs.smoking_ok  && toBool(driver.smoking_allowed)) score++;
+  if (!prefs.smoking_ok && !toBool(driver.smoking_allowed)) score++;
+
+  if (prefs.pets_ok     && toBool(driver.pets_allowed)) score++;
+  if (!prefs.pets_ok    && !toBool(driver.pets_allowed)) score++;
+
+  if (prefs.luggage_large && toBool(driver.car_big)) score++;
+  if (!prefs.luggage_large && !toBool(driver.car_big)) score++;
+
+  const isFemale = String(driver.sexe || "").toLowerCase() === "f";
+  if (prefs.female_driver_pref && isFemale) score++;
+  if (!prefs.female_driver_pref && !isFemale) score++;
+
+  return score; // max = 6
+}
+
+function pickDriver(drivers, prefs) {
+  const rand = Math.random();
+
+  if (rand < 0.55) {
+    const perfect = drivers.filter(d => compatibilityScore(d, prefs) === 6);
+    if (perfect.length > 0) return randomChoice(perfect);
+  }
+
+  if (rand < 0.75) {
+    const good = drivers.filter(d => compatibilityScore(d, prefs) >= 5);
+    if (good.length > 0) return randomChoice(good);
+  }
+
+  if (rand < 0.90) {
+    const partial = drivers.filter(d => {
+      const s = compatibilityScore(d, prefs);
+      return s >= 3 && s <= 4;
+    });
+    if (partial.length > 0) return randomChoice(partial);
+  }
+
+  return randomChoice(drivers);
+}
+
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 function toBool(val) {
   if (val === null || val === undefined) return false;
@@ -135,13 +184,9 @@ async function seedTrajets(trajetsPerPassenger = 10) {
         Math.max(1, trajetsPerPassenger - 2),
         trajetsPerPassenger + 3,
       );
+      
 
       for (let t = 0; t < nbTrajets; t++) {
-        const driver  = randomChoice(drivers);
-        const zone    = randomChoice(ALGER_ZONES);
-        const zoneEnd = randomChoice(ALGER_ZONES);
-        const heure   = randomChoice(HEURES);
-
         // Prefs tirées depuis les probabilités du profil (par trajet)
         const trajetPrefs = {
           quiet_ride:         randomBool(profile.prefs.quiet_ride),
@@ -151,6 +196,13 @@ async function seedTrajets(trajetsPerPassenger = 10) {
           luggage_large:      randomBool(profile.prefs.luggage_large),
           female_driver_pref: randomBool(profile.prefs.female_driver_pref),
         };
+        
+        const driver = pickDriver(drivers, trajetPrefs);
+        const zone    = randomChoice(ALGER_ZONES);
+        const zoneEnd = randomChoice(ALGER_ZONES);
+        const heure   = randomChoice(HEURES);
+
+        
 
         const isCancelled = randomBool(0.10);
         const status      = isCancelled ? "CANCELLED_BY_PASSENGER" : "COMPLETED";

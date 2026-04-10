@@ -92,36 +92,47 @@ function toPref(val) {
 
 function prefMatch(trajet, driver) {
   const RULES = [
-    // [prefKey,             getDriverVal,                          wantTrueWhenYes]
-    ["female_driver_pref",  () => String(driver.sexe || "").trim().toLowerCase() === "f",  true],
-    ["smoking_ok",          () => toBool(driver.smoking_allowed),                          true],
-    ["luggage_large",       () => toBool(driver.car_big),                                  true],
-    ["pets_ok",             () => toBool(driver.pets_allowed),                             true],
-    ["quiet_ride",          () => toBool(driver.talkative),                               false],  // oui=calme → talkative doit être false
-    ["radio_ok",            () => toBool(driver.radio_on),                                 true],
+    ["female_driver_pref", () => String(driver.sexe || "").trim().toLowerCase() === "f"],
+    ["smoking_ok", () => toBool(driver.smoking_allowed)],
+    ["luggage_large", () => toBool(driver.car_big)],
+    ["pets_ok", () => toBool(driver.pets_allowed)],
+    ["quiet_ride", () => toBool(driver.talkative)], // special handled below
+    ["radio_ok", () => toBool(driver.radio_on)],
   ];
 
-  let matched       = 0;
-  let total         = 0;
-  let hasViolation  = false;
+  let score = 0;
+  let total = 0;
+  let strongViolation = false;
 
-  for (const [prefKey, getDriverVal, wantTrueWhenYes] of RULES) {
-    const prefVal = toPref(trajet[prefKey]);
-    if (prefVal === null) continue;  // préf non spécifiée → pas de contrainte
+  for (const [key, getDriverVal] of RULES) {
+    const prefVal = toPref(trajet[key]);
+    if (prefVal === null) continue;
 
     total++;
-    const driverHas = getDriverVal();
-    const expected  = prefVal ? wantTrueWhenYes : !wantTrueWhenYes;
 
-    if (driverHas === expected) {
-      matched++;
+    const driverHas = getDriverVal();
+
+    let match = false;
+
+    if (key === "quiet_ride") {
+      // yes = calme (talkative=false)
+      match = prefVal ? !driverHas : driverHas;
     } else {
-      hasViolation = true;
+      match = prefVal ? driverHas : !driverHas;
+    }
+
+    if (match) {
+      score++;
+    } else {
+      // ❗ IMPORTANT: ne PAS faire "hard violation"
+      strongViolation = true;
     }
   }
 
-  const score = total === 0 ? 0.5 : matched / total;
-  return { score, hasStrictViolation: hasViolation };
+  return {
+    score: total === 0 ? 0.5 : score / total,
+    hasStrictViolation: strongViolation
+  };
 }
 
 // ── WEIGHT — PÉNALITÉ DURE SUR VIOLATION STRICTE ─────────────────────────────
@@ -142,23 +153,18 @@ function computeWeight(trajet, driver) {
 
   const { score: pm, hasStrictViolation } = prefMatch(trajet, driver);
 
-  // ✅ NOUVEAU : violation stricte = weight 0.0 (signal négatif max pour LightFM)
-  if (hasStrictViolation) {
-    return 0.00;
-  }
-
   if (!trajet.evaluation) {
-    return 0.30;
+    return hasStrictViolation ? 0.10 : 0.30;
   }
 
-  const noteNorm = (trajet.evaluation.rating - 1.0) / 4.0;  // [0.0, 1.0]
+  const noteNorm = (trajet.evaluation.rating - 1) / 4;
 
-  // Toutes les prefs actives sont satisfaites (hasStrictViolation=false)
-  // → on utilise la note directement comme weight
-  // pm = 1.0 ici (toutes satisfaites) → weight = noteNorm × 1.0
-  // Si aucune pref active (pm=0.5 défaut) → weight = noteNorm × 0.75
-  const w = noteNorm * (0.50 + 0.50 * pm);
-  return parseFloat(Math.max(0.01, Math.min(1.0, w)).toFixed(4));
+  // 👇 IMPORTANT: on ne tue JAMAIS le signal
+  const base = hasStrictViolation ? 0.4 : 1.0;
+
+  const w = noteNorm * base * (0.5 + 0.5 * pm);
+
+  return Math.max(0.05, Math.min(1, w));
 }
 
 // ── EXPORT PRINCIPAL ──────────────────────────────────────────────────────────
@@ -303,3 +309,5 @@ async function exportLightFM() {
 
 export { exportLightFM };
 exportLightFM();
+
+computeWeight
