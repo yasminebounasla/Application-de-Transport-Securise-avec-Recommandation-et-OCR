@@ -19,7 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import api from "../../services/api";
 
 
-function LocationNotSupported({ onTryAnother }) {
+function LocationNotSupported({ onTryAnother }: { onTryAnother: () => void }) {
   return (
     <View style={errorStyles.overlay}>
       <View style={errorStyles.card}>
@@ -74,7 +74,7 @@ export default function MapScreen() {
     setEndLocation,
   } = useContext(LocationContext);
 
-  const [selectedLocation, setSelectedLocation] = useState(null);
+  const [selectedLocation, setSelectedLocation] = useState<Coords | null>(null);
   const [selectedAddress, setSelectedAddress]   = useState("");
   const [loadingAddress, setLoadingAddress]     = useState(false);
   const [savingAddress, setSavingAddress]       = useState(false);
@@ -82,14 +82,14 @@ export default function MapScreen() {
   const [routeCoordinates, setRouteCoordinates] = useState([]);
   const [loadingRoute, setLoadingRoute]         = useState(false);
   const [isValidRoute, setIsValidRoute]         = useState(true);
-  const [routeDistance, setRouteDistance]       = useState<number | null>(null);
+  const [routeDistance, setRouteDistance] = useState<number | null>(null);
   const [routeDuration, setRouteDuration]       = useState<number | null>(null);
   const [estimatedPrice, setEstimatedPrice]     = useState<number | null>(null);
   const [showLocationError, setShowLocationError] = useState(false);
   const [showCancelModal, setShowCancelModal]   = useState(false);
 
-  const mapRef          = useRef(null);
-  const debounceTimeout = useRef(null);
+  const mapRef = useRef<MapView>(null);
+  const debounceTimeout = useRef<any>(null);
 
   const goToCurrentLocation = () => {
     if (!currentLocation || !mapRef.current) return;
@@ -105,11 +105,11 @@ export default function MapScreen() {
     if (selectionType === "route" && startLocation && endLocation) {
       validateAndFetchRoute();
     } else if (selectionType === "route" && startLat && startLng && endLat && endLng) {
-      const parseCoord = (coord) => {
-        if (!coord) return null;
-        const val = Array.isArray(coord) ? coord[0] : coord;
-        return parseFloat(val);
-      };
+      const parseCoord = (coord: string | string[]) => {
+       if (!coord) return null;
+       const val = Array.isArray(coord) ? coord[0] : coord;
+       return parseFloat(val);
+     };
       const startLatNum = parseCoord(startLat);
       const startLngNum = parseCoord(startLng);
       const endLatNum   = parseCoord(endLat);
@@ -161,7 +161,10 @@ export default function MapScreen() {
       const response = await api.post('/ride/calculate', { start: startLocation, end: endLocation });
       const data = response.data;
       if (data.success && data.geometry?.coordinates) {
-        const coords = data.geometry.coordinates.map(([lng, lat]) => ({ latitude: lat, longitude: lng }));
+        const coords = data.geometry.coordinates.map(([lng, lat]: [number, number]) => ({
+         latitude: lat,
+         longitude: lng
+       }));
         setRouteCoordinates(coords);
         const distKm = parseFloat(data.distanceKm);
         const durMin = parseInt(data.durationMin, 10);
@@ -190,34 +193,35 @@ export default function MapScreen() {
     }
   };
 
-  const fetchAddress = async (coords) => {
-    if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
-    debounceTimeout.current = setTimeout(async () => {
-      setLoadingAddress(true);
-      try {
-        setSelectedAddress(await reverseGeocode(coords));
-      } catch {
-        setSelectedAddress("Error loading address");
-      } finally {
-        setLoadingAddress(false);
-      }
-    }, 500);
+  type Coords = { latitude: number; longitude: number };
+
+  const fetchAddress = async (coords: Coords) => {
+  if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+  debounceTimeout.current = setTimeout(async () => {
+    setLoadingAddress(true);
+    try {
+      setSelectedAddress(await reverseGeocode(coords));
+    } catch {
+      setSelectedAddress("Error loading address");
+    } finally {
+      setLoadingAddress(false);
+    }
+  }, 500) as unknown as ReturnType<typeof setTimeout>;
+ };
+
+  const handleMapPress = (e: { nativeEvent: { coordinate: Coords } }) => {
+  if (selectionType === "route") return;
+  const coords = e.nativeEvent.coordinate;
+  setSelectedLocation(coords);
+  fetchAddress(coords);
   };
 
-  const handleMapPress = (e) => {
-    if (selectionType === "route") return;
-    const coords = e.nativeEvent.coordinate;
-    setSelectedLocation(coords);
-    fetchAddress(coords);
+  const handleMarkerDragEnd = (e: { nativeEvent: { coordinate: Coords } }) => {
+  if (selectionType === "route") return;
+  const coords = e.nativeEvent.coordinate;
+  setSelectedLocation(coords);
+  fetchAddress(coords);
   };
-
-  const handleMarkerDragEnd = (e) => {
-    if (selectionType === "route") return;
-    const coords = e.nativeEvent.coordinate;
-    setSelectedLocation(coords);
-    fetchAddress(coords);
-  };
-
   const handleConfirm = () => {
     if (!selectedLocation) return;
     if (selectionType === "start") setStartLocation(selectedLocation);
@@ -235,8 +239,7 @@ export default function MapScreen() {
       const address = selectedAddress;
       const listRes = await api.get('/passengers/saved-places');
       const existing = (listRes.data.data || []).find(
-        (p) => p.label.toLowerCase() === label.toLowerCase()
-      );
+      (p: { id: number; label: string }) => p.label.toLowerCase() === label.toLowerCase());
       if (existing) {
         await api.put(`/passengers/saved-places/${existing.id}`, { label, address, lat, lng });
       } else {
@@ -265,7 +268,7 @@ export default function MapScreen() {
       } else {
         router.replace('/(driverTabs)/DriverHomeScreen');   // ← flow normal
       }
-    } catch (e) {
+    } catch (e: any) {
       Alert.alert('Error', e.response?.data?.message || 'Failed to save location.');
       setSavingAddress(false);
     }
@@ -283,7 +286,7 @@ export default function MapScreen() {
     setShowCancelModal(false);
     try {
       await api.put(`/ridesDem/${rideId}/cancel`);
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Erreur cancel:', error.response?.data || error.message);
     }
     router.replace("/(passengerTabs)/PassengerHomeScreen");
