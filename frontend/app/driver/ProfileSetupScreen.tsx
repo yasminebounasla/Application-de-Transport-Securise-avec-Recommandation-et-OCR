@@ -304,7 +304,7 @@ export default function ProfileSetupScreen() {
     setLoading(true);
     try {
       await api.put('/drivers/preferences', preferences);
-      setShowDoneModal(true);
+      router.replace('/(driverTabs)/DriverHomeScreen');
     } catch (err: any) {
       Alert.alert('Error', err.response?.data?.message || 'Failed to save preferences');
     } finally {
@@ -324,11 +324,11 @@ export default function ProfileSetupScreen() {
       </View>
 
       <View style={s.card}>
-        <Field label="Brand *"         value={vehicleData.marque}  onChangeText={handleBrandChange}        placeholder="Peugeot, Toyota, Mercedes..." error={errors.marque} />
+        <Field label="Brand"         value={vehicleData.marque}  onChangeText={handleBrandChange}        placeholder="Peugeot, Toyota, Mercedes..." error={errors.marque} />
         <SuggestionList items={brandSuggestions} onSelect={selectBrand} />
         <Field label="Model"           value={vehicleData.modele}  onChangeText={handleModelChange}        placeholder="308, Corolla, C-Class..."     error={errors.modele} />
         <SuggestionList items={modelSuggestions} onSelect={(m) => { setVehicleData({ ...vehicleData, modele: m }); setModelSuggestions([]); setErrors({ ...errors, modele: '' }); }} />
-        <Field label="License Plate *" value={vehicleData.plaque}  onChangeText={handleLicensePlateChange} placeholder="123456 126 16" keyboardType="numeric" error={errors.plaque} />
+        <Field label="License Plate" value={vehicleData.plaque}  onChangeText={handleLicensePlateChange} placeholder="123456 126 16" keyboardType="numeric" error={errors.plaque} />
         <Field label="Color"           value={vehicleData.couleur} onChangeText={handleColorChange}        placeholder="Black, White, Red..."        error={errors.couleur} />
         <SuggestionList items={colorSuggestions} onSelect={(c) => { setVehicleData({ ...vehicleData, couleur: c }); setColorSuggestions([]); setErrors({ ...errors, couleur: '' }); }} />
       </View>
@@ -460,29 +460,6 @@ export default function ProfileSetupScreen() {
         {currentStep === 3 && renderPreferencesForm()}
       </ScrollView>
 
-      <Modal visible={showDoneModal} transparent animationType="fade">
-        <View style={doneStyles.overlay}>
-          <View style={doneStyles.card}>
-            <View style={doneStyles.iconCircle}>
-              <Ionicons name="checkmark" size={28} color="#294190" />
-            </View>
-            <Text style={doneStyles.title}>All done!</Text>
-            <Text style={doneStyles.subtitle}>
-              Your profile is complete.{'\n'}Time to start driving!
-            </Text>
-            <TouchableOpacity
-              style={doneStyles.btn}
-              onPress={() => {
-                setShowDoneModal(false);
-                router.replace('/(driverTabs)/DriverHomeScreen');
-              }}
-              activeOpacity={0.85}
-            >
-              <Text style={doneStyles.btnText}>Let's go </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
     </>
   );
 }
@@ -775,64 +752,5 @@ const s = StyleSheet.create({
     color:      '#EF4444',
     fontWeight: '500',
     lineHeight: 18,
-  },
-});
-
-// ── Done modal styles ─────────────────────────────────────────────────────────
-const doneStyles = StyleSheet.create({
-  overlay: {
-    flex:              1,
-    backgroundColor:   'rgba(0,0,0,0.45)',
-    alignItems:        'center',
-    justifyContent:    'center',
-    paddingHorizontal: 32,
-  },
-  card: {
-    backgroundColor:   '#fff',
-    borderRadius:      24,
-    paddingHorizontal: 28,
-    paddingVertical:   32,
-    alignItems:        'center',
-    width:             '100%',
-    shadowColor:       '#000',
-    shadowOpacity:     0.12,
-    shadowRadius:      20,
-    elevation:         10,
-  },
-  iconCircle: {
-    width:           64,
-    height:          64,
-    borderRadius:    32,
-    backgroundColor: '#EEF1FB',
-    alignItems:      'center',
-    justifyContent:  'center',
-    marginBottom:    20,
-  },
-  title: {
-    fontSize:      22,
-    fontWeight:    '800',
-    color:         '#111',
-    marginBottom:  10,
-    letterSpacing: -0.5,
-  },
-  subtitle: {
-    fontSize:     13,
-    color:        '#888',
-    textAlign:    'center',
-    lineHeight:   20,
-    marginBottom: 20,
-  },
-  btn: {
-    backgroundColor:   '#294190',
-    borderRadius:      14,
-    paddingVertical:   13,
-    paddingHorizontal: 32,
-    alignItems:        'center',
-    width:             '100%',
-  },
-  btnText: {
-    color:      '#fff',
-    fontSize:   16,
-    fontWeight: '700',
   },
 });
