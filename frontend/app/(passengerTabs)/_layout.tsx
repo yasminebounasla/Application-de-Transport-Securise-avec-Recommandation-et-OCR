@@ -2,7 +2,7 @@ import { Tabs, router } from "expo-router";
 import { MaterialCommunityIcons, Feather } from '@expo/vector-icons';
 import { TouchableOpacity, View, Text } from 'react-native';
 import { useNotifications } from '../../context/NotificationContext';
-import ReminderModal from '../shared/ReminderModel'; 
+import ReminderModal from '../shared/ReminderModel';
 
 function NotificationButton() {
   const { unreadCount } = useNotifications();
@@ -56,7 +56,7 @@ export default function TabsLayout() {
         <Tabs.Screen
           name="PassengerHomeScreen"
           options={{
-            title: "Accueil",
+            title: "Home",
             headerShown: true,
             tabBarIcon: ({ color, size }) => (
               <MaterialCommunityIcons name="home" size={size} color={color} />
@@ -66,7 +66,7 @@ export default function TabsLayout() {
         <Tabs.Screen
           name="MesTrajets"
           options={{
-            title: "Mes Trajets",
+            title: "My Rides",
             headerShown: true,
             tabBarIcon: ({ color, size }) => (
               <MaterialCommunityIcons name="car" size={size} color={color} />
@@ -86,7 +86,7 @@ export default function TabsLayout() {
         <Tabs.Screen
           name="PassengerProfile"
           options={{
-            title: "Profil",
+            title: "Profile",
             headerShown: true,
             tabBarIcon: ({ color, size }) => (
               <MaterialCommunityIcons name="account" size={size} color={color} />
@@ -94,7 +94,7 @@ export default function TabsLayout() {
           }}
         />
       </Tabs>
-      <ReminderModal /> 
+      <ReminderModal />
     </>
   );
 }
