@@ -121,11 +121,21 @@ export default function MesTrajets() {
     pendingHighlight.current = parseInt(params.rideId);
   }, [params.rideId, params.highlight]);
 
-  const rides = useMemo(() =>
-    (passengerRides || []).filter((r: any) =>
-      ['ACCEPTED', 'IN_PROGRESS'].includes(r.status)
-    ), [passengerRides]);
+  const rides = useMemo(() => {
+  const all = (passengerRides || []).filter((r: any) =>
+    ['ACCEPTED', 'IN_PROGRESS'].includes(r.status)
+  );
 
+  // Garde seulement le dernier IN_PROGRESS
+  const inProgress = all
+    .filter((r: any) => r.status === 'IN_PROGRESS')
+    .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+    .slice(0, 1);
+
+  const accepted = all.filter((r: any) => r.status === 'ACCEPTED');
+
+   return [...inProgress, ...accepted];
+  }, [passengerRides]);
   useEffect(() => {
     if (!rides.length || !pendingHighlight.current) return;
     const targetId = pendingHighlight.current;
