@@ -204,7 +204,6 @@ model Evaluation {
   rating    Float
   comment   String?
   createdAt DateTime @default(now())
-  rejectedDriverIds Int[] @default([])
 
   trajet        Trajet           @relation(fields: [trajetId], references: [id], onDelete: Cascade)
 }
