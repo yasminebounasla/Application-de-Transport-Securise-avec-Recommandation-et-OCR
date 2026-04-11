@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator, Alert, ScrollView, StyleSheet,
-  Text, TouchableOpacity, View,
+  Text, TouchableOpacity, View,Linking,
 } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -197,7 +197,14 @@ export default function RideDetailsScreen() {
             <Text style={d.heroName} numberOfLines={1}>{contactName}</Text>
             <Text style={d.heroRole}>{isPassenger ? 'Driver' : 'Passenger'}</Text>
             {contactPhone !== FALLBACK && (
-              <Text style={d.heroPhone}>{contactPhone}</Text>
+              <TouchableOpacity
+                onPress={() => Linking.openURL(`tel:${contactPhone}`)}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}
+                activeOpacity={0.7}
+              >
+               <Ionicons name="call-outline" size={14} color="#22C55E" />
+               <Text style={[d.heroPhone, { color: '#22C55E' }]}>{contactPhone}</Text>
+              </TouchableOpacity>
             )}
           </View>
         </View>
