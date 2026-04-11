@@ -31,6 +31,7 @@ BASE_DIR   = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR   = os.path.join(BASE_DIR, "lightfm_data")
 MODELS_DIR = os.path.join(BASE_DIR, "model_real")
 
+
 # ── 1. CHARGEMENT ─────────────────────────────────────────────────────────────
 t_df = pd.read_csv(os.path.join(DATA_DIR, "trajets.csv"))
 d_df = pd.read_csv(os.path.join(DATA_DIR, "drivers.csv"))
@@ -39,6 +40,11 @@ i_df = pd.read_csv(os.path.join(DATA_DIR, "interactions.csv"))
 logger.info(f"Trajets     : {len(t_df)}")
 logger.info(f"Drivers     : {len(d_df)}")
 logger.info(f"Interactions: {len(i_df)}")
+
+if len(i_df) < 1000:
+    logger.info("⚠️ Moins de 1000 interactions — entraînement ignoré")
+    logger.info("   Le système utilise le cold start jusqu'au seuil minimum")
+    exit(0)
 
 # ── 2. NETTOYAGE ──────────────────────────────────────────────────────────────
 yes_no_cols = [
