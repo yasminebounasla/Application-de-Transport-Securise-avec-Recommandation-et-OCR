@@ -260,23 +260,6 @@ if (!licenseBuffer) {
 }
 
 
-// export async function getDriverSelfie(req, res) {
-//   const verification = await prisma.verification.findUnique({
-//     where: { driverId: parseInt(req.params.userId) },
-//     select: { selfieImage: true }
-//   });
-
-//   if (!verification?.selfieImage) {
-//     return res.status(404).json({ error: 'Selfie not found' });
-//   }
-
-//   // ✅ Return as base64 JSON instead of raw binary
-//   const base64 = verification.selfieImage.toString('base64');
-//   res.json({
-//     success: true,
-//     image: `data:image/jpeg;base64,${base64}`
-//   });
-// }
 export async function getDriverSelfie(req, res) {
   try {
     const verification = await prisma.verification.findUnique({

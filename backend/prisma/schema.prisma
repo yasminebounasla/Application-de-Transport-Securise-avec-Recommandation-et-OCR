@@ -40,12 +40,11 @@ model Driver {
   sexe                    String
   isVerified              Boolean @default(false)   // If he is validated by Admin/Ai
   age                     Int
-  hasAcceptedPhotoStorage Boolean @default(false)   // If he accept storing jis face photo in the system
-  wilaya                  String
-  latitude                Float?                    // Driver may not share location (x axis)
-  longitude               Float?                    // Driver may not share location (y axis)
-  workZoneAddress         String?                   // (Readable Location) Reverse-geocoded address of driver's work zone (city, wilaya)
-                                                    // — stored for UI display to avoid repeated API calls
+  hasAcceptedPhotoStorage Boolean @default(false)
+  wilaya                  String?
+  latitude                Float?
+  longitude               Float?
+  workZoneAddress         String?  // Reverse-geocoded address of driver's work zone (city, wilaya) — stored for UI display to avoid repeated API calls
 
 
   // Driving preferences :
@@ -200,11 +199,12 @@ model Trajet {
 
 // ---------- EVALUATION TABLE ----------
 model Evaluation {
-  id            Int              @id @default(autoincrement())
-  trajetId      Int              @unique
-  rating        Float
-  comment       String?
-  createdAt     DateTime         @default(now())
+  id        Int      @id @default(autoincrement())
+  trajetId  Int      @unique
+  rating    Float
+  comment   String?
+  createdAt DateTime @default(now())
+  rejectedDriverIds Int[] @default([])
 
   trajet        Trajet           @relation(fields: [trajetId], references: [id], onDelete: Cascade)
 }

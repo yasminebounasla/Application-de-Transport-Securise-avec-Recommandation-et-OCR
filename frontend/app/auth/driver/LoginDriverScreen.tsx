@@ -11,27 +11,27 @@ export default function LoginDriverScreen() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
-    const handleLogin = async () => {
-        setError('');
+  const handleLogin = async () => {
+    setError("");
 
-        if (!email || !password) {
-            setError('Please fill in all fields');
-            return;
-        }
+    if (!email || !password) {
+      setError("Please fill in all fields");
+      return;
+    }
 
-      const result = await loginAsDriver(email, password);
+    const result = await loginAsDriver(email, password);
 
-      if (result.success) {
-          Alert.alert("Success!", "You have successfully logged in.", [
-              {
-                  text: "OK",
-                  onPress: () =>
-                      router.replace("./../../../(driverTabs)/DriverHomeScreen"),
-              },
-          ]);
-      } else {
-          setError(result.message);
-      }
+    if (result.success) {
+      Alert.alert("Success!", "You have successfully logged in.", [
+        {
+          text: "OK",
+          onPress: () =>
+            router.replace("./../../../(driverTabs)/DriverHomeScreen"),
+        },
+      ]);
+    } else {
+      setError(result.message);
+    }
   };
 
   return (
@@ -68,16 +68,12 @@ export default function LoginDriverScreen() {
             style={{ marginBottom: 16 }}
           />
 
-                    {/* Register Link */}
-                    <View className="flex-row justify-center">
-                        <Text className="text-gray-600">Don't have an account? </Text>
-                        <Text
-                            onPress={() => router.push('./RegisterDriverScreen')}
-                            className="text-black font-semibold"
-                        >
-                            Register
-                        </Text>
-                    </View>
+          {/* Error Message */}
+          {error ? (
+            <View className='bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-6'>
+              <Text className='text-red-600 text-sm'>{error}</Text>
+            </View>
+          ) : null}
 
           {/* Submit Button */}
           <Button
@@ -103,5 +99,4 @@ export default function LoginDriverScreen() {
       </ScrollView>
     </>
   );
-
 }
