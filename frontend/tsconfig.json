@@ -6,6 +6,8 @@
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts",
-    "nativewind-env.d.ts"
-, "utils/priceCalculator.js"  ]
+    "nativewind-env.d.ts",
+    "utils/priceCalculator.js"
+  ],
+  "exclude": ["node_modules"]
 }

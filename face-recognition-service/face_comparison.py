@@ -218,7 +218,9 @@ class FaceComparisonEngine:
         for adj_name, adj_value in adjustments:
             logger.info(f"  {adj_name}: {adj_value:+.2f}")
         logger.info(f"  🎯 FINAL THRESHOLD: {current_threshold:.2f}")
-        
+        current_threshold = min(current_threshold, settings.MAX_THRESHOLD)
+        logger.info(f"  🔒 CAPPED THRESHOLD: {current_threshold:.2f}")
+
         return current_threshold, adjustments
     
     def determine_verdict(

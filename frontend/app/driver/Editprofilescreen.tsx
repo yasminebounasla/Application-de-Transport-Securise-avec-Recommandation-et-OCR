@@ -11,7 +11,7 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  Animated, 
+  Animated,
   Image,
 } from "react-native";
 import { Stack, router, useFocusEffect } from "expo-router";
@@ -19,7 +19,7 @@ import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { KeyboardTypeOptions } from "react-native";
 import { useCallback } from "react";
-import api, { API_URL } from '../../services/api';
+import api, { API_URL } from "../../services/api";
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>["name"];
 type Tab = "personal" | "preferences" | "vehicle" | "zone";
@@ -196,13 +196,13 @@ export default function EditProfileScreen() {
   const [workZoneAddress, setWorkZoneAddress] = useState("");
   const [wilaya, setWilaya] = useState("");
 
-  //selfie
-  const [selfieUrl, setSelfieUrl] = useState<string | null>(null);
-  const [driverId, setDriverId] = useState<number | null>(null);
+//selfie
+const [selfieUrl, setSelfieUrl] = useState<string | null>(null);
+const [driverId, setDriverId] = useState<number | null>(null);
 
-  useEffect(() => {
-    loadData();
-  }, []);
+useEffect(() => {
+  loadData();
+}, []);
 
   // ── Refresh work zone quand on revient de MapScreen ──
   useFocusEffect(
@@ -225,8 +225,17 @@ export default function EditProfileScreen() {
       const raw = (d.sexe || "").toString().trim().toUpperCase();
       setSexe(raw === "F" ? "F" : "M");
       setDriverId(d.id);
-      setSelfieUrl(`${API_URL}/driver/${d.id}/selfie`);
-
+try {
+  const selfieRes = await api.get(`/verification/driver/${d.id}/selfie`);
+  console.log('🖼️ SELFIE STATUS:', selfieRes.status);
+  console.log('🖼️ SELFIE DATA:', JSON.stringify(selfieRes.data).substring(0, 100));
+  if (selfieRes.data.success) {
+    setSelfieUrl(selfieRes.data.image);
+  }
+} catch (e: any) {
+  console.log('❌ SELFIE ERROR STATUS:', e?.response?.status);
+  console.log('❌ SELFIE ERROR DATA:', JSON.stringify(e?.response?.data));
+}
       const p = d.preferences ?? d;
       setTalkative(!!p.talkative);
       setRadioOn(!!p.radio_on);
@@ -383,7 +392,7 @@ export default function EditProfileScreen() {
                     <Image
                       source={{ uri: selfieUrl }}
                       style={{ width: 88, height: 88, borderRadius: 44 }}
-                      onError={() => setSelfieUrl(null)} 
+                      onError={() => setSelfieUrl(null)}
                     />
                   ) : (
                     <Ionicons name='person' size={44} color='#fff' />

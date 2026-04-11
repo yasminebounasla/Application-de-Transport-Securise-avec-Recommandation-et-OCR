@@ -12,7 +12,7 @@ datasource db {
 // ---------- PASSENGER TABLE ----------
 model Passenger {
   id            Int               @id @default(autoincrement())   // Primary key, auto-increment
-  email         String            @unique                        
+  email         String            @unique
   password      String
   nom           String
   prenom        String
@@ -20,7 +20,7 @@ model Passenger {
   age           Int
 
   profile_type  String?           @default("neutral")             // (?): optional & nullable , default profile type (if null -> "neutral")
-  
+
   createdAt     DateTime          @default(now())   // record creation timestamp of the account
   updatedAt     DateTime          @updatedAt        // auto-updated timestamp on change in the account infos
 
@@ -44,7 +44,7 @@ model Driver {
   wilaya                  String
   latitude                Float?                    // Driver may not share location (x axis)
   longitude               Float?                    // Driver may not share location (y axis)
-  workZoneAddress         String?                   // (Readable Location) Reverse-geocoded address of driver's work zone (city, wilaya) 
+  workZoneAddress         String?                   // (Readable Location) Reverse-geocoded address of driver's work zone (city, wilaya)
                                                     // — stored for UI display to avoid repeated API calls
 
 
@@ -105,23 +105,23 @@ model Verification {
   threshold       Float                             // Minimum required score
   margin          Float                             // Tolerance
   confidence      String                            // Confidence level for the verification (ex: "high", "medium", "low").
-  licenseQuality  Int?                              
-  selfieQuality   Int?                              
+  licenseQuality  Int?
+  selfieQuality   Int?
   isApproved      Boolean         @default(false)   // Final result
   createdAt       DateTime        @default(now())
 
-  driver Driver                   @relation(fields: [driverId], references: [id], onDelete: Cascade)   // Delete completely the verification if the Driver is deleted 
+  driver Driver                   @relation(fields: [driverId], references: [id], onDelete: Cascade)   // Delete completely the verification if the Driver is deleted
 }
 
 // ---------- LICENSE TABLE ----------
 model License {
-  id            Int               @id @default(autoincrement())
-  driverId      Int               @unique
-  ninEncrypted  String            @db.VarChar(500)  // Encrypted national ID
-  permisImage   Bytes
+  id            Int       @id @default(autoincrement())
+  driverId      Int       @unique
+  ninEncrypted  String    @db.VarChar(500)
+  permisImage   Bytes?
   issueDate     DateTime?
   expiryDate    DateTime?
-  ocrConfidence Int?                                // Confidence score returned by the OCR system (ex: 95%, 15%) 
+  ocrConfidence Int?                                // Confidence score returned by the OCR system (ex: 95%, 15%)
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt
 
@@ -135,7 +135,7 @@ enum TrajetStatus {
   IN_PROGRESS                                       // Trip already started
   COMPLETED
   CANCELLED_BY_PASSENGER
-  CANCELLED_BY_DRIVER                               
+  CANCELLED_BY_DRIVER
 }
 
 // ---------- TRAJET TABLE ----------
@@ -175,7 +175,7 @@ model Trajet {
 
   // Timeout Management
   fallbackStep          Int       @default(0)       // How many fallback(retry) attempts the system has made to assign a driver for this trip.
-  
+
   // Passenger's preferences for THIS Trajet (User features LightFM)
   quiet_ride            String    @default("no")
   radio_ok              String    @default("no")
@@ -190,8 +190,8 @@ model Trajet {
   updatedAt             DateTime  @updatedAt
   completedAt           DateTime?
 
-  driver                Driver?     @relation(fields: [driverId], references: [id])    // If driverId is optional, then driver is also optional, and vise versa 
-  passenger             Passenger?  @relation(fields: [passagerId], references: [id])  // If passengerId is optional, then passenger is also optional, and vise versa 
+  driver                Driver?     @relation(fields: [driverId], references: [id])    // If driverId is optional, then driver is also optional, and vise versa
+  passenger             Passenger?  @relation(fields: [passagerId], references: [id])  // If passengerId is optional, then passenger is also optional, and vise versa
   evaluation            Evaluation?
 
   @@index([driverId])
@@ -248,7 +248,7 @@ model Notification {
   id            Int              @id @default(autoincrement())
   driverId      Int?
   passengerId   Int?
-  recipientType NotificationRecipient               // Who receives it 
+  recipientType NotificationRecipient               // Who receives it
   type          NotificationType
   title         String
   message       String

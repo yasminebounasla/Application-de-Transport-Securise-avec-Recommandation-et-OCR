@@ -26,7 +26,7 @@ except ImportError:
 # DÉTECTION ET CORRECTION DE ROTATION
 # ============================================================================
 
-def detect_best_rotation(image_path):
+def detect_best_rotation(image_path, reader):
     """
     Détecte automatiquement la meilleure orientation
     Teste 0°, 90°, 180°, 270° et garde la meilleure
@@ -44,12 +44,6 @@ def detect_best_rotation(image_path):
 
     if not EASYOCR_AVAILABLE:
         print("⚠️  EasyOCR non disponible, rotation par défaut: 0°")
-        return img, 0
-
-    try:
-        reader = easyocr.Reader(['en', 'fr'], gpu=False, verbose=False)
-    except Exception as e:
-        print(f"⚠️  Erreur lors de l'initialisation d'EasyOCR: {e}")
         return img, 0
 
     angles = [0, 90, 180, 270]
@@ -171,7 +165,7 @@ def advanced_preprocess(image, show_steps=False):
 # OCR AVEC COORDONNÉES SPATIALES
 # ============================================================================
 
-def run_easyocr_with_coords(image, color_image):
+def run_easyocr_with_coords(image, color_image, reader):
     """
     EasyOCR avec extraction des coordonnées spatiales
     """
@@ -185,7 +179,6 @@ def run_easyocr_with_coords(image, color_image):
 
     try:
         print("🔹 EasyOCR avec coordonnées spatiales...")
-        reader = easyocr.Reader(['en', 'fr'], gpu=False, verbose=False)
 
         # Essayer sur binaire ET couleur
         results_binary = reader.readtext(image, detail=1, paragraph=False)
@@ -235,64 +228,131 @@ def run_easyocr_with_coords(image, color_image):
 # EXTRACTION DES INFORMATIONS
 # ============================================================================
 
-def fuzzy_match_license(text, ocr_results):
-    """
-    Détection "DRIVING LICENSE" ULTRA-tolérante
-    """
-    print("🔍 Détection 'DRIVING LICENSE' (ULTRA-tolérant)...")
+# def fuzzy_match_license(text, ocr_results):
+#     """
+#     Détection "DRIVING LICENSE" ULTRA-tolérante
+#     """
+#     print("🔍 Détection 'DRIVING LICENSE' (ULTRA-tolérant)...")
 
+#     text_upper = text.upper()
+
+#     # Méthode 1: Pattern exact
+#     pattern_exact = r'DRIVING\s+LICENSE'
+#     match_exact = re.search(pattern_exact, text_upper)
+
+#     if match_exact:
+#         print(f"   ✅ 'DRIVING LICENSE' trouvé (exact)")
+#         return True, "DRIVING LICENSE"
+
+#     # Méthode 2: Patterns ULTRA-tolérants
+#     patterns_fuzzy = [
+#         r'DRIVING\s+LICEN[CS]E',
+#         r'DRIVING\s+[UL]ICEN[CS]E',
+#         r'DRIVING\s+LI[CS]EN[CS]E',
+#         r'DR[I1]V[I1]NG\s+LICENSE',
+#         r'DRIVING\s+\(ICENSE',
+#         r'DRIVING\s+\[ICENSE',
+#         r'DRIVING\s+UCENSE',
+#         r'DRIVING\s+L[I1]CEN[S5]E',
+#         r'DR[I1]V[I1I]?NG\s+L[I1]CEN[CS5]E',
+#         r'DRIVING[\s\-_]+LICENSE',
+#         r'DRIVING[\s\-_]+LICEN[CS]E',
+#     ]
+
+#     for pattern in patterns_fuzzy:
+#         match = re.search(pattern, text_upper)
+#         if match:
+#             print(f"   ✅ 'DRIVING LICENSE' trouvé (variation): '{match.group()}'")
+#             return True, "DRIVING LICENSE"
+
+#     # Méthode 3: Vérifier mots séparés + position spatiale
+#     has_driving = any(word in text_upper for word in ['DRIVING', 'DRIV'])
+#     has_license = any(word in text_upper for word in ['LICENSE', 'LICENCE', 'LICEN', 'UCENSE', 'ICENSE', '(ICENSE'])
+
+#     if has_driving and has_license and ocr_results:
+#         max_y = max([r['y'] for r in ocr_results]) if ocr_results else float('inf')
+#         height_threshold = max_y * 0.3
+
+#         driving_words = [r for r in ocr_results if any(w in r['text'].upper() for w in ['DRIV'])]
+#         license_words = [r for r in ocr_results if any(w in r['text'].upper() for w in ['LICEN', 'UCENSE', 'ICENSE', '(ICENSE'])]
+
+#         driving_top = any(r['y'] < height_threshold for r in driving_words)
+#         license_top = any(r['y'] < height_threshold for r in license_words)
+
+#         if driving_top and license_top:
+#             print(f"   ✅ 'DRIVING' + 'LICENSE' trouvés dans le TOP de l'image")
+#             return True, "DRIVING LICENSE"
+
+#     print(f"   ⚠️  'DRIVING LICENSE' non détecté")
+#     return False, None
+
+
+def fuzzy_match_license(text, ocr_results, color_image=None,reader=None ):
+    print("🔍 Détection 'DRIVING LICENSE' (ULTRA-tolérant)...")
     text_upper = text.upper()
 
-    # Méthode 1: Pattern exact
-    pattern_exact = r'DRIVING\s+LICENSE'
-    match_exact = re.search(pattern_exact, text_upper)
-
-    if match_exact:
-        print(f"   ✅ 'DRIVING LICENSE' trouvé (exact)")
-        return True, "DRIVING LICENSE"
-
-    # Méthode 2: Patterns ULTRA-tolérants
     patterns_fuzzy = [
         r'DRIVING\s+LICEN[CS]E',
         r'DRIVING\s+[UL]ICEN[CS]E',
-        r'DRIVING\s+LI[CS]EN[CS]E',
-        r'DR[I1]V[I1]NG\s+LICENSE',
-        r'DRIVING\s+\(ICENSE',
-        r'DRIVING\s+\[ICENSE',
-        r'DRIVING\s+UCENSE',
-        r'DRIVING\s+L[I1]CEN[S5]E',
-        r'DR[I1]V[I1I]?NG\s+L[I1]CEN[CS5]E',
+        r'DR[I1]V[I1]NG\s+L[I1]CEN[CS5]E',
         r'DRIVING[\s\-_]+LICENSE',
-        r'DRIVING[\s\-_]+LICEN[CS]E',
+        r'DRIVING\s+UCENSE',
+        r'DRIVING\s+\(ICENSE',
+        r'PNIVING\s+UCENSE',
+        r'PNIVING\s+LICEN[CS]E',
+        r'[DP]NIVING\s+[UL]CENSE',
+        r'[DP]R?[NI]VING\s+[UL]?ICEN[CS]E',
     ]
 
+    # Méthode 1: Dans le texte déjà extrait
     for pattern in patterns_fuzzy:
-        match = re.search(pattern, text_upper)
-        if match:
-            print(f"   ✅ 'DRIVING LICENSE' trouvé (variation): '{match.group()}'")
+        if re.search(pattern, text_upper):
+            print(f"   ✅ 'DRIVING LICENSE' trouvé dans OCR texte")
             return True, "DRIVING LICENSE"
 
-    # Méthode 3: Vérifier mots séparés + position spatiale
-    has_driving = any(word in text_upper for word in ['DRIVING', 'DRIV'])
-    has_license = any(word in text_upper for word in ['LICENSE', 'LICENCE', 'LICEN', 'UCENSE', 'ICENSE', '(ICENSE'])
+    # Méthode 2: Mots séparés dans le texte
+    has_driving = any(w in text_upper for w in ['DRIVING', 'DRIV', 'PNIVING', 'NIVING'])
+    has_license = any(w in text_upper for w in ['LICENSE', 'LICENCE', 'LICEN', 'UCENSE', 'ICENSE', '(ICENSE', 'CENSE'])
+    if has_driving and has_license:
+        print(f"   ✅ 'DRIVING' + 'LICENSE' trouvés séparément")
+        return True, "DRIVING LICENSE"
 
-    if has_driving and has_license and ocr_results:
-        max_y = max([r['y'] for r in ocr_results]) if ocr_results else float('inf')
-        height_threshold = max_y * 0.3
+    # Méthode 3: OCR ciblé sur zone droite image couleur (zone holographique)
+    if color_image is not None and reader is not None:
+        try:
+            print("   🔄 Retry OCR ciblé sur zone holographique (couleur)...")
 
-        driving_words = [r for r in ocr_results if any(w in r['text'].upper() for w in ['DRIV'])]
-        license_words = [r for r in ocr_results if any(w in r['text'].upper() for w in ['LICEN', 'UCENSE', 'ICENSE', '(ICENSE'])]
 
-        driving_top = any(r['y'] < height_threshold for r in driving_words)
-        license_top = any(r['y'] < height_threshold for r in license_words)
+            h, w = color_image.shape[:2]
+            # Crop top-right: là où est écrit "DRIVING LICENSE" sur le permis algérien
+            right_zone = color_image[0:int(h * 0.5), int(w * 0.35):]
 
-        if driving_top and license_top:
-            print(f"   ✅ 'DRIVING' + 'LICENSE' trouvés dans le TOP de l'image")
-            return True, "DRIVING LICENSE"
+            # Améliorer contraste SANS binarisation
+            gray_zone = cv2.cvtColor(right_zone, cv2.COLOR_BGR2GRAY)
+            clahe = cv2.createCLAHE(clipLimit=4.0, tileGridSize=(4, 4))
+            enhanced_zone = clahe.apply(gray_zone)
+
+            results = reader.readtext(enhanced_zone, detail=0, paragraph=False)
+            zone_text = ' '.join(results).upper()
+            print(f"   📝 Zone holographique texte: {zone_text[:150]}")
+
+            for pattern in patterns_fuzzy:
+                if re.search(pattern, zone_text):
+                    print(f"   ✅ 'DRIVING LICENSE' trouvé dans zone holographique!")
+                    return True, "DRIVING LICENSE"
+
+            # Vérifier mots séparés aussi
+            has_d = any(w in zone_text for w in ['DRIVING', 'DRIV', 'PNIVING', 'NIVING'])
+            has_l = any(w in zone_text for w in ['LICENSE', 'LICENCE', 'LICEN', 'UCENSE', 'ICENSE', '(ICENSE', 'CENSE'])
+            if has_d and has_l:
+                print(f"   ✅ 'DRIVING' + 'LICENSE' trouvés dans zone holographique!")
+                return True, "DRIVING LICENSE"
+
+        except Exception as e:
+            print(f"   ⚠️  Retry couleur échoué: {e}")
 
     print(f"   ⚠️  'DRIVING LICENSE' non détecté")
     return False, None
-
 
 def extract_dates_spatial(text, ocr_results):
     """
@@ -375,7 +435,7 @@ def extract_dates_spatial(text, ocr_results):
         return None, None
 
 
-def extract_driving_license_info(text, ocr_results):
+def extract_driving_license_info(text, ocr_results, color_image=None, reader=None):
     """
     Extraction avec validation stricte
     """
@@ -402,7 +462,7 @@ def extract_driving_license_info(text, ocr_results):
 
     # ===== 1. TYPE =====
     print("🔍 1. Vérification du type...")
-    is_license, license_type = fuzzy_match_license(text, ocr_results)
+    is_license, license_type = fuzzy_match_license(text, ocr_results, color_image, reader)  # Passer reader pour retry couleur
 
     if is_license:
         info['type'] = license_type
@@ -444,7 +504,7 @@ def extract_driving_license_info(text, ocr_results):
         if not info['nin']:
             print("   ❌ NIN non trouvé")
 
-    
+
     # ===== 3. DATES =====
     print("\n🔍 3. Extraction des dates...")
     date_creation, date_expiration = extract_dates_spatial(text, ocr_results)
@@ -455,47 +515,67 @@ def extract_driving_license_info(text, ocr_results):
     # ===== 4. VALIDATION =====
     print("\n🔍 4. Validation du permis...")
 
-    if date_expiration:
+    # if date_expiration:
+    #     try:
+    #         parts = date_expiration.split('.')
+    #         exp_date = datetime(int(parts[2]), int(parts[1]), int(parts[0]))
+    #         today = datetime.now()
+
+    #         is_future = exp_date > today
+    #         info['validation_details']['expiration_future'] = is_future
+
+    #         if info['is_driving_license'] and is_future:
+    #             info['is_valid'] = True
+    #             print(f"   ✅ PERMIS VALIDE")
+    #         else:
+    #             info['is_valid'] = False
+    #             print(f"   ❌ PERMIS INVALIDE")
+    #     except:
+    #         info['is_valid'] = False
+    #         print(f"   ⚠️  Impossible de valider")
+    # else:
+    #     info['is_valid'] = False
+    #     print(f"   ⚠️  Impossible de valider (pas de date)")
+
+
+    has_nin = info['nin'] is not None and len(str(info['nin'])) >= 16
+    has_type = info['is_driving_license']
+    has_expiry = info['date_expiration'] is not None
+
+    if not has_type:
+        info['is_valid'] = False
+        print("   ❌ INVALIDE: 'DRIVING LICENSE' non détecté")
+    elif not has_nin:
+        info['is_valid'] = False
+        print("   ❌ INVALIDE: NIN non trouvé")
+    elif not has_expiry:
+        info['is_valid'] = False
+        print("   ❌ INVALIDE: Date expiration non trouvée")
+    # ✅ CORRECT — return is outside all if/elif/else
+    else:
         try:
-            parts = date_expiration.split('.')
+            parts = info['date_expiration'].split('.')
             exp_date = datetime(int(parts[2]), int(parts[1]), int(parts[0]))
-            today = datetime.now()
-
-            is_future = exp_date > today
-            info['validation_details']['expiration_future'] = is_future
-
-            if info['is_driving_license'] and is_future:
+            if exp_date > datetime.now():
                 info['is_valid'] = True
-                print(f"   ✅ PERMIS VALIDE")
+                info['validation_details']['expiration_future'] = True
+                print("   ✅ PERMIS VALIDE (type + NIN + expiration OK)")
             else:
                 info['is_valid'] = False
-                print(f"   ❌ PERMIS INVALIDE")
+                print("   ❌ INVALIDE: Permis expiré")
         except:
             info['is_valid'] = False
-            print(f"   ⚠️  Impossible de valider")
-    else:
-        info['is_valid'] = False
-        print(f"   ⚠️  Impossible de valider (pas de date)")
+            print("   ❌ INVALIDE: Date invalide")
 
     print()
     return info
-
 
 # ============================================================================
 # FONCTION PRINCIPALE
 # ============================================================================
 
-def process_driving_license(image_path, output_json=None):
-    """
-    Fonction principale pour traiter un permis de conduire
-    
-    Args:
-        image_path: Chemin vers l'image du permis
-        output_json: Chemin optionnel pour sauvegarder le JSON
-        
-    Returns:
-        dict: Informations extraites
-    """
+def process_driving_license(image_path, reader, output_json=None):
+
     print("\n")
     print("="*80)
     print("🚗 EXTRACTION PERMIS DE CONDUIRE - VERSION GITHUB")
@@ -504,16 +584,16 @@ def process_driving_license(image_path, output_json=None):
 
     try:
         # Détection rotation
-        rotated_image, rotation_angle = detect_best_rotation(image_path)
+        rotated_image, rotation_angle = detect_best_rotation(image_path, reader)
 
         # Prétraitement
         binary_img, color_img = advanced_preprocess(rotated_image, show_steps=False)
 
         # OCR
-        full_text, ocr_results = run_easyocr_with_coords(binary_img, color_img)
+        full_text, ocr_results = run_easyocr_with_coords(binary_img, color_img, reader)
 
         # Extraction
-        info = extract_driving_license_info(full_text, ocr_results)
+        info = extract_driving_license_info(full_text, ocr_results, color_img, reader)
 
         # Sauvegarde JSON
         if output_json:

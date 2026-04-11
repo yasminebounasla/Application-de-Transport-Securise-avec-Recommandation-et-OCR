@@ -1,21 +1,19 @@
 import express from 'express';
-import { 
-  uploadLicense, 
-  uploadSelfie, 
-  uploadBoth, 
-  handleMulterError 
+import {
+  uploadLicense,
+  uploadSelfie,
+  handleMulterError
 } from '../middleware/uploadMiddleware.js';
 import { authenticate } from '../middleware/authMiddleware.js';
 import { registerDriver } from '../controllers/authDriverController.js';
 
-import { 
-    
-    uploadLicense as uploadLicenseController, 
-    uploadSelfie as uploadSelfieController, 
-    completeVerification, 
-    getVerificationStatus, 
-    updatePhotoConsent, 
-    healthCheck, 
+import {
+
+    uploadLicense as uploadLicenseController,
+    uploadSelfie as uploadSelfieController,
+    getVerificationStatus,
+    updatePhotoConsent,
+    healthCheck,
     getDriverSelfie
 } from '../controllers/verificationController.js';
 
@@ -28,21 +26,11 @@ router.post('/consent', authenticate, updatePhotoConsent);
 
 // // Add this log at the VERY top of your upload-license route
 router.post('/upload-license', (req, res, next) => {
-    console.log("!!! ATTACK DETECTED - ROUTE HIT !!!"); 
+    console.log("!!! ATTACK DETECTED - ROUTE HIT !!!");
     console.log("Auth Header:", req.headers.authorization ? "Present" : "MISSING");
     next();
 }, authenticate, uploadLicense, handleMulterError, uploadLicenseController);
 router.post('/upload-selfie', authenticate, uploadSelfie, handleMulterError, uploadSelfieController);
-/**
- * ROUTE COMBINÉE: Upload permis + selfie en une fois
- */
-router.post(
-  '/complete',
-  authenticate,
-  uploadBoth,
-  handleMulterError,
-  completeVerification
-);
 
 /**
  * Obtenir le statut de vérification
@@ -61,8 +49,12 @@ router.post(
   authenticate,
   updatePhotoConsent
 );
-router.get('/driver/:userId/selfie', authenticate, getDriverSelfie);
-
+// router.get('/driver/:userId/selfie', authenticate, getDriverSelfie);
+router.get('/driver/:userId/selfie', (req, res, next) => {
+  console.log('🔍 Selfie route hit, userId:', req.params.userId);
+  console.log('🔍 Auth header:', req.headers.authorization ? 'Present' : 'MISSING');
+  next();
+}, authenticate, getDriverSelfie);
 
 /**
  * Health check des services

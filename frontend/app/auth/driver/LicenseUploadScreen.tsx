@@ -154,13 +154,17 @@ console.log("🚀 [STEP 0] Starting Upload Process");
 console.log("📍 [STEP 2] Existing User Check:", existingUserData ? "YES" : "NO (Registering new)");
       if (existingUserData) {
         userId = JSON.parse(existingUserData).id;
+          const storedToken = await AsyncStorage.getItem("token"); // adjust key to match yours
+
+            currentToken = storedToken;
+
       } else {
         const registerResult = await registerAsDriver(registrationData);
         if (!registerResult.success) {
           throw new Error(registerResult.message || "Account creation failed");
         }
 
-        currentToken = registerResult.token;
+        currentToken = registerResult.token ?? null;
 
         const newUserStr = await AsyncStorage.getItem("user");
         if (!newUserStr) throw new Error("Session creation failed");
@@ -176,7 +180,7 @@ console.log("📍 [STEP 2] Existing User Check:", existingUserData ? "YES" : "NO
       console.log("📍 [STEP 4] TRIGGERING AXIOS UPLOAD...");
       console.log("   - URI:", imageUri);
       console.log("   - Token present:", !!currentToken);
-      const licenseResult = await uploadLicense(userId, imageUri, currentToken);
+const licenseResult = await uploadLicense(userId, imageUri, currentToken as any);
 console.log("📍 [STEP 5] SERVER RESPONSE RECEIVED:", licenseResult.success ? "SUCCESS" : "FAILED");
       if (!licenseResult.success) {
         const errorMessage = parseUploadError(licenseResult);
@@ -191,7 +195,7 @@ console.error("❌ Upload License Logic Error:", errorMessage);
       await AsyncStorage.removeItem("tempRegistrationData");
 console.log("🎉 [FINAL STEP] Process Complete, redirecting...");
       // ✅ AFFICHER TOAST SUCCESS (3 secondes puis navigation)
-      
+
       setViewMode("selection");
       showToast("License verified successfully!", "success");
 
@@ -238,8 +242,8 @@ console.log("🎉 [FINAL STEP] Process Complete, redirecting...");
           </Text>
 
           <Text className='text-sm text-gray-600 mb-2 text-center px-4'>
-            Stay tuned while we verify your driver's license. We'll notify you once it's done. 
-          
+            Stay tuned while we verify your driver's license. We'll notify you once it's done.
+
           </Text>
 
           <Text className='text-xs text-gray-500 italic text-center px-4'>

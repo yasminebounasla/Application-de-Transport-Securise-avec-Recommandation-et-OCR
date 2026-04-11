@@ -5,81 +5,83 @@ import { prisma } from "../config/prisma.js";
 
 const jwtSecret = process.env.JWT_SECRET;
 
-
 // LOGIN PASSENGER
 export const loginPassenger = async (req, res) => {
   const { email, password } = req.body;
-  
+
   try {
     const passenger = await prisma.passenger.findUnique({
-      where: { email: email.trim().toLowerCase() }
+      where: { email: email.trim().toLowerCase() },
     });
-    
+
     if (!passenger) {
       return res.status(400).json({ message: "Passenger not found." });
     }
-    
+
     const validPassword = await bcrypt.compare(password, passenger.password);
     if (!validPassword) {
       return res.status(400).json({ message: "Invalid password" });
     }
-    
+
     // FIX: Utiliser passengerId au lieu de id
-    const token = jwt.sign(
-      {
-        passengerId: passenger.id,  
-        email: passenger.email,
-        name: `${passenger.nom} ${passenger.prenom}`
-      },
-      jwtSecret,
-      { expiresIn: "7d" }
+    const accessToken = jwt.sign(
+      { passengerId: passenger.id, email: passenger.email, role: "passenger" },
+      process.env.JWT_SECRET,
+      { expiresIn: "1h" },
     );
-    
+
+    const refreshToken = jwt.sign(
+      { passengerId: passenger.id, role: "passenger" },
+      process.env.JWT_REFRESH_SECRET,
+      { expiresIn: "90d" },
+    );
+
     passenger.password = undefined;
-    
+
     res.status(200).json({
       message: "Login successful.",
-      data: { passenger, token }
+      data: { passenger, accessToken, refreshToken },
     });
-    
   } catch (err) {
-    console.error('❌ Erreur login:', err);
+    console.error("❌ Erreur login:", err);
     res.status(500).json({ message: "Failed to Login", error: err.message });
   }
 };
 
-
 // REGISTER PASSENGER
 export const registerPassenger = async (req, res) => {
-  const { email, password, confirmPassword, nom, prenom, age, numTel } = req.body;
-  
+  const { email, password, confirmPassword, nom, prenom, age, numTel } =
+    req.body;
+
   try {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return res.status(400).json({ message: "Invalid email format" });
     }
-    
+
     const passwordError = validatePassword(password);
     if (passwordError) return res.status(400).json({ message: passwordError });
-    
+
     if (password !== confirmPassword) {
       return res.status(400).json({ message: "Passwords do not match." });
     }
-    
+
     if (age < 17) {
-      return res.status(400).json({ message: "You must be at least 17 years old to register." });
+      return res
+        .status(400)
+        .json({ message: "You must be at least 17 years old to register." });
     }
-    
+
     const existingPassenger = await prisma.passenger.findUnique({
-      where: { email: email.trim().toLowerCase() }
+      where: { email: email.trim().toLowerCase() },
     });
-    
+
     if (existingPassenger) {
       return res.status(400).json({ message: "Passenger already registered." });
     }
-    
+
     const hashedPassword = await bcrypt.hash(password, 10);
-    
+
     const newPassenger = await prisma.passenger.create({
       data: {
         email: email.trim().toLowerCase(),
@@ -87,29 +89,64 @@ export const registerPassenger = async (req, res) => {
         nom: nom.trim(),
         prenom: prenom.trim(),
         age,
-        numTel
-      }
-    });
-    
-    // Utiliser passengerId au lieu de id
-    const token = jwt.sign(
-      {
-        passengerId: newPassenger.id,  
-        email: newPassenger.email,
-        name: `${newPassenger.nom} ${newPassenger.prenom}`
+        numTel,
       },
-      jwtSecret,
-      { expiresIn: "7d" }
+    });
+
+    // Utiliser passengerId au lieu de id
+    const accessToken = jwt.sign(
+      {
+        passengerId: newPassenger.id,
+        email: newPassenger.email,
+        role: "passenger",
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "1h" },
     );
-    
+
+    const refreshToken = jwt.sign(
+      { passengerId: newPassenger.id, role: "passenger" },
+      process.env.JWT_REFRESH_SECRET,
+      { expiresIn: "90d" },
+    );
+
     newPassenger.password = undefined;
-    
+
     res.status(201).json({
       message: "Passenger registered successfully.",
-      data: { passenger: newPassenger, token }
+      data: { passenger: newPassenger, accessToken, refreshToken },
     });
-    
   } catch (err) {
-    res.status(500).json({ message: "Failed to register passenger.", error: err.message });
+    res
+      .status(500)
+      .json({ message: "Failed to register passenger.", error: err.message });
+  }
+};
+
+export const refreshPassengerToken = async (req, res) => {
+  const { refreshToken } = req.body;
+
+  if (!refreshToken) {
+    return res.status(401).json({ message: "Refresh token manquant" });
+  }
+
+  try {
+    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+
+    const newAccessToken = jwt.sign(
+      {
+        passengerId: decoded.passengerId,
+        email: decoded.email,
+        role: "passenger",
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "1h" },
+    );
+
+    res.status(200).json({ accessToken: newAccessToken });
+  } catch (err) {
+    return res
+      .status(403)
+      .json({ message: "Refresh token invalide ou expiré" });
   }
 };

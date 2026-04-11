@@ -1,22 +1,28 @@
-import React, { createContext, useState, useEffect, useContext } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { loginDriver, loginPassenger, registerDriver, registerPassenger } from '../services/authService';
+import React, { createContext, useState, useEffect, useContext } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import {
+  loginDriver,
+  loginPassenger,
+  registerDriver,
+  registerPassenger,
+} from "../services/authService";
 
 const AuthContext = createContext();
 
 const decodeJWT = (token) => {
   try {
-    const base64Url = token.split('.')[1];
-    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const base64Url = token.split(".")[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
     const jsonPayload = decodeURIComponent(
+      // eslint-disable-next-line no-undef
       atob(base64)
-        .split('')
-        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
-        .join('')
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join(""),
     );
     return JSON.parse(jsonPayload);
   } catch (error) {
-    console.error('Error decoding JWT:', error);
+    console.error("Error decoding JWT:", error);
     return null;
   }
 };
@@ -37,10 +43,15 @@ export const AuthProvider = ({ children }) => {
 
   const checkAuth = async () => {
     try {
-      const token = await AsyncStorage.getItem('token');
-      const storedUser = await AsyncStorage.getItem('user');
+      const token = await AsyncStorage.getItem("token");
+      const storedUser = await AsyncStorage.getItem("user");
 
-      if (token && token.trim() !== "" && token !== "null" && token !== "undefined") {
+      if (
+        token &&
+        token.trim() !== "" &&
+        token !== "null" &&
+        token !== "undefined"
+      ) {
         if (isTokenExpired(token)) {
           await AsyncStorage.removeItem("token");
           await AsyncStorage.removeItem("user");
@@ -70,11 +81,12 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await loginDriver({ email, password });
       const responseData = response.data.data || response.data;
-      const { driver, token } = responseData;
-
-      if (!token) throw new Error('No token received from server');
-
-      await AsyncStorage.setItem("token", token);
+      // newww
+      const { driver, accessToken, refreshToken } = responseData;
+      if (!accessToken) throw new Error("No token received from server");
+      await AsyncStorage.setItem("token", accessToken);
+      await AsyncStorage.setItem("refreshToken", refreshToken);
+      await AsyncStorage.setItem("userType", "driver");
 
       const userInfo = {
         id: driver.id,
@@ -91,7 +103,7 @@ export const AuthProvider = ({ children }) => {
         age: driver.age,
         numTel: driver.numTel,
         email: driver.email,
-        role: 'driver'
+        role: "driver",
       };
 
       await AsyncStorage.setItem("user", JSON.stringify(userInfo));
@@ -102,7 +114,7 @@ export const AuthProvider = ({ children }) => {
       console.error("Login error:", err);
       return {
         success: false,
-        message: err.response?.data?.message || err.message || "Login failed"
+        message: err.response?.data?.message || err.message || "Login failed",
       };
     } finally {
       setLoading(false);
@@ -114,11 +126,12 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await loginPassenger({ email, password });
       const responseData = response.data.data || response.data;
-      const { passenger, token } = responseData;
-
-      if (!token) throw new Error('No token received from server');
-
-      await AsyncStorage.setItem("token", token);
+      // neww
+      const { passenger, accessToken, refreshToken } = responseData;
+      if (!accessToken) throw new Error("No token received from server");
+      await AsyncStorage.setItem("token", accessToken);
+      await AsyncStorage.setItem("refreshToken", refreshToken);
+      await AsyncStorage.setItem("userType", "passenger");
 
       const userInfo = {
         id: passenger.id,
@@ -134,7 +147,7 @@ export const AuthProvider = ({ children }) => {
         age: passenger.age,
         numTel: passenger.numTel,
         email: passenger.email,
-        role: 'passenger'
+        role: "passenger",
       };
 
       await AsyncStorage.setItem("user", JSON.stringify(userInfo));
@@ -145,7 +158,8 @@ export const AuthProvider = ({ children }) => {
       console.error("Login error:", error);
       return {
         success: false,
-        message: error.response?.data?.message || error.message || 'Login failed'
+        message:
+          error.response?.data?.message || error.message || "Login failed",
       };
     } finally {
       setLoading(false);
@@ -157,12 +171,14 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await registerDriver(driverData);
       const responseData = response.data.data || response.data;
-      const { newDriver, token } = responseData;
+      const { newDriver, accessToken, refreshToken } = responseData;
 
-      if (!token) throw new Error('No token received from server');
-      if (!newDriver) throw new Error('No driver data received from server');
+      if (!accessToken) throw new Error("No token received from server");
+      if (!newDriver) throw new Error("No driver data received from server");
 
-      await AsyncStorage.setItem("token", token);
+      await AsyncStorage.setItem("token", accessToken);
+      await AsyncStorage.setItem("refreshToken", refreshToken);
+      await AsyncStorage.setItem("userType", "driver");
 
       const driverInfo = {
         id: newDriver.id,
@@ -174,18 +190,20 @@ export const AuthProvider = ({ children }) => {
         numTel: newDriver.numTel,
         sexe: newDriver.sexe,
         email: newDriver.email,
-        role: 'driver'
+        role: "driver",
+        isVerified: newDriver.isVerified || false,
       };
 
       await AsyncStorage.setItem("user", JSON.stringify(driverInfo));
       setUser(driverInfo);
 
-      return { success: true };
+      return { success: true, token: accessToken };
     } catch (err) {
       console.error("Registration error:", err);
       return {
         success: false,
-        message: err.response?.data?.message || err.message || "Registration failed"
+        message:
+          err.response?.data?.message || err.message || "Registration failed",
       };
     } finally {
       setLoading(false);
@@ -197,12 +215,15 @@ export const AuthProvider = ({ children }) => {
     try {
       const response = await registerPassenger(userData);
       const responseData = response.data.data || response.data;
-      const { newPassenger, token } = responseData;
+      const { newPassenger, accessToken, refreshToken } = responseData;
 
-      if (!token) throw new Error('No token received from server');
-      if (!newPassenger) throw new Error('No passenger data received from server');
+      if (!accessToken) throw new Error("No token received from server");
+      if (!newPassenger)
+        throw new Error("No passenger data received from server");
 
-      await AsyncStorage.setItem("token", token);
+      await AsyncStorage.setItem("token", accessToken);
+      await AsyncStorage.setItem("refreshToken", refreshToken);
+      await AsyncStorage.setItem("userType", "passenger");
 
       const userInfo = {
         id: newPassenger.id,
@@ -213,7 +234,7 @@ export const AuthProvider = ({ children }) => {
         email: newPassenger.email,
         age: newPassenger.age,
         numTel: newPassenger.numTel,
-        role: 'passenger'
+        role: "passenger",
       };
 
       await AsyncStorage.setItem("user", JSON.stringify(userInfo));
@@ -224,7 +245,8 @@ export const AuthProvider = ({ children }) => {
       console.error("Registration error:", err);
       return {
         success: false,
-        message: err.response?.data?.message || err.message || "Registration failed"
+        message:
+          err.response?.data?.message || err.message || "Registration failed",
       };
     } finally {
       setLoading(false);
@@ -234,6 +256,8 @@ export const AuthProvider = ({ children }) => {
   const logout = async () => {
     try {
       await AsyncStorage.removeItem("token");
+      await AsyncStorage.removeItem("refreshToken");
+      await AsyncStorage.removeItem("userType");
       await AsyncStorage.removeItem("user");
       setUser(null);
     } catch (error) {
@@ -242,16 +266,19 @@ export const AuthProvider = ({ children }) => {
   };
 
   return (
-    <AuthContext.Provider value={{
-      user,
-      loading,
-      loginAsDriver,
-      loginAsPassenger,
-      registerAsDriver,
-      registerAsPassenger,
-      logout,
-      isAuthenticated: !!user
-    }}>
+    <AuthContext.Provider
+      value={{
+        user,
+        loading,
+        loginAsDriver,
+        loginAsPassenger,
+        registerAsDriver,
+        registerAsPassenger,
+        logout,
+
+        isAuthenticated:
+          !!user && (user.role === "passenger" || user.isVerified === true),
+      }}>
       {children}
     </AuthContext.Provider>
   );
@@ -260,7 +287,7 @@ export const AuthProvider = ({ children }) => {
 export const useAuth = () => {
   const context = useContext(AuthContext);
   if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+    throw new Error("useAuth must be used within an AuthProvider");
   }
   return context;
 };

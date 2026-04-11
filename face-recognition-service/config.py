@@ -24,6 +24,7 @@ class Settings(BaseSettings):
     # ========================================================================
     # SEUILS DE VALIDATION
     # ========================================================================
+    MAX_THRESHOLD: float = 0.65  # plafond absolu
     THRESHOLDS: Dict[str, Dict[str, any]] = {
         "normal": {
             "value": 0.40,  # Distance euclidienne max pour validation

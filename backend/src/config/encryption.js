@@ -68,30 +68,3 @@ export function decrypt(encryptedText) {
     throw new Error(`Decryption failed: ${error.message}`);
   }
 }
-export function encryptBuffer(buffer) {
-  const iv = crypto.randomBytes(12);
-  const cipher = crypto.createCipheriv(
-    ALGORITHM,
-    Buffer.from(ENCRYPTION_KEY),
-    iv,
-  );
-
-  // On concatène l'IV au début du résultat chiffré
-  const encrypted = Buffer.concat([iv, cipher.update(buffer), cipher.final()]);
-  const authTag = cipher.getAuthTag();
-  return Buffer.concat([encrypted, authTag]);
-}
-
-export function decryptBuffer(encryptedBuffer) {
-  const iv = encryptedBuffer.slice(0, 12);
-  const authTag = encryptedBuffer.slice(-AUTH_TAG_LENGTH);
-  const encryptedData = encryptedBuffer.slice(12, -AUTH_TAG_LENGTH);
-  const decipher = crypto.createDecipheriv(
-    ALGORITHM,
-    Buffer.from(ENCRYPTION_KEY),
-    iv,
-  );
-  decipher.setAuthTag(authTag);
-
-  return Buffer.concat([decipher.update(encryptedData), decipher.final()]);
-}

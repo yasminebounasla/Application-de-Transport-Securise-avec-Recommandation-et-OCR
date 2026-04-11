@@ -11,7 +11,24 @@ import { MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import ProgressSteps from "../../../components/ProgressSteps";
+const validatePassword = (password: string) => {
+  const minLength = 8;
+  const hasUpperCase = /[A-Z]/.test(password);
+  const hasLowerCase = /[a-z]/.test(password);
+  const hasDigit = /[0-9]/.test(password);
+  const hasSpecialChar = /[!@#$%^&*]/.test(password);
 
+  if (password.length < minLength)
+    return "Password must be at least 8 characters long.";
+  if (!hasUpperCase)
+    return "Password must contain at least one uppercase letter.";
+  if (!hasLowerCase)
+    return "Password must contain at least one lowercase letter.";
+  if (!hasDigit) return "Password must contain at least one digit.";
+  if (!hasSpecialChar)
+    return "Password must contain at least one special character (!@#$%^&*).";
+  return null;
+};
 export default function RegisterDriverScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -23,6 +40,8 @@ export default function RegisterDriverScreen() {
   const [phoneNumber, setPhoneNumber] = useState("");
   const [consentAccepted, setConsentAccepted] = useState(false);
   const [error, setError] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleNext = async () => {
     setError("");
@@ -41,12 +60,25 @@ export default function RegisterDriverScreen() {
       setError("Please fill in all fields");
       return;
     }
-
+    // 2. Email format (Matching your backend regex)
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      setError("Invalid email format");
+      return;
+    }
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      setError(passwordError);
+      return;
+    }
     if (password !== confirmPassword) {
       setError("Passwords do not match");
       return;
     }
-
+    if (parseInt(age) < 17) {
+      setError("You must be at least 17 years old to register.");
+      return;
+    }
     if (!consentAccepted) {
       setError("Please accept the storage of your personal information");
       return;
@@ -170,7 +202,7 @@ export default function RegisterDriverScreen() {
             />
           </View>
 
-          <View className='mb-4'>
+          {/* <View className='mb-4'>
             <Text className='text-sm font-medium text-black mb-2'>
               Password
             </Text>
@@ -196,6 +228,55 @@ export default function RegisterDriverScreen() {
               className='bg-gray-50 border border-gray-200 rounded-xl px-4 py-4 text-base'
               placeholderTextColor='#9CA3AF'
             />
+          </View> */}
+
+          {/* Password Field */}
+          <View className='mb-4'>
+            <Text className='text-sm font-medium text-black mb-2'>
+              Password
+            </Text>
+            <View className='flex-row items-center bg-gray-50 border border-gray-200 rounded-xl px-4'>
+              <TextInput
+                value={password}
+                onChangeText={setPassword}
+                placeholder='••••••••'
+                secureTextEntry={!showPassword} // Toggle security
+                className='flex-1 py-4 text-base'
+                placeholderTextColor='#9CA3AF'
+              />
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                <MaterialIcons
+                  name={showPassword ? "visibility" : "visibility-off"}
+                  size={22}
+                  color='#9CA3AF'
+                />
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Confirm Password Field */}
+          <View className='mb-6'>
+            <Text className='text-sm font-medium text-black mb-2'>
+              Confirm Password
+            </Text>
+            <View className='flex-row items-center bg-gray-50 border border-gray-200 rounded-xl px-4'>
+              <TextInput
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                placeholder='••••••••'
+                secureTextEntry={!showConfirmPassword} // Toggle security
+                className='flex-1 py-4 text-base'
+                placeholderTextColor='#9CA3AF'
+              />
+              <TouchableOpacity
+                onPress={() => setShowConfirmPassword(!showConfirmPassword)}>
+                <MaterialIcons
+                  name={showConfirmPassword ? "visibility" : "visibility-off"}
+                  size={22}
+                  color='#9CA3AF'
+                />
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Privacy & Consent Section */}
@@ -207,8 +288,8 @@ export default function RegisterDriverScreen() {
               </Text>
             </View>
             <Text className='text-xs text-gray-600'>
-              Identity verification helps us ensure a safe experience during the trip. 
-              Your information is locked and secure.
+              Identity verification helps us ensure a safe experience during the
+              trip. Your information is locked and secure.
             </Text>
           </View>
 

@@ -1,5 +1,5 @@
 import { prisma } from '../config/prisma.js';
-import { encrypt, encryptBuffer, decryptBuffer } from '../config/encryption.js';
+import { encrypt } from '../config/encryption.js';
 import * as ocrService from '../services/ocrService.js';
 import * as faceService from '../services/faceService.js';
 
@@ -8,7 +8,7 @@ import * as faceService from '../services/faceService.js';
  */
 const parseOCRDate = (dateString) => {
   if (!dateString || typeof dateString !== 'string') return null;
-  
+
   const parts = dateString.split('.');
   if (parts.length === 3) {
     const isoDate = `${parts[2]}-${parts[1]}-${parts[0]}`;
@@ -17,6 +17,7 @@ const parseOCRDate = (dateString) => {
   }
   return null;
 };
+const licenseBufferCache = new Map();
 
 export async function uploadLicense(req, res) {
   try {
@@ -54,9 +55,9 @@ export async function uploadLicense(req, res) {
 
     if (!ocrResult.success) {
       console.log('❌ [ERROR] OCR failed:', ocrResult.error);
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Failed to extract license data',
-        details: ocrResult.error 
+        details: ocrResult.error
       });
     }
 
@@ -65,8 +66,8 @@ export async function uploadLicense(req, res) {
 
     if (!nin) {
       console.log('❌ [ERROR] No NIN extracted');
-      return res.status(400).json({ 
-        error: 'Could not extract NIN from license. Please ensure the image is clear.' 
+      return res.status(400).json({
+        error: 'Could not extract NIN from license. Please ensure the image is clear.'
       });
     }
 
@@ -78,25 +79,25 @@ export async function uploadLicense(req, res) {
 
     console.log('🔹 [STEP 7] Saving to database...');
 
-    const encryptedPermis = encryptBuffer(licenseFile.buffer);
-
+licenseBufferCache.set(parseInt(userId), licenseFile.buffer);
+setTimeout(() => {
+    licenseBufferCache.delete(parseInt(userId));
+}, 20 * 60 * 1000);
     const license = await prisma.license.upsert({
       where: { driverId: parseInt(userId) },
       update: {
         ninEncrypted,
-        permisImage: encryptedPermis,
         issueDate: parsedIssueDate,
         expiryDate: parsedExpiryDate,
         ocrConfidence: confidence,
       },
       create: {
         ninEncrypted,
-        permisImage: encryptedPermis,
         issueDate: parsedIssueDate,
         expiryDate: parsedExpiryDate,
         ocrConfidence: confidence,
         driver: {
-      connect: { id: parseInt(userId) }  
+      connect: { id: parseInt(userId) }
     }
       },
     });
@@ -140,8 +141,8 @@ export async function uploadSelfie(req, res) {
     });
 
     if (!license) {
-      return res.status(404).json({ 
-        error: 'License not found. Please upload your license first.' 
+      return res.status(404).json({
+        error: 'License not found. Please upload your license first.'
       });
     }
 
@@ -151,22 +152,29 @@ export async function uploadSelfie(req, res) {
     });
 
     if (!driver?.hasAcceptedPhotoStorage) {
-      return res.status(403).json({ 
-        error: 'Photo storage consent required. Please accept the terms first.' 
+      return res.status(403).json({
+        error: 'Photo storage consent required. Please accept the terms first.'
       });
     }
 
     console.log('Comparing faces...');
-    const decryptedPermis = decryptBuffer(license.permisImage); // DÉCHIFFREMENT ICI
+    const licenseBuffer = licenseBufferCache.get(parseInt(userId));
+if (!licenseBuffer) {
+    return res.status(400).json({
+        error: 'License image expired. Please upload your license again.'
+    });
+}
     const faceResult = await faceService.compareFaces(
-      decryptedPermis,
+      licenseBuffer,
       selfieFile.buffer
     );
+    licenseBufferCache.delete(parseInt(userId));
+
 
     if (!faceResult.success) {
-      return res.status(400).json({ 
+      return res.status(400).json({
         error: 'Face comparison failed',
-        details: faceResult.error 
+        details: faceResult.error
       });
     }
 
@@ -184,7 +192,7 @@ export async function uploadSelfie(req, res) {
     const isMatch = verdict === 'MATCH' || verdict.includes('MATCH');
     const similarityPercentage = (similarityScore * 100).toFixed(1);
 
-    //  LOGS DE DEBUG 
+    //  LOGS DE DEBUG
     console.log('🔹 [DEBUG 1] verdict:', verdict);
     console.log('🔹 [DEBUG 2] verdict.includes(MATCH):', verdict.includes('MATCH'));
     console.log('🔹 [DEBUG 3] isMatch:', isMatch);
@@ -198,8 +206,8 @@ export async function uploadSelfie(req, res) {
         threshold,
         margin,
         confidence,
-        licenseQuality: null,  
-        selfieQuality: null,   
+        licenseQuality: null,
+        selfieQuality: null,
         isApproved: isMatch,
       },
       create: {
@@ -210,8 +218,8 @@ export async function uploadSelfie(req, res) {
         threshold,
         margin,
         confidence,
-        licenseQuality: null, 
-        selfieQuality: null,   
+        licenseQuality: null,
+        selfieQuality: null,
         isApproved: isMatch,
       },
     });
@@ -245,191 +253,59 @@ export async function uploadSelfie(req, res) {
 
     res.status(200).json(responseData);
   } catch (error) {
+    licenseBufferCache.delete(parseInt(userId));
     console.error('Upload Selfie Error:', error);
     res.status(500).json({ error: 'Internal server error', details: error.message });
   }
 }
 
+
+// export async function getDriverSelfie(req, res) {
+//   const verification = await prisma.verification.findUnique({
+//     where: { driverId: parseInt(req.params.userId) },
+//     select: { selfieImage: true }
+//   });
+
+//   if (!verification?.selfieImage) {
+//     return res.status(404).json({ error: 'Selfie not found' });
+//   }
+
+//   // ✅ Return as base64 JSON instead of raw binary
+//   const base64 = verification.selfieImage.toString('base64');
+//   res.json({
+//     success: true,
+//     image: `data:image/jpeg;base64,${base64}`
+//   });
+// }
 export async function getDriverSelfie(req, res) {
   try {
-    const { userId } = req.params;
-
     const verification = await prisma.verification.findUnique({
-      where: { driverId: parseInt(userId) },
+      where: { driverId: parseInt(req.params.userId) },
       select: { selfieImage: true }
     });
 
-    if (!verification || !verification.selfieImage) {
+    if (!verification?.selfieImage) {
       return res.status(404).json({ error: 'Selfie not found' });
     }
 
-    res.set('Content-Type', 'image/jpeg');
-    res.send(verification.selfieImage);
+    // ✅ Force Buffer conversion
+    const buffer = Buffer.isBuffer(verification.selfieImage)
+      ? verification.selfieImage
+      : Buffer.from(verification.selfieImage);
 
+    const base64 = buffer.toString('base64');
+
+    console.log('🖼️ Selfie size:', buffer.length, 'bytes'); // debug
+
+    res.json({
+      success: true,
+      image: `data:image/jpeg;base64,${base64}`
+    });
   } catch (error) {
-    console.error('Get Selfie Error:', error);
+    console.error('getDriverSelfie error:', error);
     res.status(500).json({ error: 'Internal server error' });
   }
 }
-
-export async function completeVerification(req, res) {
-  try {
-    const { userId } = req.body;
-    const files = req.files;
-
-    if (!userId) {
-      return res.status(400).json({ error: 'User ID is required' });
-    }
-
-    if (!files || !files.license || !files.selfie) {
-      return res.status(400).json({ error: 'Both license and selfie images are required' });
-    }
-
-    const licenseFile = files.license[0];
-    const selfieFile = files.selfie[0];
-
-    const driver = await prisma.driver.findUnique({
-      where: { id: parseInt(userId) },
-    });
-
-    if (!driver) {
-      return res.status(404).json({ error: 'Driver not found' });
-    }
-
-    if (!driver.hasAcceptedPhotoStorage) {
-      return res.status(403).json({ 
-        error: 'Photo storage consent required. Please accept the terms first.' 
-      });
-    }
-
-    console.log('Step 1: Extracting license data...');
-    const ocrResult = await ocrService.extractLicenseData(
-      licenseFile.buffer,
-      licenseFile.originalname
-    );
-
-    if (!ocrResult.success) {
-      return res.status(400).json({ 
-        error: 'Failed to extract license data',
-        details: ocrResult.error 
-      });
-    }
-
-    const { nin, issueDate, expiryDate, confidence: ocrConfidence } = ocrResult.data;
-
-    if (!nin) {
-      return res.status(400).json({ 
-        error: 'Could not extract NIN from license. Please ensure the image is clear.' 
-      });
-    }
-
-    console.log('Step 2: Comparing faces...');
-    const faceResult = await faceService.compareFaces(
-      licenseFile.buffer,
-      selfieFile.buffer
-    );
-
-    if (!faceResult.success) {
-      return res.status(400).json({ 
-        error: 'Face comparison failed',
-        details: faceResult.error 
-      });
-    }
-
-    const {
-      verdict,
-      similarityScore,
-      threshold,
-      margin,
-      confidence,
-      licenseQuality,
-      selfieQuality
-    } = faceResult.data;
-
-    console.log('Step 3: Saving to database...');
-    const result = await prisma.$transaction(async (tx) => {
-      const ninEncrypted = encrypt(nin);
-      const encryptedPermis = encryptBuffer(licenseFile.buffer); // CHIFFREMENT ICI
-
-      const parsedIssueDate = parseOCRDate(issueDate);
-      const parsedExpiryDate = parseOCRDate(expiryDate);
-
-      const license = await tx.license.upsert({
-        where: { driverId: parseInt(userId) },
-        update: {
-          ninEncrypted,
-          permisImage: encryptedPermis,
-          issueDate: parsedIssueDate,
-          expiryDate: parsedExpiryDate,
-          ocrConfidence,
-        },
-        create: {
-          driverId: parseInt(userId),
-          ninEncrypted,
-          permisImage: encryptedPermis,
-          issueDate: parsedIssueDate,
-          expiryDate: parsedExpiryDate,
-          ocrConfidence,
-        },
-      });
-
-      const verification = await tx.verification.upsert({
-        where: { driverId: parseInt(userId) },
-        update: {
-          selfieImage: selfieFile.buffer,
-          similarityScore,
-          verdict,
-          threshold,
-          margin,
-          confidence,
-          licenseQuality,
-          selfieQuality,
-          isApproved: verdict === 'MATCH',
-        },
-        create: {
-          driverId: parseInt(userId),
-          selfieImage: selfieFile.buffer,
-          similarityScore,
-          verdict,
-          threshold,
-          margin,
-          confidence,
-          licenseQuality,
-          selfieQuality,
-          isApproved: verdict === 'MATCH',
-        },
-      });
-
-      const updatedDriver = await tx.driver.update({
-        where: { id: parseInt(userId) },
-        data: { isVerified: verdict === 'MATCH' },
-      });
-
-      return { license, verification, driver: updatedDriver };
-    });
-
-    res.status(200).json({
-      success: true,
-      message: 'Complete verification processed successfully',
-      data: {
-        licenseId: result.license.id,
-        verificationId: result.verification.id,
-        verdict,
-        similarityScore,
-        confidence,
-        isApproved: result.verification.isApproved,
-        isVerified: result.driver.isVerified,
-        ocrConfidence,
-        licenseQuality,
-        selfieQuality,
-      }
-    });
-  } catch (error) {
-    console.error('Complete Verification Error:', error);
-    res.status(500).json({ error: 'Internal server error', details: error.message });
-  }
-}
-
 export async function getVerificationStatus(req, res) {
   try {
     const { userId } = req.params;
