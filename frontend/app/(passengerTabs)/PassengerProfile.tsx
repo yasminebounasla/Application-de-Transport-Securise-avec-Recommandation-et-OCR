@@ -8,20 +8,21 @@ import {
   ActivityIndicator,
   RefreshControl,
   Image,
-  Modal,
-} from "react-native";
-import { router, useFocusEffect } from "expo-router";
-import { Ionicons } from "@expo/vector-icons";
-import api from "../../services/api";
-import { useAuth } from "../../context/AuthContext";
+  Modal
+} from 'react-native';
+import { router, useFocusEffect } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import api from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 
 interface PassengerProfile {
-  photoUrl?: string;
+  id?: number;
   prenom: string;
   nom: string;
   email: string;
   numTel: string;
   age?: number;
+  photoUrl?: string;
 }
 
 export default function PassengerProfileScreen() {
@@ -392,14 +393,7 @@ export default function PassengerProfileScreen() {
   );
 }
 
-interface InfoRowProps {
-  icon: React.ComponentProps<typeof Ionicons>["name"];
-  label: string;
-  value?: string;
-  last?: boolean;
-}
-
-function InfoRow({ icon, label, value, last = false }: InfoRowProps) {
+function InfoRow({ icon, label, value, last = false }: { icon: keyof typeof Ionicons.glyphMap; label: string; value?: string; last?: boolean }) {
   return (
     <View
       style={{

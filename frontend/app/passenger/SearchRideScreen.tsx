@@ -412,13 +412,13 @@ export default function SearchRideScreen() {
         const places = res.data.data || [];
         applyPlaces(places);
         await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(places));
-      } catch (e) {
+      } catch (e: any) {
         console.error(
-          "Failed to fetch saved places (using cache):",
-          e?.response?.status,
-          e?.response?.data || e?.message || e
-        );
-      }
+        "Failed to fetch saved places (using cache):",
+        e?.response?.status,
+        e?.response?.data || e?.message || e
+       );
+     }
     };
 
     loadSavedAddresses();
@@ -849,9 +849,9 @@ export default function SearchRideScreen() {
 
   const preferences = [
     { label: "Quiet ride",    icon: "ear-hearing-off", value: quiet_ride,         setter: setQuietRide },
-    { label: "Radio OK",      icon: "radio",           value: radio_ok,           setter: setRadioOk },
+    { label: "Radio",         icon: "radio",           value: radio_ok,           setter: setRadioOk },
     { label: "Smoking",       icon: "smoking",         value: smoking_ok,         setter: setSmokingOk },
-    { label: "Pets OK",       icon: "paw",             value: pets_ok,            setter: setPetsOk },
+    { label: "Pets",          icon: "paw",             value: pets_ok,            setter: setPetsOk },
     { label: "Large bags",    icon: "bag-suitcase",    value: luggage_large,      setter: setLuggageLarge },
     { label: "Female driver", icon: "gender-female",   value: female_driver_pref, setter: setFemaleDriverPref },
   ];

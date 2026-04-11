@@ -22,16 +22,7 @@ export default function LoginPassengerScreen() {
         const result = await loginAsPassenger(email, password);
 
         if (result.success) {
-            Alert.alert(
-                'Success!',
-                'You have successfully logged in.',
-                [
-                    {
-                        text: 'OK',
-                        onPress: () => router.replace('./../../../(passengerTabs)/PassengerHomeScreen'),
-                    }
-                ]
-            );
+           router.replace('./../../../(passengerTabs)/PassengerHomeScreen');
         } else {
             setError(result.message);
         }
@@ -90,7 +81,7 @@ export default function LoginPassengerScreen() {
                     {/* Register Link */}
                     <View className="flex-row justify-center">
                         <Text className="text-gray-600">Don't have an account? </Text>
-                        <Text 
+                        <Text
                             onPress={() => router.push('./RegisterPassengerScreen')}
                             className="text-black font-semibold"
                         >

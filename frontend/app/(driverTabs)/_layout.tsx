@@ -59,7 +59,7 @@ export default function DriverTabsLayout() {
         <Tabs.Screen
           name="DriverHomeScreen"
           options={{
-            title: "Accueil",
+            title: "Home",
             headerShown: true,
             tabBarIcon: ({ color, size }) => (
               <MaterialCommunityIcons name="home" size={size} color={color} />
@@ -69,7 +69,7 @@ export default function DriverTabsLayout() {
         <Tabs.Screen
           name="MesTrajets"
           options={{
-            title: "Mes Trajets",
+            title: "My Rides",
             headerShown: true,
             tabBarIcon: ({ color, size }) => (
               <MaterialCommunityIcons name="car" size={size} color={color} />
@@ -89,7 +89,7 @@ export default function DriverTabsLayout() {
         <Tabs.Screen
           name="DriverProfile"
           options={{
-            title: "Profil",
+            title: "Profile",
             headerShown: true,
             tabBarIcon: ({ color, size }) => (
               <MaterialCommunityIcons name="account" size={size} color={color} />
@@ -97,7 +97,7 @@ export default function DriverTabsLayout() {
           }}
         />
       </Tabs>
-    <ReminderModal /> 
+    <ReminderModal />
     </>
   );
 }

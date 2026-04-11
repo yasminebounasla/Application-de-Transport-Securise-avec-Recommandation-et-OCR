@@ -23,14 +23,30 @@ const ADDRESS_TYPES = [
   { key: 'work', label: 'Work', icon: 'briefcase-outline', filledIcon: 'briefcase' },
 ];
 
+// ── Types ─────────────────────────────────────────────────────────────────────
+interface SavedPlace {
+  id: number;
+  label: string;
+  address: string;
+  lat: number;
+  lng: number;
+}
+
+interface EditTarget {
+  key: string;
+  label: string;
+  icon: string;
+  id?: number;
+}
+
 // ─────────────────────────────────────────────
 // MAIN SCREEN
 // ─────────────────────────────────────────────
 export default function SavedPlacesScreen() {
-  const [places, setPlaces]         = useState([]);
+  const [places, setPlaces]         = useState<SavedPlace[]>([]);
   const [loading, setLoading]       = useState(true);
   const [modalVisible, setModal]    = useState(false);
-  const [editTarget, setEditTarget] = useState(null);
+  const [editTarget, setEditTarget] = useState<EditTarget | null>(null);
 
   // Nickname first, then address (for "Add new place" flow)
   const [nicknameModal, setNicknameModal]   = useState(false);
@@ -48,7 +64,7 @@ export default function SavedPlacesScreen() {
   // ── Edit / menu state ─────────────────────
   const [menuTarget, setMenuTarget] = useState<{
     icon: string;
-    isFixed: any; id: number; label: string; address: string; lat: number; lng: number 
+    isFixed: any; id: number; label: string; address: string; lat: number; lng: number
 } | null>(null);
   const [menuVisible, setMenuVisible] = useState(false);
   const [editNicknameModal, setEditNicknameModal] = useState(false);
@@ -59,7 +75,7 @@ export default function SavedPlacesScreen() {
     try {
       const res = await api.get('/passengers/saved-places');
       setPlaces(res.data.data || []);
-    } catch (e) {
+    } catch (e: any) {
       console.error('loadPlaces:', e.message);
       Alert.alert('Error', 'Failed to load saved places.');
     } finally {
@@ -70,25 +86,25 @@ export default function SavedPlacesScreen() {
 
   useFocusEffect(useCallback(() => { loadPlaces(); }, []));
 
-  const findByLabel = (label) =>
+  const findByLabel = (label: string) =>
     places.find(p => p.label.toLowerCase() === label.toLowerCase()) || null;
 
   // ── ADD ───────────────────────────────────
-  const addPlace = async ({ label, address, lat, lng }) => {
+  const addPlace = async ({ label, address, lat, lng }: { label: string; address: string; lat: number; lng: number }) => {
     try {
       const res = await api.post('/passengers/saved-places', { label, address, lat, lng });
       setPlaces(prev => [res.data.data, ...prev]);
-    } catch (e) {
+    } catch (e: any) {
       Alert.alert('Error', e.response?.data?.message || e.message);
     }
   };
 
   // ── UPDATE ────────────────────────────────
-  const updatePlace = async (id, payload) => {
+  const updatePlace = async (id: number, payload: Partial<SavedPlace>) => {
     try {
       const res = await api.put(`/passengers/saved-places/${id}`, payload);
       setPlaces(prev => prev.map(p => (p.id === id ? res.data.data : p)));
-    } catch (e) {
+    } catch (e: any) {
       Alert.alert('Error', e.response?.data?.message || e.message);
     }
   };
@@ -151,7 +167,7 @@ export default function SavedPlacesScreen() {
   };
 
   // ── Save from modal (Home / Work) ─────────
-  const handleSave = async ({ label, address, lat, lng }) => {
+  const handleSave = async ({ label, address, lat, lng }: { label: string; address: string; lat: number; lng: number }) => {
     if (!editTarget) return;
     setModal(false);
     const existing = findByLabel(editTarget.label);
@@ -181,7 +197,7 @@ export default function SavedPlacesScreen() {
   };
 
   // Step 3: address chosen → save with the nickname
-  const handleNewPlaceAddressChosen = ({ address, lat, lng }) => {
+  const handleNewPlaceAddressChosen = ({ address, lat, lng }: { address: string; lat: number; lng: number }) => {
     setModal(false);
     addPlace({ label: pendingNickname, address, lat, lng });
     setPendingNickname('');
@@ -191,21 +207,21 @@ export default function SavedPlacesScreen() {
   const handleSaveNickname = handleNicknameConfirmed;
 
   // ── Open modal ────────────────────────────
-  const openModal = (target) => {
+  const openModal = (target: EditTarget) => {
     setEditTarget(target);
     setModal(true);
   };
 
   // ── Navigate to MapScreen ─────────────────
-  const handleSetOnMap = (target) => {
+  const handleSetOnMap = (target: EditTarget | null) => {
     setModal(false);
     setTimeout(() => {
       router.push({
         pathname: '/shared/MapScreen',
         params: {
           selectionType: 'saved_address',
-          targetKey: target.key,
-          targetLabel: target.label,
+          targetKey: target?.key,
+          targetLabel: target?.label,
         },
       });
     }, 300);
@@ -488,7 +504,15 @@ export default function SavedPlacesScreen() {
 // ─────────────────────────────────────────────
 // ADDRESS ROW
 // ─────────────────────────────────────────────
-function AddressRow({ icon, label, value, placeholder, onPress, onDelete, onMenuPress }) {
+function AddressRow({ icon, label, value, placeholder, onPress, onDelete, onMenuPress }: {
+  icon: string;
+  label: string;
+  value: string | null;
+  placeholder: string;
+  onPress: () => void;
+  onDelete: (() => void) | null;
+  onMenuPress?: () => void;
+}) {
   return (
     <View style={{
       flexDirection: 'row', alignItems: 'center',
@@ -505,7 +529,7 @@ function AddressRow({ icon, label, value, placeholder, onPress, onDelete, onMenu
           backgroundColor: value ? '#111' : '#F5F5F5',
           alignItems: 'center', justifyContent: 'center', marginRight: 16,
         }}>
-          <Ionicons name={icon} size={19} color={value ? '#fff' : '#555'} />
+          <Ionicons name={icon as any} size={19} color={value ? '#fff' : '#555'} />
         </View>
 
         <View style={{ flex: 1 }}>
@@ -539,19 +563,26 @@ function AddressRow({ icon, label, value, placeholder, onPress, onDelete, onMenu
 // ─────────────────────────────────────────────
 // ADDRESS SEARCH MODAL
 // ─────────────────────────────────────────────
-function AddressModal({ visible, target, isNew, onClose, onSave, onSetOnMap }) {
+function AddressModal({ visible, target, isNew, onClose, onSave, onSetOnMap }: {
+  visible: boolean;
+  target: EditTarget | null;
+  isNew?: boolean;
+  onClose: () => void;
+  onSave: (data: { label: string; address: string; lat: number; lng: number }) => void;
+  onSetOnMap: () => void;
+}) {
   const [query, setQuery]      = useState('');
-  const [results, setResults]  = useState([]);
+  const [results, setResults]  = useState<any[]>([]);
   const [searching, setSearch] = useState(false);
-  const debounceRef            = useRef(null);
+  const debounceRef            = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   React.useEffect(() => {
     if (!visible) { setQuery(''); setResults([]); }
   }, [visible]);
 
-  const handleType = (text) => {
+  const handleType = (text: string) => {
     setQuery(text);
-    clearTimeout(debounceRef.current);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
     if (!text.trim()) { setResults([]); return; }
     setSearch(true);
     debounceRef.current = setTimeout(async () => {
@@ -561,7 +592,7 @@ function AddressModal({ visible, target, isNew, onClose, onSave, onSetOnMap }) {
     }, 500);
   };
 
-  const handleSelect = (place) => {
+  const handleSelect = (place: any) => {
     onSave({
       label:   target?.label || place.shortName,
       address: place.displayName,
@@ -682,7 +713,14 @@ function AddressModal({ visible, target, isNew, onClose, onSave, onSetOnMap }) {
 // ─────────────────────────────────────────────
 // NICKNAME MODAL  (step 2 for new custom place)
 // ─────────────────────────────────────────────
-function NicknameModal({ visible, address, value, onChange, onClose, onSave }) {
+function NicknameModal({ visible, address, value, onChange, onClose, onSave }: {
+  visible: boolean;
+  address: string;
+  value: string;
+  onChange: (v: string) => void;
+  onClose: () => void;
+  onSave: () => void;
+}) {
   const canSave = value.trim().length > 0;
 
   return (
@@ -813,7 +851,7 @@ function MapIllustration() {
           position: 'absolute',
           width: dot.size, height: dot.size, borderRadius: dot.size / 2,
           backgroundColor: dot.color,
-          top: dot.top, left: dot.left, right: dot.right,
+          top: dot.top, left: (dot as any).left, right: (dot as any).right,
         }} />
       ))}
     </View>

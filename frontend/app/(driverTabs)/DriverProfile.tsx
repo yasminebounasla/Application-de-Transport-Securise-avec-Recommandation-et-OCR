@@ -15,30 +15,49 @@ import { Ionicons } from "@expo/vector-icons";
 import api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 
+interface Vehicule {
+  marque: string;
+  modele?: string;
+  annee?: number;
+  couleur?: string;
+  nbPlaces?: number;
+  plaque?: string;
+}
+
 interface DriverProfile {
-  photoUrl?: string;
   prenom: string;
   nom: string;
-  stats?: { averageRating: number };
-  avgRating?: number;
-  vehicules?: any[];
-  allVehicles: any[];
-  workZoneAddress?: string;
-  wilaya?: string;
   email: string;
   numTel: string;
   age?: number;
-  sexe: string;
-  talkative: boolean;
-  radio_on: boolean;
-  smoking_allowed: boolean;
-  pets_allowed: boolean;
-  car_big: boolean;
-  works_morning: boolean;
-  works_afternoon: boolean;
-  works_evening: boolean;
-  works_night: boolean;
-  [key: string]: any;
+  sexe?: string;
+  wilaya?: string;
+  photoUrl?: string;
+  avgRating?: number;
+  stats?: { averageRating: number };
+  allVehicles: Vehicule[];
+  vehicules?: Vehicule[];
+  workZoneAddress?: string | null;
+  talkative?: boolean;
+  radio_on?: boolean;
+  smoking_allowed?: boolean;
+  pets_allowed?: boolean;
+  car_big?: boolean;
+  works_morning?: boolean;
+  works_afternoon?: boolean;
+  works_evening?: boolean;
+  works_night?: boolean;
+  preferences?: {
+    talkative?: boolean;
+    radio_on?: boolean;
+    smoking_allowed?: boolean;
+    pets_allowed?: boolean;
+    car_big?: boolean;
+    works_morning?: boolean;
+    works_afternoon?: boolean;
+    works_evening?: boolean;
+    works_night?: boolean;
+  };
 }
 
 export default function DriverProfileScreen() {
@@ -164,6 +183,66 @@ export default function DriverProfileScreen() {
     );
   }
 
+  // ── Typed arrays pour éviter les erreurs TypeScript ──
+  const prefs: {
+    icon: keyof typeof Ionicons.glyphMap;
+    label: string;
+    value: boolean;
+  }[] = [
+    {
+      icon: "chatbubbles-outline",
+      label: "Talkative",
+      value: profile.talkative ?? false,
+    },
+    {
+      icon: "musical-notes-outline",
+      label: "Radio On",
+      value: profile.radio_on ?? false,
+    },
+    {
+      icon: "flame-outline",
+      label: "Smoking Allowed",
+      value: profile.smoking_allowed ?? false,
+    },
+    {
+      icon: "paw-outline",
+      label: "Pets Allowed",
+      value: profile.pets_allowed ?? false,
+    },
+    {
+      icon: "car-sport-outline",
+      label: "Large Car",
+      value: profile.car_big ?? false,
+    },
+  ];
+
+  const hours: {
+    icon: keyof typeof Ionicons.glyphMap;
+    label: string;
+    value: boolean;
+  }[] = [
+    {
+      icon: "sunny-outline",
+      label: "Morning (6am–12pm)",
+      value: profile.works_morning ?? false,
+    },
+    {
+      icon: "partly-sunny-outline",
+      label: "Afternoon (12pm–6pm)",
+      value: profile.works_afternoon ?? false,
+    },
+    {
+      icon: "moon-outline",
+      label: "Evening (6pm–10pm)",
+      value: profile.works_evening ?? false,
+    },
+    {
+      icon: "cloudy-night-outline",
+      label: "Night (10pm–6am)",
+      value: profile.works_night ?? false,
+    },
+  ];
+
   return (
     <>
       <ScrollView
@@ -194,7 +273,6 @@ export default function DriverProfileScreen() {
             <Ionicons name='settings-outline' size={22} color='#111' />
           </TouchableOpacity>
 
-          {/* Avatar — plus cliquable */}
           <View>
             {selfieUrl ? (
               <Image
@@ -228,7 +306,6 @@ export default function DriverProfileScreen() {
             {profile.prenom} {profile.nom}
           </Text>
 
-          {/* ⭐ Rating */}
           <TouchableOpacity
             onPress={() => router.push("/driver/MyFeedbacksScreen")}
             activeOpacity={0.7}
@@ -394,27 +471,27 @@ export default function DriverProfileScreen() {
               {
                 icon: "chatbubbles-outline" as const,
                 label: "Talkative",
-                value: profile.talkative,
+                value: profile.talkative ?? false,
               },
               {
                 icon: "musical-notes-outline" as const,
                 label: "Radio On",
-                value: profile.radio_on,
+                value: profile.radio_on ?? false,
               },
               {
                 icon: "flame-outline" as const,
                 label: "Smoking Allowed",
-                value: profile.smoking_allowed,
+                value: profile.smoking_allowed ?? false,
               },
               {
                 icon: "paw-outline" as const,
                 label: "Pets Allowed",
-                value: profile.pets_allowed,
+                value: profile.pets_allowed ?? false,
               },
               {
                 icon: "car-sport-outline" as const,
                 label: "Large Car",
-                value: profile.car_big,
+                value: profile.car_big ?? false,
               },
             ].map((pref, i) => (
               <PreferenceRow key={i} {...pref} />
@@ -437,22 +514,22 @@ export default function DriverProfileScreen() {
               {
                 icon: "sunny-outline" as const,
                 label: "Morning (6am–12pm)",
-                value: profile.works_morning,
+                value: profile.works_morning ?? false,
               },
               {
                 icon: "partly-sunny-outline" as const,
                 label: "Afternoon (12pm–6pm)",
-                value: profile.works_afternoon,
+                value: profile.works_afternoon ?? false,
               },
               {
                 icon: "moon-outline" as const,
                 label: "Evening (6pm–10pm)",
-                value: profile.works_evening,
+                value: profile.works_evening ?? false,
               },
               {
                 icon: "cloudy-night-outline" as const,
                 label: "Night (10pm–6am)",
-                value: profile.works_night,
+                value: profile.works_night ?? false,
               },
             ].map((hour, i) => (
               <PreferenceRow key={i} {...hour} />
@@ -512,7 +589,6 @@ export default function DriverProfileScreen() {
             Settings
           </Text>
 
-          {/* Edit profile */}
           <TouchableOpacity
             onPress={() => {
               setSettings(false);
@@ -550,7 +626,6 @@ export default function DriverProfileScreen() {
             />
           </TouchableOpacity>
 
-          {/* Log out */}
           <TouchableOpacity
             onPress={handleLogout}
             activeOpacity={0.7}
