@@ -13,25 +13,16 @@ export default function LoginDriverScreen() {
 
     const handleLogin = async () => {
         setError('');
-        
+
         if (!email || !password) {
             setError('Please fill in all fields');
             return;
         }
 
         const result = await loginAsDriver(email, password);
-        
+
         if (result.success) {
-            Alert.alert(
-                'Success!',
-                'You have successfully logged in.',
-                [
-                    {
-                        text: 'OK',
-                        onPress: () => router.replace('./../../../(driverTabs)/DriverHomeScreen'),
-                    }
-                ]
-            );
+            router.replace('./../../../(driverTabs)/DriverHomeScreen');
         } else {
             setError(result.message);
         }
@@ -90,7 +81,7 @@ export default function LoginDriverScreen() {
                     {/* Register Link */}
                     <View className="flex-row justify-center">
                         <Text className="text-gray-600">Don't have an account? </Text>
-                        <Text 
+                        <Text
                             onPress={() => router.push('./RegisterDriverScreen')}
                             className="text-black font-semibold"
                         >
