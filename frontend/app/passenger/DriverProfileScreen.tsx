@@ -60,9 +60,9 @@ function StarRow({ rating, size = 14 }: { rating: number; size?: number }) {
 const PREF_CONFIG = [
   { key: "talkative", icon: "chatbubbles-outline", label: "Talkative" },
   { key: "radio_on", icon: "musical-notes-outline", label: "Radio" },
-  { key: "smoking_allowed", icon: "flame-outline", label: "Smoking OK" },
+  { key: "smoking_allowed", icon: "flame-outline", label: "Smoking" },
   { key: "pets_allowed", icon: "paw-outline", label: "Pets" },
-  { key: "car_big", icon: "car-sport-outline", label: "Large Car" },
+  { key: "car_big", icon: "briefcase-outline", label: "Large bags" },
 ];
 
 const HOURS_CONFIG = [
