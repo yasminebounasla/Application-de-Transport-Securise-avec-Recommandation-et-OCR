@@ -3,7 +3,6 @@ import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
   TouchableOpacity,
   SafeAreaView,
   ActivityIndicator,
@@ -11,7 +10,7 @@ import {
   Image,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { useLocalSearchParams, useRouter, Stack } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { API_URL } from "../../services/api";
@@ -19,7 +18,6 @@ import {
   getPublicDriverStats,
   getPublicDriverFeedback,
 } from "../../services/feedbackService";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 // ─────────────────────────────────────────────
 // AVATAR COLOR — blue for male, pink for female
@@ -88,8 +86,6 @@ const HOURS_CONFIG = [
 export default function PublicDriverProfileScreen() {
   const { driverId } = useLocalSearchParams();
   const router = useRouter();
-  const insets = useSafeAreaInsets();
-
   const [driver, setDriver] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [feedbacks, setFeedbacks] = useState<any[]>([]);
