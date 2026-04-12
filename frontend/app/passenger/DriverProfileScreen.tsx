@@ -38,7 +38,7 @@ function StarRow({ rating, size = 14 }: { rating: number; size?: number }) {
   const floored = Math.floor(r);
   const hasHalf = r - floored === 0.5;
   return (
-    <View style={{ flexDirection: "row", gap: 2 }}>
+    <View style={{ flexDirection: "row" }}>
       {[1, 2, 3, 4, 5].map((i) => {
         const full = i <= floored;
         const half = !full && hasHalf && i === floored + 1;
@@ -48,6 +48,7 @@ function StarRow({ rating, size = 14 }: { rating: number; size?: number }) {
             name={full ? "star" : half ? "star-half" : "star-outline"}
             size={size}
             color={full || half ? "#F59E0B" : "#D1D5DB"}
+            style={{ marginRight: 2 }}
           />
         );
       })}
@@ -84,7 +85,7 @@ const HOURS_CONFIG = [
 // ─────────────────────────────────────────────
 // MAIN SCREEN
 // ─────────────────────────────────────────────
-export default function DriverProfileScreen() {
+export default function PublicDriverProfileScreen() {
   const { driverId } = useLocalSearchParams();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -202,7 +203,7 @@ export default function DriverProfileScreen() {
   // ✅ FIXED: Main JSX return is now in the component body
   return (
     <>
-     <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container}>
         <Animated.ScrollView
           style={{ opacity: fadeAnim }}
           contentContainerStyle={styles.content}
@@ -339,12 +340,21 @@ export default function DriverProfileScreen() {
                   key={fb.id}
                   style={[styles.reviewCard, idx === 0 && { marginTop: 0 }]}>
                   {/* Reviewer initials */}
-                  <View style={styles.reviewAvatar}>
-                    <Text style={styles.reviewAvatarText}>
-                      {fb.trajet?.passenger?.prenom?.[0]?.toUpperCase() ?? "?"}
-                    </Text>
-                  </View>
-                  <View style={{ flex: 1, gap: 4 }}>
+                  {(() => {
+                    const passengerGender = fb.trajet?.passenger?.sexe ?? fb.trajet?.passenger?.genre ?? fb.trajet?.passenger?.gender;
+                    const pColor = getAvatarColor(passengerGender);
+                    // If no gender info → grey
+                    const bg   = passengerGender ? pColor.bg   : "#E5E7EB";
+                    const text = passengerGender ? pColor.text : "#6B7280";
+                    return (
+                      <View style={[styles.reviewAvatar, { backgroundColor: bg }]}>
+                        <Text style={[styles.reviewAvatarText, { color: text }]}>
+                          {fb.trajet?.passenger?.prenom?.[0]?.toUpperCase() ?? "?"}
+                        </Text>
+                      </View>
+                    );
+                  })()}
+                  <View style={{ flex: 1 }}>
                     <View style={styles.reviewHeader}>
                       <Text style={styles.reviewerName}>
                         {fb.trajet?.passenger?.prenom ?? "Passenger"}
@@ -397,7 +407,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     backgroundColor: "#F9FAFB",
-    gap: 12,
   },
   loadingText: {
     fontSize: 14,
@@ -477,20 +486,19 @@ const styles = StyleSheet.create({
   verifiedBadge: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 4,
     marginTop: 4,
   },
   verifiedText: {
     fontSize: 12,
     color: "#22C55E",
     fontWeight: "600",
+    marginLeft: 4,
   },
   // ── Stats ──
   statsRow: {
     flexDirection: "row",
     marginHorizontal: 16,
     marginTop: 16,
-    gap: 10,
   },
   statCard: {
     flex: 1,
@@ -498,7 +506,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingVertical: 14,
     alignItems: "center",
-    gap: 4,
+    marginRight: 10,
     shadowColor: "#000",
     shadowOpacity: 0.04,
     shadowRadius: 6,
@@ -514,6 +522,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: "#9CA3AF",
     fontWeight: "500",
+    marginTop: 4,
   },
   // ── Section ──
   section: {
@@ -535,7 +544,6 @@ const styles = StyleSheet.create({
     padding: 14,
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
     shadowColor: "#000",
     shadowOpacity: 0.04,
     shadowRadius: 6,
@@ -549,6 +557,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#F3F4F6",
     justifyContent: "center",
     alignItems: "center",
+    marginRight: 12,
   },
   vehicleModel: {
     fontSize: 15,
@@ -576,12 +585,12 @@ const styles = StyleSheet.create({
   chipsWrap: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
   },
   prefChip: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
+    marginRight: 8,
+    marginBottom: 8,
     backgroundColor: "#fff",
     borderRadius: 20,
     paddingHorizontal: 12,
@@ -593,11 +602,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "500",
     color: "#111",
+    marginLeft: 5,
   },
   hourChip: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 5,
+    marginRight: 8,
+    marginBottom: 8,
     backgroundColor: "#F9FAFB",
     borderRadius: 20,
     paddingHorizontal: 12,
@@ -606,6 +617,7 @@ const styles = StyleSheet.create({
     borderColor: "#E5E7EB",
   },
   hourChipText: {
+    marginLeft: 5,
     fontSize: 12,
     fontWeight: "500",
     color: "#555",
@@ -616,7 +628,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: 14,
     flexDirection: "row",
-    gap: 12,
     marginTop: 10,
     shadowColor: "#000",
     shadowOpacity: 0.03,
@@ -625,22 +636,22 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   reviewAvatar: {
+    marginRight: 12,
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "#E8F0FE",
     justifyContent: "center",
     alignItems: "center",
   },
   reviewAvatarText: {
     fontSize: 14,
     fontWeight: "700",
-    color: "#1A73E8",
   },
   reviewHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
+    marginBottom: 4,
   },
   reviewerName: {
     fontSize: 13,
@@ -655,12 +666,12 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#4B5563",
     lineHeight: 18,
+    marginTop: 4,
   },
   seeAllBtn: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 4,
     marginTop: 12,
     paddingVertical: 10,
     backgroundColor: "#fff",
@@ -672,6 +683,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     color: "#111",
+    marginRight: 4,
   },
 });
 
