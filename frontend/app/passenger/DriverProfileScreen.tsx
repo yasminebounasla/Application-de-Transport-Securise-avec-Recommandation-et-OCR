@@ -84,7 +84,7 @@ const HOURS_CONFIG = [
 // ─────────────────────────────────────────────
 // MAIN SCREEN
 // ─────────────────────────────────────────────
-export default function PublicDriverProfileScreen() {
+export default function DriverProfileScreen() {
   const { driverId } = useLocalSearchParams();
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -105,46 +105,48 @@ export default function PublicDriverProfileScreen() {
     fetchAll();
   }, []);
 
+  // ✅ FIXED: fetchAll only fetches data and sets state — no JSX returned here
   const fetchAll = async () => {
-try {
-  const token = await AsyncStorage.getItem("token");
-  const profileRes = await axios.get(`${API_URL}/drivers/${driverId}`, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  setDriver(profileRes.data.data);
+    try {
+      const token = await AsyncStorage.getItem("token");
+      const profileRes = await axios.get(`${API_URL}/drivers/${driverId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setDriver(profileRes.data.data);
 
-  // ✅ Selfie corrigé
-  try {
-    const selfieRes = await axios.get(
-      `${API_URL}/verification/driver/${driverId}/selfie`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    if (selfieRes.data.success) {
-      setSelfieUrl(selfieRes.data.image);
+      // Selfie
+      try {
+        const selfieRes = await axios.get(
+          `${API_URL}/verification/driver/${driverId}/selfie`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        if (selfieRes.data.success) {
+          setSelfieUrl(selfieRes.data.image);
+        }
+      } catch (e) {
+        setSelfieUrl(null);
+      }
+
+      const [statsRes, feedRes] = await Promise.all([
+        getPublicDriverStats(String(driverId)),
+        getPublicDriverFeedback(String(driverId), 1, 20),
+      ]);
+      setStats(statsRes.data);
+      setFeedbacks(feedRes.data || []);
+
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true,
+      }).start();
+    } catch (e) {
+      console.error("Error fetching driver profile:", e);
+    } finally {
+      setLoading(false);
     }
-  } catch (e) {
-    setSelfieUrl(null);
-  }
+  }; // ✅ FIXED: fetchAll closes here
 
-  const [statsRes, feedRes] = await Promise.all([
-    getPublicDriverStats(String(driverId)),
-    getPublicDriverFeedback(String(driverId), 1, 20),
-  ]);
-  setStats(statsRes.data);
-  setFeedbacks(feedRes.data || []);
-
-  Animated.timing(fadeAnim, {
-    toValue: 1,
-    duration: 400,
-    useNativeDriver: true,
-  }).start();
-} catch (e) {
-  console.error("Error fetching driver profile:", e);
-} finally {
-  setLoading(false);
-}
-
-  // ── Loading ──
+  // ✅ FIXED: Loading state is now in the component body
   if (loading) {
     return (
       <SafeAreaView style={styles.centered}>
@@ -154,7 +156,7 @@ try {
     );
   }
 
-  // ── Not found ──
+  // ✅ FIXED: Not found state is now in the component body
   if (!driver) {
     return (
       <SafeAreaView style={styles.centered}>
@@ -197,9 +199,10 @@ try {
     driver.gender ?? driver.genre ?? driver.sexe,
   );
 
+  // ✅ FIXED: Main JSX return is now in the component body
   return (
     <>
-      <SafeAreaView style={styles.container}>
+     <SafeAreaView style={styles.container}>
         <Animated.ScrollView
           style={{ opacity: fadeAnim }}
           contentContainerStyle={styles.content}
@@ -382,6 +385,297 @@ try {
 }
 
 // ─────────────────────────────────────────────
+// STYLES
+// ─────────────────────────────────────────────
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#F9FAFB",
+  },
+  centered: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#F9FAFB",
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 14,
+    color: "#6B7280",
+    marginTop: 8,
+  },
+  errorText: {
+    fontSize: 16,
+    color: "#6B7280",
+    marginTop: 8,
+  },
+  backBtn: {
+    marginTop: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: "#111",
+    borderRadius: 10,
+  },
+  backBtnText: {
+    color: "#fff",
+    fontWeight: "600",
+    fontSize: 14,
+  },
+  content: {
+    paddingBottom: 40,
+  },
+  // ── Hero ──
+  heroSection: {
+    alignItems: "center",
+    paddingTop: 32,
+    paddingBottom: 20,
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
+  },
+  avatarWrap: {
+    marginBottom: 12,
+  },
+  avatarRing: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    borderWidth: 3,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  avatar: {
+    width: 86,
+    height: 86,
+    borderRadius: 43,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  avatarText: {
+    fontSize: 28,
+    fontWeight: "700",
+  },
+  name: {
+    fontSize: 20,
+    fontWeight: "700",
+    color: "#111",
+    marginBottom: 6,
+  },
+  driverBadge: {
+    backgroundColor: "#111",
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 3,
+    marginBottom: 6,
+  },
+  driverBadgeText: {
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "700",
+    letterSpacing: 1,
+  },
+  verifiedBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 4,
+  },
+  verifiedText: {
+    fontSize: 12,
+    color: "#22C55E",
+    fontWeight: "600",
+  },
+  // ── Stats ──
+  statsRow: {
+    flexDirection: "row",
+    marginHorizontal: 16,
+    marginTop: 16,
+    gap: 10,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    paddingVertical: 14,
+    alignItems: "center",
+    gap: 4,
+    shadowColor: "#000",
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  statNumber: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#111",
+  },
+  statLabel: {
+    fontSize: 11,
+    color: "#9CA3AF",
+    fontWeight: "500",
+  },
+  // ── Section ──
+  section: {
+    marginHorizontal: 16,
+    marginTop: 16,
+  },
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#6B7280",
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginBottom: 10,
+  },
+  // ── Vehicle ──
+  vehicleCard: {
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    padding: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    shadowColor: "#000",
+    shadowOpacity: 0.04,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 2,
+  },
+  vehicleIconWrap: {
+    width: 46,
+    height: 46,
+    borderRadius: 12,
+    backgroundColor: "#F3F4F6",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  vehicleModel: {
+    fontSize: 15,
+    fontWeight: "600",
+    color: "#111",
+  },
+  vehicleColor: {
+    fontSize: 12,
+    color: "#9CA3AF",
+    marginTop: 2,
+  },
+  plateBox: {
+    backgroundColor: "#F3F4F6",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  plateText: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: "#374151",
+    letterSpacing: 1,
+  },
+  // ── Chips ──
+  chipsWrap: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  prefChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  prefChipText: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: "#111",
+  },
+  hourChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "#F9FAFB",
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  hourChipText: {
+    fontSize: 12,
+    fontWeight: "500",
+    color: "#555",
+  },
+  // ── Reviews ──
+  reviewCard: {
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    padding: 14,
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 10,
+    shadowColor: "#000",
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 1,
+  },
+  reviewAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#E8F0FE",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  reviewAvatarText: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#1A73E8",
+  },
+  reviewHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  reviewerName: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#111",
+  },
+  reviewTime: {
+    fontSize: 11,
+    color: "#9CA3AF",
+  },
+  reviewComment: {
+    fontSize: 13,
+    color: "#4B5563",
+    lineHeight: 18,
+  },
+  seeAllBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    marginTop: 12,
+    paddingVertical: 10,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  seeAllText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#111",
+  },
+});
+
+// ─────────────────────────────────────────────
 // TIME AGO
 // ─────────────────────────────────────────────
 function formatTimeAgo(dateString: string) {
@@ -394,278 +688,4 @@ function formatTimeAgo(dateString: string) {
   if (days < 30) return `${Math.floor(days / 7)} weeks ago`;
   if (days < 60) return "1 month ago";
   return `${Math.floor(days / 30)} months ago`;
-}
-
-// ─────────────────────────────────────────────
-// STYLES
-// ─────────────────────────────────────────────
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#FAFAFA" },
-  centered: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#FAFAFA",
-    gap: 12,
-  },
-  loadingText: { fontSize: 14, color: "#888", marginTop: 8 },
-  errorText: { fontSize: 15, color: "#888" },
-  backBtn: {
-    backgroundColor: "#111",
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 12,
-    marginTop: 8,
-  },
-  backBtnText: { color: "#FFF", fontWeight: "700" },
-
-  // Top nav
-  topNav: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    paddingBottom: 14,
-    backgroundColor: "#FAFAFA",
-  },
-  navBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#F0F0F0",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  navTitle: { fontSize: 15, fontWeight: "700", color: "#111" },
-
-  content: { paddingHorizontal: 20, paddingBottom: 48 },
-
-  // ── Hero ──
-  heroSection: { alignItems: "center", paddingTop: 12, paddingBottom: 28 },
-
-  avatarWrap: {
-    position: "relative",
-    marginBottom: 18,
-    alignItems: "center",
-  },
-  avatarRing: {
-    width: 92,
-    height: 92,
-    borderRadius: 46,
-    borderWidth: 3,
-    padding: 3,
-  },
-  avatar: {
-    flex: 1,
-    borderRadius: 43,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  avatarText: { fontSize: 28, fontWeight: "900", color: "#1E40AF" },
-
-  // Rating pill — overlaps bottom of avatar
-  ratingPill: {
-    position: "absolute",
-    bottom: -13,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    backgroundColor: "#FFFBEB",
-    borderRadius: 20,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderWidth: 2,
-    borderColor: "#FFF",
-    shadowColor: "#000",
-    shadowOpacity: 0.06,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 3,
-  },
-  ratingValue: { fontSize: 13, fontWeight: "800", color: "#B45309" },
-  ratingDot: { fontSize: 14, color: "#CA8A04", fontWeight: "600" },
-  ratingCount: { fontSize: 14, fontWeight: "600", color: "#92400E" },
-
-  name: {
-    fontSize: 22,
-    fontWeight: "800",
-    color: "#111",
-    marginBottom: 8,
-    letterSpacing: -0.3,
-  },
-  driverBadge: {
-    backgroundColor: "#111",
-    borderRadius: 20,
-    paddingHorizontal: 14,
-    paddingVertical: 5,
-    marginBottom: 10,
-  },
-  driverBadgeText: {
-    fontSize: 11,
-    fontWeight: "800",
-    color: "#FFF",
-    letterSpacing: 1.5,
-  },
-
-  verifiedBadge: { flexDirection: "row", alignItems: "center", gap: 4 },
-  verifiedText: { fontSize: 12, fontWeight: "600", color: "#22C55E" },
-
-  // ── Stats ──
-  statsRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginBottom: 24,
-  },
-  statCard: {
-    flex: 1,
-    backgroundColor: "#FFF",
-    borderRadius: 14,
-    paddingVertical: 16,
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
-  statNumber: { fontSize: 20, fontWeight: "800", color: "#111" },
-  statLabel: {
-    fontSize: 12,
-    color: "#9CA3AF",
-    marginTop: 3,
-    fontWeight: "500",
-  },
-
-  // ── Section ──
-  section: { marginBottom: 24 },
-  sectionTitle: {
-    fontSize: 15,
-    fontWeight: "800",
-    color: "#111",
-    marginBottom: 12,
-    letterSpacing: -0.2,
-  },
-
-  // ── Vehicle card ──
-  vehicleCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 12,
-    backgroundColor: "#FFF",
-    borderRadius: 14,
-    padding: 16,
-    shadowColor: "#000",
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
-  vehicleIconWrap: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: "#F3F4F6",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  vehicleModel: { fontSize: 14, fontWeight: "700", color: "#111" },
-  vehicleColor: { fontSize: 12, color: "#9CA3AF", marginTop: 2 },
-  plateBox: {
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    backgroundColor: "#F9FAFB",
-  },
-  plateText: {
-    fontSize: 12,
-    fontWeight: "700",
-    color: "#374151",
-    letterSpacing: 1.2,
-  },
-
-  // ── Chips ──
-  chipsWrap: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  prefChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: "#FFF",
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    shadowColor: "#000",
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 1 },
-  },
-  prefChipText: { fontSize: 12, fontWeight: "600", color: "#111" },
-  hourChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: "#F9FAFB",
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  hourChipText: { fontSize: 12, fontWeight: "500", color: "#555" },
-
-  // ── Review cards ──
-  reviewCard: {
-    flexDirection: "row",
-    gap: 12,
-    backgroundColor: "#FFF",
-    borderRadius: 14,
-    padding: 14,
-    marginTop: 10,
-    shadowColor: "#000",
-    shadowOpacity: 0.04,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 1,
-  },
-  reviewAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: "#F3F4F6",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  reviewAvatarText: { fontSize: 14, fontWeight: "800", color: "#555" },
-  reviewHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  reviewerName: { fontSize: 13, fontWeight: "700", color: "#111" },
-  reviewTime: { fontSize: 11, color: "#9CA3AF" },
-  reviewComment: {
-    fontSize: 13,
-    color: "#374151",
-    lineHeight: 18,
-    marginTop: 2,
-  },
-
-  seeAllBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: 6,
-    marginTop: 12,
-    paddingVertical: 14,
-    borderRadius: 14,
-    backgroundColor: "#FFF",
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-  },
-  seeAllText: { fontSize: 14, fontWeight: "700", color: "#111" },
-});
 }
