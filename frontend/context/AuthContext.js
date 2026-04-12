@@ -214,9 +214,10 @@ export const AuthProvider = ({ children }) => {
     setLoading(true);
     try {
       const response = await registerPassenger(userData);
-      const responseData = response.data.data || response.data;
-      const { newPassenger, accessToken, refreshToken } = responseData;
+      console.log("REGISTER RESPONSE:", JSON.stringify(response.data)); // ADD THIS
 
+      const responseData = response.data.data || response.data;
+      const { passenger: newPassenger, accessToken, refreshToken } = responseData;
       if (!accessToken) throw new Error("No token received from server");
       if (!newPassenger)
         throw new Error("No passenger data received from server");

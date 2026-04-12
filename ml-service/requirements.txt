@@ -9,5 +9,4 @@ matplotlib
 fastapi
 httpx
 uvicorn
-logging
 apscheduler
