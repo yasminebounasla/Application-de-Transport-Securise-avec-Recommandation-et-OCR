@@ -36,17 +36,21 @@ function AppContent() {
       <LocationProvider>
         <RideProvider>
           <SafeAreaProvider>
-            <Stack>
-              <Stack.Screen name="index" options={{ headerShown: false }} />
-              <Stack.Screen name="auth" options={{ headerShown: false }} />
-              <Stack.Screen name="(driverTabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="(passengerTabs)" options={{ headerShown: false }} />
-              <Stack.Screen name="driver" options={{ headerShown: false }} />
-              <Stack.Screen name="passenger" options={{ headerShown: false }} />
-              <Stack.Screen name="shared/MapScreen" options={{ title: 'Map' }} />
-            </Stack>
-            <ToastManager />
-            {isAuthenticated && <ReminderModal />}
+            <View style={{ flex: 1 }}>
+              <Stack>
+                <Stack.Screen name="index" options={{ headerShown: false }} />
+                <Stack.Screen name="splash" options={{ headerShown: false }} />
+                <Stack.Screen name="home" options={{ headerShown: false }} />
+                <Stack.Screen name="auth" options={{ headerShown: false }} />
+                <Stack.Screen name="(driverTabs)" options={{ headerShown: false }} />
+                <Stack.Screen name="(passengerTabs)" options={{ headerShown: false }} />
+                <Stack.Screen name="driver" options={{ headerShown: false }} />
+                <Stack.Screen name="passenger" options={{ headerShown: false }} />
+                <Stack.Screen name="shared/MapScreen" options={{ title: 'Map' }} />
+              </Stack>
+              <ToastManager />
+              {isAuthenticated && <ReminderModal />}
+            </View>
           </SafeAreaProvider>
         </RideProvider>
       </LocationProvider>

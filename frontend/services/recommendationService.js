@@ -6,7 +6,7 @@ const API_URL = process.env.EXPO_PUBLIC_API_URL;
 export const recommendDrivers = async (passengerId, preferences, trajet = {}, top_n = 5) => {
   try {
     const token = await AsyncStorage.getItem('token');
-    
+
     const response = await axios.post(
       `${API_URL}/driver/recommendations`,
       {
@@ -23,9 +23,9 @@ export const recommendDrivers = async (passengerId, preferences, trajet = {}, to
         timeout: 30000
       }
     );
-    
+
     return response.data;
-    
+
   } catch (error) {
     console.error("Erreur recommandations:", { message: error.message });
     throw error;

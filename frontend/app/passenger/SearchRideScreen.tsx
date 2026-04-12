@@ -25,6 +25,7 @@ import { validateLocationsInAlgeria } from "../../utils/Geovalidation";
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import api from "../../services/api";
+import { useAuth } from "../../context/AuthContext";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type SavedAddress = {
@@ -304,6 +305,7 @@ function PassengerPickerModal({
 export default function SearchRideScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { user } = useAuth();
 
   const {
     currentLocation,
@@ -780,7 +782,7 @@ export default function SearchRideScreen() {
         "tripRequest",
         JSON.stringify({
           rideId:      newRide.id,
-          passengerId: newRide.passengerId || 1,
+          passengerId: user.id,
 
           // ✅ AJOUT : géolocalisation complète dans trajet
           trajet: {
