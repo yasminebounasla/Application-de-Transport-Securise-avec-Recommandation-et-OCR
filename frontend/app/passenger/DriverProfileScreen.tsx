@@ -60,9 +60,9 @@ function StarRow({ rating, size = 14 }: { rating: number; size?: number }) {
 const PREF_CONFIG = [
   { key: "talkative", icon: "chatbubbles-outline", label: "Talkative" },
   { key: "radio_on", icon: "musical-notes-outline", label: "Radio" },
-  { key: "smoking_allowed", icon: "flame-outline", label: "Smoking" },
+  { key: "smoking_allowed", icon: "flame-outline", label: "Smoking OK" },
   { key: "pets_allowed", icon: "paw-outline", label: "Pets" },
-  { key: "car_big", icon: "briefcase-outline", label: "Large bags" },
+  { key: "car_big", icon: "car-sport-outline", label: "Large Car" },
 ];
 
 const HOURS_CONFIG = [
@@ -79,6 +79,48 @@ const HOURS_CONFIG = [
     label: "Night (10pm–6am)",
   },
 ];
+
+const HOUR_COLORS_MALE: Record<string, string> = {
+  works_morning:   "#BFDBFE",
+  works_afternoon: "#60A5FA",
+  works_evening:   "#2563EB",
+  works_night:     "#1E3A5F",
+};
+
+const HOUR_COLORS_FEMALE: Record<string, string> = {
+  works_morning:   "#FBCFE8",
+  works_afternoon: "#F472B6",
+  works_evening:   "#DB2777",
+  works_night:     "#831843",
+};
+
+const HOUR_TEXT_MALE: Record<string, string> = {
+  works_morning:   "#1E3A5F",
+  works_afternoon: "#1E3A5F",
+  works_evening:   "#fff",
+  works_night:     "#fff",
+};
+
+const HOUR_TEXT_FEMALE: Record<string, string> = {
+  works_morning:   "#831843",
+  works_afternoon: "#831843",
+  works_evening:   "#fff",
+  works_night:     "#fff",
+};
+
+const HOUR_SHORT: Record<string, string> = {
+  works_morning:   "Morning",
+  works_afternoon: "Afternoon",
+  works_evening:   "Evening",
+  works_night:     "Night",
+};
+
+const HOUR_TICK: Record<string, string> = {
+  works_morning:   "6am–12pm",
+  works_afternoon: "12pm–6pm",
+  works_evening:   "6pm–10pm",
+  works_night:     "10pm–6am",
+};
 
 // ─────────────────────────────────────────────
 // MAIN SCREEN
@@ -188,6 +230,7 @@ export default function PublicDriverProfileScreen() {
 
   const activePrefs = PREF_CONFIG.filter((p) => prefs?.[p.key as keyof typeof prefs]);
   const activeHours = HOURS_CONFIG.filter((h) => prefs?.[h.key as keyof typeof prefs]);
+  const isFemale = ["F", "female", "femme"].includes(driver.gender ?? driver.genre ?? driver.sexe ?? "");
   const visibleFeedbacks = showAll ? feedbacks : feedbacks.slice(0, 3);
 
   const initials =
@@ -315,12 +358,16 @@ export default function PublicDriverProfileScreen() {
           {activeHours.length > 0 && (
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Working Hours</Text>
-              <View style={styles.chipsWrap}>
+              <View style={styles.timelineWrap}>
                 {activeHours.map((h) => (
-                  <View key={h.key} style={styles.hourChip}>
-                    <Ionicons name={h.icon as any} size={13} color='#555' />
-                    <Text style={styles.hourChipText}>{h.label}</Text>
+                  <View key={h.key} style={[styles.timelineSegment, { backgroundColor: isFemale ? HOUR_COLORS_FEMALE[h.key] : HOUR_COLORS_MALE[h.key] }]}>
+                    <Text style={[styles.timelineLabel, { color: isFemale ? HOUR_TEXT_FEMALE[h.key] : HOUR_TEXT_MALE[h.key] }]} numberOfLines={1}>{HOUR_SHORT[h.key]}</Text>
                   </View>
+                ))}
+              </View>
+              <View style={styles.timelineTicks}>
+                {activeHours.map((h) => (
+                  <Text key={h.key} style={styles.timelineTick}>{HOUR_TICK[h.key]}</Text>
                 ))}
               </View>
             </View>
@@ -600,23 +647,30 @@ const styles = StyleSheet.create({
     color: "#111",
     marginLeft: 5,
   },
-  hourChip: {
+  timelineWrap: {
     flexDirection: "row",
-    alignItems: "center",
-    marginRight: 8,
-    marginBottom: 8,
-    backgroundColor: "#F9FAFB",
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
+    borderRadius: 10,
+    overflow: "hidden",
+    height: 36,
   },
-  hourChipText: {
-    marginLeft: 5,
-    fontSize: 12,
-    fontWeight: "500",
-    color: "#555",
+  timelineSegment: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  timelineLabel: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  timelineTicks: {
+    flexDirection: "row",
+    marginTop: 5,
+  },
+  timelineTick: {
+    flex: 1,
+    fontSize: 10,
+    color: "#9CA3AF",
+    textAlign: "center",
   },
   // ── Reviews ──
   reviewCard: {
