@@ -111,13 +111,13 @@ function DateErrorModal({
               </View>
 
               {/* Title */}
-              <Text style={modalStyles.title}>Departure too soon</Text>
+              <Text style={modalStyles.title}>Not enough time</Text>
 
               {/* Body */}
-              <Text style={modalStyles.body}>
-                Pick a time at least{" "}
-                <Text style={modalStyles.bold}>30 min from now</Text>{" "}
-                so the driver can reach you in time.
+                <Text style={modalStyles.body}>
+                  Your ride needs to be booked at least{" "}
+                <Text style={modalStyles.bold}>30 minutes</Text>{" "}
+                in advance so the driver can reach you in time.
               </Text>
 
               {/* Button — centré, rectangulaire, largeur fixe */}
