@@ -137,13 +137,13 @@ export function FallbackModal({ visible, type, backupDrivers,rideId, message, re
                         <Text style={fb.driverName}>{d.prenom} {d.nom}</Text>
                         <Stars rating={d.avgRating ?? 0} />
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                          {d.distance_km && (
-                            <View style={fb.tag}>
-                              <Ionicons name="location-outline" size={10} color="#9CA3AF" />
-                              <Text style={fb.tagText}>{d.distance_km} km</Text>
-                            </View>
+                         {!!d.distance_km && (
+                           <View style={fb.tag}>
+                           <Ionicons name="location-outline" size={10} color="#9CA3AF" />
+                           <Text style={fb.tagText}>{d.distance_km} km</Text>
+                           </View>
                           )}
-                          {d.work_match && (
+                          {!!d.work_match && (
                             <View style={fb.dispoBadge}>
                               <View style={fb.dispoDot} />
                               <Text style={fb.dispoText}>Horaires ✓</Text>

@@ -28,7 +28,7 @@ router.put('/:id/cancel',                 authenticate, cancelRide);            
 
 
 router.post('/send-requests',             authenticate, sendRideRequests);
-router.post('/send-fallback',             authenticate, sendFallbackRequests),
+router.post('/send-fallback',             authenticate, sendFallbackRequests);
 
 // ── Routes CONDUCTEUR ─────────────────────────────────────────────────────────
 router.get('/driver/requests',            authenticate, getDriverRequests);          // Demandes PENDING
