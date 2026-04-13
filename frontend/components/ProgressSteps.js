@@ -1,30 +1,57 @@
-import React from 'react';
-import { View } from 'react-native';
+import React from "react";
+import { View, Text, StyleSheet } from "react-native";
 
 export default function ProgressSteps({ currentStep }) {
-  const steps = [1, 2, 3];
+  const total = 3;
 
   return (
-    <View className="flex-row items-center w-full px-6 py-6 bg-white">
-      {steps.map((step, index) => (
-        <React.Fragment key={step}>
-          {/* Le Cercle - Plus grand */}
+    <View style={styles.wrap}>
+      <Text style={styles.counter}>
+        {currentStep} of {total}
+      </Text>
+      <View style={styles.barWrap}>
+        {Array.from({ length: total }).map((_, i) => (
           <View
-            className={`w-4 h-4 rounded-full ${
-              step <= currentStep ? 'bg-black' : 'bg-gray-200'
-            }`}
+            key={i}
+            style={[styles.bar, i < currentStep && styles.barActive]}
           />
-
-          {/* La Ligne entre les cercles - Prend toute la largeur disponible */}
-          {index < steps.length - 1 && (
-            <View
-              className={`h-[2px] flex-1 mx-3 ${
-                step < currentStep ? 'bg-black' : 'bg-gray-200'
-              }`}
-            />
-          )}
-        </React.Fragment>
-      ))}
+        ))}
+      </View>
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  wrap: {
+    paddingHorizontal: 30,
+    paddingTop: 20,
+    paddingBottom: 20,
+    backgroundColor: 'white',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  counter: {
+    fontSize: 12,
+    color: '#9CA3AF',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  barWrap: {
+    flexDirection: 'row',
+    gap: 4,
+  },
+  bar: {
+    flex: 1,
+    height: 3,
+    borderRadius: 99,
+    backgroundColor: '#E5E7EB',
+  },
+  barActive: {
+    backgroundColor: '#000',
+  },
+});

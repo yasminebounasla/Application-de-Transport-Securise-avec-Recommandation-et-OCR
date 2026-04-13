@@ -111,13 +111,13 @@ export default function RegisterDriverScreen() {
   return (
     <>
       <Stack.Screen options={{ title: "Create Account" }} />
-
+      <ProgressSteps currentStep={1} />
       <ScrollView className='flex-1 bg-white'>
         <View className='px-6 py-8'>
-          <ProgressSteps currentStep={1} />
+
 
           <View className='mb-10'>
-            <Text className='text-3xl font-bold text-black mb-2'>
+            <Text className='text-2xl font-bold text-black mb-2'>
               Register as Driver
             </Text>
             <Text className='text-gray-500'>

@@ -15,12 +15,13 @@ import Button from "../../../components/Button";
 import ProgressSteps from "../../../components/ProgressSteps";
 import { CameraView } from "../../../components/CameraView";
 import Toast from "../../../components/Toast";
+import { Stack } from "expo-router";
 import {
   uploadLicense,
   updatePhotoConsent,
 } from "../../../services/verificationService";
 import { useAuth } from "../../../context/AuthContext";
-import { useState } from "react";
+import React, { useState } from "react";
 
 type ViewMode = "selection" | "camera" | "uploading";
 
@@ -130,7 +131,7 @@ export default function LicenseUploadScreen() {
    */
   const handleConfirmAndUpload = async () => {
     if (!imageUri) return;
-console.log("🚀 [STEP 0] Starting Upload Process");
+    console.log("🚀 [STEP 0] Starting Upload Process");
     setUploading(true);
     setViewMode("uploading");
 
@@ -139,7 +140,10 @@ console.log("🚀 [STEP 0] Starting Upload Process");
       const registrationDataStr = await AsyncStorage.getItem(
         "tempRegistrationData",
       );
-      console.log("📍 [STEP 1] Temp Data in Storage:", registrationDataStr ? "FOUND" : "NOT FOUND");
+      console.log(
+        "📍 [STEP 1] Temp Data in Storage:",
+        registrationDataStr ? "FOUND" : "NOT FOUND",
+      );
       if (!registrationDataStr) {
         Alert.alert("Error", "Missing registration data. Please start over.");
         router.replace("/auth/driver/RegisterDriverScreen");
@@ -151,13 +155,15 @@ console.log("🚀 [STEP 0] Starting Upload Process");
       let userId: number;
       let currentToken: string | null = null;
       const existingUserData = await AsyncStorage.getItem("user");
-console.log("📍 [STEP 2] Existing User Check:", existingUserData ? "YES" : "NO (Registering new)");
+      console.log(
+        "📍 [STEP 2] Existing User Check:",
+        existingUserData ? "YES" : "NO (Registering new)",
+      );
       if (existingUserData) {
         userId = JSON.parse(existingUserData).id;
-          const storedToken = await AsyncStorage.getItem("token"); // adjust key to match yours
+        const storedToken = await AsyncStorage.getItem("token"); // adjust key to match yours
 
-            currentToken = storedToken;
-
+        currentToken = storedToken;
       } else {
         const registerResult = await registerAsDriver(registrationData);
         if (!registerResult.success) {
@@ -180,11 +186,18 @@ console.log("📍 [STEP 2] Existing User Check:", existingUserData ? "YES" : "NO
       console.log("📍 [STEP 4] TRIGGERING AXIOS UPLOAD...");
       console.log("   - URI:", imageUri);
       console.log("   - Token present:", !!currentToken);
-const licenseResult = await uploadLicense(userId, imageUri, currentToken as any);
-console.log("📍 [STEP 5] SERVER RESPONSE RECEIVED:", licenseResult.success ? "SUCCESS" : "FAILED");
+      const licenseResult = await uploadLicense(
+        userId,
+        imageUri,
+        currentToken as any,
+      );
+      console.log(
+        "📍 [STEP 5] SERVER RESPONSE RECEIVED:",
+        licenseResult.success ? "SUCCESS" : "FAILED",
+      );
       if (!licenseResult.success) {
         const errorMessage = parseUploadError(licenseResult);
-console.error("❌ Upload License Logic Error:", errorMessage);
+        console.error("❌ Upload License Logic Error:", errorMessage);
         // ❌ AFFICHER TOAST ERREUR (reste 6 secondes)
         setViewMode("selection");
         showToast(errorMessage, "error");
@@ -193,7 +206,7 @@ console.error("❌ Upload License Logic Error:", errorMessage);
 
       // 5. Finalisation - SUCCESS
       await AsyncStorage.removeItem("tempRegistrationData");
-console.log("🎉 [FINAL STEP] Process Complete, redirecting...");
+      console.log("🎉 [FINAL STEP] Process Complete, redirecting...");
       // ✅ AFFICHER TOAST SUCCESS (3 secondes puis navigation)
 
       setViewMode("selection");
@@ -207,7 +220,10 @@ console.log("🎉 [FINAL STEP] Process Complete, redirecting...");
       console.error("🔴 [FATAL ERROR] Catch Block Triggered:");
       console.error("- Name:", error.name);
       console.error("- Message:", error.message);
-      console.error("- Config:", error.config ? "URL: " + error.config.url : "No Config");
+      console.error(
+        "- Config:",
+        error.config ? "URL: " + error.config.url : "No Config",
+      );
       console.error("❌ License upload error:", error);
 
       //  AFFICHER TOAST ERREUR
@@ -231,31 +247,36 @@ console.log("🎉 [FINAL STEP] Process Complete, redirecting...");
 
   if (viewMode === "uploading") {
     return (
-      <View className='flex-1 bg-white justify-center items-center px-8'>
-        <ActivityIndicator size='large' color='#000' />
+      <React.Fragment>
+        <Stack.Screen options={{ title: "License Upload" }} />
+        <View className='flex-1 bg-white justify-center items-center px-8'>
+          <ActivityIndicator size='large' color='#000' />
 
-        <View className='mt-8 items-center'>
-          <MaterialIcons name='badge' size={64} color='#000' />
+          <View className='mt-8 items-center'>
+            <MaterialIcons name='badge' size={64} color='#000' />
 
-          <Text className='text-xl font-semibold text-black mt-6 mb-2 text-center'>
+            {/* <Text className='text-xl font-semibold text-black mt-6 mb-2 text-center'>
             Analyzing Your License
-          </Text>
+          </Text> */}
 
-          <Text className='text-sm text-gray-600 mb-2 text-center px-4'>
-            Stay tuned while we verify your driver's license. We'll notify you once it's done.
+            <Text className='text-sm text-gray-600 mb-2 text-center px-4'>
+              Stay tuned while we verify your driver's license. We'll notify you
+              once it's done.
+            </Text>
 
-          </Text>
-
-          <Text className='text-xs text-gray-500 italic text-center px-4'>
-            This process may take up to 1 minute. Please ensure you have a stable internet connection.
-          </Text>
+            <Text className='text-xs text-gray-500 italic text-center px-4'>
+              This process may take up to 1 minute. Please ensure you have a
+              stable internet connection.
+            </Text>
+          </View>
         </View>
-      </View>
+      </React.Fragment>
     );
   }
 
   return (
     <View className='flex-1 bg-white'>
+      <Stack.Screen options={{ title: "License Upload" }} />
       {/* Toast Notification */}
       <Toast
         visible={toastVisible}
@@ -273,88 +294,35 @@ console.log("🎉 [FINAL STEP] Process Complete, redirecting...");
         contentContainerStyle={{ paddingHorizontal: 20 }}>
         {/* Icon */}
         <View className='items-center mt-8 mb-6'>
-          <View className='w-28 h-28 rounded-full bg-gray-100 justify-center items-center'>
+          <View className='w-28 h-28 rounded-full bg-black/5 justify-center items-center'>
             <MaterialIcons name='badge' size={64} color='#000' />
           </View>
         </View>
 
-        <Text className='text-3xl font-bold text-black text-center mb-3'>
+        <Text className='text-2xl font-bold text-black text-center mb-3'>
           Upload Your License
         </Text>
-        <Text className='text-base text-gray-600 text-center mb-8 px-5'>
-          Take a clear photo of your driver's license
+        <Text className='text-sm text-gray-500 text-center mb-6 px-4 leading-5'>
+          We'll use this to verify your identity.
         </Text>
 
-        {/* Visual Instructions Card */}
-        <View className='bg-gradient-to-br from-blue-50 to-indigo-50 rounded-2xl p-5 mb-6 border border-blue-200'>
-          <View className='flex-row items-center mb-4'>
-            <MaterialIcons name='lightbulb' size={24} color='#3B82F6' />
-            <Text className='text-base font-semibold text-gray-900 ml-2'>
-              Tips for Best Results
-            </Text>
-          </View>
-
-          <View className='space-y-3'>
-            <View className='flex-row items-start mb-3'>
-              <View className='w-8 h-8 rounded-full bg-white items-center justify-center mr-3 mt-0.5'>
-                <MaterialIcons name='wb-sunny' size={18} color='#10B981' />
-              </View>
-              <View className='flex-1'>
-                <Text className='text-sm font-medium text-gray-900'>
-                  Good Lighting
-                </Text>
-                <Text className='text-xs text-gray-600'>
-                  Use natural light or bright indoor lighting
-                </Text>
-              </View>
+        
+        <View className='rounded-2xl p-5 mb-6 border bg-zinc-50 border-l-4 border-l-black border-gray-300'>
+          {[
+            "Place your license on a flat, white surface with all four corners visible.",
+            "Use natural or bright indoor light, avoid shadows and glare on the card.",
+            "Hold the camera steady and make sure all text is sharp and readable.",
+            "Fill the frame with your license so no details are cut off.",
+          ].map((tip, i) => (
+            <View key={i} className='flex-row items-start mb-4'>
+              <Text className='text-sm font-bold text-black mr-3 mt-0.5'>
+                {i + 1}.
+              </Text>
+              <Text className='flex-1 text-sm text-gray-700 leading-5'>
+                {tip}
+              </Text>
             </View>
-
-            <View className='flex-row items-start mb-3'>
-              <View className='w-8 h-8 rounded-full bg-white items-center justify-center mr-3 mt-0.5'>
-                <MaterialIcons
-                  name='crop-landscape'
-                  size={18}
-                  color='#10B981'
-                />
-              </View>
-              <View className='flex-1'>
-                <Text className='text-sm font-medium text-gray-900'>
-                  Plain Background
-                </Text>
-                <Text className='text-xs text-gray-600'>
-                  Place license on a solid, dark surface
-                </Text>
-              </View>
-            </View>
-
-            <View className='flex-row items-start mb-3'>
-              <View className='w-8 h-8 rounded-full bg-white items-center justify-center mr-3 mt-0.5'>
-                <MaterialIcons name='camera' size={18} color='#10B981' />
-              </View>
-              <View className='flex-1'>
-                <Text className='text-sm font-medium text-gray-900'>
-                  No Glare or Shadows
-                </Text>
-                <Text className='text-xs text-gray-600'>
-                  Avoid reflections and keep license flat
-                </Text>
-              </View>
-            </View>
-
-            <View className='flex-row items-start'>
-              <View className='w-8 h-8 rounded-full bg-white items-center justify-center mr-3 mt-0.5'>
-                <MaterialIcons name='zoom-in' size={18} color='#10B981' />
-              </View>
-              <View className='flex-1'>
-                <Text className='text-sm font-medium text-gray-900'>
-                  Fill the Frame
-                </Text>
-                <Text className='text-xs text-gray-600'>
-                  Make sure all text is clearly readable
-                </Text>
-              </View>
-            </View>
-          </View>
+          ))}
         </View>
 
         {/* Image Display Area */}

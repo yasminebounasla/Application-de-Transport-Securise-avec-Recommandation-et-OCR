@@ -9,6 +9,7 @@ import ProgressSteps from "../../../components/ProgressSteps";
 import { CameraView } from "../../../components/CameraView";
 import Toast from "../../../components/Toast";
 import { uploadSelfie } from "../../../services/verificationService";
+import { Stack } from "expo-router";
 
 type ViewMode = "selection" | "camera" | "uploading";
 
@@ -41,8 +42,8 @@ export default function SelfieScreen() {
   // ========== 🔴 DÉBUT CODE TEMPORAIRE - À SUPPRIMER PLUS TARD ==========
   const handleChooseFromGallery = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      showToast('Gallery permission required', 'error');
+    if (status !== "granted") {
+      showToast("Gallery permission required", "error");
       return;
     }
 
@@ -116,14 +117,13 @@ export default function SelfieScreen() {
 
       if (isApproved) {
         console.log("✅ Verification successful - navigating to home");
-         setViewMode("selection");
-  showToast("Face verified successfully! Welcome aboard! 🎉", "success");
-  
-  // Wait 3 seconds before redirecting
-  setTimeout(() => {
-    router.replace("/driver/ProfileSetupScreen");
-  }, 3000);
-  
+        setViewMode("selection");
+        showToast("Face verified successfully, ", "success");
+
+        // Wait 3 seconds before redirecting
+        setTimeout(() => {
+          router.replace("/driver/ProfileSetupScreen");
+        }, 2000);
       } else {
         setViewMode("selection");
         setImageUri(null);
@@ -156,28 +156,30 @@ export default function SelfieScreen() {
 
   if (viewMode === "uploading") {
     return (
-      <View className='flex-1 bg-white justify-center items-center px-8'>
-        <ActivityIndicator size='large' color='#000' />
+      <React.Fragment>
+        <Stack.Screen options={{ title: "Take a Selfie" }} />
+        <View className='flex-1 bg-white justify-center items-center px-8'>
+          <ActivityIndicator size='large' color='#000' />
 
-        <View className='mt-8 items-center'>
-          <MaterialIcons name='face' size={64} color='#000' />
+          <View className='mt-8 items-center'>
+            <MaterialIcons name='how-to-reg' size={64} color='#000' />
 
-          <Text className='text-xl font-semibold text-black mt-6 mb-2 text-center'>
-            Verifying Your Face
-          </Text>
+            <Text className='text-xl font-semibold text-black mt-6 mb-2 text-center'>
+              Verifying Your Face
+            </Text>
 
-          
-
-          <Text className='text-xs text-gray-500 italic text-center px-4'>
-            This may take a few seconds
-          </Text>
+            <Text className='text-xs text-gray-500 italic text-center px-4'>
+              This may take a few seconds
+            </Text>
+          </View>
         </View>
-      </View>
+      </React.Fragment>
     );
   }
 
   return (
     <View className='flex-1 bg-white'>
+      <Stack.Screen options={{ title: "Take a Selfie" }} />
       {/* Toast Notification */}
       <Toast
         visible={toastVisible}
@@ -196,93 +198,35 @@ export default function SelfieScreen() {
         {/* Icon */}
         <View className='items-center mt-8 mb-6'>
           <View className='w-28 h-28 rounded-full bg-gray-100 justify-center items-center'>
-            <MaterialIcons
-              name='face-retouching-natural'
-              size={64}
-              color='#000'
-            />
+            <MaterialIcons name='face' size={79} color='#000' />
           </View>
         </View>
 
         <Text className='text-3xl font-bold text-black text-center mb-3'>
           Take a Selfie
         </Text>
-        
+        <Text className='text-sm text-gray-500 text-center mb-6 px-4 leading-5'>
+          Your profile photo helps people recognize you. Once submitted, it can
+          only be changed in limited circumstances.
+        </Text>
 
-        {/* Visual Instructions Card */}
-        <View className='bg-gradient-to-br from-purple-50 to-pink-50 rounded-2xl p-5 mb-4 border border-purple-200'>
-          <View className='flex-row items-center mb-4'>
-            <MaterialIcons name='tips-and-updates' size={24} color='#A855F7' />
-            <Text className='text-base font-semibold text-gray-900 ml-2'>
-              Tips for Perfect Selfie
-            </Text>
-          </View>
 
-          <View className='space-y-3'>
-            <View className='flex-row items-start mb-3'>
-              <View className='w-8 h-8 rounded-full bg-white items-center justify-center mr-3 mt-0.5'>
-                <MaterialIcons name='wb-sunny' size={18} color='#10B981' />
-              </View>
-              <View className='flex-1'>
-                <Text className='text-sm font-medium text-gray-900'>
-                  Natural Lighting
-                </Text>
-                <Text className='text-xs text-gray-600'>
-                  Face a window or use soft indoor light
-                </Text>
-              </View>
+
+        <View className='rounded-2xl p-5 mb-6 border border-gray-200 border-l-4 border-l-gray bg-zinc-50'>
+          {[
+            "Face the camera directly with your eyes and mouth clearly visible.",
+            "Make sure the photo is well lit, free of glare and in focus.",
+            "Face a window or use soft indoor light.",
+          ].map((tip, i) => (
+            <View key={i} className='flex-row items-start mb-4'>
+              <Text className='text-sm font-bold text-black mr-3 mt-0.5'>
+                {i + 1}.
+              </Text>
+              <Text className='flex-1 text-sm text-gray-700 leading-5'>
+                {tip}
+              </Text>
             </View>
-
-            <View className='flex-row items-start mb-3'>
-              <View className='w-8 h-8 rounded-full bg-white items-center justify-center mr-3 mt-0.5'>
-                <MaterialIcons name='face' size={18} color='#10B981' />
-              </View>
-              <View className='flex-1'>
-                <Text className='text-sm font-medium text-gray-900'>
-                  Look Directly at Camera
-                </Text>
-                <Text className='text-xs text-gray-600'>
-                  Keep your head straight and centered
-                </Text>
-              </View>
-            </View>
-
-            <View className='flex-row items-start mb-3'>
-              <View className='w-8 h-8 rounded-full bg-white items-center justify-center mr-3 mt-0.5'>
-                <MaterialIcons
-                  name='visibility-off'
-                  size={18}
-                  color='#F59E0B'
-                />
-              </View>
-              <View className='flex-1'>
-                <Text className='text-sm font-medium text-gray-900'>
-                  Remove Accessories
-                </Text>
-                <Text className='text-xs text-gray-600'>
-                  Take off glasses, hats, and sunglasses
-                </Text>
-              </View>
-            </View>
-
-            <View className='flex-row items-start'>
-              <View className='w-8 h-8 rounded-full bg-white items-center justify-center mr-3 mt-0.5'>
-                <MaterialIcons
-                  name='sentiment-neutral'
-                  size={18}
-                  color='#10B981'
-                />
-              </View>
-              <View className='flex-1'>
-                <Text className='text-sm font-medium text-gray-900'>
-                  Neutral Expression
-                </Text>
-                <Text className='text-xs text-gray-600'>
-                  Keep a calm, natural face (like passport photo)
-                </Text>
-              </View>
-            </View>
-          </View>
+          ))}
         </View>
 
         {/* Photo Placeholder / Preview */}
@@ -323,19 +267,19 @@ export default function SelfieScreen() {
           </View>
         ) : (
           // ========== 🔴 DÉBUT CODE TEMPORAIRE - BUTTONS ==========
-          <View className="space-y-3">
+          <View className='space-y-3'>
             <Button
-              title="Take Selfie"
+              title='Take Selfie'
               onPress={handleTakePhoto}
-              variant="primary"
+              variant='primary'
               loading={uploading}
               disabled={uploading}
               style={{}}
             />
             <Button
-              title="Choose from Gallery"
+              title='Choose from Gallery'
               onPress={handleChooseFromGallery}
-              variant="secondary"
+              variant='secondary'
               disabled={uploading}
               style={{}}
             />

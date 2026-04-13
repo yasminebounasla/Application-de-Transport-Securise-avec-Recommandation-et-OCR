@@ -1,10 +1,11 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { View, Text, Animated } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 
 export default function Toast({ message, type, visible, onHide, duration = 3000 }) {
   const opacity = React.useRef(new Animated.Value(0)).current;
   const translateY = React.useRef(new Animated.Value(-100)).current;
+  const timerRef = useRef(null);
 
   useEffect(() => {
     if (visible) {
@@ -23,7 +24,8 @@ export default function Toast({ message, type, visible, onHide, duration = 3000 
       ]).start();
 
       // Auto-hide après duration ms
-      const timer = setTimeout(() => {
+
+      timerRef.current = setTimeout(() => {
         // Animation de sortie
         Animated.parallel([
           Animated.timing(opacity, {
@@ -41,9 +43,11 @@ export default function Toast({ message, type, visible, onHide, duration = 3000 
         });
       }, duration);
 
-      return () => clearTimeout(timer);
+      return () => {
+        if (timerRef.current) clearTimeout(timerRef.current);
+      };
     }
-  }, [visible, duration]);
+  }, [visible, duration, onHide]);
 
   if (!visible) return null;
 
