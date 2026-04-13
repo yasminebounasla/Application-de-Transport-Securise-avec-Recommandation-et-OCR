@@ -773,6 +773,11 @@ export default function SearchRideScreen() {
         placesDispo:   nbPassagers,
       });
 
+      if (!newRide) {
+        isSubmittingRef.current = false;
+        return;
+      }
+
       // ── Dans handleRideRequest() — remplace UNIQUEMENT le bloc AsyncStorage.setItem ──
       // Cherche cette ligne dans ton SearchRideScreen.tsx :
       //   await AsyncStorage.setItem('tripRequest', JSON.stringify({ ... }))
@@ -821,11 +826,26 @@ export default function SearchRideScreen() {
         },
       });
     } catch (error: any) {
-      isSubmittingRef.current = false;
-      Alert.alert(
-        "Error",
-        error.response?.data?.message || error.message || "Unable to create your request."
-      );
+     isSubmittingRef.current = false;
+
+     const status = error?.response?.status;
+     const msg: string = error?.response?.data?.message || error.message || "";
+
+     // ✅ Silently ignore route/network errors
+      if (
+       status === 503 ||
+       status === 502 ||
+       msg.includes("itinéraire") ||
+       msg.includes("calculer") ||
+       msg.includes("ETIMEDOUT") ||
+       error.code === "ERR_NETWORK" ||
+       error.code === "ECONNABORTED"
+      ) {
+        console.warn("⚠️ Route error ignored silently:", msg);
+        return;
+      }
+
+     Alert.alert("Error", msg || "Unable to create your request.");
     }
   };
 

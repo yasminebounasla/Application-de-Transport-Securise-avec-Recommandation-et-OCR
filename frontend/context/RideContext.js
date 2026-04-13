@@ -46,7 +46,7 @@ export const RideProvider = ({ children }) => {
         const rides = response.data?.data || [];
         if (mounted) setPassengerRides(rides);
         passengerConsecutiveFailuresRef.current = 0;
-  
+
         const activeRides = rides.filter((r) => ['ACCEPTED', 'IN_PROGRESS'].includes(r.status));
         if (activeRides.length === 0) {
           passengerPollInFlightRef.current = false;
@@ -122,23 +122,38 @@ export const RideProvider = ({ children }) => {
     setLoading(true);
     try {
       console.log('📤 Envoi requête createRide:', rideData);
-      
+
       const response = await api.post('/ridesDem', rideData);
       const newRide = response.data.data;
 
       console.log('✅ Ride créé:', newRide);
-      
+
       setPassengerRides(prev => [newRide, ...prev]);
-      
+
       return newRide;
     } catch (error) {
       if (error?.response?.status === 401) {
-        await logout();
-        setCurrentRide(null);
-        return null;
+       await logout();
+       setCurrentRide(null);
+       return null;
       }
-      console.error('❌ Erreur createRide:', error.response?.data || error.message);
-      throw error;
+
+     // ✅ Silently ignore route/network errors
+      if (
+       error?.response?.status === 503 ||
+       error?.response?.status === 502 ||
+       error?.code === 'ECONNABORTED' ||
+       error?.code === 'ERR_NETWORK' ||
+       error?.message?.includes('ETIMEDOUT') ||
+       error?.message?.includes('Network Error')
+      ) {
+       console.warn('⚠️ Route/network error ignored silently:', error.message);
+       return null;
+      }
+
+     console.error('❌ Erreur createRide:', error.response?.data || error.message);
+     throw error;
+  
     } finally {
       setLoading(false);
     }
@@ -148,11 +163,11 @@ export const RideProvider = ({ children }) => {
     setLoading(true);
     try {
       console.log('📡 Récupération des rides du passager...');
-      
+
       const response = await api.get('/ridesDem/my-rides');
-      
+
       console.log('✅ Passenger rides:', response.data);
-      
+
       setPassengerRides(response.data.data || []);
     } catch (error) {
       console.error('❌ Erreur getPassengerRides:', error);
@@ -166,24 +181,24 @@ export const RideProvider = ({ children }) => {
     setLoading(true);
     try {
       console.log('📡 Appel GET /ridesDem/driver/requests...');
-      
+
       const response = await api.get('/ridesDem/driver/requests');
-      
+
       console.log('✅ Response status:', response.status);
       console.log('✅ Response data:', response.data);
       console.log('📊 Nombre de rides:', response.data.count);
-      
+
       if (response.data.data && response.data.data.length > 0) {
         console.log('📦 Premier ride:', response.data.data[0]);
         console.log('👤 Passenger du premier ride:', response.data.data[0].passenger);
-        
+
         if (!response.data.data[0].passenger) {
           console.error('❌ PROBLÈME: passenger est undefined !');
         }
       } else {
         console.log('⚠️ Aucun ride retourné par le backend');
       }
-      
+
       setDriverRequests(response.data.data || []);
     } catch (error) {
       console.error('❌ Erreur getDriverRequests:', error.response?.data || error.message);
@@ -224,13 +239,13 @@ export const RideProvider = ({ children }) => {
   const acceptRide = async (rideId) => {
     try {
       console.log('✅ Acceptation du ride:', rideId);
-      
+
       const response = await api.put(`/ridesDem/${rideId}/accept`);
       const acceptedRide = response.data.data;
-      
+
       console.log('✅ Ride accepté:', response.data);
       setCurrentRide(acceptedRide);
-      
+
       return acceptedRide;
     } catch (error) {
       console.error('❌ Erreur acceptRide:', error);
@@ -241,11 +256,11 @@ export const RideProvider = ({ children }) => {
   const rejectRide = async (rideId) => {
     try {
       console.log('❌ Rejet du ride:', rideId);
-      
+
       const response = await api.put(`/ridesDem/${rideId}/reject`);
-      
+
       console.log('✅ Ride rejeté:', response.data);
-      
+
       return response.data.data;
     } catch (error) {
       console.error('❌ Erreur rejectRide:', error);
@@ -256,11 +271,11 @@ export const RideProvider = ({ children }) => {
   const cancelRide = async (rideId) => {
     try {
       console.log('🚫 Annulation du ride:', rideId);
-      
+
       const response = await api.put(`/ridesDem/${rideId}/cancel`);
-      
+
       console.log('✅ Ride annulé:', response.data);
-      
+
       return response.data.data;
     } catch (error) {
       console.error('❌ Erreur cancelRide:', error);
@@ -292,19 +307,19 @@ export const RideProvider = ({ children }) => {
     const interval = setInterval(async () => {
       try {
         console.log('📡 Vérification du statut...');
-        
+
         // Appel à ton API pour récupérer le trajet
         const response = await api.get(`/ridesDem/${trajetId}`);
         const updatedRide = response.data.data;
-        
+
         console.log('📊 Statut actuel:', updatedRide.status);
-        
+
         // Met à jour currentRide
         setCurrentRide(updatedRide);
-        
+
         // Appelle le callback pour notifier le screen
         callback(updatedRide);
-        
+
       } catch (error) {
         console.error('❌ Erreur polling:', error);
       }
@@ -323,15 +338,15 @@ export const RideProvider = ({ children }) => {
     setLoading(true);
     try {
       console.log('📡 Récupération du trajet:', trajetId);
-      
+
       const response = await api.get(`/ridesDem/${trajetId}`);
       const ride = response.data.data;
-      
+
       console.log('✅ Trajet récupéré:', ride);
-      
+
       // Met à jour currentRide
       setCurrentRide(ride);
-      
+
       return ride;
     } catch (error) {
       console.error('❌ Erreur getRideById:', error);
