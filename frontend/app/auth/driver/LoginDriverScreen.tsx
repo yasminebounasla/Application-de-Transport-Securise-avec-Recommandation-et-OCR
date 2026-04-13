@@ -22,13 +22,7 @@ export default function LoginDriverScreen() {
     const result = await loginAsDriver(email, password);
 
     if (result.success) {
-      Alert.alert("Success!", "You have successfully logged in.", [
-        {
-          text: "OK",
-          onPress: () =>
-            router.replace("./../../../(driverTabs)/DriverHomeScreen"),
-        },
-      ]);
+      router.replace("./../../../(driverTabs)/DriverHomeScreen");
     } else {
       setError(result.message);
     }
