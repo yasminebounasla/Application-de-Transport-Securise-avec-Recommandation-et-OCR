@@ -62,7 +62,7 @@ const PREF_CONFIG = [
   { key: "radio_on", icon: "musical-notes-outline", label: "Radio" },
   { key: "smoking_allowed", icon: "flame-outline", label: "Smoking" },
   { key: "pets_allowed", icon: "paw-outline", label: "Pets" },
-  { key: "car_big", icon: "briefcase-outline", label: "Large bags" },
+  { key: "car_big", icon: "bag-handle-outline", label: "Large bags" },
 ];
 
 const HOURS_CONFIG = [
