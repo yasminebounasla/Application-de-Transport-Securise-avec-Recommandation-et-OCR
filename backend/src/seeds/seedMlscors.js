@@ -19,42 +19,42 @@ function generateRealisticScores(rating) {
 
   return {
     lightfm: isGood ? randomFloat(0.55, 0.95) : randomFloat(0.10, 0.45),
-    pref:    isGood ? randomFloat(0.60, 1.00) : randomFloat(0.05, 0.40),
-    dist:    randomFloat(0.30, 0.90), // distance moins corrélée à la note
-    rating:  isGood ? randomFloat(0.55, 0.95) : randomFloat(0.10, 0.50),
+    pref: isGood ? randomFloat(0.60, 1.00) : randomFloat(0.05, 0.40),
+    dist: randomFloat(0.30, 0.90), // distance moins corrélée à la note
+    rating: isGood ? randomFloat(0.55, 0.95) : randomFloat(0.10, 0.50),
   };
 }
 
 async function seedMlScores() {
   console.log("\n🚀 Seed mlScores — pour tester l'optimisation SLSQP\n");
-try {
-  const trajets = await prisma.trajet.findMany({
-    where: {
+  try {
+    const trajets = await prisma.trajet.findMany({
+      where: {
         status: "COMPLETED",
-    },
-    include: { evaluation: true },
-    take: 200,
+      },
+      include: { evaluation: true },
+      take: 200,
     });
 
     const trajetsWithEval = trajets.filter(
-    (t) => t.evaluation !== null && t.mlScores === null
+      (t) => t.evaluation !== null && t.mlScores === null
     );
 
     console.log(`✅ ${trajetsWithEval.length} trajets éligibles trouvés\n`);
 
     if (trajetsWithEval.length === 0) {
-    console.log("⚠️  Aucun trajet éligible");
-    return;
+      console.log("⚠️  Aucun trajet éligible");
+      return;
     }
 
     for (const trajet of trajetsWithEval) {
-    const rating = trajet.evaluation.rating;
-    const scores = generateRealisticScores(rating);
+      const rating = trajet.evaluation.rating;
+      const scores = generateRealisticScores(rating);
 
-    await prisma.trajet.update({
+      await prisma.trajet.update({
         where: { id: trajet.id },
-        data:  { mlScores: scores },
-    });
+        data: { mlScores: scores },
+      });
     }
 
     console.log(`✅ ${updated} trajets mis à jour avec mlScores`);
@@ -80,4 +80,7 @@ try {
   }
 
 }
+
 seedMlScores();
+
+export { seedMlScores };

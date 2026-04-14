@@ -4,6 +4,9 @@
   "description": "Central backend API for handling authentication, data processing, and communication between services",
   "main": "index.js",
   "type": "module",
+  "prisma": {
+    "seed": "node prisma/seed.js"
+  },
   "scripts": {
     "dev": "nodemon index.js",
     "start": "node index.js",
