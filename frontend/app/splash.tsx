@@ -12,7 +12,7 @@ export default function SplashScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ headerShown: false }} /> {/* ✅ ADD */}
+      <Stack.Screen options={{ headerShown: false }} /> 
       <View style={styles.container}>
         <Image
           source={require("../assets/logo-app.jpg")}
