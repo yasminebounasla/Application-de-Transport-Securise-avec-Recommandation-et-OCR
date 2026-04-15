@@ -8,7 +8,7 @@ export default function Layout() {
         options={{
           title: "Edit Profile",
           headerStyle: { backgroundColor: '#ffffff' },
-          headerTitleStyle: { fontWeight: '800', fontSize: 17 },
+          headerTitleStyle: { fontWeight: '800', fontSize: 18 },
           headerShadowVisible: true,
           headerBackTitle: '',
         }}
@@ -18,10 +18,11 @@ export default function Layout() {
       <Stack.Screen
         name="DriverDashboardScreen"
         options={{
-          title: "Driver Dashboard",
-          headerStyle: { backgroundColor: '#060B16' },
-          headerTintColor: '#FFFFFF',
-          headerTitleStyle: { color: '#FFFFFF', fontWeight: '800' },
+          title: "Dashboard",
+          headerStyle: { backgroundColor: '#ffffff' },
+          headerTitleStyle: { fontWeight: '800', fontSize: 18 },
+          headerShadowVisible: true,
+          headerBackTitle: '',
         }}
       />
       <Stack.Screen name="ProfileSetupScreen" />

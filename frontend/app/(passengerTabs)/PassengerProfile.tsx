@@ -277,7 +277,8 @@ export default function PassengerProfileScreen() {
         visible={settingsVisible}
         transparent
         animationType='fade'
-        onRequestClose={() => setSettings(false)}>
+        onRequestClose={() => setSettings(false)}
+        statusBarTranslucent>
         {/* Backdrop */}
         <TouchableOpacity
           style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.35)" }}

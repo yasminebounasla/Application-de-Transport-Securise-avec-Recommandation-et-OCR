@@ -696,7 +696,7 @@ export default function HomeScreen() {
                 </View>
               </View>
               <Text style={styles.heroTitle}>
-                {isNewUser() ? `Welcome, ${driverName}` : `Welcome back, ${driverName}`}
+                {isNewUser ? `Welcome, ${driverName}` : `Welcome back, ${driverName}`}
               </Text>
               <Text style={styles.heroSubtitle}>
                 Track your rides, watch your performance, and jump back into work faster.
