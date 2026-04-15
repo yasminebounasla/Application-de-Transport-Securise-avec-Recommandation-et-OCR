@@ -123,8 +123,10 @@ function startOfDay(date: Date) {
   return next;
 }
 
+// FIX: Use only createdAt to bucket rides — avoids new drivers seeing
+// phantom activity caused by updatedAt falling in the current week.
 function getRideActivityDate(ride: DriverActivityItem) {
-  return ride.completedAt || ride.updatedAt || ride.createdAt || null;
+  return ride.createdAt || null;
 }
 
 function buildWeekPeriods(rides: DriverActivityItem[], accountCreatedAt?: string | null): WeekPeriod[] {
@@ -595,6 +597,7 @@ export default function HomeScreen() {
     periodContentFade.setValue(1);
     setPeriodMode(mode);
   }, [periodContentFade, periodMode]);
+
   const inProgressRide = currentRide && currentRide.status === 'IN_PROGRESS' ? currentRide : null;
   const activeRide = currentRide && ['ACCEPTED', 'IN_PROGRESS'].includes(currentRide.status) ? currentRide : null;
 
@@ -645,6 +648,7 @@ export default function HomeScreen() {
       text: 'A fresh ride can start this streak at any time.',
     },
   }[progressState];
+
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
     try {
@@ -671,58 +675,59 @@ export default function HomeScreen() {
         <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#111" />
       }
     >
+      {/* ── HERO CARD: white background, dark text ── */}
       <Animated.View
         style={[
           { opacity: heroFade, transform: [{ translateY: heroLift }] },
         ]}
       >
         <TouchableOpacity activeOpacity={0.92} onPress={openDriverDashboard} style={styles.heroCard}>
-        <View style={styles.heroTopRow}>
-          <View style={styles.heroContent}>
-            <View style={styles.heroEyebrowRow}>
-              <Text style={styles.eyebrow}>Driver dashboard</Text>
-              <View style={styles.heroTapHint}>
-                <Text style={styles.heroTapHintText}>Tap to open</Text>
-                <MaterialIcons name="arrow-forward" size={14} color="#F59E0B" />
+          <View style={styles.heroTopRow}>
+            <View style={styles.heroContent}>
+              <View style={styles.heroEyebrowRow}>
+                <Text style={styles.eyebrow}>Driver dashboard</Text>
+                <View style={styles.heroTapHint}>
+                  <Text style={styles.heroTapHintText}>Tap to open</Text>
+                  <MaterialIcons name="arrow-forward" size={14} color="#F59E0B" />
+                </View>
               </View>
+              <Text style={styles.heroTitle}>Welcome back, {driverName}</Text>
+              <Text style={styles.heroSubtitle}>
+                Track your rides, watch your performance, and jump back into work faster.
+              </Text>
             </View>
-            <Text style={styles.heroTitle}>Welcome back, {driverName}</Text>
-            <Text style={styles.heroSubtitle}>
-              Track your rides, watch your performance, and jump back into work faster.
-            </Text>
           </View>
-        </View>
 
-        <View style={styles.heroStatsRow}>
-          <HeroStat label="Trips" value={activityStats.total} accent="#F59E0B" />
-          <HeroStat label="Success" value={`${activityStats.completionRate}%`} accent="#8B5E3C" />
-          <HeroStat label="Canceled" value={activityStats.cancelled} accent="#DC2626" />
-        </View>
+          <View style={styles.heroStatsRow}>
+            <HeroStat label="Trips" value={activityStats.total} accent="#F59E0B" />
+            <HeroStat label="Success" value={`${activityStats.completionRate}%`} accent="#8B5E3C" />
+            <HeroStat label="Canceled" value={activityStats.cancelled} accent="#DC2626" />
+          </View>
 
-        <TouchableOpacity
-          activeOpacity={0.9}
-          style={[styles.liveCard, activeRide ? styles.liveCardBusy : styles.liveCardIdle]}
-          onPress={activeRide ? openInProgress : () => router.push('/(driverTabs)/MesTrajets' as any)}
-        >
-          <View style={styles.liveIconWrap}>
-            <MaterialIcons
-              name={activeRide ? 'navigation' : 'directions-car'}
-              size={22}
-              color="#111"
-            />
-          </View>
-          <View style={styles.liveTextWrap}>
-            <Text style={styles.liveTitle}>
-              {activeRide ? 'Current trip ready to open' : 'No active trip right now'}
-            </Text>
-            <Text style={styles.liveSubtitle} numberOfLines={2}>
-              {activeRide
-                ? `${activeRide.startAddress || activeRide.depart || 'Departure'} -> ${activeRide.endAddress || activeRide.destination || 'Destination'}`
-                : 'Check incoming requests and keep your profile ready for the next trip.'}
-            </Text>
-          </View>
-          <MaterialIcons name="arrow-forward" size={20} color="#111" />
-        </TouchableOpacity>
+          <TouchableOpacity
+            activeOpacity={0.9}
+            style={[styles.liveCard, activeRide ? styles.liveCardBusy : styles.liveCardIdle]}
+            onPress={activeRide ? openInProgress : () => router.push('/(driverTabs)/MesTrajets' as any)}
+          >
+            <View style={styles.liveIconWrap}>
+              <MaterialIcons
+                name={activeRide ? 'navigation' : 'directions-car'}
+                size={22}
+                color="#111"
+              />
+            </View>
+            <View style={styles.liveTextWrap}>
+              <Text style={styles.liveTitle}>
+                {activeRide ? 'Current trip ready to open' : 'No active trip right now'}
+              </Text>
+              <Text style={styles.liveSubtitle} numberOfLines={2}>
+                {activeRide
+                  ? `${activeRide.startAddress || activeRide.depart || 'Departure'} -> ${activeRide.endAddress || activeRide.destination || 'Destination'}`
+                  : 'Check incoming requests and keep your profile ready for the next trip.'}
+              </Text>
+            </View>
+            <MaterialIcons name="arrow-forward" size={20} color="#111" />
+          </TouchableOpacity>
         </TouchableOpacity>
       </Animated.View>
 
@@ -839,9 +844,9 @@ export default function HomeScreen() {
             ]}
           >
             <View style={styles.progressHeader}>
-            <Text style={styles.progressTitle}>
-              {periodMode === 'weeks' ? 'Weekly completion rhythm' : 'Monthly completion rhythm'}
-            </Text>
+              <Text style={styles.progressTitle}>
+                {periodMode === 'weeks' ? 'Weekly completion rhythm' : 'Monthly completion rhythm'}
+              </Text>
               <Text style={[styles.progressValue, { color: progressTheme.value }]}>
                 {completedCount}/{Math.max(totalCount, 1)}
               </Text>
@@ -882,16 +887,10 @@ export default function HomeScreen() {
         <Text style={styles.earningsValue}>{Math.round(dashboardSummary.totalEarnings)} DZD</Text>
       </View>
 
+      {/* ── QUICK ACTIONS: Profile setup removed ── */}
       <View style={styles.quickSection}>
         <Text style={styles.sectionTitle}>Quick actions</Text>
         <Text style={styles.sectionSubtitle}>Shortcuts that drivers usually need most</Text>
-
-        <ActionCard
-          title="Profile setup"
-          subtitle="Complete your information to build more trust with passengers."
-          icon="badge"
-          onPress={() => router.push('../driver/ProfileSetupScreen')}
-        />
 
         <ActionCard
           title="My feedbacks"
@@ -917,6 +916,7 @@ export default function HomeScreen() {
     </ScrollView>
   );
 }
+
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
@@ -927,15 +927,18 @@ const styles = StyleSheet.create({
     paddingBottom: 28,
     gap: 16,
   },
+  // ── Hero card: now WHITE with dark text ──
   heroCard: {
-    backgroundColor: '#111',
+    backgroundColor: '#fff',
     borderRadius: 28,
     padding: 18,
+    borderWidth: 1,
+    borderColor: '#EFECE8',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.14,
-    shadowRadius: 18,
-    elevation: 7,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.06,
+    shadowRadius: 14,
+    elevation: 3,
   },
   heroTopRow: {
     flexDirection: 'row',
@@ -976,12 +979,12 @@ const styles = StyleSheet.create({
     letterSpacing: 0.4,
   },
   heroTitle: {
-    color: '#fff',
+    color: '#111',      // dark text on white bg
     fontSize: 24,
     fontWeight: '900',
   },
   heroSubtitle: {
-    color: 'rgba(255,255,255,0.72)',
+    color: 'rgba(0,0,0,0.52)',   // muted dark on white bg
     fontSize: 13,
     lineHeight: 19,
     marginTop: 8,
@@ -995,7 +998,7 @@ const styles = StyleSheet.create({
   },
   heroStat: {
     flex: 1,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: '#F5F5F5',   // light surface on white card
     borderRadius: 18,
     paddingVertical: 12,
     paddingHorizontal: 10,
@@ -1007,13 +1010,13 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   heroStatValue: {
-    color: '#fff',
+    color: '#111',     // dark on light surface
     fontSize: 22,
     fontWeight: '900',
   },
   heroStatLabel: {
     marginTop: 4,
-    color: 'rgba(255,255,255,0.7)',
+    color: 'rgba(0,0,0,0.5)',
     fontSize: 12,
     fontWeight: '700',
   },
@@ -1028,13 +1031,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#F59E0B',
   },
   liveCardIdle: {
-    backgroundColor: '#fff',
+    backgroundColor: '#EFECE8',   // idle live card: dark chip inside white hero
   },
   liveIconWrap: {
     width: 42,
     height: 42,
     borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.42)',
+    backgroundColor: '#F5F5F5',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1048,10 +1051,9 @@ const styles = StyleSheet.create({
     marginBottom: 3,
   },
   liveSubtitle: {
-    color: '#111',
+    color: 'rgba(0,0,0,0.52)',
     fontSize: 12,
     lineHeight: 17,
-    opacity: 0.82,
   },
   dashboardCard: {
     backgroundColor: '#fff',

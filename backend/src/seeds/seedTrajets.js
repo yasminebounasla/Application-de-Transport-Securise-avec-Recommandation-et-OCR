@@ -17,12 +17,12 @@
 import { prisma } from "../config/prisma.js";
 import { PASSENGER_PROFILES } from "./seedPassengers.js";
 
-const randomInt    = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
-const randomFloat  = (min, max) => parseFloat((Math.random() * (max - min) + min).toFixed(6));
+const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+const randomFloat = (min, max) => parseFloat((Math.random() * (max - min) + min).toFixed(6));
 const randomChoice = (arr) => arr[Math.floor(Math.random() * arr.length)];
-const randomBool   = (pTrue = 0.5) => Math.random() < pTrue;
+const randomBool = (pTrue = 0.5) => Math.random() < pTrue;
 
-const PROFILE_MAP     = Object.fromEntries(PASSENGER_PROFILES.map((p) => [p.name, p]));
+const PROFILE_MAP = Object.fromEntries(PASSENGER_PROFILES.map((p) => [p.name, p]));
 const NEUTRAL_PROFILE = PROFILE_MAP["neutral"];
 
 const ALGER_ZONES = [
@@ -41,17 +41,17 @@ const HEURES = ["06:00", "07:30", "08:00", "09:00", "12:00", "14:00", "17:00", "
 function compatibilityScore(driver, prefs) {
   let score = 0;
 
-  if (prefs.quiet_ride  && !toBool(driver.talkative)) score++;
-  if (!prefs.quiet_ride &&  toBool(driver.talkative)) score++;
+  if (prefs.quiet_ride && !toBool(driver.talkative)) score++;
+  if (!prefs.quiet_ride && toBool(driver.talkative)) score++;
 
-  if (prefs.radio_ok    && toBool(driver.radio_on)) score++;
-  if (!prefs.radio_ok   && !toBool(driver.radio_on)) score++;
+  if (prefs.radio_ok && toBool(driver.radio_on)) score++;
+  if (!prefs.radio_ok && !toBool(driver.radio_on)) score++;
 
-  if (prefs.smoking_ok  && toBool(driver.smoking_allowed)) score++;
+  if (prefs.smoking_ok && toBool(driver.smoking_allowed)) score++;
   if (!prefs.smoking_ok && !toBool(driver.smoking_allowed)) score++;
 
-  if (prefs.pets_ok     && toBool(driver.pets_allowed)) score++;
-  if (!prefs.pets_ok    && !toBool(driver.pets_allowed)) score++;
+  if (prefs.pets_ok && toBool(driver.pets_allowed)) score++;
+  if (!prefs.pets_ok && !toBool(driver.pets_allowed)) score++;
 
   if (prefs.luggage_large && toBool(driver.car_big)) score++;
   if (!prefs.luggage_large && !toBool(driver.car_big)) score++;
@@ -108,12 +108,12 @@ function toBool(val) {
 function computeRealisticRating(trajetPrefs, driver) {
   const RULES = [
     // [prefActive, driverSatisfiesIfYes,                                         weight]
-    [trajetPrefs.quiet_ride,          () => !toBool(driver.talkative),           2],
-    [trajetPrefs.radio_ok,            () => toBool(driver.radio_on),             1],
-    [trajetPrefs.smoking_ok,          () => toBool(driver.smoking_allowed),      2],
-    [trajetPrefs.pets_ok,             () => toBool(driver.pets_allowed),         2],
-    [trajetPrefs.luggage_large,       () => toBool(driver.car_big),              2],
-    [trajetPrefs.female_driver_pref,  () => String(driver.sexe || "").trim().toLowerCase() === "f", 2],
+    [trajetPrefs.quiet_ride, () => !toBool(driver.talkative), 2],
+    [trajetPrefs.radio_ok, () => toBool(driver.radio_on), 1],
+    [trajetPrefs.smoking_ok, () => toBool(driver.smoking_allowed), 2],
+    [trajetPrefs.pets_ok, () => toBool(driver.pets_allowed), 2],
+    [trajetPrefs.luggage_large, () => toBool(driver.car_big), 2],
+    [trajetPrefs.female_driver_pref, () => String(driver.sexe || "").trim().toLowerCase() === "f", 2],
   ];
 
   // prefActive est un booléen (true = oui, false = non)
@@ -121,7 +121,7 @@ function computeRealisticRating(trajetPrefs, driver) {
   // Si pref=non → on veut l'inverse de driverSatisfiesIfYes()
 
   let strictViolations = 0;
-  let totalActive      = 0;
+  let totalActive = 0;
 
   for (const [prefActive, driverSatisfiesIfYes, weight] of RULES) {
     // prefActive ici est bool (issu de trajetPrefs.xxx = randomBool(prob))
@@ -132,8 +132,8 @@ function computeRealisticRating(trajetPrefs, driver) {
 
     const driverHasFeature = driverSatisfiesIfYes();
 
-    if (prefActive === true  && !driverHasFeature) strictViolations++;
-    if (prefActive === false &&  driverHasFeature) strictViolations++;
+    if (prefActive === true && !driverHasFeature) strictViolations++;
+    if (prefActive === false && driverHasFeature) strictViolations++;
   }
 
   // Aucune pref active pertinente → note aléatoire
@@ -142,11 +142,11 @@ function computeRealisticRating(trajetPrefs, driver) {
   const violationRatio = strictViolations / totalActive;
 
   // ✅ Signal tranché :
-  if      (violationRatio === 0)    return randomChoice([4, 5, 5]);         // tout OK
-  else if (violationRatio <= 0.17)  return randomChoice([3, 4, 4, 5]);     // 1/6 violée
-  else if (violationRatio <= 0.33)  return randomChoice([3, 3, 4]);        // 2/6 violées
-  else if (violationRatio <= 0.50)  return randomChoice([2, 2, 3]);        // 3/6 violées
-  else                              return randomChoice([1, 2]);            // > 3/6 violées
+  if (violationRatio === 0) return randomChoice([4, 5, 5]);         // tout OK
+  else if (violationRatio <= 0.17) return randomChoice([3, 4, 4, 5]);     // 1/6 violée
+  else if (violationRatio <= 0.33) return randomChoice([3, 3, 4]);        // 2/6 violées
+  else if (violationRatio <= 0.50) return randomChoice([2, 2, 3]);        // 3/6 violées
+  else return randomChoice([1, 2]);            // > 3/6 violées
 }
 
 // ── SEED PRINCIPAL ────────────────────────────────────────────────────────────
@@ -184,57 +184,57 @@ async function seedTrajets(trajetsPerPassenger = 10) {
         Math.max(1, trajetsPerPassenger - 2),
         trajetsPerPassenger + 3,
       );
-      
+
 
       for (let t = 0; t < nbTrajets; t++) {
         // Prefs tirées depuis les probabilités du profil (par trajet)
         const trajetPrefs = {
-          quiet_ride:         randomBool(profile.prefs.quiet_ride),
-          radio_ok:           randomBool(profile.prefs.radio_ok),
-          smoking_ok:         randomBool(profile.prefs.smoking_ok),
-          pets_ok:            randomBool(profile.prefs.pets_ok),
-          luggage_large:      randomBool(profile.prefs.luggage_large),
+          quiet_ride: randomBool(profile.prefs.quiet_ride),
+          radio_ok: randomBool(profile.prefs.radio_ok),
+          smoking_ok: randomBool(profile.prefs.smoking_ok),
+          pets_ok: randomBool(profile.prefs.pets_ok),
+          luggage_large: randomBool(profile.prefs.luggage_large),
           female_driver_pref: randomBool(profile.prefs.female_driver_pref),
         };
-        
-        const driver = pickDriver(drivers, trajetPrefs);
-        const zone    = randomChoice(ALGER_ZONES);
-        const zoneEnd = randomChoice(ALGER_ZONES);
-        const heure   = randomChoice(HEURES);
 
-        
+        const driver = pickDriver(drivers, trajetPrefs);
+        const zone = randomChoice(ALGER_ZONES);
+        const zoneEnd = randomChoice(ALGER_ZONES);
+        const heure = randomChoice(HEURES);
+
+
 
         const isCancelled = randomBool(0.10);
-        const status      = isCancelled ? "CANCELLED_BY_PASSENGER" : "COMPLETED";
-        const daysAgo     = randomInt(1, 180);
-        const dateDepart  = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
+        const status = isCancelled ? "CANCELLED_BY_PASSENGER" : "COMPLETED";
+        const daysAgo = randomInt(1, 180);
+        const dateDepart = new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000);
 
         try {
-          const startLat = zone.lat    + randomFloat(-0.02, 0.02);
-          const startLng = zone.lng    + randomFloat(-0.02, 0.02);
-          const endLat   = zoneEnd.lat + randomFloat(-0.02, 0.02);
-          const endLng   = zoneEnd.lng + randomFloat(-0.02, 0.02);
+          const startLat = zone.lat + randomFloat(-0.02, 0.02);
+          const startLng = zone.lng + randomFloat(-0.02, 0.02);
+          const endLat = zoneEnd.lat + randomFloat(-0.02, 0.02);
+          const endLng = zoneEnd.lng + randomFloat(-0.02, 0.02);
 
           const trajet = await prisma.trajet.create({
             data: {
-              passagerId:         passenger.id,
-              driverId:           driver.id,
+              passagerId: passenger.id,
+              driverId: driver.id,
               status,
-              heureDepart:        heure,
+              heureDepart: heure,
               dateDepart,
-              depart:             zone.name,
-              destination:        zoneEnd.name,
-              placesDispo:        randomInt(1, 4),
-              prix:               randomInt(150, 800),
+              depart: zone.name,
+              destination: zoneEnd.name,
+              placesDispo: randomInt(1, 4),
+              prix: randomInt(150, 800),
               startLat,
               startLng,
               endLat,
               endLng,
-              quiet_ride:         trajetPrefs.quiet_ride         ? "yes" : "no",
-              radio_ok:           trajetPrefs.radio_ok           ? "yes" : "no",
-              smoking_ok:         trajetPrefs.smoking_ok         ? "yes" : "no",
-              pets_ok:            trajetPrefs.pets_ok            ? "yes" : "no",
-              luggage_large:      trajetPrefs.luggage_large      ? "yes" : "no",
+              quiet_ride: trajetPrefs.quiet_ride ? "yes" : "no",
+              radio_ok: trajetPrefs.radio_ok ? "yes" : "no",
+              smoking_ok: trajetPrefs.smoking_ok ? "yes" : "no",
+              pets_ok: trajetPrefs.pets_ok ? "yes" : "no",
+              luggage_large: trajetPrefs.luggage_large ? "yes" : "no",
               female_driver_pref: trajetPrefs.female_driver_pref ? "yes" : "no",
             },
           });
@@ -260,7 +260,7 @@ async function seedTrajets(trajetsPerPassenger = 10) {
 
     // ── Résumé distribution notes ─────────────────────────────────────────
     const evaluations = await prisma.evaluation.findMany({ take: 1000 });
-    const ratingDist  = [1, 2, 3, 4, 5].map((r) => ({
+    const ratingDist = [1, 2, 3, 4, 5].map((r) => ({
       note: r,
       nb: evaluations.filter((e) => e.rating === r).length,
     }));
@@ -281,3 +281,5 @@ async function seedTrajets(trajetsPerPassenger = 10) {
 }
 
 seedTrajets(10);
+
+export { seedTrajets };
