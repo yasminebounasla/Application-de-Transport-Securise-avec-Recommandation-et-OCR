@@ -263,11 +263,7 @@ export default function MapScreen() {
         latitude:  selectedLocation.latitude,
         longitude: selectedLocation.longitude,
       });
-      if (fromOnboarding === 'true') {
-        router.back();                                      // ← retour → step 3 (Your Style)
-      } else {
-        router.replace('/(driverTabs)/DriverHomeScreen');   // ← flow normal
-      }
+      router.back();
     } catch (e: any) {
       Alert.alert('Error', e.response?.data?.message || 'Failed to save location.');
       setSavingAddress(false);
