@@ -306,7 +306,7 @@ export default function LicenseUploadScreen() {
           We'll use this to verify your identity.
         </Text>
 
-        
+
         <View className='rounded-2xl p-5 mb-6 border bg-zinc-50 border-l-4 border-l-black border-gray-300'>
           {[
             "Place your license on a flat, white surface with all four corners visible.",

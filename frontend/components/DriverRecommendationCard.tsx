@@ -79,12 +79,6 @@ export default function DriverRecoCard({
               <Text style={styles.name} numberOfLines={1}>
                 {driver.prenom} {driver.nom}
               </Text>
-              {driver.work_match && (
-                <View style={styles.dispoBadge}>
-                  <View style={styles.dispoDot} />
-                  <Text style={styles.dispoText}>Horaires ✓</Text>
-                </View>
-              )}
             </View>
 
             <Stars rating={driver.avgRating} />
@@ -112,7 +106,7 @@ export default function DriverRecoCard({
               }
 
               {/* Fumeur */}
-              {driver.smoking_allowed && 
+              {driver.smoking_allowed &&
                 <MiniTag icon="smoking"           label="Fumeur OK"  iconLib="material" />
               }
 
