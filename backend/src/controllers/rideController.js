@@ -26,7 +26,7 @@ const evaluateTrajet = async (trajetId) => {
 
   const resolvedCount = ride.rejectedDriverIds.length + ride.timedOutDriverIds.length;
   console.log('📊 resolvedCount:', resolvedCount, '/ notifiedDriversCount:', ride.notifiedDriversCount);
-  
+
   if (resolvedCount < ride.notifiedDriversCount) return;
 
   // ── Chercher les drivers de backup non encore contactés ───────────────────
@@ -65,8 +65,8 @@ const evaluateTrajet = async (trajetId) => {
     rideId:        ride.id,
     type:          'BACKUP_AVAILABLE',
     backupDrivers: backupDrivers,
-    message,   
-    reason,    
+    message,
+    reason,
   });
 
   return;
@@ -105,7 +105,7 @@ export const scheduleDriverTimeout = (trajetId, driverId, dateDepart) => {
               :                    2  * 60 * 60 * 1000;  // > 24h  → 2h
   const key = `${trajetId}_${driverId}`;
 
-  const timeoutId = setTimeout(async () => { 
+  const timeoutId = setTimeout(async () => {
     pendingTimeouts.delete(key);
     const ride = await prisma.trajet.findUnique({ where: { id: trajetId } });
     if (!ride || ride.status !== 'PENDING') return;
@@ -441,9 +441,9 @@ export const rejectRide = async (req, res) => {
     });
 
    if (!wasNotified)
-   return res.status(403).json({ 
-     success: false, 
-     message: "Vous n'êtes pas autorisé à refuser ce trajet" 
+   return res.status(403).json({
+     success: false,
+     message: "Vous n'êtes pas autorisé à refuser ce trajet"
     });
 
     // AJOUT : annuler le timeout — le driver a répondu explicitement
@@ -661,8 +661,8 @@ export const getPassengerRideActivity = async (req, res) => {
       activityAt: ride.updatedAt, createdAt: ride.createdAt,
       updatedAt: ride.updatedAt, completedAt: ride.completedAt,
       prix: ride.prix, depart: ride.depart, destination: ride.destination,
-      distanceKm:  ride.distanceKm  || null,   
-      durationMin: ride.durationMin || null,   
+      distanceKm:  ride.distanceKm  || null,
+      durationMin: ride.durationMin || null,
       startAddress: ride.startAddress, endAddress: ride.endAddress,
       dateDepart: ride.dateDepart, heureDepart: ride.heureDepart,
       passenger: ride.passenger || null, driver: ride.driver || null,
@@ -690,6 +690,7 @@ export const getDriverRideActivity = async (req, res) => {
           {
            status: 'PENDING',
            driverId: null,
+           sentDrivers: { has: driverId },
            NOT: {
              // MODIFIÉ : exclure aussi les drivers qui ont timeout
              OR: [
@@ -712,8 +713,8 @@ export const getDriverRideActivity = async (req, res) => {
       activityAt: ride.updatedAt, createdAt: ride.createdAt,
       updatedAt: ride.updatedAt, completedAt: ride.completedAt,
       prix: ride.prix, depart: ride.depart, destination: ride.destination,
-      distanceKm:  ride.distanceKm  || null,  
-      durationMin: ride.durationMin || null,  
+      distanceKm:  ride.distanceKm  || null,
+      durationMin: ride.durationMin || null,
       startAddress: ride.startAddress, endAddress: ride.endAddress,
       dateDepart: ride.dateDepart, heureDepart: ride.heureDepart,
       driver: ride.driver || null, passenger: ride.passenger || null,
