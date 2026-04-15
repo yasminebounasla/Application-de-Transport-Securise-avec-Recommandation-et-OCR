@@ -62,6 +62,7 @@ function InputField({
   keyboardType = "default" as KeyboardTypeOptions,
   placeholder,
   editable = true,
+  error,
 }: {
   label: string;
   icon: IoniconsName;
@@ -70,15 +71,16 @@ function InputField({
   keyboardType?: KeyboardTypeOptions;
   placeholder?: string;
   editable?: boolean;
+  error?: string;
 }) {
   return (
     <View style={styles.fieldWrapper}>
       <Text style={styles.fieldLabel}>{label}</Text>
-      <View style={[styles.inputRow, !editable && styles.inputDisabled]}>
+      <View style={[styles.inputRow, !editable && styles.inputDisabled, !!error && { borderColor: '#EF4444', borderWidth: 1 }]}>
         <Ionicons
           name={icon}
           size={18}
-          color='#888'
+          color={error ? '#EF4444' : '#888'}
           style={{ marginRight: 10 }}
         />
         <TextInput
@@ -91,6 +93,7 @@ function InputField({
           editable={editable}
         />
       </View>
+      {!!error && <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4 }}>{error}</Text>}
     </View>
   );
 }
@@ -181,6 +184,9 @@ export default function EditProfileScreen() {
   const [age, setAge] = useState("");
   const [sexe, setSexe] = useState("M");
 
+  // Validation errors
+  const [errors, setErrors] = useState({ numTel: '', age: '' });
+
   // Preferences
   const [talkative, setTalkative] = useState(false);
   const [radio_on, setRadioOn] = useState(false);
@@ -196,17 +202,18 @@ export default function EditProfileScreen() {
   const [workZoneAddress, setWorkZoneAddress] = useState("");
   const [wilaya, setWilaya] = useState("");
 
-//selfie
-const [selfieUrl, setSelfieUrl] = useState<string | null>(null);
-const [driverId, setDriverId] = useState<number | null>(null);
+  //selfie
+  const [selfieUrl, setSelfieUrl] = useState<string | null>(null);
+  const [driverId, setDriverId] = useState<number | null>(null);
 
-useEffect(() => {
-  loadData();
-}, []);
+  useEffect(() => {
+    loadData();
+  }, []);
 
   // ── Refresh work zone quand on revient de MapScreen ──
   useFocusEffect(
     useCallback(() => {
+      setShowToast(false); // ← reset toast quand on revient
       if (activeTab === "zone") {
         loadZone();
       }
@@ -225,17 +232,17 @@ useEffect(() => {
       const raw = (d.sexe || "").toString().trim().toUpperCase();
       setSexe(raw === "F" ? "F" : "M");
       setDriverId(d.id);
-try {
-  const selfieRes = await api.get(`/verification/driver/${d.id}/selfie`);
-  console.log('🖼️ SELFIE STATUS:', selfieRes.status);
-  console.log('🖼️ SELFIE DATA:', JSON.stringify(selfieRes.data).substring(0, 100));
-  if (selfieRes.data.success) {
-    setSelfieUrl(selfieRes.data.image);
-  }
-} catch (e: any) {
-  console.log('❌ SELFIE ERROR STATUS:', e?.response?.status);
-  console.log('❌ SELFIE ERROR DATA:', JSON.stringify(e?.response?.data));
-}
+      try {
+        const selfieRes = await api.get(`/verification/driver/${d.id}/selfie`);
+        console.log('🖼️ SELFIE STATUS:', selfieRes.status);
+        console.log('🖼️ SELFIE DATA:', JSON.stringify(selfieRes.data).substring(0, 100));
+        if (selfieRes.data.success) {
+          setSelfieUrl(selfieRes.data.image);
+        }
+      } catch (e: any) {
+        console.log('❌ SELFIE ERROR STATUS:', e?.response?.status);
+        console.log('❌ SELFIE ERROR DATA:', JSON.stringify(e?.response?.data));
+      }
       const p = d.preferences ?? d;
       setTalkative(!!p.talkative);
       setRadioOn(!!p.radio_on);
@@ -277,9 +284,34 @@ try {
     } catch (e) {}
   };
 
+  // ── Phone validation ──
+  const handlePhoneChange = (text: string) => {
+    const digits = text.replace(/\D/g, '');
+    setNumTel(digits);
+    if (digits.length === 0) setErrors(e => ({ ...e, numTel: '' }));
+    else if (!digits.startsWith('0')) setErrors(e => ({ ...e, numTel: 'Phone number must start with 0' }));
+    else if (digits.length !== 10) setErrors(e => ({ ...e, numTel: 'Phone number must be 10 digits' }));
+    else setErrors(e => ({ ...e, numTel: '' }));
+  };
+
+  // ── Age validation ──
+  const handleAgeChange = (text: string) => {
+    const digits = text.replace(/\D/g, '');
+    setAge(digits);
+    const num = parseInt(digits);
+    if (digits.length === 0) setErrors(e => ({ ...e, age: '' }));
+    else if (num < 18) setErrors(e => ({ ...e, age: 'Age must be at least 18' }));
+    else if (num > 100) setErrors(e => ({ ...e, age: 'Age must not exceed 100' }));
+    else setErrors(e => ({ ...e, age: '' }));
+  };
+
   const handleSave = async () => {
     if (!nom.trim() || !prenom.trim() || !numTel.trim()) {
       Alert.alert("Validation", "Please fill in all required fields.");
+      return;
+    }
+    if (errors.numTel || errors.age) {
+      Alert.alert('Validation', 'Please fix the errors before saving.');
       return;
     }
     setSaving(true);
@@ -416,15 +448,17 @@ try {
                   label='Phone number'
                   icon='call-outline'
                   value={numTel}
-                  onChangeText={setNumTel}
+                  onChangeText={handlePhoneChange}
                   keyboardType='phone-pad'
+                  error={errors.numTel}
                 />
                 <InputField
                   label='Age'
                   icon='calendar-outline'
                   value={age}
-                  onChangeText={setAge}
+                  onChangeText={handleAgeChange}
                   keyboardType='numeric'
+                  error={errors.age}
                 />
                 <GenderSelector value={sexe} onChange={setSexe} />
               </View>
@@ -681,7 +715,6 @@ try {
     </>
   );
 }
-
 // ─────────────────────────────────────────────
 // STYLES
 // ─────────────────────────────────────────────
