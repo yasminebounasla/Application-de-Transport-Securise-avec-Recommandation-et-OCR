@@ -667,6 +667,10 @@ export default function HomeScreen() {
     router.push('/driver/DriverDashboardScreen' as any);
   };
 
+  const isNewUser =
+    accountCreatedAt &&
+    (new Date().getTime() - new Date(accountCreatedAt).getTime()) / (1000 * 60 * 60) < 1;
+
   return (
     <ScrollView
       style={styles.screen}
@@ -691,7 +695,9 @@ export default function HomeScreen() {
                   <MaterialIcons name="arrow-forward" size={14} color="#F59E0B" />
                 </View>
               </View>
-              <Text style={styles.heroTitle}>Welcome back, {driverName}</Text>
+              <Text style={styles.heroTitle}>
+                {isNewUser() ? `Welcome, ${driverName}` : `Welcome back, ${driverName}`}
+              </Text>
               <Text style={styles.heroSubtitle}>
                 Track your rides, watch your performance, and jump back into work faster.
               </Text>

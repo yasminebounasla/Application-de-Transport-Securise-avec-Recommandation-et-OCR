@@ -53,6 +53,7 @@ function LineChartCard({
   valueKey,
   formatValue,
   lineColor,
+  accentBg,
 }: {
   title: string;
   subtitle: string;
@@ -60,6 +61,7 @@ function LineChartCard({
   valueKey: 'requests' | 'earnings';
   formatValue: (value: number) => string;
   lineColor: string;
+  accentBg: string;
 }) {
   const { width } = useWindowDimensions();
   const chartWidth = Math.max(260, width - 72);
@@ -77,7 +79,7 @@ function LineChartCard({
   });
 
   return (
-    <View style={styles.graphCard}>
+    <View style={[styles.graphCard, { borderLeftColor: lineColor, borderLeftWidth: 4 }]}>
       <Text style={styles.graphTitle}>{title}</Text>
       <Text style={styles.graphSubtitle}>{subtitle}</Text>
 
@@ -120,7 +122,9 @@ function LineChartCard({
 
         {plotted.map((point) => (
           <View key={point.key}>
-            <Text style={[styles.pointValue, { left: point.x - 8 }]}>{formatValue(point.value)}</Text>
+            <Text style={[styles.pointValue, { left: point.x - 8, color: lineColor }]}>
+              {formatValue(point.value)}
+            </Text>
             <View
               style={[
                 styles.pointDot,
@@ -145,7 +149,10 @@ function PreferenceRing({
   preferences: PreferencePoint[];
 }) {
   const total = preferences.reduce((sum, item) => sum + item.value, 0);
-  const ringSegments = preferences.length > 0 ? preferences : [{ key: 'none', label: 'No preferences yet', value: 1, color: '#CBD5E1' }];
+  const ringSegments = preferences.length > 0
+    ? preferences
+    : [{ key: 'none', label: 'No preferences yet', value: 1, color: '#CBD5E1' }];
+
   const ringTicks = useMemo(() => {
     const tickCount = 180;
     let cursor = -90;
@@ -176,7 +183,7 @@ function PreferenceRing({
   }, [ringSegments, total]);
 
   return (
-    <View style={styles.prefCard}>
+    <View style={[styles.prefCard, { borderLeftColor: '#8B5CF6', borderLeftWidth: 4 }]}>
       <Text style={styles.graphTitle}>Passenger preferences</Text>
       <Text style={styles.graphSubtitle}>Most selected preferences from passengers who chose this driver</Text>
 
@@ -251,9 +258,14 @@ export default function DriverDashboardScreen() {
       style={styles.screen}
       contentContainerStyle={styles.content}
       refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadAnalytics(); }} tintColor="#111" />
+        <RefreshControl
+          refreshing={refreshing}
+          onRefresh={() => { setRefreshing(true); loadAnalytics(); }}
+          tintColor="#111"
+        />
       }
     >
+      {/* Header */}
       <View style={styles.headerCard}>
         <Text style={styles.headerEyebrow}>Driver business</Text>
         <Text style={styles.headerTitle}>Dashboard analytics</Text>
@@ -262,15 +274,20 @@ export default function DriverDashboardScreen() {
         </Text>
       </View>
 
+      {/* Summary cards */}
       <View style={styles.summaryRow}>
-        <View style={styles.summaryCard}>
+        <View style={[styles.summaryCard, { borderTopColor: '#16A34A', borderTopWidth: 3 }]}>
           <MaterialIcons name="payments" size={18} color="#16A34A" />
-          <Text style={styles.summaryValue}>{formatMoney(analytics?.summary.totalEarnings || 0)}</Text>
+          <Text style={[styles.summaryValue, { color: '#16A34A' }]}>
+            {formatMoney(analytics?.summary.totalEarnings || 0)}
+          </Text>
           <Text style={styles.summaryLabel}>Total earnings</Text>
         </View>
-        <View style={styles.summaryCard}>
+        <View style={[styles.summaryCard, { borderTopColor: '#2563EB', borderTopWidth: 3 }]}>
           <MaterialIcons name="directions-car" size={18} color="#2563EB" />
-          <Text style={styles.summaryValue}>{analytics?.summary.completedTrips || 0}</Text>
+          <Text style={[styles.summaryValue, { color: '#2563EB' }]}>
+            {analytics?.summary.completedTrips || 0}
+          </Text>
           <Text style={styles.summaryLabel}>Completed trips</Text>
         </View>
       </View>
@@ -282,6 +299,7 @@ export default function DriverDashboardScreen() {
         valueKey="requests"
         formatValue={(value) => String(value)}
         lineColor="#3B82F6"
+        accentBg="#EFF6FF"
       />
 
       <LineChartCard
@@ -291,6 +309,7 @@ export default function DriverDashboardScreen() {
         valueKey="earnings"
         formatValue={(value) => `${Math.round(value)}`}
         lineColor="#F59E0B"
+        accentBg="#FFFBEB"
       />
 
       <PreferenceRing preferences={analytics?.preferences || []} />
@@ -301,7 +320,7 @@ export default function DriverDashboardScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#060B16',
+    backgroundColor: '#F5F5F5',
   },
   content: {
     padding: 16,
@@ -312,14 +331,14 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#060B16',
+    backgroundColor: '#F5F5F5',
   },
+
+  // Header
   headerCard: {
-    backgroundColor: '#0B1220',
-    borderRadius: 24,
-    padding: 18,
-    borderWidth: 1,
-    borderColor: '#182235',
+    backgroundColor: '#111',
+    borderRadius: 20,
+    padding: 20,
   },
   headerEyebrow: {
     color: '#F59E0B',
@@ -330,7 +349,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     color: '#FFF',
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '900',
     marginTop: 6,
   },
@@ -340,47 +359,61 @@ const styles = StyleSheet.create({
     lineHeight: 19,
     marginTop: 8,
   },
+
+  // Summary
   summaryRow: {
     flexDirection: 'row',
     gap: 12,
   },
   summaryCard: {
     flex: 1,
-    backgroundColor: '#0B1220',
-    borderRadius: 22,
+    backgroundColor: '#fff',
+    borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#182235',
+    borderColor: '#F0F0F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   summaryValue: {
-    color: '#FFF',
-    fontSize: 24,
+    fontSize: 22,
     fontWeight: '900',
-    marginTop: 14,
+    marginTop: 12,
+    color: '#111',
   },
   summaryLabel: {
-    color: '#8FA1B8',
+    color: '#9CA3AF',
     fontSize: 12,
     fontWeight: '700',
     marginTop: 4,
   },
+
+  // Charts
   graphCard: {
-    backgroundColor: '#060B16',
-    borderRadius: 24,
+    backgroundColor: '#fff',
+    borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#182235',
+    borderColor: '#F0F0F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   graphTitle: {
-    color: '#FFF',
-    fontSize: 22,
-    fontWeight: '900',
+    color: '#111',
+    fontSize: 16,
+    fontWeight: '800',
   },
   graphSubtitle: {
-    color: '#8FA1B8',
+    color: '#9CA3AF',
     fontSize: 12,
-    fontWeight: '700',
-    marginTop: 6,
+    fontWeight: '600',
+    marginTop: 4,
   },
   chartArea: {
     marginTop: 16,
@@ -393,7 +426,7 @@ const styles = StyleSheet.create({
     left: 12,
     right: 12,
     borderTopWidth: 1,
-    borderColor: '#334155',
+    borderColor: '#F0F0F0',
     borderStyle: 'dashed',
   },
   lineSegment: {
@@ -406,12 +439,11 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 5,
     borderWidth: 2,
-    borderColor: '#060B16',
+    borderColor: '#fff',
   },
   pointValue: {
     position: 'absolute',
     top: 0,
-    color: '#D8E0EA',
     fontSize: 11,
     fontWeight: '800',
     width: 48,
@@ -420,18 +452,25 @@ const styles = StyleSheet.create({
   pointLabel: {
     position: 'absolute',
     top: 144,
-    color: '#8FA1B8',
+    color: '#9CA3AF',
     fontSize: 11,
     fontWeight: '700',
     width: 72,
     textAlign: 'center',
   },
+
+  // Preference ring
   prefCard: {
-    backgroundColor: '#060B16',
-    borderRadius: 24,
+    backgroundColor: '#fff',
+    borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#182235',
+    borderColor: '#F0F0F0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   ringSection: {
     alignItems: 'center',
@@ -467,17 +506,22 @@ const styles = StyleSheet.create({
     width: 108,
     height: 108,
     borderRadius: 54,
-    backgroundColor: '#060B16',
+    backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 3,
   },
   ringCenterValue: {
-    color: '#FFF',
+    color: '#111',
     fontSize: 28,
     fontWeight: '900',
   },
   ringCenterLabel: {
-    color: '#8FA1B8',
+    color: '#9CA3AF',
     fontSize: 12,
     fontWeight: '700',
     marginTop: 4,
@@ -499,12 +543,12 @@ const styles = StyleSheet.create({
   },
   preferenceLabel: {
     flex: 1,
-    color: '#D8E0EA',
+    color: '#374151',
     fontSize: 14,
-    fontWeight: '700',
+    fontWeight: '600',
   },
   preferenceValue: {
-    color: '#FFF',
+    color: '#111',
     fontSize: 14,
     fontWeight: '900',
   },
