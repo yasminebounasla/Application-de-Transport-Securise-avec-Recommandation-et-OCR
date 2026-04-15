@@ -121,6 +121,10 @@ export default function Editprofilescreen() {
 
   return (
     <>
+      <Stack.Screen options={{ title: "Edit Profile", headerTitle: "Edit Profile" ,headerStyle: { backgroundColor: '#ffffff' },
+          headerTitleStyle: { fontWeight: '800', fontSize: 20 },
+          headerShadowVisible: true,
+          headerBackTitle: '',}} />
       <KeyboardAvoidingView style={{ flex: 1, backgroundColor: '#F9FAFB' }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
 

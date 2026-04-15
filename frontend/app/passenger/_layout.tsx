@@ -7,7 +7,7 @@ export default function Layout() {
       options={{
           title: "Edit Profile",
           headerStyle: { backgroundColor: '#ffffff' },
-          headerTitleStyle: { fontWeight: '800', fontSize: 18 },
+          headerTitleStyle: { fontWeight: '800', fontSize: 20 },
           headerShadowVisible: true,
           headerBackTitle: '',
         }} />
