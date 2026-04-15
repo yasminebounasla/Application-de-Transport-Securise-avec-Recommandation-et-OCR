@@ -90,7 +90,12 @@ export const AuthProvider = ({ children }) => {
 
       const userInfo = {
         id: driver.id,
-
+        // ✅ AJOUT: driverId explicite
+        // POURQUOI: NotificationContext.tsx fait newSocket.emit('registerDriver', user.driverId)
+        //           Le backend socket.js fait socket.join(`driver_${driverId}`)
+        //           Et les notifications sont envoyées via io.to(`driver_${driver.id}`)
+        //           → user.id et driver.id sont le même ici, mais on l'expose
+        //           explicitement pour que le code socket soit clair et sans ambiguïté.
         driverId: driver.id,
         firstName: driver.prenom,
         familyName: driver.nom,
@@ -99,7 +104,7 @@ export const AuthProvider = ({ children }) => {
         numTel: driver.numTel,
         email: driver.email,
         role: "driver",
-        isVerified: driver.isVerified || false,
+        isVerified: driver.isVerified,
       };
 
       await AsyncStorage.setItem("user", JSON.stringify(userInfo));
