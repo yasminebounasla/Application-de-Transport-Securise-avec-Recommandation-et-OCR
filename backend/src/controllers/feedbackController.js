@@ -108,7 +108,7 @@ export const getDriverFeedback = async (req, res) => {
       include: {
         trajet: {
           select: {
-            id: true, startAddress: true, endAddress: true, dateDepart: true,
+            id: true, depart: true, destination: true, dateDepart: true,
             passenger: { select: { id: true, nom: true, prenom: true } },
           },
         },

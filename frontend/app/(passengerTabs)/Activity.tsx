@@ -171,7 +171,7 @@ function RideCard({ item, highlighted, onPress }: {
             <Tag icon="people-outline" label={`${item.placesDispo} seat${item.placesDispo > 1 ? 's' : ''}`} />
           )}
         </View>
-        
+
         {/* ── FOOTER ── */}
         <View style={s.footer}>
           <Text style={s.seeMore}>See details →</Text>
@@ -193,7 +193,7 @@ function FilterModal({ visible, current, nameQuery, onSelect, onNameChange, onRe
   onClose: () => void;
 }) {
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
       <Pressable style={s.modalOverlay} onPress={onClose}>
         <Pressable style={s.modalBox} onPress={() => {}}>
           <View style={s.modalHandle} />

@@ -121,18 +121,12 @@ export default function Editprofilescreen() {
 
   return (
     <>
-      <Stack.Screen options={{ headerShown: false }} />
+      <Stack.Screen options={{ title: "Edit Profile", headerTitle: "Edit Profile" ,headerStyle: { backgroundColor: '#ffffff' },
+          headerTitleStyle: { fontWeight: '800', fontSize: 20 },
+          headerShadowVisible: true,
+          headerBackTitle: '',}} />
       <KeyboardAvoidingView style={{ flex: 1, backgroundColor: '#F9FAFB' }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-
-        {/* Header */}
-        <View style={styles.topBar}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={22} color="#111" />
-          </TouchableOpacity>
-          <Text style={styles.topBarTitle}>Edit Profile</Text>
-          <View style={{ width: 40 }} />
-        </View>
 
         <ScrollView contentContainerStyle={{ paddingBottom: 50 }}>
 

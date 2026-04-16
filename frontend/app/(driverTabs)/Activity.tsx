@@ -227,7 +227,7 @@ function FilterModal({ visible, current, nameQuery, onSelect, onNameChange, onRe
   onReset: () => void; onClose: () => void;
 }) {
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
+    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
       <Pressable style={s.modalOverlay} onPress={onClose}>
         <Pressable style={s.modalBox} onPress={() => {}}>
           <View style={s.modalHandle} />

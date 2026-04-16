@@ -10,6 +10,7 @@ export const loginPassenger = async (req, res) => {
   const { email, password } = req.body;
 
   try {
+    console.log('JWT_SECRET:', process.env.JWT_SECRET)
     const passenger = await prisma.passenger.findUnique({
       where: { email: email.trim().toLowerCase() },
     });

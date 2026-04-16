@@ -3,7 +3,14 @@ import { Stack } from 'expo-router';
 export default function Layout() {
   return (
     <Stack>
-      <Stack.Screen name="EditProfileScreen" />
+      <Stack.Screen name="EditProfileScreen"
+      options={{
+          title: "Edit Profile",
+          headerStyle: { backgroundColor: '#ffffff' },
+          headerTitleStyle: { fontWeight: '800', fontSize: 20 },
+          headerShadowVisible: true,
+          headerBackTitle: '',
+        }} />
       <Stack.Screen name="SearchRideScreen" />
       <Stack.Screen name="RecommendedDriversScreen" options={{ headerShown: false }} />
       <Stack.Screen name="HistoryScreen" />

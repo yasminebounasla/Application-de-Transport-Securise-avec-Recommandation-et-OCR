@@ -189,3 +189,24 @@ export const refreshDriverToken = async (req, res) => {
       .json({ message: "Refresh token invalide ou expiré" });
   }
 };
+export const checkEmailExists = async (req, res) => {
+  const { email } = req.body;
+
+  try {
+    const driverExists = await prisma.driver.findUnique({
+      where: { email: email.trim().toLowerCase() },
+    });
+
+    const passengerExists = await prisma.passenger.findUnique({
+      where: { email: email.trim().toLowerCase() },
+    });
+
+    if (driverExists || passengerExists) {
+      return res.status(409).json({ message: "This email is already in use." });
+    }
+
+    return res.status(200).json({ available: true });
+  } catch (err) {
+    return res.status(500).json({ message: "Server error." });
+  }
+};

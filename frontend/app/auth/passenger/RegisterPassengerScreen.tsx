@@ -64,8 +64,23 @@ export default function RegisterPassengerScreen() {
       confirmPassword: '',
     };
 
-    if (!firstName.trim()) newErrors.firstName = 'First name is required.';
-    if (!familyName.trim()) newErrors.familyName = 'Family name is required.';
+// First Name
+if (!firstName.trim()) {
+  newErrors.firstName = 'First name is required.';
+} else if (!/^[a-zA-ZÀ-ÿ\s'-]+$/.test(firstName.trim())) {
+  newErrors.firstName = 'First name must contain letters only.';
+} else if (firstName.trim().length < 3) {
+  newErrors.firstName = 'First name must be at least 3 characters.';
+}
+
+// Family Name
+if (!familyName.trim()) {
+  newErrors.familyName = 'Family name is required.';
+} else if (!/^[a-zA-ZÀ-ÿ\s'-]+$/.test(familyName.trim())) {
+  newErrors.familyName = 'Family name must contain letters only.';
+} else if (familyName.trim().length < 3) {
+  newErrors.familyName = 'Family name must be at least 3 characters.';
+}
 
     if (!age.trim()) {
       newErrors.age = 'Age is required.';
@@ -79,7 +94,13 @@ export default function RegisterPassengerScreen() {
       newErrors.email = 'Invalid email format.';
     }
 
-    if (!phoneNumber.trim()) newErrors.phoneNumber = 'Phone number is required.';
+    // Phone — 10 digits, starts with 05/06/07
+    if (!phoneNumber.trim()) {
+      newErrors.phoneNumber = "Phone number is required.";
+    } else if (!/^(05|06|07)\d{8}$/.test(phoneNumber.replace(/\s+/g, ""))) {
+      newErrors.phoneNumber =
+        "Phone must be 10 digits and start with 05, 06, or 07.";
+    }
 
     if (!password) {
       newErrors.password = 'Password is required.';
@@ -108,13 +129,8 @@ export default function RegisterPassengerScreen() {
     });
 
     if (result.success) {
-      Alert.alert('Success!', 'Your account has been created successfully', [
-        { text: 'OK', onPress: () => router.replace('./../../../passenger/HomeScreen') },
-      ]);
-    } else {
-      setErrors((prev) => ({ ...prev, email: result.message }));
-    }
-  };
+  router.replace('./../../../passenger/HomeScreen');
+}
 
   return (
     <>
