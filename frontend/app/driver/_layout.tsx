@@ -26,7 +26,16 @@ export default function Layout() {
         }}
       />
       <Stack.Screen name="ProfileSetupScreen" />
-      <Stack.Screen name="MyFeedbacksScreen" />
+      <Stack.Screen name="MyFeedbacksScreen"
+        options={{
+          title: "Feedbacks",
+          headerStyle: { backgroundColor: '#ffffff' },
+          headerTitleStyle: { fontWeight: '800', fontSize: 20 },
+          headerShadowVisible: true,
+          headerBackTitle: '',
+        }}
+      />
+
       <Stack.Screen name="PassengerProfileScreen" options={{
         title: "Passenger Profile",
         headerShown: false,
