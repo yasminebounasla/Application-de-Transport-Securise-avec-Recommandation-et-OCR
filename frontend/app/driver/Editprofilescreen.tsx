@@ -22,7 +22,7 @@ import { useCallback } from "react";
 import api, { API_URL } from "../../services/api";
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>["name"];
-type Tab = "personal" | "preferences" | "vehicle" | "zone";
+type Tab = "personal" | "preferences" | "zone";
 
 // ── TOAST ──
 function Toast({ visible }: { visible: boolean }) {
@@ -371,7 +371,6 @@ export default function EditProfileScreen() {
     { key: "personal", label: "Personal", icon: "person-outline" },
     { key: "preferences", label: "Preferences", icon: "options-outline" },
     { key: "zone", label: "Zone", icon: "location-outline" },
-    { key: "vehicle", label: "Vehicle", icon: "car-outline" },
   ];
 
   return (
@@ -413,6 +412,7 @@ export default function EditProfileScreen() {
           contentContainerStyle={{ paddingBottom: 120 }}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="on-drag">
+
           {/* ── PERSONAL TAB ── */}
           {activeTab === "personal" && (
             <>
@@ -680,75 +680,32 @@ export default function EditProfileScreen() {
             </View>
           )}
 
-          {/* ── VEHICLE TAB ── */}
-          {activeTab === "vehicle" && (
-            <View
-              style={{
-                flex: 1,
-                alignItems: "center",
-                justifyContent: "center",
-                paddingTop: 80,
-              }}>
-              <View
-                style={{
-                  width: 80,
-                  height: 80,
-                  borderRadius: 40,
-                  backgroundColor: "#F3F4F6",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  marginBottom: 16,
-                }}>
-                <Ionicons name='car-outline' size={40} color='#999' />
-              </View>
-              <Text
-                style={{
-                  fontSize: 18,
-                  fontWeight: "800",
-                  color: "#111",
-                  marginBottom: 8,
-                }}>
-                Coming Soon
-              </Text>
-              <Text
-                style={{
-                  fontSize: 14,
-                  color: "#888",
-                  textAlign: "center",
-                  paddingHorizontal: 40,
-                }}>
-                Vehicle management will be available in a future update.
-              </Text>
-            </View>
-          )}
         </ScrollView>
       </KeyboardAvoidingView>
       <Toast visible={showToast} />
     </>
   );
 }
-// ─────────────────────────────────────────────
-// STYLES
-// ─────────────────────────────────────────────
+
 const styles = StyleSheet.create({
-  topBar: {
+  toast: {
+    position: "absolute",
+    bottom: 30,
+    alignSelf: "center",
+    backgroundColor: "#111",
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 30,
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    backgroundColor: "#fff",
-    borderBottomWidth: 1,
-    borderBottomColor: "#F0F0F0",
+    gap: 8,
+    zIndex: 999,
   },
-  backBtn: {
-    width: 40,
-    height: 40,
-    alignItems: "flex-start",
-    justifyContent: "center",
+  toastText: {
+    color: "#fff",
+    fontSize: 14,
+    fontWeight: "600",
   },
-  topBarTitle: { fontSize: 17, fontWeight: "800", color: "#111" },
-
   tabBar: {
     flexDirection: "row",
     backgroundColor: "#fff",
@@ -757,161 +714,180 @@ const styles = StyleSheet.create({
   },
   tabItem: {
     flex: 1,
-    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
-    gap: 5,
     paddingVertical: 12,
-    borderBottomWidth: 2,
-    borderBottomColor: "transparent",
+    gap: 4,
+    flexDirection: "row",
   },
-  tabItemActive: { borderBottomColor: "#111" },
-  tabLabel: { fontSize: 12, color: "#999", fontWeight: "600" },
-  tabLabelActive: { color: "#111" },
-
-  avatarSection: { alignItems: "center", paddingTop: 24, paddingBottom: 8 },
+  tabItemActive: {
+    borderBottomWidth: 2,
+    borderBottomColor: "#111",
+  },
+  tabLabel: {
+    fontSize: 11,
+    color: "#999",
+    fontWeight: "500",
+  },
+  tabLabelActive: {
+    color: "#111",
+    fontWeight: "700",
+  },
+  avatarSection: {
+    alignItems: "center",
+    paddingVertical: 24,
+  },
   avatarCircle: {
     width: 88,
     height: 88,
     borderRadius: 44,
-    backgroundColor: "#111",
+    backgroundColor: "#222",
     alignItems: "center",
     justifyContent: "center",
+    marginBottom: 8,
   },
-  cameraBadge: {
-    position: "absolute",
-    bottom: 0,
-    right: 0,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: "#294190",
-    alignItems: "center",
-    justifyContent: "center",
-    borderWidth: 2,
-    borderColor: "#fff",
+  avatarHint: {
+    fontSize: 13,
+    color: "#888",
   },
-  avatarHint: { fontSize: 12, color: "#999", marginTop: 8 },
-
   card: {
-    marginHorizontal: 16,
-    marginTop: 16,
     backgroundColor: "#fff",
+    marginHorizontal: 16,
+    marginBottom: 16,
     borderRadius: 16,
     padding: 16,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
   sectionTitle: {
     fontSize: 15,
-    fontWeight: "800",
+    fontWeight: "700",
     color: "#111",
+    marginBottom: 16,
+  },
+  fieldWrapper: {
     marginBottom: 14,
   },
-
-  fieldWrapper: { marginBottom: 14 },
   fieldLabel: {
     fontSize: 11,
-    fontWeight: "700",
-    color: "#888",
-    marginBottom: 6,
-    textTransform: "uppercase",
+    fontWeight: "600",
+    color: "#999",
     letterSpacing: 0.5,
+    textTransform: "uppercase",
+    marginBottom: 6,
   },
   inputRow: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#F9FAFB",
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
     borderWidth: 1,
-    borderColor: "#F0F0F0",
+    borderColor: "#EFEFEF",
   },
-  inputDisabled: { backgroundColor: "#F3F4F6", opacity: 0.7 },
-  input: { flex: 1, fontSize: 15, color: "#111" },
-
+  inputDisabled: {
+    opacity: 0.6,
+  },
+  input: {
+    flex: 1,
+    fontSize: 15,
+    color: "#111",
+  },
   toggleRow: {
     flexDirection: "row",
     alignItems: "center",
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#F9FAFB",
+    borderBottomColor: "#F5F5F5",
   },
-  toggleLabel: { fontSize: 14, color: "#111", fontWeight: "500" },
-
+  toggleLabel: {
+    fontSize: 14,
+    color: "#333",
+  },
   genderBtn: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: "#E5E7EB",
     alignItems: "center",
+    backgroundColor: "#F9FAFB",
   },
-  genderBtnActive: { backgroundColor: "#111", borderColor: "#111" },
-  genderBtnText: { fontSize: 14, fontWeight: "600", color: "#666" },
-  genderBtnTextActive: { color: "#fff" },
-
+  genderBtnActive: {
+    backgroundColor: "#111",
+    borderColor: "#111",
+  },
+  genderBtnText: {
+    fontSize: 14,
+    color: "#555",
+    fontWeight: "600",
+  },
+  genderBtnTextActive: {
+    color: "#fff",
+  },
   saveBtn: {
     backgroundColor: "#111",
     borderRadius: 14,
     paddingVertical: 16,
     alignItems: "center",
   },
-  saveBtnDisabled: { opacity: 0.5 },
-  saveBtnText: { color: "#fff", fontSize: 15, fontWeight: "700" },
-
-  // Zone tab
+  saveBtnDisabled: {
+    opacity: 0.5,
+  },
+  saveBtnText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "700",
+  },
   zoneHint: {
     fontSize: 13,
     color: "#888",
-    lineHeight: 19,
     marginBottom: 16,
+    lineHeight: 19,
   },
   zoneCurrentBox: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
     backgroundColor: "#EEF2FF",
     borderRadius: 12,
     padding: 14,
+    gap: 12,
   },
   zoneIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: "#fff",
     alignItems: "center",
     justifyContent: "center",
-    shadowColor: "#294190",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 4,
-    elevation: 2,
   },
   zoneCurrentLabel: {
     fontSize: 11,
-    fontWeight: "700",
     color: "#294190",
+    fontWeight: "600",
     textTransform: "uppercase",
     letterSpacing: 0.5,
     marginBottom: 2,
   },
-  zoneCurrentValue: { fontSize: 14, fontWeight: "600", color: "#111" },
-
+  zoneCurrentValue: {
+    fontSize: 14,
+    color: "#111",
+    fontWeight: "600",
+  },
   zoneOptionRow: {
     flexDirection: "row",
     alignItems: "center",
+    paddingVertical: 14,
     gap: 14,
-    paddingVertical: 12,
   },
   zoneOptionIcon: {
     width: 42,
     height: 42,
-    borderRadius: 12,
+    borderRadius: 21,
     backgroundColor: "#294190",
     alignItems: "center",
     justifyContent: "center",
@@ -922,20 +898,13 @@ const styles = StyleSheet.create({
     color: "#111",
     marginBottom: 2,
   },
-  zoneOptionSub: { fontSize: 12, color: "#888" },
-  optionDivider: { height: 1, backgroundColor: "#F5F5F5", marginVertical: 4 },
-
-  toast: {
-    position: "absolute",
-    bottom: 32,
-    alignSelf: "center",
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: "#111",
-    borderRadius: 20,
-    paddingHorizontal: 18,
-    paddingVertical: 12,
+  zoneOptionSub: {
+    fontSize: 12,
+    color: "#888",
   },
-  toastText: { color: "#fff", fontSize: 14, fontWeight: "600" },
+  optionDivider: {
+    height: 1,
+    backgroundColor: "#F0F0F0",
+    marginVertical: 4,
+  },
 });
