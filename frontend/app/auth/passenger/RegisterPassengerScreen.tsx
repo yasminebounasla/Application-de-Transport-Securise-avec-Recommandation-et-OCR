@@ -130,7 +130,8 @@ if (!familyName.trim()) {
 
     if (result.success) {
   router.replace('./../../../passenger/HomeScreen');
-}
+    }
+  };
 
   return (
     <>
