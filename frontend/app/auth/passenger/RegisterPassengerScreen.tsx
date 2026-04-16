@@ -94,7 +94,13 @@ if (!familyName.trim()) {
       newErrors.email = 'Invalid email format.';
     }
 
-    if (!phoneNumber.trim()) newErrors.phoneNumber = 'Phone number is required.';
+    // Phone — 10 digits, starts with 05/06/07
+    if (!phoneNumber.trim()) {
+      newErrors.phoneNumber = "Phone number is required.";
+    } else if (!/^(05|06|07)\d{8}$/.test(phoneNumber.replace(/\s+/g, ""))) {
+      newErrors.phoneNumber =
+        "Phone must be 10 digits and start with 05, 06, or 07.";
+    }
 
     if (!password) {
       newErrors.password = 'Password is required.';

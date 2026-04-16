@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -8,12 +8,13 @@ import {
   ActivityIndicator,
   RefreshControl,
   Image,
-  Modal
-} from 'react-native';
-import { router, useFocusEffect } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import api from '../../services/api';
-import { useAuth } from '../../context/AuthContext';
+  Modal,
+  Linking,
+} from "react-native";
+import { router, useFocusEffect } from "expo-router";
+import { Ionicons } from "@expo/vector-icons";
+import api from "../../services/api";
+import { useAuth } from "../../context/AuthContext";
 
 interface PassengerProfile {
   id?: number;
@@ -31,6 +32,7 @@ export default function PassengerProfileScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [settingsVisible, setSettings] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
+  const [sosVisible, setSosVisible] = useState(false);
 
   const { logout } = useAuth();
 
@@ -270,8 +272,58 @@ export default function PassengerProfileScreen() {
           </View>
           <Ionicons name='chevron-forward' size={18} color='#888' />
         </TouchableOpacity>
+        {/* ── SOS BUTTON ── */}
+        <View style={{ alignItems: "center", marginTop: 24, marginBottom: 8 }}>
+          <TouchableOpacity
+            onPress={() => Linking.openURL("tel:17")}
+            activeOpacity={0.8}>
+            <View
+              style={{
+                width: 80,
+                height: 80,
+                borderRadius: 40,
+                backgroundColor: "rgba(239, 68, 68, 0.15)",
+                alignItems: "center",
+                justifyContent: "center",
+              }}>
+              <View
+                style={{
+                  width: 62,
+                  height: 62,
+                  borderRadius: 31,
+                  backgroundColor: "#B91C1C",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  shadowColor: "#B91C1C",
+                  shadowOffset: { width: 0, height: 3 },
+                  shadowOpacity: 0.35,
+                  shadowRadius: 8,
+                  elevation: 5,
+                }}>
+                <Text
+                  style={{
+                    color: "#fff",
+                    fontSize: 15,
+                    fontWeight: "800",
+                    letterSpacing: 1,
+                  }}>
+                  SOS
+                </Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+          <Text
+            style={{
+              fontSize: 11,
+              color: "#B91C1C",
+              fontWeight: "600",
+              marginTop: 8,
+              letterSpacing: 0.5,
+            }}>
+            Emergency SOS
+          </Text>
+        </View>
       </ScrollView>
-
       {/* ── SETTINGS MODAL ── */}
       <Modal
         visible={settingsVisible}
@@ -394,7 +446,17 @@ export default function PassengerProfileScreen() {
   );
 }
 
-function InfoRow({ icon, label, value, last = false }: { icon: keyof typeof Ionicons.glyphMap; label: string; value?: string; last?: boolean }) {
+function InfoRow({
+  icon,
+  label,
+  value,
+  last = false,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value?: string;
+  last?: boolean;
+}) {
   return (
     <View
       style={{
