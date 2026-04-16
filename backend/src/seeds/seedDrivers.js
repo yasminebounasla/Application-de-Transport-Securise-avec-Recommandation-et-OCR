@@ -36,11 +36,11 @@ const ALGER_ZONES = [
 ];
 
 const AUTRES_WILAYAS = [
-  { wilaya: "Oran",        lat: 35.6969, lng: 0.6331 },
+  { wilaya: "Oran", lat: 35.6969, lng: 0.6331 },
   { wilaya: "Constantine", lat: 36.3650, lng: 6.6147 },
-  { wilaya: "Blida",       lat: 36.4700, lng: 2.8300 },
-  { wilaya: "Annaba",      lat: 36.9000, lng: 7.7667 },
-  { wilaya: "Bejaia",      lat: 36.7515, lng: 5.0564 },
+  { wilaya: "Blida", lat: 36.4700, lng: 2.8300 },
+  { wilaya: "Annaba", lat: 36.9000, lng: 7.7667 },
+  { wilaya: "Bejaia", lat: 36.7515, lng: 5.0564 },
 ];
 
 // ── ✅ Bug 4 FIX — PROFILS DRIVER COHÉRENTS ────────────────────────────────
@@ -103,10 +103,10 @@ const DRIVER_PROFILES = [
   },
 ];
 
-const randomChoice  = (arr) => arr[Math.floor(Math.random() * arr.length)];
-const randomBoolP   = (p)   => Math.random() < p;   // ✅ probabilité configurable
-const randomInt     = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
-const randomFloat   = (min, max) => parseFloat((Math.random() * (max - min) + min).toFixed(6));
+const randomChoice = (arr) => arr[Math.floor(Math.random() * arr.length)];
+const randomBoolP = (p) => Math.random() < p;   // ✅ probabilité configurable
+const randomInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+const randomFloat = (min, max) => parseFloat((Math.random() * (max - min) + min).toFixed(6));
 
 async function seedDrivers(count = 100) {
   console.log(`Création de ${count} drivers avec profils cohérents (80 Alger + 20 autres wilayas)...\n`);
@@ -114,9 +114,9 @@ async function seedDrivers(count = 100) {
   const drivers = [];
 
   for (let i = 1; i <= count; i++) {
-    const sexe   = i % 2 === 0 ? "F" : "M";
+    const sexe = i % 2 === 0 ? "F" : "M";
     const prenom = randomChoice(sexe === "F" ? PRENOMS_F : PRENOMS_M);
-    const nom    = randomChoice(NOMS);
+    const nom = randomChoice(NOMS);
 
     // ✅ Bug 4 FIX : assigner un profil cohérent à chaque driver
     const profile = randomChoice(DRIVER_PROFILES);
@@ -124,41 +124,41 @@ async function seedDrivers(count = 100) {
     let wilaya, latitude, longitude;
     if (i <= 80) {
       const zone = randomChoice(ALGER_ZONES);
-      wilaya    = "Alger";
-      latitude  = zone.lat + randomFloat(-0.02, 0.02);
+      wilaya = "Alger";
+      latitude = zone.lat + randomFloat(-0.02, 0.02);
       longitude = zone.lng + randomFloat(-0.02, 0.02);
     } else {
-      const w   = randomChoice(AUTRES_WILAYAS);
-      wilaya    = w.wilaya;
-      latitude  = w.lat + randomFloat(-0.05, 0.05);
+      const w = randomChoice(AUTRES_WILAYAS);
+      wilaya = w.wilaya;
+      latitude = w.lat + randomFloat(-0.05, 0.05);
       longitude = w.lng + randomFloat(-0.05, 0.05);
     }
 
     drivers.push({
-      email:                   `driver${i}@mail.com`,
-      password:                hashedPassword,
+      email: `driver${i}@mail.com`,
+      password: hashedPassword,
       nom,
       prenom,
-      numTel:                  `0${randomInt(500000000, 799999999)}`,
+      numTel: `0${randomInt(500000000, 799999999)}`,
       sexe,
-      age:                     randomInt(22, 55),
-      isVerified:              true,
+      age: randomInt(22, 55),
+      isVerified: true,
       hasAcceptedPhotoStorage: true,
       wilaya,
       latitude,
       longitude,
       // ✅ Bug 4 FIX : features basées sur le profil, pas randomBool() pur
-      talkative:               randomBoolP(profile.probs.talkative),
-      radio_on:                randomBoolP(profile.probs.radio_on),
-      smoking_allowed:         randomBoolP(profile.probs.smoking_allowed),
-      pets_allowed:            randomBoolP(profile.probs.pets_allowed),
-      car_big:                 randomBoolP(profile.probs.car_big),
-      works_morning:           randomBoolP(profile.probs.works_morning),
-      works_afternoon:         randomBoolP(profile.probs.works_afternoon),
-      works_evening:           randomBoolP(profile.probs.works_evening),
-      works_night:             randomBoolP(profile.probs.works_night),
-      avgRating:               parseFloat((randomFloat(3.0, 5.0)).toFixed(1)),
-      ratingsCount:            randomInt(5, 150),
+      talkative: randomBoolP(profile.probs.talkative),
+      radio_on: randomBoolP(profile.probs.radio_on),
+      smoking_allowed: randomBoolP(profile.probs.smoking_allowed),
+      pets_allowed: randomBoolP(profile.probs.pets_allowed),
+      car_big: randomBoolP(profile.probs.car_big),
+      works_morning: randomBoolP(profile.probs.works_morning),
+      works_afternoon: randomBoolP(profile.probs.works_afternoon),
+      works_evening: randomBoolP(profile.probs.works_evening),
+      works_night: randomBoolP(profile.probs.works_night),
+      avgRating: parseFloat((randomFloat(3.0, 5.0)).toFixed(1)),
+      ratingsCount: randomInt(5, 150),
     });
   }
 
@@ -168,7 +168,7 @@ async function seedDrivers(count = 100) {
 
     for (const driver of drivers) {
       const existing = await prisma.driver.findUnique({
-        where:  { email: driver.email },
+        where: { email: driver.email },
         select: { id: true },
       });
       if (existing) {
@@ -187,7 +187,7 @@ async function seedDrivers(count = 100) {
     const sample = await prisma.driver.findMany({ take: count });
     console.log("📊 Distribution features drivers (idéal : 20-80% pour chaque) :");
     for (const col of ["talkative", "radio_on", "smoking_allowed", "pets_allowed", "car_big",
-                        "works_morning", "works_afternoon", "works_evening", "works_night"]) {
+      "works_morning", "works_afternoon", "works_evening", "works_night"]) {
       const yes = sample.filter((d) => d[col] === true).length;
       const pct = Math.round((yes / sample.length) * 100);
       const status = pct >= 15 && pct <= 85 ? "✅" : "⚠️ ";
@@ -203,3 +203,5 @@ async function seedDrivers(count = 100) {
 }
 
 seedDrivers(140);
+
+export { seedDrivers };
