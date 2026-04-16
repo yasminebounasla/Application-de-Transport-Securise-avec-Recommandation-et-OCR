@@ -135,7 +135,7 @@ export default function SelfieScreen() {
         showToast(userMsg, "error");
       }
     } catch (error: any) {
-      console.error("❌ Selfie upload error:", error);
+      console.warn("❌ Selfie upload error:", error);
       setViewMode("selection");
       setImageUri(null);
       showToast("An error occurred. Please try again.", "error");

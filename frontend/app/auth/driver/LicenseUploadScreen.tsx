@@ -60,7 +60,7 @@ export default function LicenseUploadScreen() {
 
       return uri;
     } catch (error) {
-      console.error("Error correcting image orientation:", error);
+      console.warn("Error correcting image orientation:", error);
       return uri;
     }
   };
@@ -197,7 +197,7 @@ export default function LicenseUploadScreen() {
       );
       if (!licenseResult.success) {
         const errorMessage = parseUploadError(licenseResult);
-        console.error("❌ Upload License Logic Error:", errorMessage);
+        console.warn("❌ Upload License Logic Error:", errorMessage);
         // ❌ AFFICHER TOAST ERREUR (reste 6 secondes)
         setViewMode("selection");
         showToast(errorMessage, "error");
@@ -217,14 +217,14 @@ export default function LicenseUploadScreen() {
         router.push("./SelfieScreen");
       }, 3000);
     } catch (error: any) {
-      console.error("🔴 [FATAL ERROR] Catch Block Triggered:");
-      console.error("- Name:", error.name);
-      console.error("- Message:", error.message);
-      console.error(
+      console.warn("🔴 [FATAL ERROR] Catch Block Triggered:");
+      console.warn("- Name:", error.name);
+      console.warn("- Message:", error.message);
+      console.warn(
         "- Config:",
         error.config ? "URL: " + error.config.url : "No Config",
       );
-      console.error("❌ License upload error:", error);
+      console.warn("❌ License upload error:", error);
 
       //  AFFICHER TOAST ERREUR
       setViewMode("selection");
