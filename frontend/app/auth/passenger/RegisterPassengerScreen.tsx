@@ -129,13 +129,8 @@ if (!familyName.trim()) {
     });
 
     if (result.success) {
-      Alert.alert('Success!', 'Your account has been created successfully', [
-        { text: 'OK', onPress: () => router.replace('./../../../passenger/HomeScreen') },
-      ]);
-    } else {
-      setErrors((prev) => ({ ...prev, email: result.message }));
-    }
-  };
+  router.replace('./../../../passenger/HomeScreen');
+}
 
   return (
     <>

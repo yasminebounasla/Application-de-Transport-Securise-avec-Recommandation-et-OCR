@@ -197,8 +197,7 @@ export default function LicenseUploadScreen() {
       );
       if (!licenseResult.success) {
         const errorMessage = parseUploadError(licenseResult);
-        console.warn("❌ Upload License Logic Error:", errorMessage);
-        // ❌ AFFICHER TOAST ERREUR (reste 6 secondes)
+        console.warn(" Upload License Logic Error:", errorMessage);
         setViewMode("selection");
         showToast(errorMessage, "error");
         return;
