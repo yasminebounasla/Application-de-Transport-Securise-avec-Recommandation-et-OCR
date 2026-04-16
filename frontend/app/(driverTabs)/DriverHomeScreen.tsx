@@ -1269,7 +1269,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   liveCardBusy: {
-    backgroundColor: "#F59E0B",
+    backgroundColor: "#FFF7ED",
   },
   liveCardIdle: {
     backgroundColor: "#EFECE8", // idle live card: dark chip inside white hero
@@ -1278,7 +1278,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 14,
-    backgroundColor: "#F5F5F5",
+    backgroundColor: "#E5E7EB" ,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1346,7 +1346,7 @@ const styles = StyleSheet.create({
   },
   swipeHint: {
     marginTop: 12,
-    color: "#7A7A7A",
+    color: "",
     fontSize: 12,
     fontWeight: "700",
   },
