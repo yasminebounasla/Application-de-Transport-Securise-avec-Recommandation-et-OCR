@@ -13,9 +13,6 @@
 # Jupyter Notebook
 .ipynb_checkpoints
 
-# Environnement
-.env.local
-
 # Fichiers de sortie
 outputs/*.json
 outputs/*.txt
