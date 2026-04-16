@@ -63,6 +63,7 @@ function InputField({
   placeholder,
   editable = true,
   error,
+  onFocus,
 }: {
   label: string;
   icon: IoniconsName;
@@ -72,6 +73,7 @@ function InputField({
   placeholder?: string;
   editable?: boolean;
   error?: string;
+  onFocus?: () => void;
 }) {
   return (
     <View style={styles.fieldWrapper}>
@@ -91,6 +93,7 @@ function InputField({
           placeholder={placeholder || label}
           placeholderTextColor='#BBB'
           editable={editable}
+          onFocus={onFocus}
         />
       </View>
       {!!error && <Text style={{ color: '#EF4444', fontSize: 12, marginTop: 4 }}>{error}</Text>}
@@ -175,6 +178,9 @@ export default function EditProfileScreen() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [showToast, setShowToast] = useState(false);
+
+  // ── ScrollView ref for keyboard scroll ──
+  const scrollRef = useRef<ScrollView>(null);
 
   // Personal
   const [nom, setNom] = useState("");
@@ -372,7 +378,8 @@ export default function EditProfileScreen() {
     <>
       <KeyboardAvoidingView
         style={{ flex: 1, backgroundColor: "#F9FAFB" }}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        behavior={Platform.OS === "ios" ? "padding" : "padding"}
+        keyboardVerticalOffset={Platform.OS === "android" ? 80 : 0}>
 
         {/* Tabs */}
         <View style={styles.tabBar}>
@@ -401,7 +408,11 @@ export default function EditProfileScreen() {
           ))}
         </View>
 
-        <ScrollView contentContainerStyle={{ paddingBottom: 50 }}>
+        <ScrollView
+          ref={scrollRef}
+          contentContainerStyle={{ paddingBottom: 120 }}
+          keyboardShouldPersistTaps="handled"
+          keyboardDismissMode="on-drag">
           {/* ── PERSONAL TAB ── */}
           {activeTab === "personal" && (
             <>
@@ -459,6 +470,7 @@ export default function EditProfileScreen() {
                   onChangeText={handleAgeChange}
                   keyboardType='numeric'
                   error={errors.age}
+                  onFocus={() => scrollRef.current?.scrollToEnd({ animated: true })}
                 />
                 <GenderSelector value={sexe} onChange={setSexe} />
               </View>
