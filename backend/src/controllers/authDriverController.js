@@ -2,12 +2,14 @@ import { validatePassword } from "../utils/validatePassword.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { prisma } from "../config/prisma.js";
+import { getJwtSecrets } from "../utils/jwtConfig.js";
 
 export const registerDriver = async (req, res) => {
   const { email, password, confirmPassword, nom, prenom, age, numTel, sexe } =
     req.body;
 
   try {
+    const { accessSecret, refreshSecret } = getJwtSecrets();
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return res.status(400).json({ message: "Invalid email format" });
@@ -54,13 +56,13 @@ export const registerDriver = async (req, res) => {
 
     const accessToken = jwt.sign(
       { driverId: newDriver.id, email: newDriver.email, role: "driver" },
-      process.env.JWT_SECRET,
+      accessSecret,
       { expiresIn: "1h" },
     );
 
     const refreshToken = jwt.sign(
       { driverId: newDriver.id, role: "driver" },
-      process.env.JWT_REFRESH_SECRET,
+      refreshSecret,
       { expiresIn: "90d" },
     );
 
@@ -85,6 +87,7 @@ export const loginDriver = async (req, res) => {
   const { email, password } = req.body;
 
   try {
+    const { accessSecret, refreshSecret } = getJwtSecrets();
     const driver = await prisma.driver.findUnique({
       where: { email: email.trim().toLowerCase() },
     });
@@ -100,13 +103,13 @@ export const loginDriver = async (req, res) => {
 
     const accessToken = jwt.sign(
       { driverId: driver.id, email: driver.email, role: "driver" },
-      process.env.JWT_SECRET,
+      accessSecret,
       { expiresIn: "1h" },
     );
 
     const refreshToken = jwt.sign(
       { driverId: driver.id, role: "driver" },
-      process.env.JWT_REFRESH_SECRET,
+      refreshSecret,
       { expiresIn: "90d" },
     );
     driver.password = undefined;
@@ -174,11 +177,12 @@ export const refreshDriverToken = async (req, res) => {
   }
 
   try {
-    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+    const { accessSecret, refreshSecret } = getJwtSecrets();
+    const decoded = jwt.verify(refreshToken, refreshSecret);
 
     const newAccessToken = jwt.sign(
       { driverId: decoded.driverId, email: decoded.email, role: "driver" },
-      process.env.JWT_SECRET,
+      accessSecret,
       { expiresIn: "1h" },
     );
 

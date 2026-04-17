@@ -2,15 +2,14 @@ import { validatePassword } from "../utils/validatePassword.js";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { prisma } from "../config/prisma.js";
-
-const jwtSecret = process.env.JWT_SECRET;
+import { getJwtSecrets } from "../utils/jwtConfig.js";
 
 // LOGIN PASSENGER
 export const loginPassenger = async (req, res) => {
   const { email, password } = req.body;
 
   try {
-    console.log('JWT_SECRET:', process.env.JWT_SECRET)
+    const { accessSecret, refreshSecret } = getJwtSecrets();
     const passenger = await prisma.passenger.findUnique({
       where: { email: email.trim().toLowerCase() },
     });
@@ -27,13 +26,13 @@ export const loginPassenger = async (req, res) => {
     // FIX: Utiliser passengerId au lieu de id
     const accessToken = jwt.sign(
       { passengerId: passenger.id, email: passenger.email, role: "passenger" },
-      process.env.JWT_SECRET,
+      accessSecret,
       { expiresIn: "1h" },
     );
 
     const refreshToken = jwt.sign(
       { passengerId: passenger.id, role: "passenger" },
-      process.env.JWT_REFRESH_SECRET,
+      refreshSecret,
       { expiresIn: "90d" },
     );
 
@@ -55,6 +54,7 @@ export const registerPassenger = async (req, res) => {
     req.body;
 
   try {
+    const { accessSecret, refreshSecret } = getJwtSecrets();
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       return res.status(400).json({ message: "Invalid email format" });
@@ -101,13 +101,13 @@ export const registerPassenger = async (req, res) => {
         email: newPassenger.email,
         role: "passenger",
       },
-      process.env.JWT_SECRET,
+      accessSecret,
       { expiresIn: "1h" },
     );
 
     const refreshToken = jwt.sign(
       { passengerId: newPassenger.id, role: "passenger" },
-      process.env.JWT_REFRESH_SECRET,
+      refreshSecret,
       { expiresIn: "90d" },
     );
 
@@ -132,7 +132,8 @@ export const refreshPassengerToken = async (req, res) => {
   }
 
   try {
-    const decoded = jwt.verify(refreshToken, process.env.JWT_REFRESH_SECRET);
+    const { accessSecret, refreshSecret } = getJwtSecrets();
+    const decoded = jwt.verify(refreshToken, refreshSecret);
 
     const newAccessToken = jwt.sign(
       {
@@ -140,7 +141,7 @@ export const refreshPassengerToken = async (req, res) => {
         email: decoded.email,
         role: "passenger",
       },
-      process.env.JWT_SECRET,
+      accessSecret,
       { expiresIn: "1h" },
     );
 
