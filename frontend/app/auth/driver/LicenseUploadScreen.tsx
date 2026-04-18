@@ -259,12 +259,11 @@ export default function LicenseUploadScreen() {
           </Text> */}
 
             <Text className='text-sm text-gray-600 mb-2 text-center px-4'>
-              Stay tuned while we verify your driver's license. We'll notify you
-              once it's done.
+              Stay tuned while we verify your driver's license.
             </Text>
 
             <Text className='text-xs text-gray-500 italic text-center px-4'>
-              This process may take up to 1 minute. Please ensure you have a
+              This process may take up to 2 minute. Please ensure you have a
               stable internet connection.
             </Text>
           </View>
