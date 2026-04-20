@@ -172,7 +172,11 @@ async function exportLightFM() {
   console.log("🚀 Export LightFM — exclusion stricte des préférences\n");
 
   try {
-    const drivers = await prisma.driver.findMany();
+    const drivers = await prisma.driver.findMany({
+      where: {
+        isVerified:true
+      }
+    });
     const driverMap = {};
     drivers.forEach((d) => { driverMap[d.id] = d; });
 
