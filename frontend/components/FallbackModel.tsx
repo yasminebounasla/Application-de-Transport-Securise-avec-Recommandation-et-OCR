@@ -143,12 +143,6 @@ export function FallbackModal({ visible, type, backupDrivers,rideId, message, re
                            <Text style={fb.tagText}>{d.distance_km} km</Text>
                            </View>
                           )}
-                          {!!d.work_match && (
-                            <View style={fb.dispoBadge}>
-                              <View style={fb.dispoDot} />
-                              <Text style={fb.dispoText}>Horaires ✓</Text>
-                            </View>
-                          )}
                         </View>
                       </View>
 
