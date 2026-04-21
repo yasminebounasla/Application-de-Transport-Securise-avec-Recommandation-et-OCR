@@ -187,6 +187,7 @@ export const sendFallbackRequests = async (req, res) => {
         passenger:   ride.passenger,
         depart:      ride.startAddress || ride.depart,
         destination: ride.endAddress   || ride.destination,
+        placesDispo: ride.placesDispo,
         dateDepart:  ride.dateDepart,
         preferences: {},
       });
@@ -196,7 +197,7 @@ export const sendFallbackRequests = async (req, res) => {
         recipientType: 'DRIVER',
         type:          'RIDE_REQUEST',
         title:         '🚗 Nouvelle demande de trajet',
-        message:       `${ride.passenger.prenom} ${ride.passenger.nom} recherche un conducteur.`,
+        message: `${ride.passenger.prenom} ${ride.passenger.nom} recherche un conducteur. (${ride.placesDispo} place${ride.placesDispo > 1 ? 's' : ''})`,
         data: {
           rideId:      ride.id,
           passenger:   { prenom: ride.passenger.prenom, nom: ride.passenger.nom },
