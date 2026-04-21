@@ -374,22 +374,32 @@ export const acceptRide = async (req, res) => {
     });
 
     // Récupérer tous les drivers qui ont ce ride en PENDING dans leur activity
-      const otherDriverNotifs = await prisma.notification.findMany({
-        where: {
-          type: 'RIDE_REQUEST',
-          data: { path: ['rideId'], equals: updatedRide.id },
-          driverId: { not: driverId },
-        },
-        select: { driverId: true },
+      const rideWithSent = await prisma.trajet.findUnique({
+        where: { id: parseInt(id) },
+        select: { sentDrivers: true },
       });
 
-      const otherDriverIds = [...new Set(otherDriverNotifs.map(n => n.driverId).filter(Boolean))];
+      console.log('🔍 sentDrivers from DB:', rideWithSent.sentDrivers);
+      console.log('🔍 driverId who accepted:', driverId, typeof driverId);
 
-      otherDriverIds.forEach(otherDriverId => {
-        // AJOUT : annuler aussi les timeouts des autres drivers notifiés
-        clearDriverTimeout(parseInt(id), otherDriverId);
-        io.to(`driver_${otherDriverId}`).emit('rideTaken', { rideId: updatedRide.id });
-      });
+      const otherDriverIds = (rideWithSent.sentDrivers || []).filter(d => Number(d) !== Number(driverId));
+
+        console.log('🔍 otherDriverIds to notify:', otherDriverIds);
+
+        otherDriverIds.forEach(async (otherDriverId) => {
+          clearDriverTimeout(parseInt(id), otherDriverId);
+          io.to(`driver_${otherDriverId}`).emit('rideTaken', { rideId: updatedRide.id });
+
+          // ← AJOUTE ÇA
+          await createNotification({
+            driverId:      otherDriverId,
+            recipientType: 'DRIVER',
+            type:          'RIDE_TAKEN',
+            title:         '🚫 Trajet non disponible',
+            message:       'Ce trajet a déjà été pris par un autre conducteur.',
+            data:          { rideId: updatedRide.id },
+          });
+        });
 
     // FIX : persister la notification en base de données
     await createNotification({
@@ -414,6 +424,7 @@ export const acceptRide = async (req, res) => {
     return res.status(500).json({ message: "Erreur lors de l'acceptation de la demande", error: error.message });
   }
 };
+
 
 // ── rejectRide ────────────────────────────────────────────────────────────────
 // FIX: émission vers "passenger_${id}" au lieu du driver + persistance BD
