@@ -1,4 +1,4 @@
-import { View, Text, ScrollView, Alert } from "react-native";
+import { View, Text, ScrollView } from "react-native";
 import { useState } from "react";
 import { Stack, router } from "expo-router";
 import { useAuth } from "../../../context/AuthContext";
@@ -9,13 +9,23 @@ export default function LoginDriverScreen() {
   const { loginAsDriver, loading } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
+  const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
 
   const handleLogin = async () => {
-    setError("");
+    setErrors({});
 
-    if (!email || !password) {
-      setError("Please fill in all fields");
+    const newErrors: { email?: string; password?: string } = {};
+
+    if (!email || !/\S+@\S+\.\S+/.test(email)) {
+      newErrors.email = "Enter a valid email address";
+    }
+
+    if (!password) {
+      newErrors.password = "Password is required";
+    }
+
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
       return;
     }
 
@@ -24,71 +34,75 @@ export default function LoginDriverScreen() {
     if (result.success) {
       router.replace("./../../../(driverTabs)/DriverHomeScreen");
     } else {
-      setError(result.message);
+      // mauvais mail ou password → border rouge sur les deux
+      setErrors({
+        email: "Invalid email or password",
+        password: "Invalid email or password",
+      });
     }
   };
 
   return (
     <>
       <Stack.Screen options={{ title: "Sign In" }} />
-      <ScrollView className='flex-1 bg-white'>
-        <View className='px-6 py-8'>
+      <ScrollView className="flex-1 bg-white">
+        <View className="px-6 py-8">
+
           {/* Header */}
-          <View className='mb-10'>
-            <Text className='text-3xl font-bold text-black mb-2'>
+          <View className="mb-10">
+            <Text className="text-3xl font-bold text-black mb-2">
               Sign In as Driver
             </Text>
-            <Text className='text-gray-500'>
+            <Text className="text-gray-500">
               Enter your credentials to sign in
             </Text>
           </View>
 
-          {/* Form Fields */}
           <Input
-            label='Email'
+            label="Email"
             value={email}
-            onChangeText={setEmail}
-            placeholder='email@email.com'
-            keyboardType='email-address'
+            onChangeText={(text) => {
+              setEmail(text);
+              if (errors.email) setErrors((e) => ({ ...e, email: undefined }));
+            }}
+            placeholder="email@email.com"
+            keyboardType="email-address"
+            error={errors.email}
             style={{ marginBottom: 16 }}
           />
 
           <Input
-            label='Password'
+            label="Password"
             value={password}
-            onChangeText={setPassword}
-            placeholder='••••••••'
+            onChangeText={(text) => {
+              setPassword(text);
+              if (errors.password) setErrors((e) => ({ ...e, password: undefined }));
+            }}
+            placeholder="••••••••"
             secureTextEntry
+            error={errors.password}
             style={{ marginBottom: 16 }}
           />
 
-          {/* Error Message */}
-          {error ? (
-            <View className='bg-red-50 border border-red-200 rounded-xl px-4 py-3 mb-6'>
-              <Text className='text-red-600 text-sm'>{error}</Text>
-            </View>
-          ) : null}
-
-          {/* Submit Button */}
           <Button
-            title='Sign In'
+            title="Sign In"
             onPress={handleLogin}
-            variant='primary'
+            variant="primary"
             loading={loading}
-            style={{ marginBottom: 16 }}
+            style={{ marginBottom: 16, marginTop: 8 }}
           />
 
-          {/* Register Link */}
-          <View className='flex-row justify-center'>
-            <Text className='text-gray-600'>Don't have an account? </Text>
+          <View className="flex-row justify-center">
+            <Text className="text-gray-600">Don't have an account? </Text>
             <Text
               onPress={() => router.push("./RegisterDriverScreen")}
-              className='text-black font-semibold'>
+              className="text-black font-semibold"
+            >
               Register
             </Text>
           </View>
 
-          <View className='h-8' />
+          <View className="h-8" />
         </View>
       </ScrollView>
     </>

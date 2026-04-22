@@ -22,7 +22,7 @@ const decodeJWT = (token) => {
     );
     return JSON.parse(jsonPayload);
   } catch (error) {
-    console.error("Error decoding JWT:", error);
+    console.log("Error decoding JWT:", error);
     return null;
   }
 };
@@ -35,7 +35,9 @@ const isTokenExpired = (token) => {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true); // pour checkAuth
+
 
   useEffect(() => {
     checkAuth();
@@ -67,12 +69,12 @@ export const AuthProvider = ({ children }) => {
         setUser(null);
       }
     } catch (error) {
-      console.error("Error checking authentication:", error);
+      console.log("Error checking authentication:", error);
       await AsyncStorage.removeItem("token");
       await AsyncStorage.removeItem("user");
       setUser(null);
     } finally {
-      setLoading(false);
+      setInitialLoading(false);
     }
   };
 
@@ -112,7 +114,7 @@ export const AuthProvider = ({ children }) => {
 
       return { success: true };
     } catch (err) {
-      console.error("Login error:", err);
+      console.log("Login error:", err);
       return {
         success: false,
         message: err.response?.data?.message || err.message || "Login failed",
@@ -156,7 +158,7 @@ export const AuthProvider = ({ children }) => {
 
       return { success: true };
     } catch (error) {
-      console.error("Login error:", error);
+      console.log("Login error:", error);
       return {
         success: false,
         message:
@@ -200,7 +202,7 @@ export const AuthProvider = ({ children }) => {
 
       return { success: true, token: accessToken };
     } catch (err) {
-      console.error("Registration error:", err);
+      console.log("Registration error:", err);
       return {
         success: false,
         message:
@@ -244,7 +246,7 @@ export const AuthProvider = ({ children }) => {
 
       return { success: true };
     } catch (err) {
-      console.error("Registration error:", err);
+      console.log("Registration error:", err);
       return {
         success: false,
         message:
@@ -263,7 +265,7 @@ export const AuthProvider = ({ children }) => {
       await AsyncStorage.removeItem("user");
       setUser(null);
     } catch (error) {
-      console.error("Logout error:", error);
+      console.log("Logout error:", error);
     }
   };
 
@@ -272,6 +274,7 @@ export const AuthProvider = ({ children }) => {
       value={{
         user,
         loading,
+        initialLoading,
         loginAsDriver,
         loginAsPassenger,
         registerAsDriver,
