@@ -25,7 +25,7 @@ export default function LoginDriverScreen() {
     password: "",
   });
 
-  const showSuccessTransition = (targetRoute: string) => {
+  const showSuccessTransition = async (targetRoute: string) => {
     router.replace({
       pathname: "/splash",
       params: { target: targetRoute, mode: "transition" },
@@ -37,7 +37,7 @@ export default function LoginDriverScreen() {
 
   const ErrorText = ({ field }: { field: keyof FieldErrors }) =>
     errors[field] ? (
-      <Text className="text-red-500 text-xs mt-1 ml-1">{errors[field]}</Text>
+      <Text className='text-red-500 text-xs mt-1 ml-1'>{errors[field]}</Text>
     ) : null;
 
   const mapLoginErrorToFields = (message: string): FieldErrors => {
@@ -57,10 +57,7 @@ export default function LoginDriverScreen() {
       };
     }
 
-    if (
-      normalizedMessage.includes("invalid password") ||
-      normalizedMessage.includes("wrong password")
-    ) {
+    if (normalizedMessage.includes("invalid password") || normalizedMessage.includes("wrong password")) {
       return {
         email: "",
         password: "Wrong password.",
@@ -120,7 +117,7 @@ export default function LoginDriverScreen() {
     const result = await loginAsDriver(normalizedEmail, password);
 
     if (result.success) {
-      showSuccessTransition("/(driverTabs)/DriverHomeScreen");
+      await showSuccessTransition("/(driverTabs)/DriverHomeScreen");
     } else {
       handleCredentialFailure(result.message);
     }
@@ -131,15 +128,17 @@ export default function LoginDriverScreen() {
       <Stack.Screen options={{ title: "Sign In" }} />
       <ScrollView className="flex-1 bg-white">
         <View className="px-6 py-8">
+
           {/* Header */}
           <View className="mb-10">
             <Text className="text-3xl font-bold text-black mb-2">
               Sign In as Driver
             </Text>
-            <Text className="text-gray-500">Enter your email and password</Text>
+            <Text className='text-gray-500'>
+              Enter your email and password
+            </Text>
           </View>
 
-          {/* Form Fields */}
           <Input
             label="Email"
             value={email}
@@ -147,57 +146,53 @@ export default function LoginDriverScreen() {
               setEmail(value);
               setErrors((prev) => ({ ...prev, email: "" }));
             }}
-            placeholder="email@email.com"
-            keyboardType="email-address"
+            placeholder='email@email.com'
+            keyboardType='email-address'
             error={errors.email}
             style={{ marginBottom: 16 }}
           />
 
           <View style={{ marginBottom: 16 }}>
-            <Text className="text-sm font-medium text-black mb-2">Password</Text>
-            <View
-              className={`flex-row items-center bg-gray-50 border ${inputBorder("password")} rounded-xl px-4`}
-            >
+            <Text className='text-sm font-medium text-black mb-2'>
+              Password
+            </Text>
+            <View className={`flex-row items-center bg-gray-50 border ${inputBorder("password")} rounded-xl px-4`}>
               <TextInput
                 value={password}
                 onChangeText={(value) => {
                   setPassword(value);
                   setErrors((prev) => ({ ...prev, password: "" }));
                 }}
-                placeholder="********"
+                placeholder='********'
                 secureTextEntry={!showPassword}
-                className="flex-1 py-4 text-base text-black"
-                placeholderTextColor="#9CA3AF"
+                className='flex-1 py-4 text-base text-black'
+                placeholderTextColor='#9CA3AF'
               />
-              <TouchableOpacity
-                onPress={() => setShowPassword((current) => !current)}
-              >
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
                 <MaterialIcons
                   name={showPassword ? "visibility" : "visibility-off"}
                   size={22}
-                  color="#9CA3AF"
+                  color='#9CA3AF'
                 />
               </TouchableOpacity>
             </View>
-            <ErrorText field="password" />
+            <ErrorText field='password' />
           </View>
 
           {/* Submit Button */}
           <Button
             title="Sign In"
             onPress={handleLogin}
-            variant="primary"
+            variant='primary'
             loading={loading || isCheckingCredentials}
             style={{ marginBottom: 16 }}
           />
 
-          {/* Register Link */}
           <View className="flex-row justify-center">
             <Text className="text-gray-600">Don't have an account? </Text>
             <Text
               onPress={() => router.push("./RegisterDriverScreen")}
-              className="text-black font-semibold"
-            >
+              className='text-black font-semibold'>
               Sign Up
             </Text>
           </View>
@@ -208,4 +203,3 @@ export default function LoginDriverScreen() {
     </>
   );
 }
-

@@ -51,6 +51,7 @@ export const AuthProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true); // pour checkAuth
 
+
   useEffect(() => {
     checkAuth();
   }, []);
@@ -229,6 +230,8 @@ export const AuthProvider = ({ children }) => {
     setLoading(true);
     try {
       const response = await registerPassenger(userData);
+      console.log("REGISTER RESPONSE:", JSON.stringify(response.data)); // ADD THIS
+
       const responseData = response.data.data || response.data;
       const { passenger: newPassenger, accessToken, refreshToken } = responseData;
       if (!accessToken) throw new Error("No token received from server");
