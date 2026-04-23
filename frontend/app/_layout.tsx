@@ -25,11 +25,11 @@ function ToastManager() {
 }
 
 function AppContent() {
-  const { loading, isAuthenticated } = useAuth();
-
+const { initialLoading, loading, isAuthenticated } = useAuth();
   console.log('AppContent render — loading:', loading, 'isAuthenticated:', isAuthenticated);
+if (initialLoading) return null;
 
-  if (loading) return null;
+
 
   return (
     <NotificationProvider>
