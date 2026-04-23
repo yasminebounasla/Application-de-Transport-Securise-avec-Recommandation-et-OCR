@@ -265,7 +265,7 @@ export const getRideById = async (req, res) => {
     const ride = await prisma.trajet.findUnique({
       where: { id: parseInt(id, 10) },
       include: {
-        passenger: { select: { id: true, nom: true, prenom: true, numTel: true, photoUrl: true } },
+        passenger: { select: { id: true, nom: true, prenom: true, numTel: true } },
         driver: { select: { id: true, nom: true, prenom: true, numTel: true , sexe: true} },
       },
     });
@@ -275,7 +275,7 @@ export const getRideById = async (req, res) => {
       return res.status(403).json({ success: false, message: "Accès refusé à ce trajet" });
     const canAccessPendingDriverRequest =
       driverId && ride.status === 'PENDING' && ride.driverId == null;
-    if (driverId && ride.driverId !== driverId && !canAccessPendingDriverRequest)
+    if (driverId && Number(ride.driverId) !== Number(driverId) && !canAccessPendingDriverRequest)
       return res.status(403).json({ success: false, message: "Accès refusé à ce trajet" });
 
     return res.status(200).json({ success: true, data: ride });
