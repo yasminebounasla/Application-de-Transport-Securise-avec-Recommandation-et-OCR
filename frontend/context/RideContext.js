@@ -210,12 +210,6 @@ export const RideProvider = ({ children }) => {
 
   const getDriverActiveRide = useCallback(async () => {
     if (!user || user.role !== 'driver') {
-      if (error?.response?.status === 401) {
-        await logout();
-        setCurrentRide(null);
-        return null;
-      }
-
       setCurrentRide(null);
       return null;
     }
@@ -224,7 +218,8 @@ export const RideProvider = ({ children }) => {
     try {
       const response = await api.get('/ridesDem/driver/active');
       const activeRides = response.data?.data || [];
-      const latestActiveRide = activeRides[0] || null;
+      const inProgressRide = (activeRides || []).find((r) => r?.status === 'IN_PROGRESS');
+      const latestActiveRide = inProgressRide || activeRides[0] || null;
       setCurrentRide(latestActiveRide);
       return latestActiveRide;
     } catch (error) {
@@ -283,11 +278,11 @@ export const RideProvider = ({ children }) => {
     }
   };
 
-  const startRide = async (rideId) => {
+  const startRide = async (rideId, location) => {
     try {
       console.log('🚦 Demarrage du ride:', rideId);
 
-      const response = await api.put(`/ridesDem/${rideId}/start`);
+      const response = await api.put(`/ridesDem/${rideId}/start`, { location });
       const startedRide = response.data.data;
 
       setCurrentRide(startedRide);
@@ -356,11 +351,11 @@ export const RideProvider = ({ children }) => {
     }
   };
 
-  const completeRide = async (rideId) => {
+  const completeRide = async (rideId, location) => {
     try {
       console.log('🏁 Completion du ride:', rideId);
 
-      const response = await api.put(`/ridesDem/${rideId}/complete`);
+      const response = await api.put(`/ridesDem/${rideId}/complete`, { location });
 
       console.log('✅ Ride completed:', response.data);
 

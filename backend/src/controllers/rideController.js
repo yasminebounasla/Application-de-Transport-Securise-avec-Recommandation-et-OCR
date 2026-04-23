@@ -3,6 +3,7 @@ import { getIO } from '../socket/socket.js';
 import { createNotification } from './NotificationController.js';
 import { calculateRoute }  from '../services/geoService.js';
 import { calculatePrice }  from '../utils/priceCalculator.js';
+import { calculateDistance } from '../utils/geo.js';
 
 const prisma = new PrismaClient();
 
@@ -264,7 +265,7 @@ export const getRideById = async (req, res) => {
     const ride = await prisma.trajet.findUnique({
       where: { id: parseInt(id, 10) },
       include: {
-        passenger: { select: { id: true, nom: true, prenom: true, numTel: true } },
+        passenger: { select: { id: true, nom: true, prenom: true, numTel: true, photoUrl: true } },
         driver: { select: { id: true, nom: true, prenom: true, numTel: true , sexe: true} },
       },
     });
@@ -296,7 +297,7 @@ export const getDriverRequests = async (req, res) => {
     const pendingRides = await prisma.trajet.findMany({
       where: { status: 'PENDING', driverId },
       include: {
-        passenger: { select: { id: true, nom: true, prenom: true, numTel: true, age: true } },
+        passenger: { select: { id: true, nom: true, prenom: true, numTel: true, age: true, photoUrl: true } },
       },
       orderBy: { createdAt: 'desc' },
     });
@@ -317,7 +318,7 @@ export const getDriverActiveRides = async (req, res) => {
     const activeRides = await prisma.trajet.findMany({
       where: { driverId, status: { in: ['ACCEPTED', 'IN_PROGRESS'] } },
       include: {
-        passenger: { select: { id: true, nom: true, prenom: true, numTel: true, age: true } },
+        passenger: { select: { id: true, nom: true, prenom: true, numTel: true, age: true, photoUrl: true } },
       },
       orderBy: { updatedAt: 'desc' },
     });
@@ -355,7 +356,7 @@ export const acceptRide = async (req, res) => {
         updatedAt: new Date()
       },
       include: {
-        passenger: { select: { id: true, nom: true, prenom: true, numTel: true } },
+        passenger: { select: { id: true, nom: true, prenom: true, numTel: true, photoUrl: true } },
         driver:    { select: { id: true, nom: true, prenom: true, numTel: true } },
       },
     });
@@ -468,7 +469,7 @@ export const rejectRide = async (req, res) => {
        updatedAt: new Date(),
       },
       include: {
-        passenger: { select: { id: true, nom: true, prenom: true } },
+        passenger: { select: { id: true, nom: true, prenom: true, photoUrl: true } },
         driver:    { select: { id: true, nom: true, prenom: true, numTel: true } },
       },
     });
@@ -487,18 +488,71 @@ export const rejectRide = async (req, res) => {
 // FIX: ajout de l'émission socket + persistance BD (était absent)
 export const startRide = async (req, res) => {
   const { id } = req.params;
+  const driverId = req.user?.driverId;
+  const { location } = req.body || {};
 
   try {
+    if (!driverId) {
+      return res.status(403).json({ success: false, message: 'Accès conducteur requis' });
+    }
+
     const ride = await prisma.trajet.findUnique({ where: { id: parseInt(id) } });
     if (!ride) return res.status(404).json({ success: false, message: 'Trajet introuvable' });
     if (ride.status !== 'ACCEPTED')
       return res.status(400).json({ success: false, message: `Impossible de démarrer un trajet avec le status ${ride.status}. Le trajet doit être ACCEPTED.` });
 
+    if (!ride.driverId || Number(ride.driverId) !== Number(driverId)) {
+      return res.status(403).json({ success: false, message: "Vous n'êtes pas autorisé à démarrer ce trajet" });
+    }
+
+    // Time gate (Uber-like): allow start only when within 10 minutes of scheduled start time (or later).
+    if (ride.dateDepart && typeof ride.heureDepart === 'string' && ride.heureDepart.includes(':')) {
+      const [hhRaw, mmRaw] = ride.heureDepart.split(':');
+      const hh = Number.parseInt(hhRaw, 10);
+      const mm = Number.parseInt(mmRaw, 10);
+      if (Number.isFinite(hh) && Number.isFinite(mm)) {
+        const scheduled = new Date(ride.dateDepart);
+        scheduled.setHours(hh, mm, 0, 0);
+        const earlyWindowMs = 10 * 60 * 1000;
+        if (Date.now() < scheduled.getTime() - earlyWindowMs) {
+          return res.status(400).json({
+            success: false,
+            message: `Vous pouvez démarrer au plus tôt 10 minutes avant l'heure de départ.`,
+          });
+        }
+      }
+    }
+
+    const lat = Number(location?.latitude);
+    const lng = Number(location?.longitude);
+    const accuracy = Number(location?.accuracy);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return res.status(400).json({ success: false, message: 'Localisation conducteur requise' });
+    }
+
+    const pickupLat = Number(ride.startLat);
+    const pickupLng = Number(ride.startLng);
+    if (Number.isFinite(pickupLat) && Number.isFinite(pickupLng)) {
+      const km = calculateDistance(lat, lng, pickupLat, pickupLng);
+      const meters = km * 1000;
+      const baseMeters = 80;
+      const maxMeters = 150;
+      const allowedMeters = Number.isFinite(accuracy)
+        ? Math.min(maxMeters, Math.max(baseMeters, Math.round(baseMeters + accuracy)))
+        : baseMeters;
+      if (meters > allowedMeters) {
+        return res.status(400).json({
+          success: false,
+          message: `Rapprochez-vous du passager pour démarrer (${Math.round(meters)} m).`,
+        });
+      }
+    }
+
     const updatedRide = await prisma.trajet.update({
       where: { id: parseInt(id) },
       data: { status: 'IN_PROGRESS', updatedAt: new Date() },
       include: {
-        passenger: { select: { id: true, nom: true, prenom: true, numTel: true } },
+        passenger: { select: { id: true, nom: true, prenom: true, numTel: true, photoUrl: true } },
         driver:    { select: { id: true, nom: true, prenom: true, numTel: true } },
       },
     });
@@ -538,18 +592,53 @@ export const startRide = async (req, res) => {
 // FIX: ajout de l'émission socket + persistance BD (était absent)
 export const completeRide = async (req, res) => {
   const { id } = req.params;
+  const driverId = req.user?.driverId;
+  const { location } = req.body || {};
 
   try {
+    if (!driverId) {
+      return res.status(403).json({ success: false, message: 'Accès conducteur requis' });
+    }
+
     const ride = await prisma.trajet.findUnique({ where: { id: parseInt(id) } });
     if (!ride) return res.status(404).json({ success: false, message: 'Trajet introuvable' });
     if (ride.status !== 'IN_PROGRESS')
       return res.status(400).json({ success: false, message: `Impossible de terminer un trajet avec le status ${ride.status}. Le trajet doit être IN_PROGRESS.` });
 
+    if (!ride.driverId || Number(ride.driverId) !== Number(driverId)) {
+      return res.status(403).json({ success: false, message: "Vous n'êtes pas autorisé à terminer ce trajet" });
+    }
+
+    const lat = Number(location?.latitude);
+    const lng = Number(location?.longitude);
+    const accuracy = Number(location?.accuracy);
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return res.status(400).json({ success: false, message: 'Localisation conducteur requise' });
+    }
+
+    const destLat = Number(ride.endLat);
+    const destLng = Number(ride.endLng);
+    if (Number.isFinite(destLat) && Number.isFinite(destLng)) {
+      const km = calculateDistance(lat, lng, destLat, destLng);
+      const meters = km * 1000;
+      const baseMeters = 120;
+      const maxMeters = 200;
+      const allowedMeters = Number.isFinite(accuracy)
+        ? Math.min(maxMeters, Math.max(baseMeters, Math.round(baseMeters + accuracy)))
+        : baseMeters;
+      if (meters > allowedMeters) {
+        return res.status(400).json({
+          success: false,
+          message: `Rapprochez-vous de la destination pour terminer (${Math.round(meters)} m).`,
+        });
+      }
+    }
+
     const updatedRide = await prisma.trajet.update({
       where: { id: parseInt(id) },
       data: { status: 'COMPLETED', updatedAt: new Date(), completedAt: new Date() },
       include: {
-        passenger: { select: { id: true, nom: true, prenom: true } },
+        passenger: { select: { id: true, nom: true, prenom: true, photoUrl: true } },
         driver:    { select: { id: true, nom: true, prenom: true } },
       },
     });
@@ -605,7 +694,7 @@ export const cancelRide = async (req, res) => {
       where: { id: parseInt(id) },
       data: { status: 'CANCELLED_BY_PASSENGER', updatedAt: new Date() },
       include: {
-        passenger: { select: { id: true, nom: true, prenom: true } },
+        passenger: { select: { id: true, nom: true, prenom: true, photoUrl: true } },
         driver:    { select: { id: true, nom: true, prenom: true } },
       },
     });
@@ -637,6 +726,7 @@ export const cancelRide = async (req, res) => {
           passenger: {
             prenom: updatedRide.passenger.prenom,
             nom:    updatedRide.passenger.nom,
+            photoUrl: updatedRide.passenger.photoUrl,
           },
         },
       });
@@ -661,7 +751,7 @@ export const getPassengerRideActivity = async (req, res) => {
     const rides = await prisma.trajet.findMany({
       where: { passagerId: passengerId },
       include: {
-        passenger: { select: { id: true, nom: true, prenom: true, numTel: true } },
+        passenger: { select: { id: true, nom: true, prenom: true, numTel: true, photoUrl: true } },
         driver:    { select: { id: true, nom: true, prenom: true, numTel: true, avgRating: true , sexe: true } },
       },
       orderBy: { updatedAt: 'desc' },
@@ -714,7 +804,7 @@ export const getDriverRideActivity = async (req, res) => {
       },
       include: {
         driver:    { select: { id: true, nom: true, prenom: true, numTel: true, sexe: true } },
-        passenger: { select: { id: true, nom: true, prenom: true, numTel: true, age: true } },
+        passenger: { select: { id: true, nom: true, prenom: true, numTel: true, age: true, photoUrl: true } },
       },
       orderBy: { updatedAt: 'desc' },
     });
@@ -737,4 +827,3 @@ export const getDriverRideActivity = async (req, res) => {
     return res.status(500).json({ success: false, message: "Erreur lors de la recuperation de l'activite conducteur", error: error.message });
   }
 };
-

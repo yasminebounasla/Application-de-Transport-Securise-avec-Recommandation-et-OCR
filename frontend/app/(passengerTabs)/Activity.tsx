@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import {
   View, Text, StyleSheet, FlatList, RefreshControl,
   ActivityIndicator, TouchableOpacity, Animated,
-  Pressable, Modal, TextInput,
+  Pressable, Modal, TextInput, Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
@@ -10,15 +10,16 @@ import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 
 import { formatDuration, formatDistance } from '../../utils/formatUtils';
+import { formatPhoneNumberForDisplay } from '../../utils/phoneNumber';
 
 
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const CATEGORIES = [
-  { key: 'completed', label: 'Completed' },
-  { key: 'pending',   label: 'Pending'   },
-  { key: 'active',    label: 'Active'    },
-  { key: 'cancelled', label: 'Cancelled' },
+  { key: 'completed', label: 'Completed', icon: 'checkmark-circle-outline' as const },
+  { key: 'pending',   label: 'Pending',   icon: 'time-outline'              as const },
+  { key: 'accepted',  label: 'Accepted',  icon: 'checkmark-outline'         as const },
+  { key: 'cancelled', label: 'Cancelled', icon: 'close-circle-outline'      as const },
 ];
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; color: string; icon: string }> = {
@@ -49,12 +50,15 @@ function getAvatarColor(sexe?: string) {
   return { bg: '#d3e4fa', text: '#1B72DA' };
 }
 
-function Avatar({ prenom, nom, sexe }: { prenom?: string; nom?: string; sexe?: string }) {
+function Avatar({ prenom, nom, sexe, photoUrl }: { prenom?: string; nom?: string; sexe?: string; photoUrl?: string }) {
   const initials = `${prenom?.[0] ?? ''}${nom?.[0] ?? ''}`.toUpperCase() || '?';
   const colors   = getAvatarColor(sexe);
   return (
     <View style={[s.avatar, { backgroundColor: colors.bg }]}>
-      <Text style={[s.avatarText, { color: colors.text }]}>{initials}</Text>
+      {photoUrl
+        ? <Image source={{ uri: photoUrl }} style={s.avatarImg} />
+        : <Text style={[s.avatarText, { color: colors.text }]}>{initials}</Text>
+      }
     </View>
   );
 }
@@ -76,8 +80,10 @@ function RideCard({ item, highlighted, onPress }: {
   const scale    = useRef(new Animated.Value(1)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
 
-  const onPressIn  = () => Animated.spring(scale, { toValue: 0.97, useNativeDriver: true }).start();
-  const onPressOut = () => Animated.spring(scale, { toValue: 1,    useNativeDriver: true }).start();
+  // Keep this JS-driven to avoid mixing native + JS drivers on the same card node
+  // (highlight glow animates colors => JS-driven).
+  const onPressIn  = () => Animated.spring(scale, { toValue: 0.97, useNativeDriver: false }).start();
+  const onPressOut = () => Animated.spring(scale, { toValue: 1,    useNativeDriver: false }).start();
 
   useEffect(() => {
     if (!highlighted) { glowAnim.setValue(0); return; }
@@ -127,10 +133,10 @@ function RideCard({ item, highlighted, onPress }: {
             </View>
           ) : (
             <View style={s.headerLeft}>
-              <Avatar prenom={driver.prenom} nom={driver.nom} sexe={driver.sexe} />
+              <Avatar prenom={driver.prenom} nom={driver.nom} sexe={driver.sexe} photoUrl={driver.photoUrl} />
               <View>
                 <Text style={s.driverName} numberOfLines={1}>{driver.prenom} {driver.nom}</Text>
-                <Text style={s.driverSub}>{driver.numTel}</Text>
+                <Text style={s.driverSub}>{formatPhoneNumberForDisplay(driver.numTel)}</Text>
               </View>
             </View>
           )}
@@ -282,8 +288,8 @@ export default function ActivityScreen() {
 
   const categorized = useMemo(() => ({
     completed: activity.filter((r: any) => r.status === 'COMPLETED'),
-    active:    activity.filter((r: any) => ['ACCEPTED', 'IN_PROGRESS'].includes(r.status)),
     pending:   activity.filter((r: any) => r.status === 'PENDING'),
+    accepted:  activity.filter((r: any) => ['ACCEPTED', 'IN_PROGRESS'].includes(r.status)),
     cancelled: activity.filter((r: any) => ['CANCELLED_BY_PASSENGER', 'CANCELLED_BY_DRIVER'].includes(r.status)),
   }), [activity]);
 
@@ -299,6 +305,14 @@ export default function ActivityScreen() {
     }
 
     rides = [...rides];
+    if (activeCategory === 'accepted') {
+      rides.sort((a, b) => {
+        if (a.status === 'IN_PROGRESS' && b.status !== 'IN_PROGRESS') return -1;
+        if (a.status !== 'IN_PROGRESS' && b.status === 'IN_PROGRESS') return 1;
+        return new Date(a.dateDepart || 0).getTime() - new Date(b.dateDepart || 0).getTime();
+      });
+      return rides;
+    }
     if (sortKey === 'date_desc') rides.sort((a, b) => new Date(b.dateDepart || 0).getTime() - new Date(a.dateDepart || 0).getTime());
     if (sortKey === 'date_asc')  rides.sort((a, b) => new Date(a.dateDepart || 0).getTime() - new Date(b.dateDepart || 0).getTime());
     if (sortKey === 'price_desc')rides.sort((a, b) => (Number(b.prix) || 0) - (Number(a.prix) || 0));
@@ -509,7 +523,8 @@ const s = StyleSheet.create({
 
   cardHeader:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   headerLeft:    { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, marginRight: 8 },
-  avatar:        { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  avatar:        { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  avatarImg:     { width: '100%', height: '100%' },
   avatarText:    { fontSize: 13, fontWeight: '800' },
   driverName:    { fontSize: 14, fontWeight: '700', color: '#111' },
   driverSub:     { fontSize: 11, color: '#9CA3AF', fontWeight: '500' },

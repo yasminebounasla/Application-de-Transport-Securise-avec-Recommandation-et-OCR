@@ -10,8 +10,14 @@ export const loginPassenger = async (req, res) => {
 
   try {
     const { accessSecret, refreshSecret } = getJwtSecrets();
-    const passenger = await prisma.passenger.findUnique({
-      where: { email: email.trim().toLowerCase() },
+    const normalizedEmail = email?.trim();
+    const passenger = await prisma.passenger.findFirst({
+      where: {
+        email: {
+          equals: normalizedEmail,
+          mode: "insensitive",
+        },
+      },
     });
 
     if (!passenger) {
@@ -48,9 +54,55 @@ export const loginPassenger = async (req, res) => {
   }
 };
 
+export const validatePassengerLogin = async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    const normalizedEmail = email?.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!normalizedEmail) {
+      return res.status(400).json({ message: "Email is required." });
+    }
+
+    if (!emailRegex.test(normalizedEmail)) {
+      return res.status(400).json({ message: "Invalid email format" });
+    }
+
+    if (!password) {
+      return res.status(400).json({ message: "Password is required." });
+    }
+
+    const passenger = await prisma.passenger.findFirst({
+      where: {
+        email: {
+          equals: normalizedEmail,
+          mode: "insensitive",
+        },
+      },
+    });
+
+    if (!passenger) {
+      return res.status(400).json({ message: "Passenger not found." });
+    }
+
+    const validPassword = await bcrypt.compare(password, passenger.password);
+    if (!validPassword) {
+      return res.status(400).json({ message: "Invalid password" });
+    }
+
+    return res.status(200).json({ message: "Credentials are valid." });
+  } catch (err) {
+    console.error("Passenger credential validation error:", err);
+    return res
+      .status(500)
+      .json({ message: "Failed to validate passenger credentials." });
+  }
+};
+
 // REGISTER PASSENGER
 export const registerPassenger = async (req, res) => {
-  const { email, password, confirmPassword, nom, prenom, age, numTel } =
+  const { email, password, confirmPassword, nom, prenom, age, numTel, sexe } =
     req.body;
 
   try {
@@ -67,19 +119,42 @@ export const registerPassenger = async (req, res) => {
       return res.status(400).json({ message: "Passwords do not match." });
     }
 
-    if (age < 17) {
+    if (age < 18) {
       return res
         .status(400)
-        .json({ message: "You must be at least 17 years old to register." });
+        .json({ message: "You must be at least 18 years old to register." });
     }
 
-    const existingPassenger = await prisma.passenger.findUnique({
-      where: { email: email.trim().toLowerCase() },
+    if (age > 100) {
+      return res
+        .status(400)
+        .json({ message: "Age must be 100 or less." });
+    }
+
+    if (!sexe?.trim()) {
+      return res.status(400).json({ message: "Gender is required." });
+    }
+
+    if (!["m", "f"].includes(sexe.trim().toLowerCase())) {
+      return res
+        .status(400)
+        .json({ message: 'Gender must be "Male" or "Female".' });
+    }
+
+    const existingPassenger = await prisma.passenger.findFirst({
+      where: {
+        email: {
+          equals: email.trim(),
+          mode: "insensitive",
+        },
+      },
     });
 
     if (existingPassenger) {
-      return res.status(400).json({ message: "Passenger already registered." });
+      return res.status(400).json({ message: "This email is already in use." });
     }
+
+    // Phone numbers are not required to be unique; allow duplicates.
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -91,6 +166,7 @@ export const registerPassenger = async (req, res) => {
         prenom: prenom.trim(),
         age,
         numTel,
+        sexe: sexe.trim().toUpperCase(),
       },
     });
 

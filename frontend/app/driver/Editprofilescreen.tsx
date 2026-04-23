@@ -20,6 +20,11 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { KeyboardTypeOptions } from "react-native";
 import { useCallback } from "react";
 import api, { API_URL } from "../../services/api";
+import {
+  buildInternationalPhoneNumber,
+  DEFAULT_COUNTRY_PHONE,
+  formatPhoneNumberForDisplay,
+} from "../../utils/phoneNumber";
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>["name"];
 type Tab = "personal" | "preferences" | "zone";
@@ -233,7 +238,7 @@ export default function EditProfileScreen() {
       setNom(d.nom || "");
       setPrenom(d.prenom || "");
       setEmail(d.email || "");
-      setNumTel(d.numTel || "");
+      setNumTel(formatPhoneNumberForDisplay(d.numTel || ""));
       setAge(d.age ? String(d.age) : "");
       const raw = (d.sexe || "").toString().trim().toUpperCase();
       setSexe(raw === "F" ? "F" : "M");
@@ -325,7 +330,7 @@ export default function EditProfileScreen() {
       await api.put("/drivers/profile", {
         nom: nom.trim(),
         prenom: prenom.trim(),
-        numTel: numTel.trim(),
+        numTel: buildInternationalPhoneNumber(numTel.trim(), DEFAULT_COUNTRY_PHONE),
         age: parseInt(age) || 0,
         sexe,
       });
@@ -417,9 +422,7 @@ export default function EditProfileScreen() {
           {activeTab === "personal" && (
             <>
               <View style={styles.avatarSection}>
-                <TouchableOpacity
-                  style={styles.avatarCircle}
-                  activeOpacity={0.8}>
+                <View style={styles.avatarCircle}>
                   {selfieUrl ? (
                     <Image
                       source={{ uri: selfieUrl }}
@@ -429,8 +432,7 @@ export default function EditProfileScreen() {
                   ) : (
                     <Ionicons name='person' size={44} color='#fff' />
                   )}
-                </TouchableOpacity>
-                <Text style={styles.avatarHint}>Tap to change photo</Text>
+                </View>
               </View>
 
               <View style={styles.card}>
@@ -444,7 +446,7 @@ export default function EditProfileScreen() {
                 />
                 <InputField
                   label='Last name'
-                  icon='person-outline'
+                  icon='people-outline'
                   value={nom}
                   onChangeText={setNom}
                   placeholder='Last name'
@@ -465,7 +467,7 @@ export default function EditProfileScreen() {
                 />
                 <InputField
                   label='Age'
-                  icon='calendar-outline'
+                  icon='accessibility-outline'
                   value={age}
                   onChangeText={handleAgeChange}
                   keyboardType='numeric'
@@ -745,10 +747,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginBottom: 8,
-  },
-  avatarHint: {
-    fontSize: 13,
-    color: "#888",
   },
   card: {
     backgroundColor: "#fff",

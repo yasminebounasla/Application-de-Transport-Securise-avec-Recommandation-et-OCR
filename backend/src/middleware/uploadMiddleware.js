@@ -29,6 +29,7 @@ export const uploadBoth = upload.fields([
   { name: 'license', maxCount: 1 },
   { name: 'selfie', maxCount: 1 }
 ]);
+export const uploadAvatar = upload.single('avatar');
 
 // export const handleMulterError = (err, req, res, next) => {
 //   if (err instanceof multer.MulterError) {

@@ -5,6 +5,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { formatPhoneNumberForDisplay } from '../../utils/phoneNumber';
+import UserAvatar from '../../components/UserAvatar';
 
 export default function PassengerProfileScreen() {
   const { ride: rideString } = useLocalSearchParams();
@@ -14,7 +16,7 @@ export default function PassengerProfileScreen() {
   const passenger = ride.passenger || {};  // ← ligne manquante !
 
   const passengerName = `${passenger.prenom || 'Unknown'} ${passenger.nom || 'Passenger'}`;
-  const passengerPhone = passenger.numTel || 'N/A';
+  const passengerPhone = passenger.numTel ? formatPhoneNumberForDisplay(passenger.numTel) : 'N/A';
   const passengerAge = passenger.age || 'N/A';
 
   const formatDate = (dateString: string) => {
@@ -50,9 +52,16 @@ export default function PassengerProfileScreen() {
 
         {/* Avatar & Name */}
         <View style={styles.profileSection}>
-          <View style={styles.avatar}>
-            <Ionicons name="person" size={48} color="#FFF" />
-          </View>
+          <UserAvatar
+            prenom={passenger.prenom}
+            nom={passenger.nom}
+            photoUrl={passenger.photoUrl}
+            size={90}
+            backgroundColor="#000"
+            textColor="#FFF"
+            style={styles.avatar}
+            fallback={<Ionicons name="person" size={48} color="#FFF" />}
+          />
           <Text style={styles.name}>{passengerName}</Text>
           <View style={styles.statusBadge}>
             <Text style={styles.statusText}>{ride.status || 'PENDING'}</Text>
@@ -147,8 +156,7 @@ const styles = StyleSheet.create({
 
   profileSection: { alignItems: 'center', marginBottom: 20 },
   avatar: {
-    width: 90, height: 90, borderRadius: 45,
-    backgroundColor: '#000', alignItems: 'center', justifyContent: 'center',
+    alignItems: 'center', justifyContent: 'center',
     marginBottom: 12,
   },
   name: { fontSize: 22, fontWeight: '700', color: '#000', marginBottom: 8 },

@@ -1,12 +1,12 @@
-import { useEffect, useState, useRef, useContext, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import MapView, { Marker, Polyline } from 'react-native-maps';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useRide } from '../../context/RideContext';
 import { initSocket } from '../../services/socket';
-import { LocationContext } from '../../context/LocationContext';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { haversine } from '../../utils/geoUtils';
+import api from '../../services/api';
 
 const toValidCoord = (lat: any, lng: any) => {
   const latitude = Number(lat);
@@ -16,10 +16,63 @@ const toValidCoord = (lat: any, lng: any) => {
   return { latitude, longitude };
 };
 
+const distanceMeters = (a: { latitude: number; longitude: number }, b: { latitude: number; longitude: number }) => {
+  const R = 6371000;
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const dLat = toRad(b.latitude - a.latitude);
+  const dLon = toRad(b.longitude - a.longitude);
+  const lat1 = toRad(a.latitude);
+  const lat2 = toRad(b.latitude);
+  const sinDLat = Math.sin(dLat / 2);
+  const sinDLon = Math.sin(dLon / 2);
+  const h = sinDLat * sinDLat + Math.cos(lat1) * Math.cos(lat2) * sinDLon * sinDLon;
+  const c = 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+  return R * c;
+};
+
+const approxDist2 = (a: { latitude: number; longitude: number }, b: { latitude: number; longitude: number }) => {
+  // Fast approximate distance in "degree space" (good enough for nearest-point).
+  const dLat = a.latitude - b.latitude;
+  const meanLatRad = ((a.latitude + b.latitude) / 2) * (Math.PI / 180);
+  const dLon = (a.longitude - b.longitude) * Math.cos(meanLatRad);
+  return dLat * dLat + dLon * dLon;
+};
+
+const findClosestIndex = (polyline: any[], point: { latitude: number; longitude: number }, startIndex = 0) => {
+  if (!polyline.length) return 0;
+  let bestIndex = Math.max(0, Math.min(startIndex, polyline.length - 1));
+  let best = approxDist2(polyline[bestIndex], point);
+  for (let i = bestIndex + 1; i < polyline.length; i++) {
+    const d = approxDist2(polyline[i], point);
+    if (d < best) {
+      best = d;
+      bestIndex = i;
+    }
+  }
+  return bestIndex;
+};
+
+const geometryToPolyline = (geometry: any) => {
+  const coordinates = geometry?.coordinates;
+  if (!Array.isArray(coordinates)) return [];
+  return coordinates
+    .map((pair: any) => {
+      const lng = Array.isArray(pair) ? pair[0] : null;
+      const lat = Array.isArray(pair) ? pair[1] : null;
+      return toValidCoord(lat, lng);
+    })
+    .filter(Boolean);
+};
+
+const waypointToCoord = (waypoint: any) => {
+  const loc = waypoint?.location;
+  if (!Array.isArray(loc) || loc.length < 2) return null;
+  return toValidCoord(loc[1], loc[0]);
+};
+
 export default function RideTrackingScreen() {
   const { trajetId } = useLocalSearchParams<{ trajetId: string }>();
   const { listenToRideStatus, getRideById, getDriverLocationForRide } = useRide();
-  const { currentLocation } = useContext(LocationContext);
 
   const [status, setStatus] = useState<string>('IN_PROGRESS');
   const [loading, setLoading] = useState<boolean>(true);
@@ -27,10 +80,20 @@ export default function RideTrackingScreen() {
   const [ride, setRide] = useState<any>(null);
   const [driverLocation, setDriverLocation] = useState<any>(null);
   const [etaMinutes, setEtaMinutes] = useState<number | null>(null);
+  const [routeStartToEnd, setRouteStartToEnd] = useState<any[]>([]);
+  const [routeDriverToPickup, setRouteDriverToPickup] = useState<any[]>([]);
+  const [routeStartToEndWaypoints, setRouteStartToEndWaypoints] = useState<any[]>([]);
+  const [routeDriverToPickupWaypoints, setRouteDriverToPickupWaypoints] = useState<any[]>([]);
 
   const driverMarkerRef = useRef<any>(null);
   const mapRef = useRef<MapView | null>(null);
   const hasAutoFittedRef = useRef(false);
+  const hasFittedWithDriverRef = useRef(false);
+  const startToEndProgressIdxRef = useRef(0);
+  const lastPickupRouteFromRef = useRef<any>(null);
+  const pickupRouteDebounceRef = useRef<any>(null);
+  const startToEndReqIdRef = useRef(0);
+  const pickupReqIdRef = useRef(0);
 
   useEffect(() => {
     if (!trajetId) return;
@@ -51,6 +114,13 @@ export default function RideTrackingScreen() {
     .catch((e: any) => console.error('fetch ride failed', e))
     .finally(() => setLoading(false));
   }, [trajetId, getRideById]);
+
+  useEffect(() => {
+    // reset auto-fit when switching rides
+    hasAutoFittedRef.current = false;
+    hasFittedWithDriverRef.current = false;
+    startToEndProgressIdxRef.current = 0;
+  }, [trajetId]);
 
   // listen status (existing polling) plus transitions
   useEffect(() => {
@@ -111,81 +181,155 @@ export default function RideTrackingScreen() {
 
   const startCoord = useMemo(() => toValidCoord(ride?.startLat, ride?.startLng), [ride?.startLat, ride?.startLng]);
   const endCoord = useMemo(() => toValidCoord(ride?.endLat, ride?.endLng), [ride?.endLat, ride?.endLng]);
-  const passengerCoord = useMemo(
-    () => toValidCoord(currentLocation?.latitude, currentLocation?.longitude),
-    [currentLocation?.latitude, currentLocation?.longitude]
+  const driverCoord = useMemo(
+    () => toValidCoord(driverLocation?.latitude, driverLocation?.longitude),
+    [driverLocation?.latitude, driverLocation?.longitude]
   );
 
-  const redMarker = useMemo(() => {
-    if (!startCoord && !endCoord) return null;
-    if (!startCoord) return { coordinate: endCoord, title: 'Destination' };
-    if (!endCoord) return { coordinate: startCoord, title: 'Pickup' };
-    if (!passengerCoord) return { coordinate: endCoord, title: 'Destination' };
+  useEffect(() => {
+    // Reset progress whenever we compute a new route or status changes.
+    startToEndProgressIdxRef.current = 0;
+  }, [trajetId, status, routeStartToEnd.length]);
 
-    const dStart = haversine(passengerCoord, startCoord);
-    const dEnd = haversine(passengerCoord, endCoord);
-    if (dStart <= dEnd) {
-      return { coordinate: endCoord, title: 'Destination' };
-    }
-    return { coordinate: startCoord, title: 'Pickup' };
-  }, [startCoord, endCoord, passengerCoord]);
+  const remainingStartToEnd = useMemo(() => {
+    if (status !== 'IN_PROGRESS') return routeStartToEnd;
+    if (!driverCoord || routeStartToEnd.length < 2) return routeStartToEnd;
 
-  const greenMarker = passengerCoord || startCoord;
-  const polylineCoordinates = useMemo(() => {
-    if (greenMarker && redMarker?.coordinate) {
-      return [greenMarker, redMarker.coordinate];
-    }
-    if (startCoord && endCoord) {
-      return [startCoord, endCoord];
-    }
-    return [];
-  }, [greenMarker, redMarker?.coordinate, startCoord, endCoord]);
+    // Keep progress monotonic so the line doesn't re-appear behind the car due to GPS jitter.
+    const closest = findClosestIndex(routeStartToEnd, driverCoord, startToEndProgressIdxRef.current);
+    const nextIdx = Math.max(startToEndProgressIdxRef.current, closest);
+    startToEndProgressIdxRef.current = nextIdx;
 
-  const driverToPassengerCoordinates = useMemo(() => {
-    const driverCoord = toValidCoord(driverLocation?.latitude, driverLocation?.longitude);
-    if (!driverCoord || !greenMarker) return [];
-    return [driverCoord, greenMarker];
-  }, [driverLocation?.latitude, driverLocation?.longitude, greenMarker]);
+    const tail = routeStartToEnd.slice(nextIdx);
+    if (tail.length < 2) return [driverCoord];
+    return [driverCoord, ...tail];
+  }, [status, driverCoord?.latitude, driverCoord?.longitude, routeStartToEnd]);
 
   const initialRegion = useMemo(() => {
-    const passenger = toValidCoord(currentLocation?.latitude, currentLocation?.longitude);
     const start = toValidCoord(ride?.startLat, ride?.startLng);
-    const center = passenger || start || { latitude: 36.7538, longitude: 3.0588 };
+    const center = start || { latitude: 36.7538, longitude: 3.0588 };
     return {
       ...center,
       latitudeDelta: 0.05,
       longitudeDelta: 0.05,
     };
-  }, [currentLocation?.latitude, currentLocation?.longitude, ride?.startLat, ride?.startLng]);
+  }, [ride?.startLat, ride?.startLng]);
+
+  // OSRM route: pickup -> destination (always, when coords exist)
+  useEffect(() => {
+    if (!startCoord || !endCoord) {
+      setRouteStartToEnd([]);
+      setRouteStartToEndWaypoints([]);
+      return;
+    }
+
+    startToEndReqIdRef.current += 1;
+    const reqId = startToEndReqIdRef.current;
+
+    (async () => {
+      try {
+        const { data } = await api.post('/ride/calculate', { start: startCoord, end: endCoord });
+        if (startToEndReqIdRef.current !== reqId) return;
+        if (data?.success && data?.geometry?.coordinates) {
+          setRouteStartToEnd(geometryToPolyline(data.geometry));
+          const wps = Array.isArray(data?.waypoints) ? data.waypoints : [];
+          const startWp = waypointToCoord(wps[0]);
+          const endWp = waypointToCoord(wps[1]);
+          setRouteStartToEndWaypoints([startWp, endWp].filter(Boolean));
+        } else {
+          setRouteStartToEnd([]);
+          setRouteStartToEndWaypoints([]);
+        }
+      } catch (e) {
+        if (startToEndReqIdRef.current !== reqId) return;
+        setRouteStartToEnd([]);
+        setRouteStartToEndWaypoints([]);
+      }
+    })();
+  }, [startCoord?.latitude, startCoord?.longitude, endCoord?.latitude, endCoord?.longitude]);
+
+  // OSRM route: driver -> pickup (only for ACCEPTED; debounced to avoid spamming)
+  useEffect(() => {
+    if (status !== 'ACCEPTED') {
+      setRouteDriverToPickup([]);
+      setRouteDriverToPickupWaypoints([]);
+      lastPickupRouteFromRef.current = null;
+      return;
+    }
+
+    if (!driverCoord || !startCoord) {
+      setRouteDriverToPickup([]);
+      setRouteDriverToPickupWaypoints([]);
+      lastPickupRouteFromRef.current = null;
+      return;
+    }
+
+    const last = lastPickupRouteFromRef.current;
+    if (last && distanceMeters(last, driverCoord) < 50) return;
+
+    if (pickupRouteDebounceRef.current) clearTimeout(pickupRouteDebounceRef.current);
+    pickupRouteDebounceRef.current = setTimeout(async () => {
+      lastPickupRouteFromRef.current = driverCoord;
+      pickupReqIdRef.current += 1;
+      const reqId = pickupReqIdRef.current;
+      try {
+        const { data } = await api.post('/ride/calculate', { start: driverCoord, end: startCoord });
+        if (pickupReqIdRef.current !== reqId) return;
+        if (data?.success && data?.geometry?.coordinates) {
+          setRouteDriverToPickup(geometryToPolyline(data.geometry));
+          const wps = Array.isArray(data?.waypoints) ? data.waypoints : [];
+          const startWp = waypointToCoord(wps[0]);
+          const endWp = waypointToCoord(wps[1]);
+          setRouteDriverToPickupWaypoints([startWp, endWp].filter(Boolean));
+        } else {
+          setRouteDriverToPickup([]);
+          setRouteDriverToPickupWaypoints([]);
+        }
+      } catch {
+        if (pickupReqIdRef.current !== reqId) return;
+        setRouteDriverToPickup([]);
+        setRouteDriverToPickupWaypoints([]);
+      }
+    }, 600);
+
+    return () => {
+      if (pickupRouteDebounceRef.current) clearTimeout(pickupRouteDebounceRef.current);
+    };
+  }, [status, driverCoord?.latitude, driverCoord?.longitude, startCoord?.latitude, startCoord?.longitude]);
 
   useEffect(() => {
     if (!mapRef.current || !ride) return;
-    if (hasAutoFittedRef.current) return;
-    let points: any[] = [];
-
-    const hasDriver = !!(driverLocation?.latitude && driverLocation?.longitude);
-    const hasPassenger = !!(currentLocation?.latitude && currentLocation?.longitude);
-
-    // For accepted rides, zoom directly on passenger + driver when both are known.
-    if (status === 'ACCEPTED' && hasDriver && hasPassenger) {
-      points = [driverLocation, currentLocation];
-    } else {
     const start = toValidCoord(ride.startLat, ride.startLng);
     const end = toValidCoord(ride.endLat, ride.endLng);
-    if (start) points.push(start);
-    if (end) points.push(end);
-      if (hasDriver) points.push(driverLocation);
-      if (hasPassenger) points.push(currentLocation);
+    const hasStartEnd = !!(start && end);
+    const hasDriver = !!(driverLocation?.latitude && driverLocation?.longitude);
+
+    // Once we have driver coords, ensure we fit at least once with the driver visible.
+    if (hasDriver && !hasFittedWithDriverRef.current && start) {
+      const points: any[] = [start];
+      if (end) points.push(end);
+      points.push(driverLocation);
+      if (points.length >= 2) {
+        mapRef.current.fitToCoordinates(points, {
+          edgePadding: { top: 90, right: 90, bottom: 90, left: 90 },
+          animated: true,
+        });
+        hasFittedWithDriverRef.current = true;
+        hasAutoFittedRef.current = true;
+      }
+      return;
     }
 
-    if (points.length >= 2) {
-      mapRef.current.fitToCoordinates(points, {
+    // Initial fit (start + end) so the route is visible quickly.
+    if (hasAutoFittedRef.current) return;
+    if (hasStartEnd) {
+      mapRef.current.fitToCoordinates([start, end], {
         edgePadding: { top: 90, right: 90, bottom: 90, left: 90 },
         animated: true,
       });
       hasAutoFittedRef.current = true;
     }
-  }, [ride, status, driverLocation, currentLocation]);
+  }, [ride, status, driverLocation]);
 
   if (loading || !ride) {
     return (
@@ -203,15 +347,11 @@ export default function RideTrackingScreen() {
         style={styles.map}
         initialRegion={initialRegion}
       >
-        {redMarker?.coordinate && (
-          <Marker coordinate={redMarker.coordinate} title={redMarker.title} pinColor="red" />
+        {startCoord && (
+          <Marker coordinate={startCoord} title="Pickup" pinColor="green" />
         )}
-        {greenMarker && (
-          <Marker
-            coordinate={greenMarker}
-            title="Vous"
-            pinColor="green"
-          />
+        {endCoord && (
+          <Marker coordinate={endCoord} title="Destination" pinColor="red" />
         )}
         {driverLocation && (
           <Marker
@@ -225,11 +365,59 @@ export default function RideTrackingScreen() {
             </View>
           </Marker>
         )}
-        {driverToPassengerCoordinates.length > 1 && (
-          <Polyline coordinates={driverToPassengerCoordinates} strokeColor="#000000" strokeWidth={4} />
+
+        {/* Dotted snap connectors */}
+        {startCoord && routeStartToEndWaypoints[0] && distanceMeters(startCoord, routeStartToEndWaypoints[0]) > 3 && (
+          <Polyline
+            coordinates={[startCoord, routeStartToEndWaypoints[0]]}
+            strokeWidth={4}
+            strokeColor="#9CA3AF"
+            lineDashPattern={[1, 7]}
+            lineCap="round"
+            lineJoin="round"
+            zIndex={20}
+          />
         )}
-        {polylineCoordinates.length > 1 && (
-          <Polyline coordinates={polylineCoordinates} strokeColor="#2563EB" strokeWidth={3} />
+        {endCoord && routeStartToEndWaypoints[1] && distanceMeters(endCoord, routeStartToEndWaypoints[1]) > 3 && (
+          <Polyline
+            coordinates={[routeStartToEndWaypoints[1], endCoord]}
+            strokeWidth={4}
+            strokeColor="#9CA3AF"
+            lineDashPattern={[1, 7]}
+            lineCap="round"
+            lineJoin="round"
+            zIndex={20}
+          />
+        )}
+        {status === 'ACCEPTED' && driverCoord && routeDriverToPickupWaypoints[0] && distanceMeters(driverCoord, routeDriverToPickupWaypoints[0]) > 3 && (
+          <Polyline
+            coordinates={[driverCoord, routeDriverToPickupWaypoints[0]]}
+            strokeWidth={4}
+            strokeColor="#9CA3AF"
+            lineDashPattern={[1, 7]}
+            lineCap="round"
+            lineJoin="round"
+            zIndex={20}
+          />
+        )}
+        {status === 'ACCEPTED' && startCoord && routeDriverToPickupWaypoints[1] && distanceMeters(startCoord, routeDriverToPickupWaypoints[1]) > 3 && (
+          <Polyline
+            coordinates={[routeDriverToPickupWaypoints[1], startCoord]}
+            strokeWidth={4}
+            strokeColor="#9CA3AF"
+            lineDashPattern={[1, 7]}
+            lineCap="round"
+            lineJoin="round"
+            zIndex={20}
+          />
+        )}
+
+        {remainingStartToEnd.length > 1 && (
+          <Polyline coordinates={remainingStartToEnd as any} strokeColor="#2563EB" strokeWidth={4} lineCap="round" lineJoin="round" />
+        )}
+
+        {status === 'ACCEPTED' && routeDriverToPickup.length > 1 && (
+          <Polyline coordinates={routeDriverToPickup as any} strokeColor="#000000" strokeWidth={4} lineCap="round" lineJoin="round" />
         )}
       </MapView>
       <View style={styles.infoContainer}>

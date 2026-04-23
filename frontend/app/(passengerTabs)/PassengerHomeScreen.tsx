@@ -15,7 +15,7 @@ import { FallbackModal } from '../../components/FallbackModel';
 const FEEDBACK_REQUESTED_KEY = 'feedback_requested_rides';
 
 export default function Home() {
-  const { getPassengerRides, passengerRides } = useRide();
+  const { passengerRides } = useRide();
   const { currentLocation } = useContext(LocationContext);
   const insets = useSafeAreaInsets();
   const TAB_BAR_HEIGHT = 60 + insets.bottom;
@@ -23,6 +23,7 @@ export default function Home() {
   const mapRef = useRef<MapView>(null);
   const hasAutoCenteredRef = useRef(false);
   const [mapReady, setMapReady] = useState(false);
+  const [showMap, setShowMap] = useState(false);
 
   const feedbackCheckedRef = useRef<Set<number>>(new Set());
 
@@ -38,7 +39,7 @@ export default function Home() {
   const [fallbackReason, setFallbackReason]     = useState<string>('TIMEOUT');
 
 
-  useEffect(() => { getPassengerRides(); }, []);
+  useEffect(() => { setShowMap(true); }, []);
   // useEffect à ajouter
   useEffect(() => {
     const setup = async () => {
@@ -124,13 +125,33 @@ useEffect(() => {
   };
 
   const goToCurrentLocation = () => {
-    if (!currentLocation) return;
-    mapRef.current?.animateToRegion({
-      latitude: currentLocation.latitude,
-      longitude: currentLocation.longitude,
-      latitudeDelta: 0.01,
-      longitudeDelta: 0.01,
-    }, 500);
+    try {
+      if (!currentLocation) {
+        console.warn('goToCurrentLocation: no currentLocation available');
+        return;
+      }
+      const region = {
+        latitude: currentLocation.latitude,
+        longitude: currentLocation.longitude,
+        latitudeDelta: 0.01,
+        longitudeDelta: 0.01,
+      };
+
+      const m = mapRef.current as any;
+      if (m && typeof m.animateToRegion === 'function') {
+        console.log('goToCurrentLocation: animateToRegion ->', region);
+        m.animateToRegion(region, 500);
+        return;
+      }
+      if (m && typeof m.animateCamera === 'function') {
+        console.log('goToCurrentLocation: animateCamera ->', region);
+        m.animateCamera({ center: { latitude: region.latitude, longitude: region.longitude } }, { duration: 500 });
+        return;
+      }
+      console.warn('goToCurrentLocation: mapRef has no animateToRegion/animateCamera', !!m, Object.keys(m || {}));
+    } catch (err) {
+      console.error('goToCurrentLocation error:', err);
+    }
   };
 
   useEffect(() => {
@@ -175,14 +196,16 @@ useEffect(() => {
       />
   
 
-      <MapView
-        ref={mapRef}
-        style={StyleSheet.absoluteFillObject}
-        initialRegion={initialRegion}
-        onMapReady={() => setMapReady(true)}
-        showsUserLocation
-        showsMyLocationButton={false}
-      />
+      {showMap && (
+        <MapView
+          ref={mapRef}
+          style={StyleSheet.absoluteFillObject}
+          initialRegion={initialRegion}
+          onMapReady={() => setMapReady(true)}
+          showsUserLocation
+          showsMyLocationButton={false}
+        />
+      )}
 
       {/* Locate button — floating on map, bottom-right just above the sheet */}
       <TouchableOpacity
@@ -231,15 +254,14 @@ useEffect(() => {
           onPress={() => router.push('../passenger/SearchRideScreen' as any)}
           activeOpacity={0.88}
         >
-          <View style={styles.glowOrb} />
-
+          {/* removed glow orb per UX request */}
           <View style={{ flex: 1 }}>
-            <Text style={styles.cardTitle}>Where are you heading?</Text>
+            <Text style={styles.cardTitle}>Where are you heading ?</Text>
             <Text style={styles.cardSub}>Tap to set your destination</Text>
           </View>
 
           <View style={styles.starBadge}>
-            <Text style={styles.starIcon}>✦</Text>
+            <Text style={styles.starIcon}>●</Text>
             <Text style={styles.starText}>Ready</Text>
           </View>
         </TouchableOpacity>

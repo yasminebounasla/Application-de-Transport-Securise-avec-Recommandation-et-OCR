@@ -338,7 +338,7 @@ export default function RecommendedDriversScreen() {
         <View style={s.actionsBar}>
           <Text style={s.actionsHint}>Tap = sélectionner  ·  Maintenir = profil</Text>
           <TouchableOpacity style={s.selectAllBtn} onPress={toggleSelectAll}>
-            <Ionicons name={allSelected ? "checkbox" : "checkbox-outline"} size={15} color="#111" />
+            <Ionicons name={allSelected ? "checkbox" : "square-outline"} size={15} color="#111" />
             <Text style={s.selectAllText}>{allSelected ? 'Désélectionner' : 'Tout sélectionner'}</Text>
           </TouchableOpacity>
         </View>

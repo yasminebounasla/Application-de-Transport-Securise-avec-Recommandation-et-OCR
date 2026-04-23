@@ -2,25 +2,26 @@ import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import {
   View, Text, StyleSheet, FlatList, RefreshControl,
   ActivityIndicator, TouchableOpacity, Animated,
-  Pressable, Modal, TextInput, Alert,
+  Pressable, Modal, TextInput, Alert, Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import api from '../../services/api';
 import { useAuth } from '../../context/AuthContext';
 import { useRide } from '../../context/RideContext';
+import { formatPhoneNumberForDisplay } from '../../utils/phoneNumber';
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const CATEGORIES = [
   { key: 'completed', label: 'Completed', icon: 'checkmark-circle-outline' as const },
   { key: 'pending',   label: 'Requests',  icon: 'time-outline'              as const },
-  { key: 'accepted',  label: 'Active',    icon: 'car-outline'               as const },
+  { key: 'accepted',  label: 'Accepted',  icon: 'checkmark-outline'         as const },
   { key: 'cancelled', label: 'Cancelled', icon: 'close-circle-outline'      as const },
 ];
 
 const STATUS_CONFIG: Record<string, { label: string; bg: string; color: string; icon: string }> = {
   COMPLETED:              { label: 'Completed',            bg: '#D1FAE5', color: '#065F46', icon: 'checkmark-circle' },
-  PENDING:                { label: 'New request',          bg: '#DBEAFE', color: '#1E40AF', icon: 'time'             },
+  PENDING:                { label: 'Request',              bg: '#DBEAFE', color: '#1E40AF', icon: 'time'             },
   ACCEPTED:               { label: 'Accepted',             bg: '#DCFCE7', color: '#166534', icon: 'checkmark'        },
   IN_PROGRESS:            { label: 'In progress',          bg: '#FEF9C3', color: '#854D0E', icon: 'car-outline'      },
   CANCELLED_BY_PASSENGER: { label: 'Cancelled by passenger',bg: '#FFEDD5', color: '#9A3412', icon: 'close-circle'   },
@@ -46,12 +47,15 @@ function getAvatarColor(sexe?: string) {
   return { bg: '#d3e4fa', text: '#1B72DA' };
 }
 
-function Avatar({ prenom, nom, sexe }: { prenom?: string; nom?: string; sexe?: string }) {
+function Avatar({ prenom, nom, sexe, photoUrl }: { prenom?: string; nom?: string; sexe?: string; photoUrl?: string }) {
   const initials = `${prenom?.[0] ?? ''}${nom?.[0] ?? ''}`.toUpperCase() || '?';
   const colors   = getAvatarColor(sexe);
   return (
     <View style={[s.avatar, { backgroundColor: colors.bg }]}>
-      <Text style={[s.avatarText, { color: colors.text }]}>{initials}</Text>
+      {photoUrl
+        ? <Image source={{ uri: photoUrl }} style={s.avatarImg} />
+        : <Text style={[s.avatarText, { color: colors.text }]}>{initials}</Text>
+      }
     </View>
   );
 }
@@ -89,8 +93,10 @@ function RideCard({ item, highlighted, onPress, onAccept, onReject, actionLoadin
   const scale    = useRef(new Animated.Value(1)).current;
   const glowAnim = useRef(new Animated.Value(0)).current;
 
-  const onPressIn  = () => Animated.spring(scale, { toValue: 0.97, useNativeDriver: true }).start();
-  const onPressOut = () => Animated.spring(scale, { toValue: 1,    useNativeDriver: true }).start();
+  // Keep this JS-driven to avoid mixing native + JS drivers on the same card node
+  // (highlight glow animates colors => JS-driven).
+  const onPressIn  = () => Animated.spring(scale, { toValue: 0.97, useNativeDriver: false }).start();
+  const onPressOut = () => Animated.spring(scale, { toValue: 1,    useNativeDriver: false }).start();
 
   useEffect(() => {
     if (!highlighted) { glowAnim.setValue(0); return; }
@@ -116,6 +122,13 @@ function RideCard({ item, highlighted, onPress, onAccept, onReject, actionLoadin
   const dateLabel = item.dateDepart
     ? new Date(item.dateDepart).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
     : 'N/A';
+  const requestLabel = item.createdAt
+    ? new Date(item.createdAt).toLocaleDateString('en-GB', {
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      })
+    : null;
   const start = item.startAddress || item.depart      || 'N/A';
   const end   = item.endAddress   || item.destination || 'N/A';
   const trunc = (str: string, n = 32) => str.length > n ? str.slice(0, n) + '…' : str;
@@ -128,10 +141,10 @@ function RideCard({ item, highlighted, onPress, onAccept, onReject, actionLoadin
         <View style={s.headerLeft}>
           {hasPass ? (
             <>
-              <Avatar prenom={passenger.prenom} nom={passenger.nom} sexe={passenger.sexe} />
+              <Avatar prenom={passenger.prenom} nom={passenger.nom} sexe={passenger.sexe} photoUrl={passenger.photoUrl} />
               <View>
                 <Text style={s.passengerName} numberOfLines={1}>{passenger.prenom} {passenger.nom}</Text>
-                <Text style={s.passengerSub}>{passenger.numTel}</Text>
+                <Text style={s.passengerSub}>{formatPhoneNumberForDisplay(passenger.numTel)}</Text>
               </View>
             </>
           ) : (
@@ -177,6 +190,9 @@ function RideCard({ item, highlighted, onPress, onAccept, onReject, actionLoadin
 
       {/* ── TAGS ── */}
       <View style={s.tagsRow}>
+        {isPending && requestLabel ? (
+          <Tag icon="sparkles-outline" label={`Requested ${requestLabel}`} />
+        ) : null}
         <Tag icon="calendar-outline" label={dateLabel} />
         {item.heureDepart && <Tag icon="time-outline" label={item.heureDepart} />}
         {item.placesDispo != null && (
@@ -322,7 +338,9 @@ export default function DriverActivityScreen() {
   useEffect(() => {
     if (!params.rideId) return;
     const rideId = parseInt(params.rideId as string);
-    const tab    = (params.tab as string) || 'pending';
+    let tab    = (params.tab as string) || 'pending';
+    const validTabs = ['completed', 'pending', 'accepted', 'cancelled'];
+    if (!validTabs.includes(tab)) tab = 'pending';
     pendingHighlight.current = { rideId, tab };
     setActiveCategory(tab);
   }, [params.rideId, params.tab]);
@@ -357,6 +375,14 @@ export default function DriverActivityScreen() {
       );
     }
     rides = [...rides];
+    if (activeCategory === 'accepted') {
+      rides.sort((a, b) => {
+        if (a.status === 'IN_PROGRESS' && b.status !== 'IN_PROGRESS') return -1;
+        if (a.status !== 'IN_PROGRESS' && b.status === 'IN_PROGRESS') return 1;
+        return new Date(a.dateDepart || 0).getTime() - new Date(b.dateDepart || 0).getTime();
+      });
+      return rides;
+    }
     if (sortKey === 'date_desc') rides.sort((a, b) => new Date(b.dateDepart || 0).getTime() - new Date(a.dateDepart || 0).getTime());
     if (sortKey === 'date_asc')  rides.sort((a, b) => new Date(a.dateDepart || 0).getTime() - new Date(b.dateDepart || 0).getTime());
     if (sortKey === 'price_desc')rides.sort((a, b) => (Number(b.prix) || 0) - (Number(a.prix) || 0));
@@ -372,8 +398,8 @@ export default function DriverActivityScreen() {
       if (action === 'accept') {
         await acceptRide(rideId);
         showFlashMsg('success', 'Ride accepted!');
-        pendingHighlight.current = { rideId, tab: 'accepted' };
-        setActiveCategory('accepted');
+        // Move user to My Rides (MesTrajets) rather than an Active tab
+        router.push('/(driverTabs)/MesTrajets');
       } else {
         await rejectRide(rideId);
         showFlashMsg('error', 'Ride rejected.');
@@ -570,7 +596,8 @@ const s = StyleSheet.create({
 
   cardHeader:    { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 },
   headerLeft:    { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, marginRight: 8 },
-  avatar:        { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center' },
+  avatar:        { width: 36, height: 36, borderRadius: 18, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  avatarImg:     { width: '100%', height: '100%' },
   avatarText:    { fontSize: 13, fontWeight: '800' },
   passengerName: { fontSize: 14, fontWeight: '700', color: '#111' },
   passengerSub:  { fontSize: 11, color: '#9CA3AF', fontWeight: '500' },

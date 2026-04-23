@@ -44,8 +44,8 @@ export default function DriverRecoCard({
 }) {
   const scale = useRef(new Animated.Value(1)).current;
 
-  const onPressIn  = () => Animated.spring(scale, { toValue: 0.97, useNativeDriver: true }).start();
-  const onPressOut = () => Animated.spring(scale, { toValue: 1,    useNativeDriver: true }).start();
+  const onPressIn  = () => Animated.spring(scale, { toValue: 0.97, useNativeDriver: false }).start();
+  const onPressOut = () => Animated.spring(scale, { toValue: 1,    useNativeDriver: false }).start();
 
   return (
     <Pressable
@@ -123,10 +123,6 @@ export default function DriverRecoCard({
             </View>
           </View>
 
-          {/* Hint long press */}
-          <View style={styles.hintCol}>
-            <Ionicons name="ellipsis-vertical" size={14} color="#D1D5DB" />
-          </View>
         </View>
       </Animated.View>
     </Pressable>
@@ -184,5 +180,4 @@ const styles = StyleSheet.create({
     paddingVertical: 3, borderRadius: 6,
   },
   tagText:  { fontSize: 10, fontWeight: '600', color: '#9CA3AF' },
-  hintCol:  { paddingLeft: 4 },
 });

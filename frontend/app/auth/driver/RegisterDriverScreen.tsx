@@ -1,4 +1,4 @@
-import {
+﻿import {
   View,
   Text,
   TextInput,
@@ -11,6 +11,19 @@ import { MaterialIcons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import api from "../../../services/api";
 import ProgressSteps from "../../../components/ProgressSteps";
+import CountryCodePicker from "../../../components/CountryCodePicker";
+import PasswordValidation from "../../../components/PasswordValidation";
+import {
+  ALLOWED_PASSWORD_SYMBOLS,
+  hasUnsupportedPasswordSymbol,
+} from "../../../utils/passwordValidation";
+import {
+  buildInternationalPhoneNumber,
+  DEFAULT_COUNTRY_PHONE,
+  getCountryPhoneOption,
+  normalizeLocalPhoneNumber,
+  validatePhoneNumberForCountry,
+} from "../../../utils/phoneNumber";
 
 const validatePassword = (password: string) => {
   if (password.length < 8)
@@ -21,10 +34,14 @@ const validatePassword = (password: string) => {
     return "Password must contain at least one lowercase letter.";
   if (!/[0-9]/.test(password))
     return "Password must contain at least one digit.";
-  if (!/[!@#$%^&*]/.test(password))
-    return "Password must contain at least one special character (!@#$%^&*).";
+  if (hasUnsupportedPasswordSymbol(password))
+    return `Password symbols must be one of these: ${ALLOWED_PASSWORD_SYMBOLS}`;
+  if (!/[!@#$%&*§]/.test(password))
+    return `Password must contain at least one symbol from: ${ALLOWED_PASSWORD_SYMBOLS}`;
   return null;
 };
+
+const AGE_INPUT_REGEX = /^$|^\d$|^\d\d$/;
 
 type FieldErrors = {
   firstName: string;
@@ -59,6 +76,7 @@ export default function RegisterDriverScreen() {
   const [age, setAge] = useState("");
   const [sexe, setSexe] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [phoneCountryCode, setPhoneCountryCode] = useState(DEFAULT_COUNTRY_PHONE.code);
   const [consentAccepted, setConsentAccepted] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -77,8 +95,8 @@ export default function RegisterDriverScreen() {
 
   const handleNext = async () => {
     const newErrors = emptyErrors();
+    const selectedCountry = getCountryPhoneOption(phoneCountryCode);
 
-    // First name — letters only
     if (!firstName.trim()) {
       newErrors.firstName = "First name is required.";
     } else if (!/^[a-zA-ZÀ-ÿ\s'-]+$/.test(firstName.trim())) {
@@ -87,7 +105,6 @@ export default function RegisterDriverScreen() {
       newErrors.firstName = "First name must be at least 3 characters.";
     }
 
-    // Family name — letters only
     if (!familyName.trim()) {
       newErrors.familyName = "Family name is required.";
     } else if (!/^[a-zA-ZÀ-ÿ\s'-]+$/.test(familyName.trim())) {
@@ -96,36 +113,62 @@ export default function RegisterDriverScreen() {
       newErrors.familyName = "Family name must be at least 3 characters.";
     }
 
-    // Age
     if (!age.trim()) {
       newErrors.age = "Age is required.";
-    } else if (parseInt(age) < 17) {
-      newErrors.age = "You must be at least 17 years old to register.";
+    } else if (parseInt(age, 10) < 18) {
+      newErrors.age = "You must be at least 18 years old to register.";
+    } else if (parseInt(age, 10) > 100) {
+      newErrors.age = "Age must be 100 or less.";
     }
 
-    // Gender
     if (!sexe.trim()) {
       newErrors.sexe = "Gender is required.";
     } else if (!["male", "female"].includes(sexe.trim().toLowerCase())) {
       newErrors.sexe = 'Gender must be "Male" or "Female".';
     }
 
-    // Email
     if (!email.trim()) {
       newErrors.email = "Email is required.";
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       newErrors.email = "Invalid email format.";
+    } else {
+      // Check if email already exists
+      try {
+        const response = await api.post("/auth/check-email", {
+          email: email.trim().toLowerCase(),
+        });
+        console.log('Email check SUCCESS:', response.status, response.data);
+      } catch (err: any) {
+        console.log('=== EMAIL CHECK ERROR ===');
+        console.log('Error name:', err.name);
+        console.log('Error code:', err.code);
+        console.log('Error message:', err.message);
+        console.log('Has response?', !!err.response);
+        console.log('Full error:', JSON.stringify(err, null, 2));
+        
+        if (err.response?.status === 409) {
+          newErrors.email =
+            err.response?.data?.message || "This email is already registered. Please use a different email.";
+        }
+      }
     }
 
-    // Phone — 10 digits, starts with 05/06/07
-    if (!phoneNumber.trim()) {
-      newErrors.phoneNumber = "Phone number is required.";
-    } else if (!/^(05|06|07)\d{8}$/.test(phoneNumber.replace(/\s+/g, ""))) {
-      newErrors.phoneNumber =
-        "Phone must be 10 digits and start with 05, 06, or 07.";
+    newErrors.phoneNumber = validatePhoneNumberForCountry(phoneNumber, selectedCountry);
+
+    if (!newErrors.phoneNumber) {
+      try {
+        await api.post("/auth/check-phone", {
+          phoneNumber: buildInternationalPhoneNumber(phoneNumber, selectedCountry),
+          role: "driver",
+        });
+      } catch (err: any) {
+        if (err.response?.status === 409) {
+          newErrors.phoneNumber =
+            err.response?.data?.message || "This phone number is already in use.";
+        }
+      }
     }
 
-    // Password
     if (!password) {
       newErrors.password = "Password is required.";
     } else {
@@ -133,14 +176,12 @@ export default function RegisterDriverScreen() {
       if (passwordError) newErrors.password = passwordError;
     }
 
-    // Confirm password
     if (!confirmPassword) {
       newErrors.confirmPassword = "Please confirm your password.";
     } else if (password !== confirmPassword) {
       newErrors.confirmPassword = "Passwords do not match.";
     }
 
-    // Consent
     if (!consentAccepted) {
       newErrors.consent =
         "Please accept the storage of your personal information.";
@@ -158,24 +199,10 @@ export default function RegisterDriverScreen() {
       age,
       sexe,
       phoneNumber,
+      phoneCountryCode,
       consentAccepted,
     };
 
-    // 1. Vérifie l'email
-    try {
-      await api.post("/auth/check-email", {
-        email: email.trim().toLowerCase(),
-      });
-    } catch (err: any) {
-      setErrors((p) => ({
-        ...p,
-        email:
-          err.response?.data?.message || "Could not verify email. Try again.",
-      }));
-      return;
-    }
-
-    // 2. Sauvegarde et navigation
     try {
       await AsyncStorage.setItem(
         "tempRegistrationData",
@@ -192,20 +219,19 @@ export default function RegisterDriverScreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: "Create Account" }} />
+      <Stack.Screen options={{ title: "Sign Up" }} />
       <ProgressSteps currentStep={1} />
       <ScrollView className="flex-1 bg-white">
         <View className="px-6 py-8">
           <View className="mb-10">
             <Text className="text-2xl font-bold text-black mb-2">
-              Register as Driver
+              Sign Up as Driver
             </Text>
             <Text className="text-gray-500">
               Fill in your details to get started
             </Text>
           </View>
 
-          {/* First Name */}
           <View className="mb-4">
             <Text className="text-sm font-medium text-black mb-2">
               First Name
@@ -223,7 +249,6 @@ export default function RegisterDriverScreen() {
             <ErrorText field="firstName" />
           </View>
 
-          {/* Family Name */}
           <View className="mb-4">
             <Text className="text-sm font-medium text-black mb-2">
               Family Name
@@ -241,40 +266,68 @@ export default function RegisterDriverScreen() {
             <ErrorText field="familyName" />
           </View>
 
-          {/* Age */}
           <View className="mb-4">
             <Text className="text-sm font-medium text-black mb-2">Age</Text>
             <TextInput
               value={age}
               onChangeText={(v) => {
-                setAge(v);
-                clearError("age");
+                const digits = v.replace(/\D/g, "");
+                if (AGE_INPUT_REGEX.test(digits)) {
+                  setAge(digits);
+                  clearError("age");
+                }
               }}
               placeholder="25"
               keyboardType="numeric"
+              maxLength={2}
               className={`bg-gray-50 border ${border("age")} rounded-xl px-4 py-4 text-base`}
               placeholderTextColor="#9CA3AF"
             />
             <ErrorText field="age" />
           </View>
 
-          {/* Gender */}
           <View className="mb-4">
             <Text className="text-sm font-medium text-black mb-2">Gender</Text>
-            <TextInput
-              value={sexe}
-              onChangeText={(v) => {
-                setSexe(v);
-                clearError("sexe");
-              }}
-              placeholder="Male / Female"
-              className={`bg-gray-50 border ${border("sexe")} rounded-xl px-4 py-4 text-base`}
-              placeholderTextColor="#9CA3AF"
-            />
+            <View style={{ flexDirection: "row", gap: 12 }}>
+              {["Male", "Female"].map((option) => {
+                const isSelected = sexe === option;
+                return (
+                  <TouchableOpacity
+                    key={option}
+                    activeOpacity={0.85}
+                    onPress={() => {
+                      setSexe(option);
+                      clearError("sexe");
+                    }}
+                    style={{
+                      flex: 1,
+                      height: 56,
+                      borderRadius: 16,
+                      borderWidth: 1,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      backgroundColor: isSelected ? "#111111" : "#F9FAFB",
+                      borderColor: errors.sexe
+                        ? "#F87171"
+                        : isSelected
+                          ? "#111111"
+                          : "#E5E7EB",
+                    }}>
+                    <Text
+                      style={{
+                        fontSize: 16,
+                        fontWeight: "600",
+                        color: isSelected ? "#FFFFFF" : "#111827",
+                      }}>
+                      {option}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
             <ErrorText field="sexe" />
           </View>
 
-          {/* Email */}
           <View className="mb-4">
             <Text className="text-sm font-medium text-black mb-2">Email</Text>
             <TextInput
@@ -292,26 +345,42 @@ export default function RegisterDriverScreen() {
             <ErrorText field="email" />
           </View>
 
-          {/* Phone Number */}
           <View className="mb-4">
             <Text className="text-sm font-medium text-black mb-2">
               Phone Number
             </Text>
-            <TextInput
-              value={phoneNumber}
-              onChangeText={(v) => {
-                setPhoneNumber(v);
-                clearError("phoneNumber");
-              }}
-              placeholder="+213 XXX XXX XXX"
-              keyboardType="phone-pad"
-              className={`bg-gray-50 border ${border("phoneNumber")} rounded-xl px-4 py-4 text-base`}
-              placeholderTextColor="#9CA3AF"
-            />
+            <View style={{ flexDirection: "row", alignItems: "center", flexWrap: "nowrap" }}>
+              <View style={{ marginRight: 12 }}>
+                <CountryCodePicker
+                  value={phoneCountryCode}
+                  onChange={(code) => {
+                    setPhoneCountryCode(code);
+                    setPhoneNumber((current) =>
+                      normalizeLocalPhoneNumber(current, getCountryPhoneOption(code)),
+                    );
+                    clearError("phoneNumber");
+                  }}
+                  hasError={!!errors.phoneNumber}
+                />
+              </View>
+              <TextInput
+                value={phoneNumber}
+                onChangeText={(v) => {
+                  setPhoneNumber(
+                    normalizeLocalPhoneNumber(v, getCountryPhoneOption(phoneCountryCode)),
+                  );
+                  clearError("phoneNumber");
+                }}
+                placeholder={getCountryPhoneOption(phoneCountryCode).placeholder}
+                keyboardType="phone-pad"
+                className={`flex-1 bg-gray-50 border ${border("phoneNumber")} rounded-xl px-4 py-4 text-base`}
+                placeholderTextColor="#9CA3AF"
+                style={{ flex: 1, minWidth: 0 }}
+              />
+            </View>
             <ErrorText field="phoneNumber" />
           </View>
 
-          {/* Password */}
           <View className="mb-4">
             <Text className="text-sm font-medium text-black mb-2">
               Password
@@ -324,7 +393,7 @@ export default function RegisterDriverScreen() {
                   setPassword(v);
                   clearError("password");
                 }}
-                placeholder="••••••••"
+                placeholder="********"
                 secureTextEntry={!showPassword}
                 className="flex-1 py-4 text-base"
                 placeholderTextColor="#9CA3AF"
@@ -337,10 +406,9 @@ export default function RegisterDriverScreen() {
                 />
               </TouchableOpacity>
             </View>
-            <ErrorText field="password" />
+            <PasswordValidation password={password} />
           </View>
 
-          {/* Confirm Password */}
           <View className="mb-6">
             <Text className="text-sm font-medium text-black mb-2">
               Confirm Password
@@ -353,7 +421,7 @@ export default function RegisterDriverScreen() {
                   setConfirmPassword(v);
                   clearError("confirmPassword");
                 }}
-                placeholder="••••••••"
+                placeholder="********"
                 secureTextEntry={!showConfirmPassword}
                 className="flex-1 py-4 text-base"
                 placeholderTextColor="#9CA3AF"
@@ -370,7 +438,6 @@ export default function RegisterDriverScreen() {
             <ErrorText field="confirmPassword" />
           </View>
 
-          {/* Privacy & Consent Section */}
           <View className="bg-gray-50 rounded-xl p-4 mb-4">
             <View className="flex-row items-center mb-2">
               <MaterialIcons name="security" size={20} color="#000" />
@@ -384,7 +451,6 @@ export default function RegisterDriverScreen() {
             </Text>
           </View>
 
-          {/* Consent Checkbox */}
           <TouchableOpacity
             onPress={() => {
               setConsentAccepted(!consentAccepted);
@@ -415,14 +481,12 @@ export default function RegisterDriverScreen() {
             <View className="mb-4" />
           )}
 
-          {/* Next Button */}
           <TouchableOpacity
             onPress={handleNext}
             className="rounded-xl py-5 items-center mb-4 bg-black">
             <Text className="text-white text-base font-semibold">Next</Text>
           </TouchableOpacity>
 
-          {/* Login Link */}
           <View className="flex-row justify-center">
             <Text className="text-gray-600">Already have an account? </Text>
             <TouchableOpacity

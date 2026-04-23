@@ -66,7 +66,7 @@ export default function TabsLayout() {
         <Tabs.Screen
           name="MesTrajets"
           options={{
-            title: "My Rides",
+            title: "Rides",
             headerShown: true,
             tabBarIcon: ({ color, size }) => (
               <MaterialCommunityIcons name="car" size={size} color={color} />

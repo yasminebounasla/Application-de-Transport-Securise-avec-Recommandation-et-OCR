@@ -25,7 +25,7 @@ export default function PassengerHome() {
               Passenger
             </Text>
             <Text className="text-gray-600 text-base">
-              Get started with your account
+              Sign in or create an account
             </Text>
           </View>
 
@@ -35,7 +35,7 @@ export default function PassengerHome() {
               className="bg-black rounded-2xl py-5 mb-4"
             >
               <Text className="text-white text-center text-lg font-semibold">
-                Login
+                Sign In
               </Text>
             </TouchableOpacity>
 
@@ -44,7 +44,7 @@ export default function PassengerHome() {
               className="bg-white border-2 border-gray-300 rounded-2xl py-5"
             >
               <Text className="text-black text-center text-lg font-semibold">
-                Create Account
+                Sign Up
               </Text>
             </TouchableOpacity>
           </View>

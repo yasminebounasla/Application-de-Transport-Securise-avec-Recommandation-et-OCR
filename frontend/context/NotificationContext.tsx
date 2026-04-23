@@ -27,6 +27,7 @@ type NotificationContextType = {
   socket: Socket | null;
   currentToast: ToastData | null;
   clearNotifications: () => void;
+  markAsRead: (notif: Notification) => Promise<void>;
   markAllAsRead: () => void;
   hideToast: () => void;
   openFeedbackModal: (trajetId: number) => void;
@@ -66,7 +67,13 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
         const count  = unread ? parseInt(unread) : 0;
         if (cached) {
           const parsed: Notification[] = JSON.parse(cached);
-          setNotifications(parsed.map((n, i) => ({ ...n, isRead: i < count ? false : true })));
+          const normalized = parsed.map((n, i) => {
+            const hasIsRead = typeof n.isRead === 'boolean';
+            return { ...n, isRead: hasIsRead ? n.isRead : i < count ? false : true };
+          });
+          setNotifications(normalized);
+          setUnreadCount(normalized.filter((n) => n.isRead === false).length);
+          return;
         }
         setUnreadCount(count);
       } catch (e) { console.error('Cache load error:', e); }
@@ -88,25 +95,27 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
       });
       if (response.ok) {
         const { data, unreadCount: serverUnread } = await response.json();
-        const normalized: Notification[] = data.map((n: any, i: number) => ({
+        const normalized: Notification[] = data.map((n: any) => ({
           id:        n.id,
           title:     n.title,
           message:   n.message,
           timestamp: new Date(n.createdAt).getTime(),
-          isRead:    i < serverUnread ? false : true,
+          isRead:    !!n.isRead,
           rideId:    n.data?.rideId,
+          photoUrl:  n.data?.passenger?.photoUrl || n.data?.driver?.photoUrl || n.data?.photoUrl,
           prenom:    n.data?.passenger?.prenom || n.data?.driver?.prenom,
           nom:       n.data?.passenger?.nom    || n.data?.driver?.nom,
           type:      n.type,
         }));
-        setNotifications(prev => {
+        setNotifications((prev) => {
           const socketOnly = prev.filter(n => !n.id && n.isRead === false);
           const merged = [...socketOnly, ...normalized];
+          const mergedUnread = merged.filter((n) => n.isRead === false).length;
           AsyncStorage.setItem(storageKey, JSON.stringify(merged));
+          AsyncStorage.setItem(unreadKey, String(mergedUnread));
+          setUnreadCount(mergedUnread);
           return merged;
         });
-        setUnreadCount(serverUnread);
-        await AsyncStorage.setItem(unreadKey, String(serverUnread));
       }
     } catch (e) { console.error('fetchFromDB error:', e); }
   }, [user?.id, storageKey, unreadKey]);
@@ -159,6 +168,34 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
     } catch (e) { console.error(e); }
   }, [storageKey, unreadKey]);
 
+  const markAsRead = useCallback(async (notif: Notification) => {
+    if (notif.isRead !== false) return;
+    setNotifications((prev) => {
+      const updated = prev.map((n) => {
+        if (notif.id && n.id === notif.id) return { ...n, isRead: true };
+        if (!notif.id && n.timestamp === notif.timestamp && n.title === notif.title) return { ...n, isRead: true };
+        return n;
+      });
+      if (storageKey) AsyncStorage.setItem(storageKey, JSON.stringify(updated));
+      return updated;
+    });
+    setUnreadCount((prev) => {
+      const next = Math.max(0, prev - 1);
+      if (unreadKey) AsyncStorage.setItem(unreadKey, String(next));
+      return next;
+    });
+    if (!notif.id) return;
+    try {
+      const token = await AsyncStorage.getItem('token');
+      await fetch(`${API_URL}/notifications/${notif.id}/read`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${token}` },
+      });
+    } catch (e) {
+      console.error('markAsRead error:', e);
+    }
+  }, [storageKey, unreadKey]);
+
   const clearNotifications = async () => {
     setNotifications([]);
     setUnreadCount(0);
@@ -198,18 +235,21 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
         addNotif(data.title || 'Trajet confirmé', data.message, {
           rideId: data.rideId, type: 'RIDE_ACCEPTED',
           prenom: data.driver?.prenom, nom: data.driver?.nom,
+          photoUrl: data.driver?.photoUrl,
         });
       });
       newSocket.on('rideRejectedByDriver', (data) => {
         addNotif(data.title || 'Demande refusée', data.message, {
           rideId: data.rideId, type: 'RIDE_REJECTED',
           prenom: data.driver?.prenom, nom: data.driver?.nom,
+          photoUrl: data.driver?.photoUrl,
         });
       });
       newSocket.on('rideStarted', (data) => {
         addNotif(data.title || 'Trajet démarré', data.message, {
           rideId: data.rideId, type: 'RIDE_STARTED',
           prenom: data.driver?.prenom, nom: data.driver?.nom,
+          photoUrl: data.driver?.photoUrl,
         });
       });
       newSocket.on('rideCompleted', (data) => {
@@ -224,17 +264,22 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
         addNotif(data.title || '🚗 Nouvelle demande', data.message, {
           rideId: data.rideId, type: 'RIDE_REQUEST',
           prenom: data.passenger?.prenom, nom: data.passenger?.nom,
+          photoUrl: data.passenger?.photoUrl,
         });
       });
       newSocket.on('rideCancelledByPassenger', (data) => {
         addNotif(data.title || '❌ Trajet annulé', data.message, {
           rideId: data.rideId, type: 'RIDE_CANCELLED',
           prenom: data.passenger?.prenom, nom: data.passenger?.nom,
+          photoUrl: data.passenger?.photoUrl,
         });
       });
       newSocket.on('newFeedback', (data) => {
         addNotif(data.title || '⭐ Nouvel avis reçu', data.message, {
           rideId: data.trajetId, type: 'NEW_FEEDBACK',
+          prenom: data.passenger?.prenom,
+          nom: data.passenger?.nom,
+          photoUrl: data.passenger?.photoUrl,
         });
       });
     }
@@ -251,7 +296,7 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
   return (
     <NotificationContext.Provider value={{
       notifications, unreadCount, socket, currentToast,
-      clearNotifications, markAllAsRead,
+      clearNotifications, markAsRead, markAllAsRead,
       hideToast: () => setCurrentToast(null),
       openFeedbackModal,
     }}>

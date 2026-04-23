@@ -6,6 +6,8 @@ import {
 import { router, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useRide } from '../../context/RideContext';
+import api from '../../services/api';
+import UserAvatar from '../../components/UserAvatar';
 
 const parseHeureDepart = (value?: string) => {
   if (!value) return null;
@@ -29,11 +31,11 @@ const getDepartAt = (ride: any) => {
 function RideCard({ item, onPress }: { item: any; onPress: () => void }) {
   const scale = useRef(new Animated.Value(1)).current;
 
-  const onPressIn  = () => Animated.spring(scale, { toValue: 0.97, useNativeDriver: true }).start();
-  const onPressOut = () => Animated.spring(scale, { toValue: 1,    useNativeDriver: true }).start();
+  const onPressIn = () => Animated.spring(scale, { toValue: 0.97, useNativeDriver: true }).start();
+  const onPressOut = () => Animated.spring(scale, { toValue: 1, useNativeDriver: true }).start();
 
-  const start = item.startAddress || item.depart      || 'Départ';
-  const end   = item.endAddress   || item.destination || 'Destination';
+  const start = item.startAddress || item.depart || 'Départ';
+  const end = item.endAddress || item.destination || 'Destination';
   const trunc = (str: string, n = 28) => str.length > n ? str.slice(0, n) + '…' : str;
 
   const date = item.dateDepart
@@ -42,15 +44,12 @@ function RideCard({ item, onPress }: { item: any; onPress: () => void }) {
   const time = item.heureDepart || '—';
 
   const isInProgress = item.status === 'IN_PROGRESS';
+  const isPending = item.status === 'PENDING';
 
   // Nom du passager
   const passengerName = item.passenger
-  ? `${item.passenger.prenom} ${item.passenger.nom}`
-  : null;
-
-  const initials = passengerName
-    ? passengerName.split(' ').map((w: string) => w[0]).join('').slice(0, 2).toUpperCase()
-    : '?';
+    ? `${item.passenger.prenom} ${item.passenger.nom}`
+    : null;
 
   return (
     <TouchableOpacity onPress={onPress} onPressIn={onPressIn} onPressOut={onPressOut} activeOpacity={1}>
@@ -58,10 +57,39 @@ function RideCard({ item, onPress }: { item: any; onPress: () => void }) {
 
         {/* Status pill + date/heure */}
         <View style={s.cardTop}>
-          <View style={[s.statusPill, isInProgress ? s.statusInProgress : s.statusAccepted]}>
-            <View style={[s.statusDot, { backgroundColor: isInProgress ? '#854D0E' : '#166534' }]} />
-            <Text style={[s.statusText, { color: isInProgress ? '#854D0E' : '#166534' }]}>
-              {isInProgress ? 'In progress' : 'Accepted'}
+          <View
+            style={[
+              s.statusPill,
+              isInProgress
+                ? s.statusInProgress
+                : isPending
+                  ? s.statusPending
+                  : s.statusAccepted,
+            ]}>
+            <View
+              style={[
+                s.statusDot,
+                {
+                  backgroundColor: isInProgress
+                    ? '#854D0E'
+                    : isPending
+                      ? '#1E40AF'
+                      : '#166534',
+                },
+              ]}
+            />
+            <Text
+              style={[
+                s.statusText,
+                {
+                  color: isInProgress
+                    ? '#854D0E'
+                    : isPending
+                      ? '#1E40AF'
+                      : '#166534',
+                },
+              ]}>
+              {isInProgress ? 'In progress' : isPending ? 'Pending' : 'Accepted'}
             </Text>
           </View>
           <View style={s.timeRow}>
@@ -75,9 +103,15 @@ function RideCard({ item, onPress }: { item: any; onPress: () => void }) {
 
         {/* Nom du passager */}
         <View style={s.passengerRow}>
-          <View style={s.avatar}>
-            <Text style={s.avatarText}>{initials}</Text>
-          </View>
+          <UserAvatar
+            prenom={item.passenger?.prenom}
+            nom={item.passenger?.nom}
+            photoUrl={item.passenger?.photoUrl}
+            size={28}
+            backgroundColor="#EFF6FF"
+            textColor="#2563EB"
+            style={s.avatar}
+          />
           <Text style={s.passengerName}>
             {passengerName || 'Passager inconnu'}
           </Text>
@@ -108,20 +142,30 @@ function RideCard({ item, onPress }: { item: any; onPress: () => void }) {
 }
 
 export default function MesTrajets() {
-  const { driverRequests, currentRide, getDriverRequests, getDriverActiveRide, loading } = useRide();
+  const { getDriverRequests, getDriverActiveRide, loading } = useRide();
   const [screenLoading, setScreenLoading] = useState(true);
+  const [activeRides, setActiveRides] = useState<any[]>([]);
 
   useFocusEffect(
     useCallback(() => {
       let active = true;
       (async () => {
         try {
-          await Promise.all([getDriverRequests(), getDriverActiveRide()]);
+          const [, activeResponse] = await Promise.all([
+            getDriverRequests(),
+            api.get('/ridesDem/driver/active'),
+            getDriverActiveRide(),
+          ]);
+          if (active) {
+            setActiveRides(activeResponse?.data?.data || []);
+          }
         } finally {
           if (active) setScreenLoading(false);
         }
       })();
-      return () => { active = false; };
+      return () => {
+        active = false;
+      };
     }, [])
   );
 
@@ -129,14 +173,11 @@ export default function MesTrajets() {
     const ONE_HOUR_MS = 60 * 60 * 1000;
     const now = Date.now();
     const map = new Map();
-    (driverRequests || []).forEach((ride: any) => {
+    (activeRides || []).forEach((ride: any) => {
       if (ride.status === 'ACCEPTED' || ride.status === 'IN_PROGRESS') {
         map.set(ride.id, ride);
       }
     });
-    if (currentRide && (currentRide.status === 'ACCEPTED' || currentRide.status === 'IN_PROGRESS')) {
-      map.set(currentRide.id, currentRide);
-    }
     return Array.from(map.values())
       .filter((ride: any) => {
         if (ride.status === 'IN_PROGRESS') return true;
@@ -145,8 +186,12 @@ export default function MesTrajets() {
         const diff = departAt.getTime() - now;
         return diff >= 0 && diff <= ONE_HOUR_MS;
       })
-      .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [driverRequests, currentRide]);
+      .sort((a: any, b: any) => {
+        if (a.status === 'IN_PROGRESS' && b.status !== 'IN_PROGRESS') return -1;
+        if (a.status !== 'IN_PROGRESS' && b.status === 'IN_PROGRESS') return 1;
+        return (getDepartAt(a)?.getTime() || 0) - (getDepartAt(b)?.getTime() || 0);
+      });
+  }, [activeRides]);
 
   const openRide = (ride: any) => {
     router.push({
@@ -192,12 +237,12 @@ export default function MesTrajets() {
 
 const s = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F5F5' },
-  list:      { padding: 16, gap: 10 },
+  list: { padding: 16, gap: 10 },
 
-  center:      { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 10 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 10 },
   emptyCircle: { width: 70, height: 70, borderRadius: 35, backgroundColor: '#F0F0F0', alignItems: 'center', justifyContent: 'center', marginBottom: 4 },
-  emptyTitle:  { fontSize: 16, fontWeight: '700', color: '#111' },
-  subtle:      { fontSize: 13, color: '#9CA3AF', textAlign: 'center' },
+  emptyTitle: { fontSize: 16, fontWeight: '700', color: '#111' },
+  subtle: { fontSize: 13, color: '#9CA3AF', textAlign: 'center' },
 
   card: {
     backgroundColor: '#fff',
@@ -213,30 +258,31 @@ const s = StyleSheet.create({
   },
 
   // Top row
-  cardTop:          { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
-  statusPill:       { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
-  statusAccepted:   { backgroundColor: '#DCFCE7' },
+  cardTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+  statusPill: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
+  statusAccepted: { backgroundColor: '#DCFCE7' },
   statusInProgress: { backgroundColor: '#FEF9C3' },
-  statusDot:        { width: 6, height: 6, borderRadius: 3 },
-  statusText:       { fontSize: 11, fontWeight: '700' },
-  timeRow:          { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  timeText:         { fontSize: 11, color: '#9CA3AF', fontWeight: '500' },
-  timeSep:          { fontSize: 11, color: '#D1D5DB' },
+  statusPending: { backgroundColor: '#DBEAFE' },
+  statusDot: { width: 6, height: 6, borderRadius: 3 },
+  statusText: { fontSize: 11, fontWeight: '700' },
+  timeRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  timeText: { fontSize: 11, color: '#9CA3AF', fontWeight: '500' },
+  timeSep: { fontSize: 11, color: '#D1D5DB' },
 
   // Passenger
-  passengerRow:  { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
-  avatar:        { width: 28, height: 28, borderRadius: 14, backgroundColor: '#EFF6FF', alignItems: 'center', justifyContent: 'center' },
-  avatarText:    { fontSize: 11, fontWeight: '700', color: '#2563EB' },
+  passengerRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+  avatar: { alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontSize: 11, fontWeight: '700', color: '#2563EB' },
   passengerName: { fontSize: 13, fontWeight: '600', color: '#111', flex: 1 },
 
   // Route
   routeBlock: { gap: 4, marginBottom: 12 },
-  routeRow:   { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  dot:        { width: 8, height: 8, borderRadius: 4 },
-  routeLine:  { width: 1.5, height: 10, backgroundColor: '#E5E7EB', marginLeft: 3.25 },
-  routeText:  { fontSize: 14, color: '#111', fontWeight: '600', flex: 1 },
+  routeRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  dot: { width: 8, height: 8, borderRadius: 4 },
+  routeLine: { width: 1.5, height: 10, backgroundColor: '#E5E7EB', marginLeft: 3.25 },
+  routeText: { fontSize: 14, color: '#111', fontWeight: '600', flex: 1 },
 
   // Track
-  trackRow:  { flexDirection: 'row', alignItems: 'center', gap: 5, borderTopWidth: 1, borderTopColor: '#F3F4F6', paddingTop: 10 },
+  trackRow: { flexDirection: 'row', alignItems: 'center', gap: 5, borderTopWidth: 1, borderTopColor: '#F3F4F6', paddingTop: 10 },
   trackText: { fontSize: 12, fontWeight: '700', color: '#2563EB' },
 });

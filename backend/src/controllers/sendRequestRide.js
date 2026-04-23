@@ -24,7 +24,7 @@ export const sendRideRequests = async (req, res) => {
     const ride = await prisma.trajet.findUnique({
       where:   { id: rideId },
       include: {
-        passenger: { select: { id: true, nom: true, prenom: true, numTel: true } },
+        passenger: { select: { id: true, nom: true, prenom: true, numTel: true, photoUrl: true } },
       },
     });
 
@@ -99,7 +99,7 @@ export const sendRideRequests = async (req, res) => {
         message:       `${ride.passenger.prenom} ${ride.passenger.nom} recherche un conducteur.`,
         data: {
           rideId:      ride.id,
-          passenger:   { prenom: ride.passenger.prenom, nom: ride.passenger.nom },
+          passenger:   { prenom: ride.passenger.prenom, nom: ride.passenger.nom, photoUrl: ride.passenger.photoUrl },
           depart:      ride.startAddress || ride.depart,
           destination: ride.endAddress   || ride.destination,
         },
@@ -139,7 +139,7 @@ export const sendFallbackRequests = async (req, res) => {
     const ride = await prisma.trajet.findUnique({
       where:   { id: rideId },
       include: {
-        passenger: { select: { id: true, nom: true, prenom: true, numTel: true } },
+        passenger: { select: { id: true, nom: true, prenom: true, numTel: true, photoUrl: true } },
       },
     });
 
@@ -200,7 +200,7 @@ export const sendFallbackRequests = async (req, res) => {
         message: `${ride.passenger.prenom} ${ride.passenger.nom} recherche un conducteur. (${ride.placesDispo} place${ride.placesDispo > 1 ? 's' : ''})`,
         data: {
           rideId:      ride.id,
-          passenger:   { prenom: ride.passenger.prenom, nom: ride.passenger.nom },
+          passenger:   { prenom: ride.passenger.prenom, nom: ride.passenger.nom, photoUrl: ride.passenger.photoUrl },
           depart:      ride.startAddress || ride.depart,
           destination: ride.endAddress   || ride.destination,
         },

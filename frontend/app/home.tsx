@@ -40,7 +40,7 @@ export default function Home() {
       </View>
       <View className="pb-8 px-6">
         <Text className="text-center text-gray-500 text-sm">
-          Safe rides, every time
+          Safe rides. Anytime.
         </Text>
       </View>
     </View>

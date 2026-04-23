@@ -606,20 +606,10 @@ export default function HomeScreen() {
     useCallback(() => {
       getDriverActiveRide();
       loadStats();
-    }, [getDriverActiveRide, loadStats]),
+      loadDashboardSummary();
+      loadAccountCreatedAt();
+    }, [getDriverActiveRide, loadStats, loadDashboardSummary, loadAccountCreatedAt]),
   );
-
-  useEffect(() => {
-    loadStats();
-  }, [loadStats]);
-
-  useEffect(() => {
-    loadDashboardSummary();
-  }, [loadDashboardSummary]);
-
-  useEffect(() => {
-    loadAccountCreatedAt();
-  }, [loadAccountCreatedAt]);
 
   useEffect(() => {
     Animated.parallel([
@@ -729,16 +719,12 @@ export default function HomeScreen() {
 
   const inProgressRide =
     currentRide && currentRide.status === "IN_PROGRESS" ? currentRide : null;
-  const activeRide =
-    currentRide && ["ACCEPTED", "IN_PROGRESS"].includes(currentRide.status)
-      ? currentRide
-      : null;
 
   const openInProgress = () => {
-    if (!activeRide) return;
+    if (!inProgressRide) return;
     router.push({
       pathname: "/driver/ActiveRideScreen",
-      params: { trajetId: String(activeRide.id) },
+      params: { trajetId: String(inProgressRide.id) },
     });
   };
 
@@ -781,6 +767,23 @@ export default function HomeScreen() {
       text: "A fresh ride can start this streak at any time.",
     },
   }[progressState];
+  const liveCardTheme = inProgressRide
+    ? {
+        card: "#FFF7ED",
+        iconBg: "#FED7AA",
+        icon: "#C2410C",
+        title: "#9A3412",
+        subtitle: "#C2410C",
+        arrow: "#C2410C",
+      }
+    : {
+        card: "#F8FAFC",
+        iconBg: "#E5E7EB",
+        icon: "#64748B",
+        title: "#475569",
+        subtitle: "#94A3B8",
+        arrow: "#94A3B8",
+      };
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -836,7 +839,7 @@ export default function HomeScreen() {
                 <View style={styles.heroTapHint}>
                   <Text style={styles.heroTapHintText}>Tap to open</Text>
                   <MaterialIcons
-                    name='arrow-forward'
+                    name='open-in-new'
                     size={14}
                     color='#F59E0B'
                   />
@@ -876,33 +879,43 @@ export default function HomeScreen() {
             activeOpacity={0.9}
             style={[
               styles.liveCard,
-              activeRide ? styles.liveCardBusy : styles.liveCardIdle,
+              { backgroundColor: liveCardTheme.card },
             ]}
             onPress={
-              activeRide
+              inProgressRide
                 ? openInProgress
                 : () => router.push("/(driverTabs)/MesTrajets" as any)
             }>
-            <View style={styles.liveIconWrap}>
+            <View
+              style={[
+                styles.liveIconWrap,
+                { backgroundColor: liveCardTheme.iconBg },
+              ]}>
               <MaterialIcons
-                name={activeRide ? "navigation" : "directions-car"}
+                name={inProgressRide ? "navigation" : "directions-car"}
                 size={22}
-                color='#111'
+                color={liveCardTheme.icon}
               />
             </View>
             <View style={styles.liveTextWrap}>
-              <Text style={styles.liveTitle}>
-                {activeRide
+              <Text style={[styles.liveTitle, { color: liveCardTheme.title }]}>
+                {inProgressRide
                   ? "Current trip ready to open"
                   : "No active trip right now"}
               </Text>
-              <Text style={styles.liveSubtitle} numberOfLines={2}>
-                {activeRide
-                  ? `${activeRide.startAddress || activeRide.depart || "Departure"} -> ${activeRide.endAddress || activeRide.destination || "Destination"}`
+              <Text
+                style={[styles.liveSubtitle, { color: liveCardTheme.subtitle }]}
+                numberOfLines={2}>
+                {inProgressRide
+                  ? `${inProgressRide.startAddress || inProgressRide.depart || "Departure"} \u2192 ${inProgressRide.endAddress || inProgressRide.destination || "Destination"}`
                   : "Check incoming requests and keep your profile ready for the next trip."}
               </Text>
             </View>
-            <MaterialIcons name='arrow-forward' size={20} color='#111' />
+            <MaterialIcons
+              name='arrow-forward'
+              size={20}
+              color={liveCardTheme.arrow}
+            />
           </TouchableOpacity>
         </TouchableOpacity>
       </Animated.View>
@@ -991,10 +1004,13 @@ export default function HomeScreen() {
         <FlatList
           ref={periodListRef}
           horizontal
-          pagingEnabled
           showsHorizontalScrollIndicator={false}
           data={displayPeriods}
           keyExtractor={(item) => item.key}
+          snapToInterval={pageWidth}
+          decelerationRate='fast'
+          disableIntervalMomentum
+          bounces={false}
           onMomentumScrollEnd={handlePeriodScrollEnd}
           getItemLayout={(_, index) => ({
             length: pageWidth,
@@ -1385,14 +1401,16 @@ const styles = StyleSheet.create({
   },
   periodPage: {
     paddingTop: 18,
-    paddingRight: 8,
+    paddingRight: 0,
+    overflow: "hidden",
   },
   chartWrap: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-end",
-    gap: 10,
+    gap: 8,
     paddingBottom: 8,
+    paddingHorizontal: 4,
   },
   weekBarCol: {
     flex: 1,

@@ -158,6 +158,43 @@ export const updatePassengerProfile = async (req, res) => {
   }
 };
 
+// Upload a passenger avatar (saves file to /uploads/passengers and returns URL)
+export const uploadPassengerAvatar = async (req, res) => {
+  const passengerId = req.user.passengerId;
+  if (!passengerId) {
+    return res.status(403).json({ message: 'Access restricted to passengers only.' });
+  }
+
+  if (!req.file || !req.file.buffer) {
+    return res.status(400).json({ message: 'No file uploaded.' });
+  }
+
+  try {
+    const fs = await import('fs');
+    const path = await import('path');
+    const uploadsDir = path.join(process.cwd(), 'uploads', 'passengers');
+    if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir, { recursive: true });
+    const filename = `passenger_${passengerId}_${Date.now()}.jpg`;
+    const filepath = path.join(uploadsDir, filename);
+    fs.writeFileSync(filepath, req.file.buffer);
+
+    const host = process.env.BACKEND_URL || `${req.protocol}://${req.get('host')}`;
+    const photoUrl = `${host}/uploads/passengers/${filename}`;
+
+    // Persist photoUrl in passenger record
+    try {
+      await prisma.passenger.update({ where: { id: passengerId }, data: { photoUrl } });
+    } catch (dbErr) {
+      console.warn('Failed to update passenger photoUrl in DB:', dbErr);
+    }
+
+    return res.status(200).json({ success: true, data: { photoUrl } });
+  } catch (err) {
+    console.error('Error saving passenger avatar:', err);
+    return res.status(500).json({ message: 'Failed to save avatar.', error: err.message });
+  }
+};
+
 
 
 export const getDriverInteractions = async (req, res) => {

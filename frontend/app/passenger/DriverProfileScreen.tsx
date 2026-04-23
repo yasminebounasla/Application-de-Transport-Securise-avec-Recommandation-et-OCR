@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   Animated,
   Image,
+  Linking,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -18,6 +19,7 @@ import {
   getPublicDriverStats,
   getPublicDriverFeedback,
 } from "../../services/feedbackService";
+import { formatPhoneNumberForDisplay, getCallablePhoneNumber } from "../../utils/phoneNumber";
 
 // ─────────────────────────────────────────────
 // AVATAR COLOR — blue for male, pink for female
@@ -232,6 +234,13 @@ export default function PublicDriverProfileScreen() {
   const activeHours = HOURS_CONFIG.filter((h) => prefs?.[h.key as keyof typeof prefs]);
   const isFemale = ["F", "female", "femme"].includes(driver.gender ?? driver.genre ?? driver.sexe ?? "");
   const visibleFeedbacks = showAll ? feedbacks : feedbacks.slice(0, 3);
+  const driverPhone = driver?.numTel ? String(driver.numTel) : null;
+  const formattedDriverPhone = driverPhone
+    ? formatPhoneNumberForDisplay(driverPhone)
+    : null;
+  const callableDriverPhone = driverPhone
+    ? getCallablePhoneNumber(driverPhone)
+    : null;
 
   const initials =
     `${driver.prenom?.[0] ?? ""}${driver.nom?.[0] ?? ""}`.toUpperCase();
@@ -335,6 +344,28 @@ export default function PublicDriverProfileScreen() {
                     <Text style={styles.plateText}>{vehicule.plaque}</Text>
                   </View>
                 )}
+              </View>
+            </View>
+          )}
+
+          {formattedDriverPhone && (
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Contact</Text>
+              <View style={styles.vehicleCard}>
+                <View style={styles.vehicleIconWrap}>
+                  <Ionicons name='call-outline' size={26} color='#111' />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.vehicleModel}>Phone</Text>
+                  <Text style={styles.vehicleColor}>{formattedDriverPhone}</Text>
+                </View>
+                <TouchableOpacity
+                  style={styles.callButton}
+                  activeOpacity={0.8}
+                  onPress={() => Linking.openURL(`tel:${callableDriverPhone}`)}>
+                  <Ionicons name='call' size={15} color='#fff' />
+                  <Text style={styles.callButtonText}>Call</Text>
+                </TouchableOpacity>
               </View>
             </View>
           )}
@@ -623,6 +654,20 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: "#374151",
     letterSpacing: 1,
+  },
+  callButton: {
+    backgroundColor: "#111",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  callButtonText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "700",
   },
   // ── Chips ──
   chipsWrap: {

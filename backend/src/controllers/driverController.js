@@ -792,7 +792,7 @@ export const notifySelectedDrivers = async (req, res) => {
   try {
     const ride = await prisma.trajet.findUnique({
       where: { id: parseInt(rideId) },
-      include: { passenger: { select: { id: true, nom: true, prenom: true, numTel: true } } },
+      include: { passenger: { select: { id: true, nom: true, prenom: true, numTel: true, photoUrl: true } } },
     });
 
     if (!ride)
@@ -826,7 +826,7 @@ export const notifySelectedDrivers = async (req, res) => {
         type:          'RIDE_REQUEST',
         title:         '🚗 Nouvelle demande',
         message:       `${ride.passenger.prenom} cherche un trajet.`,
-        data: { rideId: ride.id, passenger: { prenom: ride.passenger.prenom, nom: ride.passenger.nom } },
+        data: { rideId: ride.id, passenger: { prenom: ride.passenger.prenom, nom: ride.passenger.nom, photoUrl: ride.passenger.photoUrl } },
       });
     }
 

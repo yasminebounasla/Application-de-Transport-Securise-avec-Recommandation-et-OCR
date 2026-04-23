@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useRide } from '../../context/RideContext';
+import { formatPhoneNumberForDisplay } from '../../utils/phoneNumber';
 
 const formatDateTime = (dateValue?: string) => {
   if (!dateValue) return 'Date non definie';
@@ -73,7 +74,7 @@ export default function HistoryScreen() {
           <>
             <Text style={styles.label}>Conducteur</Text>
             <Text style={styles.value}>
-              {ride.driver.prenom} {ride.driver.nom} - {ride.driver.numTel}
+              {ride.driver.prenom} {ride.driver.nom} - {formatPhoneNumberForDisplay(ride.driver.numTel)}
             </Text>
           </>
         )}

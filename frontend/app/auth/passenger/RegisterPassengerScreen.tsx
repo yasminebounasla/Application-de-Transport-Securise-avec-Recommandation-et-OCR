@@ -1,22 +1,44 @@
-import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
+﻿import { View, Text, TextInput, TouchableOpacity, ScrollView } from 'react-native';
 import { useState } from 'react';
 import { Stack, router } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../../../context/AuthContext';
+import api from '../../../services/api';
+import CountryCodePicker from '../../../components/CountryCodePicker';
+import PasswordValidation from '../../../components/PasswordValidation';
+import {
+  ALLOWED_PASSWORD_SYMBOLS,
+  hasUnsupportedPasswordSymbol,
+} from '../../../utils/passwordValidation';
+import {
+  buildInternationalPhoneNumber,
+  DEFAULT_COUNTRY_PHONE,
+  getCountryPhoneOption,
+  normalizeLocalPhoneNumber,
+  validatePhoneNumberForCountry,
+} from '../../../utils/phoneNumber';
 
 const validatePassword = (password: string) => {
-  if (password.length < 8) return "Password must be at least 8 characters long.";
-  if (!/[A-Z]/.test(password)) return "Password must contain at least one uppercase letter.";
-  if (!/[a-z]/.test(password)) return "Password must contain at least one lowercase letter.";
-  if (!/[0-9]/.test(password)) return "Password must contain at least one digit.";
-  if (!/[!@#$%^&*]/.test(password)) return "Password must contain at least one special character (!@#$%^&*).";
+  if (password.length < 8) return 'Password must be at least 8 characters long.';
+  if (!/[A-Z]/.test(password)) return 'Password must contain at least one uppercase letter.';
+  if (!/[a-z]/.test(password)) return 'Password must contain at least one lowercase letter.';
+  if (!/[0-9]/.test(password)) return 'Password must contain at least one digit.';
+  if (hasUnsupportedPasswordSymbol(password)) {
+    return `Password symbols must be one of these: ${ALLOWED_PASSWORD_SYMBOLS}`;
+  }
+  if (!/[!@#$%&*§]/.test(password)) {
+    return `Password must contain at least one symbol from: ${ALLOWED_PASSWORD_SYMBOLS}`;
+  }
   return null;
 };
+
+const AGE_INPUT_REGEX = /^$|^\d$|^\d\d$/;
 
 type FieldErrors = {
   firstName: string;
   familyName: string;
   age: string;
+  sexe: string;
   email: string;
   phoneNumber: string;
   password: string;
@@ -31,7 +53,9 @@ export default function RegisterPassengerScreen() {
   const [firstName, setFirstName] = useState('');
   const [familyName, setFamilyName] = useState('');
   const [age, setAge] = useState('');
+  const [sexe, setSexe] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [phoneCountryCode, setPhoneCountryCode] = useState(DEFAULT_COUNTRY_PHONE.code);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -39,6 +63,7 @@ export default function RegisterPassengerScreen() {
     firstName: '',
     familyName: '',
     age: '',
+    sexe: '',
     email: '',
     phoneNumber: '',
     password: '',
@@ -54,52 +79,79 @@ export default function RegisterPassengerScreen() {
     ) : null;
 
   const handleRegister = async () => {
+    const selectedCountry = getCountryPhoneOption(phoneCountryCode);
     const newErrors: FieldErrors = {
       firstName: '',
       familyName: '',
       age: '',
+      sexe: '',
       email: '',
       phoneNumber: '',
       password: '',
       confirmPassword: '',
     };
 
-// First Name
-if (!firstName.trim()) {
-  newErrors.firstName = 'First name is required.';
-} else if (!/^[a-zA-ZÀ-ÿ\s'-]+$/.test(firstName.trim())) {
-  newErrors.firstName = 'First name must contain letters only.';
-} else if (firstName.trim().length < 3) {
-  newErrors.firstName = 'First name must be at least 3 characters.';
-}
+    if (!firstName.trim()) {
+      newErrors.firstName = 'First name is required.';
+    } else if (!/^[a-zA-ZÀ-ÿ\s'-]+$/.test(firstName.trim())) {
+      newErrors.firstName = 'First name must contain letters only.';
+    } else if (firstName.trim().length < 3) {
+      newErrors.firstName = 'First name must be at least 3 characters.';
+    }
 
-// Family Name
-if (!familyName.trim()) {
-  newErrors.familyName = 'Family name is required.';
-} else if (!/^[a-zA-ZÀ-ÿ\s'-]+$/.test(familyName.trim())) {
-  newErrors.familyName = 'Family name must contain letters only.';
-} else if (familyName.trim().length < 3) {
-  newErrors.familyName = 'Family name must be at least 3 characters.';
-}
+    if (!familyName.trim()) {
+      newErrors.familyName = 'Family name is required.';
+    } else if (!/^[a-zA-ZÀ-ÿ\s'-]+$/.test(familyName.trim())) {
+      newErrors.familyName = 'Family name must contain letters only.';
+    } else if (familyName.trim().length < 3) {
+      newErrors.familyName = 'Family name must be at least 3 characters.';
+    }
 
     if (!age.trim()) {
       newErrors.age = 'Age is required.';
-    } else if (parseInt(age) < 17) {
-      newErrors.age = 'You must be at least 17 years old to register.';
+    } else if (parseInt(age, 10) < 18) {
+      newErrors.age = 'You must be at least 18 years old to register.';
+    } else if (parseInt(age, 10) > 100) {
+      newErrors.age = 'Age must be 100 or less.';
+    }
+
+    if (!sexe.trim()) {
+      newErrors.sexe = 'Gender is required.';
+    } else if (!['male', 'female'].includes(sexe.trim().toLowerCase())) {
+      newErrors.sexe = 'Gender must be "Male" or "Female".';
     }
 
     if (!email.trim()) {
       newErrors.email = 'Email is required.';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       newErrors.email = 'Invalid email format.';
+    } else {
+      try {
+        await api.post('/auth/check-email', {
+          email: email.trim().toLowerCase(),
+        });
+      } catch (err: any) {
+        if (err.response?.status === 409) {
+          newErrors.email =
+            err.response?.data?.message || 'This email is already in use.';
+        }
+      }
     }
 
-    // Phone — 10 digits, starts with 05/06/07
-    if (!phoneNumber.trim()) {
-      newErrors.phoneNumber = "Phone number is required.";
-    } else if (!/^(05|06|07)\d{8}$/.test(phoneNumber.replace(/\s+/g, ""))) {
-      newErrors.phoneNumber =
-        "Phone must be 10 digits and start with 05, 06, or 07.";
+    newErrors.phoneNumber = validatePhoneNumberForCountry(phoneNumber, selectedCountry);
+
+    if (!newErrors.phoneNumber) {
+      try {
+        await api.post('/auth/check-phone', {
+          phoneNumber: buildInternationalPhoneNumber(phoneNumber, selectedCountry),
+          role: 'passenger',
+        });
+      } catch (err: any) {
+        if (err.response?.status === 409) {
+          newErrors.phoneNumber =
+            err.response?.data?.message || 'This phone number is already in use.';
+        }
+      }
     }
 
     if (!password) {
@@ -125,26 +177,26 @@ if (!familyName.trim()) {
       firstName,
       familyName,
       age,
+      sexe,
       phoneNumber,
+      phoneCountryCode,
     });
 
     if (result.success) {
-  router.replace('./../../../passenger/HomeScreen');
+      router.replace('./../../../(passengerTabs)/PassengerHomeScreen');
     }
   };
 
   return (
     <>
-      <Stack.Screen options={{ title: 'Create Account' }} />
+      <Stack.Screen options={{ title: 'Sign Up' }} />
       <ScrollView className="flex-1 bg-white">
         <View className="px-6 py-8">
-          {/* Header */}
           <View className="mb-10">
-            <Text className="text-3xl font-bold text-black mb-2">Register as Passenger</Text>
+            <Text className="text-3xl font-bold text-black mb-2">Sign Up as Passenger</Text>
             <Text className="text-gray-500">Fill in your details to get started</Text>
           </View>
 
-          {/* First Name */}
           <View className="mb-4">
             <Text className="text-sm font-medium text-black mb-2">First Name</Text>
             <TextInput
@@ -157,7 +209,6 @@ if (!familyName.trim()) {
             <ErrorText field="firstName" />
           </View>
 
-          {/* Family Name */}
           <View className="mb-4">
             <Text className="text-sm font-medium text-black mb-2">Family Name</Text>
             <TextInput
@@ -170,21 +221,68 @@ if (!familyName.trim()) {
             <ErrorText field="familyName" />
           </View>
 
-          {/* Age */}
           <View className="mb-4">
             <Text className="text-sm font-medium text-black mb-2">Age</Text>
             <TextInput
               value={age}
-              onChangeText={(v) => { setAge(v); setErrors((p) => ({ ...p, age: '' })); }}
+              onChangeText={(v) => {
+                const digits = v.replace(/\D/g, '');
+                if (AGE_INPUT_REGEX.test(digits)) {
+                  setAge(digits);
+                  setErrors((p) => ({ ...p, age: '' }));
+                }
+              }}
               placeholder="25"
               keyboardType="numeric"
+              maxLength={2}
               className={`bg-gray-50 border ${inputBorder('age')} rounded-xl px-4 py-4 text-base`}
               placeholderTextColor="#9CA3AF"
             />
             <ErrorText field="age" />
           </View>
 
-          {/* Email */}
+          <View className="mb-4">
+            <Text className="text-sm font-medium text-black mb-2">Gender</Text>
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              {['Male', 'Female'].map((option) => {
+                const isSelected = sexe === option;
+                return (
+                  <TouchableOpacity
+                    key={option}
+                    activeOpacity={0.85}
+                    onPress={() => {
+                      setSexe(option);
+                      setErrors((p) => ({ ...p, sexe: '' }));
+                    }}
+                    style={{
+                      flex: 1,
+                      height: 56,
+                      borderRadius: 16,
+                      borderWidth: 1,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: isSelected ? '#111111' : '#F9FAFB',
+                      borderColor: errors.sexe
+                        ? '#F87171'
+                        : isSelected
+                          ? '#111111'
+                          : '#E5E7EB',
+                    }}>
+                    <Text
+                      style={{
+                        fontSize: 16,
+                        fontWeight: '600',
+                        color: isSelected ? '#FFFFFF' : '#111827',
+                      }}>
+                      {option}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+            <ErrorText field="sexe" />
+          </View>
+
           <View className="mb-4">
             <Text className="text-sm font-medium text-black mb-2">Email</Text>
             <TextInput
@@ -199,28 +297,45 @@ if (!familyName.trim()) {
             <ErrorText field="email" />
           </View>
 
-          {/* Phone Number */}
           <View className="mb-4">
             <Text className="text-sm font-medium text-black mb-2">Phone Number</Text>
-            <TextInput
-              value={phoneNumber}
-              onChangeText={(v) => { setPhoneNumber(v); setErrors((p) => ({ ...p, phoneNumber: '' })); }}
-              placeholder="+213 XXX XXX XXX"
-              keyboardType="phone-pad"
-              className={`bg-gray-50 border ${inputBorder('phoneNumber')} rounded-xl px-4 py-4 text-base`}
-              placeholderTextColor="#9CA3AF"
-            />
+            <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'nowrap' }}>
+              <View style={{ marginRight: 12 }}>
+                <CountryCodePicker
+                  value={phoneCountryCode}
+                  onChange={(code) => {
+                    setPhoneCountryCode(code);
+                    setPhoneNumber((current) =>
+                      normalizeLocalPhoneNumber(current, getCountryPhoneOption(code)),
+                    );
+                    setErrors((p) => ({ ...p, phoneNumber: '' }));
+                  }}
+                  hasError={!!errors.phoneNumber}
+                />
+              </View>
+              <TextInput
+                value={phoneNumber}
+                onChangeText={(v) => {
+                  setPhoneNumber(normalizeLocalPhoneNumber(v, getCountryPhoneOption(phoneCountryCode)));
+                  setErrors((p) => ({ ...p, phoneNumber: '' }));
+                }}
+                placeholder={getCountryPhoneOption(phoneCountryCode).placeholder}
+                keyboardType="phone-pad"
+                className={`flex-1 bg-gray-50 border ${inputBorder('phoneNumber')} rounded-xl px-4 py-4 text-base`}
+                placeholderTextColor="#9CA3AF"
+                style={{ flex: 1, minWidth: 0 }}
+              />
+            </View>
             <ErrorText field="phoneNumber" />
           </View>
 
-          {/* Password */}
           <View className="mb-4">
             <Text className="text-sm font-medium text-black mb-2">Password</Text>
             <View className={`flex-row items-center bg-gray-50 border ${inputBorder('password')} rounded-xl px-4`}>
               <TextInput
                 value={password}
                 onChangeText={(v) => { setPassword(v); setErrors((p) => ({ ...p, password: '' })); }}
-                placeholder="••••••••"
+                placeholder="********"
                 secureTextEntry={!showPassword}
                 className="flex-1 py-4 text-base"
                 placeholderTextColor="#9CA3AF"
@@ -230,16 +345,16 @@ if (!familyName.trim()) {
               </TouchableOpacity>
             </View>
             <ErrorText field="password" />
+            <PasswordValidation password={password} />
           </View>
 
-          {/* Confirm Password */}
           <View className="mb-8">
             <Text className="text-sm font-medium text-black mb-2">Confirm Password</Text>
             <View className={`flex-row items-center bg-gray-50 border ${inputBorder('confirmPassword')} rounded-xl px-4`}>
               <TextInput
                 value={confirmPassword}
                 onChangeText={(v) => { setConfirmPassword(v); setErrors((p) => ({ ...p, confirmPassword: '' })); }}
-                placeholder="••••••••"
+                placeholder="********"
                 secureTextEntry={!showConfirmPassword}
                 className="flex-1 py-4 text-base"
                 placeholderTextColor="#9CA3AF"
@@ -251,17 +366,15 @@ if (!familyName.trim()) {
             <ErrorText field="confirmPassword" />
           </View>
 
-          {/* Submit */}
           <TouchableOpacity
             onPress={handleRegister}
             disabled={loading}
             className={`rounded-xl py-5 items-center mb-4 ${loading ? 'bg-gray-400' : 'bg-black'}`}>
             <Text className="text-white text-base font-semibold">
-              {loading ? 'Creating account...' : 'Create Account'}
+              {loading ? 'Signing up...' : 'Sign Up'}
             </Text>
           </TouchableOpacity>
 
-          {/* Login Link */}
           <View className="flex-row justify-center">
             <Text className="text-gray-600">Already have an account? </Text>
             <TouchableOpacity onPress={() => router.push('./LoginPassengerScreen')}>

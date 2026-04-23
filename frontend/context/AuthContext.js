@@ -33,6 +33,19 @@ const isTokenExpired = (token) => {
   return decoded.exp * 1000 < Date.now();
 };
 
+const getAuthErrorMessage = (error, fallbackMessage) =>
+  error.response?.data?.message || error.message || fallbackMessage;
+
+const logUnexpectedAuthError = (context, error) => {
+  const status = error?.response?.status;
+
+  if (status && status < 500) {
+    return;
+  }
+
+  console.error(context, error);
+};
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -112,10 +125,10 @@ export const AuthProvider = ({ children }) => {
 
       return { success: true };
     } catch (err) {
-      console.error("Login error:", err);
+      logUnexpectedAuthError("Driver login error:", err);
       return {
         success: false,
-        message: err.response?.data?.message || err.message || "Login failed",
+        message: getAuthErrorMessage(err, "Login failed"),
       };
     } finally {
       setLoading(false);
@@ -145,6 +158,7 @@ export const AuthProvider = ({ children }) => {
         passengerId: passenger.id,
         firstName: passenger.prenom,
         familyName: passenger.nom,
+        sexe: passenger.sexe,
         age: passenger.age,
         numTel: passenger.numTel,
         email: passenger.email,
@@ -156,11 +170,10 @@ export const AuthProvider = ({ children }) => {
 
       return { success: true };
     } catch (error) {
-      console.error("Login error:", error);
+      logUnexpectedAuthError("Passenger login error:", error);
       return {
         success: false,
-        message:
-          error.response?.data?.message || error.message || "Login failed",
+        message: getAuthErrorMessage(error, "Login failed"),
       };
     } finally {
       setLoading(false);
@@ -233,6 +246,7 @@ export const AuthProvider = ({ children }) => {
         passengerId: newPassenger.id,
         firstName: newPassenger.prenom,
         familyName: newPassenger.nom,
+        sexe: newPassenger.sexe,
         email: newPassenger.email,
         age: newPassenger.age,
         numTel: newPassenger.numTel,

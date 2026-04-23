@@ -25,7 +25,7 @@ export default function DriverHome() {
               Driver
             </Text>
             <Text className="text-gray-600 text-base">
-              Access your driver account
+              Sign in or create an account
             </Text>
           </View>
 
@@ -35,7 +35,7 @@ export default function DriverHome() {
               className="bg-black rounded-2xl py-5 mb-4"
             >
               <Text className="text-white text-center text-lg font-semibold">
-                Login
+                Sign In
               </Text>
             </TouchableOpacity>
 
@@ -44,14 +44,14 @@ export default function DriverHome() {
               className="bg-white border-2 border-gray-300 rounded-2xl py-5"
             >
               <Text className="text-black text-center text-lg font-semibold">
-                Register as Driver
+                Sign Up
               </Text>
             </TouchableOpacity>
           </View>
 
           <View className="mt-8">
             <Text className="text-center text-gray-500 text-sm">
-              Want to earn money? Register and start driving
+              Want to earn money? Sign up and start driving
             </Text>
           </View>
         </View>

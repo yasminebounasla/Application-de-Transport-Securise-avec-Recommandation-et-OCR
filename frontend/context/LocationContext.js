@@ -11,33 +11,55 @@ export const LocationProvider = ({ children }) => {
   const [endAddress, setEndAddress] = useState(null);
 
   useEffect(() => {
+    let mounted = true;
+    let locationSubscription = null;
+
+    const setFallbackLocation = async () => {
+      try {
+        const last = await Location.getLastKnownPositionAsync();
+        if (last && mounted) {
+          setCurrentLocation(last.coords);
+          setStartLocation((prev) => prev || last.coords);
+          return;
+        }
+      } catch (e) {}
+
+      if (mounted) {
+        const defaultLocation = { latitude: 36.7538, longitude: 3.0588 };
+        setCurrentLocation(defaultLocation);
+        setStartLocation((prev) => prev || defaultLocation);
+      }
+    };
+
     (async () => {
       try {
-        // ✅ Essaie getCurrentLocation
         const loc = await getCurrentLocation();
-        setCurrentLocation(loc);
-        setStartLocation(loc);
+        if (mounted) {
+          setCurrentLocation(loc);
+          setStartLocation((prev) => prev || loc);
+        }
+
+        locationSubscription = await Location.watchPositionAsync(
+          {
+            accuracy: Location.Accuracy.High,
+            timeInterval: 2000,
+            distanceInterval: 5,
+          },
+          (position) => {
+            if (!mounted) return;
+            setCurrentLocation(position.coords);
+          },
+        );
       } catch (error) {
         console.warn("GPS unavailable, trying last known position...", error);
-        try {
-          // ✅ Fallback : dernière position connue
-          const last = await Location.getLastKnownPositionAsync();
-          if (last) {
-            setCurrentLocation(last.coords);
-            setStartLocation(last.coords);
-          } else {
-            // ✅ Fallback final : Alger par défaut
-            const defaultLocation = { latitude: 36.7538, longitude: 3.0588 };
-            setCurrentLocation(defaultLocation);
-            setStartLocation(defaultLocation);
-          }
-        } catch (e) {
-          const defaultLocation = { latitude: 36.7538, longitude: 3.0588 };
-          setCurrentLocation(defaultLocation);
-          setStartLocation(defaultLocation);
-        }
+        await setFallbackLocation();
       }
     })();
+
+    return () => {
+      mounted = false;
+      locationSubscription?.remove?.();
+    };
   }, []);
 
   return (

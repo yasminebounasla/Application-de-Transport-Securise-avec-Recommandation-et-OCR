@@ -1,18 +1,20 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, StatusBar, Image, ActivityIndicator,
+  StyleSheet, StatusBar, ActivityIndicator,
 } from 'react-native';
-import { Stack, useFocusEffect, router } from 'expo-router';
+import { Stack, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useNotifications } from '../../context/NotificationContext';
 import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
+import UserAvatar from '../../components/UserAvatar';
 
 type Notification = {
+  id?: number;
   title: string;
   message: string;
-  timestamp?: number;
+  timestamp: number;
   isRead?: boolean;
   photoUrl?: string;
   prenom?: string;
@@ -22,71 +24,60 @@ type Notification = {
 };
 
 const getRelativeTime = (timestamp: number) => {
-  const diff  = Date.now() - timestamp;
-  const mins  = Math.floor(diff / 60000);
+  const diff = Date.now() - timestamp;
+  const mins = Math.floor(diff / 60000);
   const hours = Math.floor(diff / 3600000);
-  const days  = Math.floor(diff / 86400000);
-  if (mins < 1)   return 'Just now';
-  if (mins < 60)  return `${mins}m ago`;
+  const days = Math.floor(diff / 86400000);
+  if (mins < 1) return 'Just now';
+  if (mins < 60) return `${mins}m ago`;
   if (hours < 24) return `${hours}h ago`;
   return `${days}d ago`;
 };
 
 const TYPE_CONFIG: Record<string, { accent: string; icon: any }> = {
-  RIDE_ACCEPTED:  { accent: '#22C55E', icon: 'checkmark-circle-outline' },
-  RIDE_REJECTED:  { accent: '#EF4444', icon: 'close-circle-outline'     },
-  RIDE_CANCELLED: { accent: '#EF4444', icon: 'ban-outline'              },
-  RIDE_STARTED:   { accent: '#3B82F6', icon: 'navigate-outline'         },
-  RIDE_COMPLETED: { accent: '#8B5CF6', icon: 'flag-outline'             },
-  RIDE_REQUEST:   { accent: '#3B82F6', icon: 'car-outline'              },
-  RIDE_TAKEN:     { accent: '#F59E0B', icon: 'alert-circle-outline'     },
-  NEW_FEEDBACK:   { accent: '#8B5CF6', icon: 'star-outline'             },
+  RIDE_ACCEPTED: { accent: '#22C55E', icon: 'checkmark-circle-outline' },
+  RIDE_REJECTED: { accent: '#EF4444', icon: 'close-circle-outline' },
+  RIDE_CANCELLED: { accent: '#EF4444', icon: 'ban-outline' },
+  RIDE_STARTED: { accent: '#3B82F6', icon: 'navigate-outline' },
+  RIDE_COMPLETED: { accent: '#8B5CF6', icon: 'flag-outline' },
+  RIDE_REQUEST: { accent: '#3B82F6', icon: 'car-outline' },
+  RIDE_TAKEN: { accent: '#F59E0B', icon: 'alert-circle-outline' },
+  NEW_FEEDBACK: { accent: '#8B5CF6', icon: 'star-outline' },
 };
 const DEFAULT_CFG = { accent: '#9CA3AF', icon: 'notifications-outline' };
 const getCfg = (type?: string) => TYPE_CONFIG[type ?? ''] ?? DEFAULT_CFG;
 
 const statusToTab = (status: string) => {
   switch (status) {
-    case 'PENDING':                return 'pending';
+    case 'PENDING': return 'pending';
     case 'ACCEPTED':
-    case 'IN_PROGRESS':            return 'active';
-    case 'COMPLETED':              return 'completed';
+    case 'IN_PROGRESS': return 'accepted';
+    case 'COMPLETED': return 'completed';
     case 'CANCELLED_BY_PASSENGER':
-    case 'CANCELLED_BY_DRIVER':    return 'cancelled';
-    default:                       return 'pending';
+    case 'CANCELLED_BY_DRIVER': return 'cancelled';
+    default: return 'pending';
   }
 };
 
 export default function NotificationsScreen() {
-  const { notifications, clearNotifications, markAllAsRead } = useNotifications();
+  const { notifications, clearNotifications, markAsRead } = useNotifications();
   const { user } = useAuth();
-  const [newNotifs, setNewNotifs] = useState<Notification[]>([]);
-  const [oldNotifs, setOldNotifs] = useState<Notification[]>([]);
   const [loadingId, setLoadingId] = useState<number | null>(null);
-  const snapshotDone = useRef(false);
 
-  useFocusEffect(useCallback(() => {
-    snapshotDone.current = false;
-    return () => { snapshotDone.current = false; };
-  }, []));
-
-  useFocusEffect(useCallback(() => {
-    if (snapshotDone.current || notifications.length === 0) return;
-    snapshotDone.current = true;
-    const unread = notifications.filter(n => n.isRead === false);
-    const read   = notifications.filter(n => n.isRead !== false);
-    setNewNotifs(unread);
-    setOldNotifs(read);
-    if (unread.length > 0) markAllAsRead();
-  }, [notifications, markAllAsRead]));
+  const newNotifs = useMemo(() => notifications.filter((n) => n.isRead === false), [notifications]);
+  const oldNotifs = useMemo(() => notifications.filter((n) => n.isRead !== false), [notifications]);
 
   const handlePress = async (notif: Notification) => {
     if (!notif.rideId) return;
     setLoadingId(notif.rideId);
     try {
-      const res    = await api.get(`/rides/${notif.rideId}`);
+      if (notif.isRead === false) {
+        // Mark only the clicked notification as read (do not mark all).
+        markAsRead(notif);
+      }
+      const res = await api.get(`/rides/${notif.rideId}`);
       const status = res?.data?.data?.status ?? res?.data?.status ?? '';
-      const route  = user?.role === 'driver' ? '/(driverTabs)/Activity' : '/(passengerTabs)/Activity';
+      const route = user?.role === 'driver' ? '/(driverTabs)/Activity' : '/(passengerTabs)/Activity';
       router.push({ pathname: route as any, params: { rideId: String(notif.rideId), tab: statusToTab(status) } });
     } catch {
       const route = user?.role === 'driver' ? '/(driverTabs)/Activity' : '/(passengerTabs)/Activity';
@@ -97,9 +88,8 @@ export default function NotificationsScreen() {
   };
 
   const renderNotif = (notif: Notification, i: number, isNew: boolean) => {
-    const cfg      = getCfg(notif.type);
+    const cfg = getCfg(notif.type);
     const tappable = !!notif.rideId;
-    const initials = `${notif.prenom?.[0] ?? ''}${notif.nom?.[0] ?? ''}`.toUpperCase();
 
     return (
       <TouchableOpacity
@@ -113,14 +103,16 @@ export default function NotificationsScreen() {
         <View style={[st.accentBar, { backgroundColor: isNew ? '#EF4444' : 'transparent' }]} />
 
         {/* avatar */}
-        <View style={[st.avatar, { backgroundColor: cfg.accent + '20' }]}>
-          {notif.photoUrl
-            ? <Image source={{ uri: notif.photoUrl }} style={st.avatarImg} />
-            : initials
-              ? <Text style={[st.initials, { color: cfg.accent }]}>{initials}</Text>
-              : <Ionicons name={cfg.icon} size={20} color={cfg.accent} />
-          }
-        </View>
+        <UserAvatar
+          prenom={notif.prenom}
+          nom={notif.nom}
+          photoUrl={notif.photoUrl}
+          size={44}
+          backgroundColor={cfg.accent + '20'}
+          textColor={cfg.accent}
+          style={st.avatar}
+          fallback={<Ionicons name={cfg.icon} size={20} color={cfg.accent} />}
+        />
 
         {/* content */}
         <View style={st.content}>
@@ -162,7 +154,7 @@ export default function NotificationsScreen() {
             </Text>
           </View>
           {!allEmpty && (
-            <TouchableOpacity style={st.clearBtn} onPress={() => { clearNotifications(); setNewNotifs([]); setOldNotifs([]); }}>
+            <TouchableOpacity style={st.clearBtn} onPress={() => { clearNotifications(); }}>
               <Text style={st.clearTxt}>Clear all</Text>
             </TouchableOpacity>
           )}
@@ -218,14 +210,14 @@ const st = StyleSheet.create({
     borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
   },
   headerTitle: { fontSize: 22, fontWeight: '800', color: '#111', letterSpacing: -0.4 },
-  headerSub:   { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
-  clearBtn:    { backgroundColor: '#F3F4F6', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7 },
-  clearTxt:    { fontSize: 12, fontWeight: '600', color: '#6B7280' },
+  headerSub: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
+  clearBtn: { backgroundColor: '#F3F4F6', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 7 },
+  clearTxt: { fontSize: 12, fontWeight: '600', color: '#6B7280' },
 
-  section:    { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 8 },
+  section: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 20, paddingTop: 20, paddingBottom: 8 },
   sectionDot: { width: 6, height: 6, borderRadius: 3 },
   sectionTxt: { fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.8 },
-  sectionLine:{ flex: 1, height: 1, backgroundColor: '#E5E7EB' },
+  sectionLine: { flex: 1, height: 1, backgroundColor: '#E5E7EB' },
 
   // new = white card, old = flat on gray bg
   row: {
@@ -239,23 +231,21 @@ const st = StyleSheet.create({
 
   accentBar: { position: 'absolute', left: 0, top: 10, bottom: 10, width: 3, borderRadius: 2 },
 
-  avatar:    { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-  avatarImg: { width: 44, height: 44, borderRadius: 22 },
-  initials:  { fontSize: 15, fontWeight: '700' },
+  avatar: { justifyContent: 'center', alignItems: 'center', marginRight: 12 },
 
   content: { flex: 1 },
-  topRow:  { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 },
-  title:   { fontSize: 13, fontWeight: '700', color: '#111', flex: 1, marginRight: 8 },
-  titleOld:{ color: '#6B7280' },
-  time:    { fontSize: 11, color: '#C4C4C4' },
-  msg:     { fontSize: 12, color: '#6B7280', lineHeight: 17 },
-  tapRow:  { marginTop: 5, height: 16 },
+  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 3 },
+  title: { fontSize: 13, fontWeight: '700', color: '#111', flex: 1, marginRight: 8 },
+  titleOld: { color: '#6B7280' },
+  time: { fontSize: 11, color: '#C4C4C4' },
+  msg: { fontSize: 12, color: '#6B7280', lineHeight: 17 },
+  tapRow: { marginTop: 5, height: 16 },
   tapHint: { fontSize: 11, fontWeight: '700' },
 
   unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#EF4444', marginLeft: 8 },
 
-  empty:       { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 8, paddingBottom: 80 },
+  empty: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 8, paddingBottom: 80 },
   emptyCircle: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', marginBottom: 4 },
-  emptyTitle:  { fontSize: 16, fontWeight: '700', color: '#374151' },
-  emptySub:    { fontSize: 13, color: '#9CA3AF', textAlign: 'center', paddingHorizontal: 50 },
+  emptyTitle: { fontSize: 16, fontWeight: '700', color: '#374151' },
+  emptySub: { fontSize: 13, color: '#9CA3AF', textAlign: 'center', paddingHorizontal: 50 },
 });

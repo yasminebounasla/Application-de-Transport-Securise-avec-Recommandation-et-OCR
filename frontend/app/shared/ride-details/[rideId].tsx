@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator, Alert, ScrollView, StyleSheet,
-  Text, TouchableOpacity, View,Linking,
+  Text, TouchableOpacity, View, Linking, Image,
 } from 'react-native';
 import { Stack, useLocalSearchParams } from 'expo-router';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -9,6 +9,7 @@ import api from '../../../services/api';
 import { useAuth } from '../../../context/AuthContext';
 import { useRide } from '../../../context/RideContext';
 import { formatDuration, formatDistance } from '../../../utils/formatUtils';
+import { formatPhoneNumberForDisplay, getCallablePhoneNumber } from '../../../utils/phoneNumber';
 
 const FALLBACK = '—';
 
@@ -29,12 +30,15 @@ function getAvatarColor(sexe?: string) {
   return { bg: '#d3e4fa', text: '#1B72DA' };
 }
 
-function Avatar({ prenom, nom, sexe, size = 52 }: { prenom?: string; nom?: string; sexe?: string; size?: number }) {
+function Avatar({ prenom, nom, sexe, photoUrl, size = 52 }: { prenom?: string; nom?: string; sexe?: string; photoUrl?: string; size?: number }) {
   const initials = `${prenom?.[0] ?? ''}${nom?.[0] ?? ''}`.toUpperCase() || '?';
   const colors   = getAvatarColor(sexe);
   return (
     <View style={[d.avatar, { width: size, height: size, borderRadius: size / 2, backgroundColor: colors.bg }]}>
-      <Text style={[d.avatarText, { color: colors.text, fontSize: size * 0.3 }]}>{initials}</Text>
+      {photoUrl
+        ? <Image source={{ uri: photoUrl }} style={d.avatarImg} />
+        : <Text style={[d.avatarText, { color: colors.text, fontSize: size * 0.3 }]}>{initials}</Text>
+      }
     </View>
   );
 }
@@ -127,7 +131,13 @@ export default function RideDetailsScreen() {
   const end          = ride?.endAddress   || ride?.destination || FALLBACK;
   const price        = typeof ride?.prix === 'number' ? ride.prix : Number(ride?.prix) || 0;
   const contactName  = contact ? `${contact.prenom || ''} ${contact.nom || ''}`.trim() : FALLBACK;
-  const contactPhone = contact?.numTel ? String(contact.numTel) : FALLBACK;
+  const contactPhoneRaw = contact?.numTel ? String(contact.numTel) : FALLBACK;
+  const contactPhone = contactPhoneRaw !== FALLBACK
+    ? formatPhoneNumberForDisplay(contactPhoneRaw)
+    : FALLBACK;
+  const callableContactPhone = contactPhoneRaw !== FALLBACK
+    ? getCallablePhoneNumber(contactPhoneRaw)
+    : FALLBACK;
 
   const canCancel = isPassenger && ['PENDING', 'ACCEPTED', 'IN_PROGRESS'].includes(rawStatus);
   const canReview = isDriver    && rawStatus === 'PENDING';
@@ -192,13 +202,13 @@ export default function RideDetailsScreen() {
       {/* ── HERO ── */}
       <View style={d.hero}>
         <View style={d.heroLeft}>
-          <Avatar prenom={contact?.prenom} nom={contact?.nom} sexe={contact?.sexe} size={52} />
+          <Avatar prenom={contact?.prenom} nom={contact?.nom} sexe={contact?.sexe} photoUrl={contact?.photoUrl} size={52} />
           <View style={{ flex: 1 }}>
             <Text style={d.heroName} numberOfLines={1}>{contactName}</Text>
             <Text style={d.heroRole}>{isPassenger ? 'Driver' : 'Passenger'}</Text>
             {contactPhone !== FALLBACK && (
               <TouchableOpacity
-                onPress={() => Linking.openURL(`tel:${contactPhone}`)}
+                onPress={() => Linking.openURL(`tel:${callableContactPhone}`)}
                 style={{ flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 }}
                 activeOpacity={0.7}
               >
@@ -316,7 +326,8 @@ const d = StyleSheet.create({
 
   hero:      { backgroundColor: '#fff', borderRadius: 16, padding: 14, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', borderWidth: 1.5, borderColor: '#F3F4F6', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 3, elevation: 1 },
   heroLeft:  { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
-  avatar:    { alignItems: 'center', justifyContent: 'center' },
+  avatar:    { alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  avatarImg: { width: '100%', height: '100%' },
   avatarText:{ fontWeight: '800' },
   heroName:  { fontSize: 16, fontWeight: '800', color: '#111' },
   heroRole:  { fontSize: 12, color: '#9CA3AF', fontWeight: '500' },

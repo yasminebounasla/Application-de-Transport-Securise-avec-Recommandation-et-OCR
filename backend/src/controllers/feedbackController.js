@@ -45,7 +45,17 @@ export const submitFeedback = async (req, res) => {
       const message       = `${passengerName} vous a donné une note de ${rating}/5.`;
 
       io.to(`driver_${trajet.driverId}`).emit('newFeedback', {
-        trajetId: trajet.id, rating, comment, passengerName, title, message,
+        trajetId: trajet.id,
+        rating,
+        comment,
+        passengerName,
+        passenger: {
+          prenom: trajet.passenger?.prenom,
+          nom: trajet.passenger?.nom,
+          photoUrl: trajet.passenger?.photoUrl,
+        },
+        title,
+        message,
       });
 
       await createNotification({
@@ -57,7 +67,7 @@ export const submitFeedback = async (req, res) => {
         data: {
           rideId:    trajet.id,
           rating,
-          passenger: { prenom: trajet.passenger.prenom, nom: trajet.passenger.nom },
+          passenger: { prenom: trajet.passenger.prenom, nom: trajet.passenger.nom, photoUrl: trajet.passenger.photoUrl },
         },
       });
 

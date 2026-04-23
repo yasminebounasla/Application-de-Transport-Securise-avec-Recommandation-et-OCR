@@ -14,6 +14,7 @@ import { router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
+import { formatPhoneNumberForDisplay } from "../../utils/phoneNumber";
 
 interface Vehicule {
   marque: string;
@@ -369,7 +370,7 @@ export default function DriverProfileScreen() {
             value={profile.prenom}
           />
           <InfoRow
-            icon='person-outline'
+            icon='people-outline'
             label='Last Name'
             value={profile.nom}
           />
@@ -380,9 +381,9 @@ export default function DriverProfileScreen() {
             last
           />
           <InfoRow icon='mail-outline' label='Email' value={profile.email} />
-          <InfoRow icon='call-outline' label='Phone' value={profile.numTel} />
+          <InfoRow icon='call-outline' label='Phone' value={formatPhoneNumberForDisplay(profile.numTel)} />
           <InfoRow
-            icon='calendar-outline'
+            icon='accessibility-outline'
             label='Age'
             value={profile.age?.toString()}
           />

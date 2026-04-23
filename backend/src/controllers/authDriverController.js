@@ -24,19 +24,32 @@ export const registerDriver = async (req, res) => {
       return res.status(400).json({ message: "Passwords do not match." });
     }
 
-    if (age < 17) {
+    if (age < 18) {
       return res
         .status(400)
-        .json({ message: "You must be at least 17 years old to register." });
+        .json({ message: "You must be at least 18 years old to register." });
     }
 
-    const existingDriver = await prisma.driver.findUnique({
-      where: { email: email.trim().toLowerCase() },
+    if (age > 100) {
+      return res
+        .status(400)
+        .json({ message: "Age must be 100 or less." });
+    }
+
+    const existingDriver = await prisma.driver.findFirst({
+      where: {
+        email: {
+          equals: email.trim(),
+          mode: "insensitive",
+        },
+      },
     });
 
     if (existingDriver) {
       return res.status(400).json({ message: "Driver already registered." });
     }
+
+    // Phone numbers are not required to be unique; allow duplicates.
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -88,8 +101,14 @@ export const loginDriver = async (req, res) => {
 
   try {
     const { accessSecret, refreshSecret } = getJwtSecrets();
-    const driver = await prisma.driver.findUnique({
-      where: { email: email.trim().toLowerCase() },
+    const normalizedEmail = email?.trim();
+    const driver = await prisma.driver.findFirst({
+      where: {
+        email: {
+          equals: normalizedEmail,
+          mode: "insensitive",
+        },
+      },
     });
 
     if (!driver) {
@@ -123,6 +142,52 @@ export const loginDriver = async (req, res) => {
       message: "Failed to Login",
       error: err.message,
     });
+  }
+};
+
+export const validateDriverLogin = async (req, res) => {
+  const { email, password } = req.body;
+
+  try {
+    const normalizedEmail = email?.trim();
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+    if (!normalizedEmail) {
+      return res.status(400).json({ message: "Email is required." });
+    }
+
+    if (!emailRegex.test(normalizedEmail)) {
+      return res.status(400).json({ message: "Invalid email format" });
+    }
+
+    if (!password) {
+      return res.status(400).json({ message: "Password is required." });
+    }
+
+    const driver = await prisma.driver.findFirst({
+      where: {
+        email: {
+          equals: normalizedEmail,
+          mode: "insensitive",
+        },
+      },
+    });
+
+    if (!driver) {
+      return res.status(400).json({ message: "Driver not found." });
+    }
+
+    const validPassword = await bcrypt.compare(password, driver.password);
+    if (!validPassword) {
+      return res.status(400).json({ message: "Invalid password" });
+    }
+
+    return res.status(200).json({ message: "Credentials are valid." });
+  } catch (err) {
+    console.error("Driver credential validation error:", err);
+    return res
+      .status(500)
+      .json({ message: "Failed to validate driver credentials." });
   }
 };
 
@@ -197,20 +262,59 @@ export const checkEmailExists = async (req, res) => {
   const { email } = req.body;
 
   try {
-    const driverExists = await prisma.driver.findUnique({
-      where: { email: email.trim().toLowerCase() },
+    console.log('🔍 Checking email:', email);
+    
+    const driverExists = await prisma.driver.findFirst({
+      where: {
+        email: {
+          equals: email.trim(),
+          mode: "insensitive",
+        },
+      },
     });
+    console.log('Driver found:', !!driverExists);
 
-    const passengerExists = await prisma.passenger.findUnique({
-      where: { email: email.trim().toLowerCase() },
+    const passengerExists = await prisma.passenger.findFirst({
+      where: {
+        email: {
+          equals: email.trim(),
+          mode: "insensitive",
+        },
+      },
     });
+    console.log('Passenger found:', !!passengerExists);
 
     if (driverExists || passengerExists) {
+      console.log('❌ Email already exists - returning 409');
       return res.status(409).json({ message: "This email is already in use." });
     }
 
+    console.log('✅ Email available - returning 200');
     return res.status(200).json({ available: true });
   } catch (err) {
+    console.error('❌ Error checking email:', err);
+    return res.status(500).json({ message: "Server error." });
+  }
+};
+
+export const checkPhoneExists = async (req, res) => {
+  const { phoneNumber, role } = req.body;
+
+  try {
+    const normalizedPhone = phoneNumber?.trim();
+
+    if (!normalizedPhone) {
+      return res.status(400).json({ message: "Phone number is required." });
+    }
+
+    if (!["driver", "passenger"].includes(role)) {
+      return res.status(400).json({ message: "Invalid role." });
+    }
+
+    // Phone uniqueness is no longer enforced — always return available
+    return res.status(200).json({ available: true });
+  } catch (err) {
+    console.error("Phone check error:", err);
     return res.status(500).json({ message: "Server error." });
   }
 };
