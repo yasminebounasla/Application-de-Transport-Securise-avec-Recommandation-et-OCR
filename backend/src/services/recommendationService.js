@@ -1,7 +1,83 @@
 import axios from "axios";
+import { prisma } from "../config/prisma.js";
 
 const ML_SERVICE_URL = process.env.ML_SERVICE_URL || "http://localhost:8000";
-const BACKEND_URL    = process.env.BACKEND_URL    || "http://localhost:5000";
+
+const haversineKm = (lat1, lng1, lat2, lng2) => {
+  const R = 6371;
+  const toRad = (d) => (d * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
+
+const selectDriverForReco = {
+  id: true,
+  email: true,
+  nom: true,
+  prenom: true,
+  age: true,
+  numTel: true,
+  sexe: true,
+  talkative: true,
+  radio_on: true,
+  smoking_allowed: true,
+  pets_allowed: true,
+  car_big: true,
+  works_morning: true,
+  works_afternoon: true,
+  works_evening: true,
+  works_night: true,
+  avgRating: true,
+  isVerified: true,
+  latitude: true,
+  longitude: true,
+};
+
+const buildFallbackRecommendations = (drivers = [], trajet = {}, top_n = 5) => {
+  const startLat = trajet?.startLat != null ? Number(trajet.startLat) : null;
+  const startLng = trajet?.startLng != null ? Number(trajet.startLng) : null;
+  const geoAvailable = Number.isFinite(startLat) && Number.isFinite(startLng);
+
+  const scored = (drivers || []).map((d) => {
+    const avgRating = d?.avgRating ?? 4.0;
+    let distanceKm = null;
+
+    if (geoAvailable && d?.latitude != null && d?.longitude != null) {
+      const lat = Number(d.latitude);
+      const lng = Number(d.longitude);
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        distanceKm = haversineKm(lat, lng, startLat, startLng);
+      }
+    }
+
+    return {
+      ...d,
+      ...(distanceKm != null ? { distance_km: Math.round(distanceKm * 10) / 10 } : {}),
+      _scores: {
+        lightfm: 0.5,
+        pref: 0.5,
+        dist: 0.5,
+        work_ok: true,
+        rating: Math.max(0, Math.min(1, (avgRating - 1) / 4)),
+      },
+    };
+  });
+
+  scored.sort((a, b) => {
+    const ra = a?.avgRating ?? 0;
+    const rb = b?.avgRating ?? 0;
+    if (rb !== ra) return rb - ra;
+    const da = a?.distance_km ?? Number.POSITIVE_INFINITY;
+    const db = b?.distance_km ?? Number.POSITIVE_INFINITY;
+    return da - db;
+  });
+
+  return scored.slice(0, top_n);
+};
 
 // ── RECOMMANDATION ────────────────────────────────────────────────────────────
 export const getRecommendations = async (passenger_id, mlPreferences = {}, authToken = null) => {
@@ -25,26 +101,30 @@ export const getRecommendations = async (passenger_id, mlPreferences = {}, authT
   };
 
   try {
-    const authHeaders = {
-      "Content-Type": "application/json",
-      ...(authToken && { Authorization: `Bearer ${authToken}` }),
-    };
+    void authToken;
 
-    const [driversRes, interactionsRes] = await Promise.all([
-      axios.get(`${BACKEND_URL}/api/auth/driver/all`, { headers: authHeaders })
-      .catch(e => { console.error("❌ drivers/all:", e.message, e.response?.status); throw e; }),
-      axios.get(`${BACKEND_URL}/api/passengers/${passenger_id}/driver-interactions`, { headers: authHeaders })
-      .catch(e => { console.error("❌ driver-interactions:", e.message, e.response?.status); throw e; }),
+    const passengerIdNum = Number(passenger_id);
+
+    const [drivers, completedTrajets] = await Promise.all([
+      prisma.driver.findMany({ select: selectDriverForReco }),
+      prisma.trajet.findMany({
+        where: {
+          passagerId: passengerIdNum,
+          status: "COMPLETED",
+          driverId: { not: null },
+        },
+        select: { driverId: true },
+      }),
     ]);
 
-    const payload = {
-      passenger_id,
-      preferences,
-      trajet,
-      top_n,
-      drivers:            driversRes.data?.data     || driversRes.data     || [],
-      interaction_counts: interactionsRes.data?.data || interactionsRes.data || {},
-    };
+    const interaction_counts = {};
+    for (const t of completedTrajets) {
+      if (t?.driverId == null) continue;
+      const key = String(t.driverId);
+      interaction_counts[key] = (interaction_counts[key] || 0) + 1;
+    }
+
+    const payload = { passenger_id, preferences, trajet, top_n, drivers, interaction_counts };
 
     const response = await axios.post(`${ML_SERVICE_URL}/recommend`, payload, {
       timeout: 30000,
@@ -53,7 +133,7 @@ export const getRecommendations = async (passenger_id, mlPreferences = {}, authT
 
     if (!response.data || !Array.isArray(response.data.recommendations)) {
       console.warn("⚠️  Réponse inattendue du ML:", response.data);
-      return [];
+      return buildFallbackRecommendations(drivers, trajet, top_n);
     }
 
     // [FIX] Chaque driver retourné contient driver._scores qui sera sauvegardé
@@ -67,7 +147,15 @@ export const getRecommendations = async (passenger_id, mlPreferences = {}, authT
       status:       error.response?.status,
       responseData: error.response?.data,
     });
-    return [];
+
+    // Fallback : éviter un écran vide si le ML est down.
+    try {
+      const drivers = await prisma.driver.findMany({ select: selectDriverForReco });
+      return buildFallbackRecommendations(drivers, trajet, top_n);
+    } catch (fallbackErr) {
+      console.error("❌ [getRecommendations] Fallback DB échoué:", fallbackErr?.message || fallbackErr);
+      return [];
+    }
   }
 };
 

@@ -3,7 +3,7 @@ import { Stack } from 'expo-router';
 export default function Layout() {
   return (
     <Stack>
-      <Stack.Screen name="EditProfileScreen"
+      <Stack.Screen name="Editprofilescreen"
       options={{
           title: "Edit Profile",
           headerStyle: { backgroundColor: '#ffffff' },
