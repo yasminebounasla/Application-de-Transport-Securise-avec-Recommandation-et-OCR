@@ -5,11 +5,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../../../context/AuthContext';
 import api from '../../../services/api';
 import CountryCodePicker from '../../../components/CountryCodePicker';
-import PasswordValidation from '../../../components/PasswordValidation';
-import {
-  ALLOWED_PASSWORD_SYMBOLS,
-  hasUnsupportedPasswordSymbol,
-} from '../../../utils/passwordValidation';
+import { getPasswordNeedsMessage } from '../../../utils/passwordValidation';
 import {
   buildInternationalPhoneNumber,
   DEFAULT_COUNTRY_PHONE,
@@ -17,20 +13,6 @@ import {
   normalizeLocalPhoneNumber,
   validatePhoneNumberForCountry,
 } from '../../../utils/phoneNumber';
-
-const validatePassword = (password: string) => {
-  if (password.length < 8) return 'Password must be at least 8 characters long.';
-  if (!/[A-Z]/.test(password)) return 'Password must contain at least one uppercase letter.';
-  if (!/[a-z]/.test(password)) return 'Password must contain at least one lowercase letter.';
-  if (!/[0-9]/.test(password)) return 'Password must contain at least one digit.';
-  if (hasUnsupportedPasswordSymbol(password)) {
-    return `Password symbols must be one of these: ${ALLOWED_PASSWORD_SYMBOLS}`;
-  }
-  if (!/[!@#$%&*§]/.test(password)) {
-    return `Password must contain at least one symbol from: ${ALLOWED_PASSWORD_SYMBOLS}`;
-  }
-  return null;
-};
 
 const AGE_INPUT_REGEX = /^$|^\d$|^\d\d$/;
 
@@ -157,8 +139,8 @@ export default function RegisterPassengerScreen() {
     if (!password) {
       newErrors.password = 'Password is required.';
     } else {
-      const passwordError = validatePassword(password);
-      if (passwordError) newErrors.password = passwordError;
+      const passwordNeeds = getPasswordNeedsMessage(password);
+      if (passwordNeeds) newErrors.password = passwordNeeds;
     }
 
     if (!confirmPassword) {
@@ -334,7 +316,13 @@ export default function RegisterPassengerScreen() {
             <View className={`flex-row items-center bg-gray-50 border ${inputBorder('password')} rounded-xl px-4`}>
               <TextInput
                 value={password}
-                onChangeText={(v) => { setPassword(v); setErrors((p) => ({ ...p, password: '' })); }}
+                onChangeText={(v) => {
+                  setPassword(v);
+                  setErrors((p) => ({
+                    ...p,
+                    password: v ? getPasswordNeedsMessage(v) ?? '' : '',
+                  }));
+                }}
                 placeholder="********"
                 secureTextEntry={!showPassword}
                 className="flex-1 py-4 text-base"
@@ -345,7 +333,6 @@ export default function RegisterPassengerScreen() {
               </TouchableOpacity>
             </View>
             <ErrorText field="password" />
-            <PasswordValidation password={password} />
           </View>
 
           <View className="mb-8">

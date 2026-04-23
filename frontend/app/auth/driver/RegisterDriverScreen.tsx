@@ -12,10 +12,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import api from "../../../services/api";
 import ProgressSteps from "../../../components/ProgressSteps";
 import CountryCodePicker from "../../../components/CountryCodePicker";
-import PasswordValidation from "../../../components/PasswordValidation";
 import {
-  ALLOWED_PASSWORD_SYMBOLS,
-  hasUnsupportedPasswordSymbol,
+  getPasswordNeedsMessage,
 } from "../../../utils/passwordValidation";
 import {
   buildInternationalPhoneNumber,
@@ -24,22 +22,6 @@ import {
   normalizeLocalPhoneNumber,
   validatePhoneNumberForCountry,
 } from "../../../utils/phoneNumber";
-
-const validatePassword = (password: string) => {
-  if (password.length < 8)
-    return "Password must be at least 8 characters long.";
-  if (!/[A-Z]/.test(password))
-    return "Password must contain at least one uppercase letter.";
-  if (!/[a-z]/.test(password))
-    return "Password must contain at least one lowercase letter.";
-  if (!/[0-9]/.test(password))
-    return "Password must contain at least one digit.";
-  if (hasUnsupportedPasswordSymbol(password))
-    return `Password symbols must be one of these: ${ALLOWED_PASSWORD_SYMBOLS}`;
-  if (!/[!@#$%&*§]/.test(password))
-    return `Password must contain at least one symbol from: ${ALLOWED_PASSWORD_SYMBOLS}`;
-  return null;
-};
 
 const AGE_INPUT_REGEX = /^$|^\d$|^\d\d$/;
 
@@ -172,8 +154,8 @@ export default function RegisterDriverScreen() {
     if (!password) {
       newErrors.password = "Password is required.";
     } else {
-      const passwordError = validatePassword(password);
-      if (passwordError) newErrors.password = passwordError;
+      const passwordNeeds = getPasswordNeedsMessage(password);
+      if (passwordNeeds) newErrors.password = passwordNeeds;
     }
 
     if (!confirmPassword) {
@@ -391,7 +373,10 @@ export default function RegisterDriverScreen() {
                 value={password}
                 onChangeText={(v) => {
                   setPassword(v);
-                  clearError("password");
+                  setErrors((p) => ({
+                    ...p,
+                    password: v ? getPasswordNeedsMessage(v) ?? "" : "",
+                  }));
                 }}
                 placeholder="********"
                 secureTextEntry={!showPassword}
@@ -406,7 +391,7 @@ export default function RegisterDriverScreen() {
                 />
               </TouchableOpacity>
             </View>
-            <PasswordValidation password={password} />
+            <ErrorText field="password" />
           </View>
 
           <View className="mb-6">

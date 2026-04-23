@@ -27,6 +27,35 @@ export const getPasswordChecks = (password: string): PasswordChecks => ({
 export const hasUnsupportedPasswordSymbol = (password: string) =>
   /[^A-Za-z0-9]/.test(password) && !PASSWORD_RULES.symbol.test(password);
 
+const joinWithCommasAndAmpersand = (items: string[]) => {
+  if (items.length <= 1) return items[0] ?? "";
+  if (items.length === 2) return `${items[0]} & ${items[1]}`;
+  return `${items.slice(0, -1).join(", ")} & ${items[items.length - 1]}`;
+};
+
+export const getPasswordNeedsMessage = (password: string) => {
+  const checks = getPasswordChecks(password);
+  const hasUnsupportedSymbol = hasUnsupportedPasswordSymbol(password);
+
+  const unmet: string[] = [];
+  if (!checks.minLength) unmet.push("8 characters");
+  if (!checks.uppercase) unmet.push("an uppercase");
+  if (!checks.lowercase) unmet.push("lowercase");
+  if (!checks.number) unmet.push("number");
+  if (!checks.symbol || hasUnsupportedSymbol) unmet.push("symbol (!@#$%&*§)");
+
+  if (unmet.length === 0) return null;
+
+  const hasMinLengthUnmet = unmet[0] === "8 characters";
+  if (hasMinLengthUnmet && unmet.length > 1) {
+    return `Password needs : at least 8 characters with ${joinWithCommasAndAmpersand(
+      unmet.slice(1)
+    )}.`;
+  }
+
+  return `Password needs : at least ${joinWithCommasAndAmpersand(unmet)}.`;
+};
+
 export const getPasswordStrength = (checks: PasswordChecks) => {
   const score = Object.values(checks).filter(Boolean).length;
 
