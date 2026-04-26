@@ -107,29 +107,10 @@ export const markOneAsRead = async (req, res) => {
   const { id } = req.params;
 
   try {
-    const notifId = Number.parseInt(id, 10);
-    if (Number.isNaN(notifId)) {
-      return res.status(400).json({ success: false, message: 'Invalid notification id' });
-    }
-
-    let where = { id: notifId };
-
-    if (req.user.driverId) {
-      where = { ...where, driverId: req.user.driverId, recipientType: 'DRIVER' };
-    } else if (req.user.passengerId) {
-      where = { ...where, passengerId: req.user.passengerId, recipientType: 'PASSENGER' };
-    } else {
-      return res.status(400).json({ success: false, message: 'Utilisateur non identifié' });
-    }
-
-    const { count } = await prisma.notification.updateMany({
-      where,
+    await prisma.notification.update({
+      where: { id: parseInt(id) },
       data: { isRead: true },
     });
-
-    if (!count) {
-      return res.status(404).json({ success: false, message: 'Notification introuvable' });
-    }
 
     return res.status(200).json({ success: true });
 

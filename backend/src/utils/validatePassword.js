@@ -1,30 +1,31 @@
 export const validatePassword = (password) => {
-    const minLength = 8;
-    const hasUpperCase = /[A-Z]/.test(password);
-    const hasLowerCase = /[a-z]/.test(password);
-    const hasDigit = /[0-9]/.test(password);
-    const hasSpecialChar = /[!@#$%^&*]/.test(password);
+  const errors = [];
 
-  if(password.length < minLength) {
-        return "Password must be at least 8 characters long.";
-    }
+  const minLength = 8;
+  const hasUpperCase = /[A-Z]/.test(password);
+  const hasLowerCase = /[a-z]/.test(password);
+  const hasDigit = /[0-9]/.test(password);
+  const hasSpecialChar = /[!@#$%^&*]/.test(password);
 
-    if(!hasUpperCase) {
-        return "Password must contain at least one uppercase letter.";
-    }
+  if (password.length < minLength) {
+    errors.push("8+ characters");
+  }
 
-    if(!hasLowerCase) {
-        return "Password must contain at least one lowercase letter.";
-    }
+  if (!hasUpperCase) {
+    errors.push("uppercase letter");
+  }
 
-    if(!hasDigit){
-        return "Password must contain at least one digit.";
-    }
+  if (!hasLowerCase) {
+    errors.push("lowercase letter");
+  }
 
-    if(!hasSpecialChar) {
-        return "Password must contain at least one special character (!@#$%^&*).";
-    }
+  if (!hasDigit) {
+    errors.push("number");
+  }
 
-    return null;
+  if (!hasSpecialChar) {
+    errors.push("symbol");
+  }
+
+  return errors;
 };
-
