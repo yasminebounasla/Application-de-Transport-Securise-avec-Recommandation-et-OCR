@@ -1,9 +1,9 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
-  StyleSheet, StatusBar, ActivityIndicator,
+  StyleSheet, StatusBar, Image, ActivityIndicator,
 } from 'react-native';
-import { Stack, router } from 'expo-router';
+import { Stack, useFocusEffect, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useNotifications } from '../../context/NotificationContext';
 import { useAuth } from '../../context/AuthContext';
@@ -60,22 +60,35 @@ const statusToTab = (status: string) => {
 };
 
 export default function NotificationsScreen() {
-  const { notifications, clearNotifications, markAsRead } = useNotifications();
+  const { notifications, clearNotifications, markAllAsRead } = useNotifications()
   const { user } = useAuth();
-  const [loadingId, setLoadingId] = useState<number | null>(null);
 
-  const newNotifs = useMemo(() => notifications.filter((n) => n.isRead === false), [notifications]);
-  const oldNotifs = useMemo(() => notifications.filter((n) => n.isRead !== false), [notifications]);
+  const [newNotifs, setNewNotifs] = useState<Notification[]>([]);
+  const [oldNotifs, setOldNotifs] = useState<Notification[]>([]);
+  const [loadingId, setLoadingId] = useState<number | null>(null);
+  const snapshotDone = useRef(false);
+
+  useFocusEffect(useCallback(() => {
+    snapshotDone.current = false;
+    return () => { snapshotDone.current = false; };
+  }, []));
+
+  useFocusEffect(useCallback(() => {
+      if (snapshotDone.current || notifications.length === 0) return;
+      snapshotDone.current = true;
+      const unread = notifications.filter(n => n.isRead === false);
+      const read   = notifications.filter(n => n.isRead !== false);
+      setNewNotifs(unread);
+      setOldNotifs(read);
+      if (unread.length > 0) markAllAsRead();
+    }, [notifications, markAllAsRead]));
 
   const handlePress = async (notif: Notification) => {
     if (!notif.rideId) return;
     setLoadingId(notif.rideId);
     try {
-      if (notif.isRead === false) {
-        // Mark only the clicked notification as read (do not mark all).
-        markAsRead(notif);
-      }
-      const res = await api.get(`/rides/${notif.rideId}`);
+      const res    = await api.get(`/rides/${notif.rideId}`);
+
       const status = res?.data?.data?.status ?? res?.data?.status ?? '';
       const route = user?.role === 'driver' ? '/(driverTabs)/Activity' : '/(passengerTabs)/Activity';
       router.push({ pathname: route as any, params: { rideId: String(notif.rideId), tab: statusToTab(status) } });
@@ -90,6 +103,7 @@ export default function NotificationsScreen() {
   const renderNotif = (notif: Notification, i: number, isNew: boolean) => {
     const cfg = getCfg(notif.type);
     const tappable = !!notif.rideId;
+    const initials = `${notif.prenom?.[0] ?? ''}${notif.nom?.[0] ?? ''}`.toUpperCase();
 
     return (
       <TouchableOpacity
