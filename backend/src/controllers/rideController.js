@@ -12,13 +12,8 @@ const parseAndValidateId = (rawId) => {
   return Number.isNaN(id) ? null : id;
 };
 
-// ── Map en mémoire pour stocker les timeouts par driver par trajet ─────────────
-// clé : `${trajetId}_${driverId}` → valeur : timeoutId
 const pendingTimeouts = new Map();
 const SIX_HOURS = 6 * 60 * 60 * 1000;
-
-// ── evaluateTrajet ────────────────────────────────────────────────────────────
-// ✅ MODIFIÉ : au lieu de cancel direct → émet fallbackRequired si des drivers
 
 const evaluateTrajet = async (trajetId) => {
   const ride = await prisma.trajet.findUnique({ where: { id: trajetId } });
@@ -30,51 +25,65 @@ const evaluateTrajet = async (trajetId) => {
 
   if (resolvedCount < ride.notifiedDriversCount) return;
 
-  // ── Chercher les drivers de backup non encore contactés ───────────────────
   const allRecommended = Array.isArray(ride.recommendedDrivers) ? ride.recommendedDrivers : [];
   const sentSet        = new Set(ride.sentDrivers || []);
 
-  // Drivers recommandés mais jamais contactés (les 5 du batch 2)
   const backupDrivers = allRecommended
-    .filter(d => !sentSet.has(d.id))  // pas encore contactés
-    .sort((a, b) => a.rank - b.rank)  // trier par rank
-    .slice(0, 5);                      // max 5
+    .filter(d => !sentSet.has(d.id))
+    .sort((a, b) => a.rank - b.rank)
+    .slice(0, 5);
 
   const io = getIO();
 
- if (backupDrivers.length > 0 && ride.fallbackStep === 0) {
+  if (backupDrivers.length > 0 && ride.fallbackStep === 0) {
 
-  await prisma.trajet.update({
-    where: { id: trajetId },
-    data: { fallbackStep: 1 }, // ← marquer comme envoyé, ne sera plus jamais 0
-  });
+    await prisma.trajet.update({
+      where: { id: trajetId },
+      data: { fallbackStep: 1 },
+    });
 
-  const rejCount      = ride.rejectedDriverIds.length;
-  const timedOutCount = ride.timedOutDriverIds.length;
+    const rejCount      = ride.rejectedDriverIds.length;
+    const timedOutCount = ride.timedOutDriverIds.length;
 
-  const message = rejCount > 0 && timedOutCount === 0
-    ? "Les conducteurs ont refusé votre demande. Voulez-vous contacter d'autres conducteurs ?"
-    : rejCount === 0 && timedOutCount > 0
-      ? "Les conducteurs contactés n'ont pas répondu. Voici d'autres conducteurs recommandés."
-      : "Certains conducteurs ont refusé et d'autres n'ont pas répondu. Voulez-vous contacter d'autres conducteurs ?";
+    const message = rejCount > 0 && timedOutCount === 0
+      ? "Les conducteurs ont refusé votre demande. Voulez-vous contacter d'autres conducteurs ?"
+      : rejCount === 0 && timedOutCount > 0
+        ? "Les conducteurs contactés n'ont pas répondu. Voici d'autres conducteurs recommandés."
+        : "Certains conducteurs ont refusé et d'autres n'ont pas répondu. Voulez-vous contacter d'autres conducteurs ?";
 
-  const reason = rejCount > 0 && timedOutCount === 0 ? 'REJECTED'
-    : rejCount === 0 && timedOutCount > 0 ? 'TIMEOUT'
-    : 'MIXED';
+    const reason = rejCount > 0 && timedOutCount === 0 ? 'REJECTED'
+      : rejCount === 0 && timedOutCount > 0 ? 'TIMEOUT'
+      : 'MIXED';
 
-  io.to(`passenger_${ride.passagerId}`).emit('fallbackRequired', {
-    rideId:        ride.id,
-    type:          'BACKUP_AVAILABLE',
-    backupDrivers: backupDrivers,
-    message,
-    reason,
-  });
+    // ── AJOUT 1 : notif + socket refus pour que le passager reçoive la notif ──
+    await createNotification({
+      passengerId:   ride.passagerId,
+      recipientType: 'PASSENGER',
+      type:          'RIDE_REJECTED',
+      title:         '❌ Demande refusée',
+      message:       'Les conducteurs ont refusé votre demande.',
+      data:          { rideId: ride.id },
+    });
 
-  return;
- }
+    io.to(`passenger_${ride.passagerId}`).emit('rideRejectedByDriver', {
+      rideId:  ride.id,
+      title:   '❌ Demande refusée',
+      message: 'Les conducteurs ont refusé votre demande.',
+    });
+    // ── FIN AJOUT 1 ────────────────────────────────────────────────────────────
 
+    io.to(`passenger_${ride.passagerId}`).emit('fallbackRequired', {
+      rideId:        ride.id,
+      type:          'BACKUP_AVAILABLE',
+      backupDrivers: backupDrivers,
+      message,
+      reason,
+    });
 
-  // ── CAS 3 : Aucune option disponible → cancel définitif ───────────────────
+    return;
+  }
+
+  // CAS 3 : Aucune option disponible → cancel définitif
   await prisma.trajet.update({
     where: { id: trajetId },
     data:  { status: 'CANCELLED_BY_DRIVER' },
@@ -99,11 +108,10 @@ const evaluateTrajet = async (trajetId) => {
 
 export const scheduleDriverTimeout = (trajetId, driverId, dateDepart) => {
   const hoursUntil = (new Date(dateDepart) - Date.now()) / 3600000;
-  // if (hoursUntil < 1) return; // trop proche, pas de timeout
-  const timeout = hoursUntil < 1   ? 5  * 60 * 1000        // < 1h   → 5 min  (très urgent)
-              : hoursUntil < 3   ? 15 * 60 * 1000        // 1h-3h  → 15 min
-              : hoursUntil < 24  ? 30 * 60 * 1000        // 3h-24h → 30 min
-              :                    2  * 60 * 60 * 1000;  // > 24h  → 2h
+  const timeout = hoursUntil < 1   ? 5  * 60 * 1000
+              : hoursUntil < 3   ? 15 * 60 * 1000
+              : hoursUntil < 24  ? 30 * 60 * 1000
+              :                    2  * 60 * 60 * 1000;
   const key = `${trajetId}_${driverId}`;
 
   const timeoutId = setTimeout(async () => {
@@ -173,10 +181,10 @@ export const createRide = async (req, res) => {
     if (!passengerExists)
       return res.status(404).json({ message: 'Passager introuvable' });
 
-      const routeResult = await calculateRoute(
-       { latitude: parseFloat(startLat), longitude: parseFloat(startLng) },
-       { latitude: parseFloat(endLat),   longitude: parseFloat(endLng) }
-      );
+    const routeResult = await calculateRoute(
+      { latitude: parseFloat(startLat), longitude: parseFloat(startLng) },
+      { latitude: parseFloat(endLat),   longitude: parseFloat(endLng) }
+    );
 
     if (!routeResult.success) {
       return res.status(503).json({
@@ -184,7 +192,7 @@ export const createRide = async (req, res) => {
       });
     }
 
-    const { price: prix } = calculatePrice(  // ← destructure .price
+    const { price: prix } = calculatePrice(
       parseFloat(routeResult.distanceKm),
       routeResult.durationMin
     );
@@ -266,7 +274,7 @@ export const getRideById = async (req, res) => {
       where: { id: parseInt(id, 10) },
       include: {
         passenger: { select: { id: true, nom: true, prenom: true, numTel: true, photoUrl: true } },
-        driver: { select: { id: true, nom: true, prenom: true, numTel: true , sexe: true} },
+        driver: { select: { id: true, nom: true, prenom: true, numTel: true, sexe: true } },
       },
     });
 
@@ -330,8 +338,6 @@ export const getDriverActiveRides = async (req, res) => {
   }
 };
 
-// ── acceptRide ────────────────────────────────────────────────────────────────
-// FIX: émission vers "passenger_${id}" + persistance BD
 export const acceptRide = async (req, res) => {
   const driverId = req.user.driverId;
   if (!driverId)
@@ -345,7 +351,6 @@ export const acceptRide = async (req, res) => {
     if (ride.status !== 'PENDING')
       return res.status(400).json({ success: false, message: `Impossible d'accepter un trajet avec le status ${ride.status}` });
 
-    // AJOUT : annuler le timeout de ce driver — il a répondu explicitement
     clearDriverTimeout(parseInt(id), driverId);
 
     const updatedRide = await prisma.trajet.update({
@@ -365,7 +370,6 @@ export const acceptRide = async (req, res) => {
     const title   = '✅ Trajet confirmé';
     const message = `${updatedRide.driver.prenom} a accepté votre demande de trajet.`;
 
-    // FIX CRITIQUE : utiliser le nom de room "passenger_${id}"
     io.to(`passenger_${updatedRide.passenger.id}`).emit('rideAccepted', {
       rideId:  updatedRide.id,
       status:  updatedRide.status,
@@ -374,35 +378,32 @@ export const acceptRide = async (req, res) => {
       message,
     });
 
-    // Récupérer tous les drivers qui ont ce ride en PENDING dans leur activity
-      const rideWithSent = await prisma.trajet.findUnique({
-        where: { id: parseInt(id) },
-        select: { sentDrivers: true },
+    const rideWithSent = await prisma.trajet.findUnique({
+      where: { id: parseInt(id) },
+      select: { sentDrivers: true },
+    });
+
+    console.log('🔍 sentDrivers from DB:', rideWithSent.sentDrivers);
+    console.log('🔍 driverId who accepted:', driverId, typeof driverId);
+
+    const otherDriverIds = (rideWithSent.sentDrivers || []).filter(d => Number(d) !== Number(driverId));
+
+    console.log('🔍 otherDriverIds to notify:', otherDriverIds);
+
+    otherDriverIds.forEach(async (otherDriverId) => {
+      clearDriverTimeout(parseInt(id), otherDriverId);
+      io.to(`driver_${otherDriverId}`).emit('rideTaken', { rideId: updatedRide.id });
+
+      await createNotification({
+        driverId:      otherDriverId,
+        recipientType: 'DRIVER',
+        type:          'RIDE_TAKEN',
+        title:         '🚫 Trajet non disponible',
+        message:       'Ce trajet a déjà été pris par un autre conducteur.',
+        data:          { rideId: updatedRide.id },
       });
+    });
 
-      console.log('🔍 sentDrivers from DB:', rideWithSent.sentDrivers);
-      console.log('🔍 driverId who accepted:', driverId, typeof driverId);
-
-      const otherDriverIds = (rideWithSent.sentDrivers || []).filter(d => Number(d) !== Number(driverId));
-
-        console.log('🔍 otherDriverIds to notify:', otherDriverIds);
-
-        otherDriverIds.forEach(async (otherDriverId) => {
-          clearDriverTimeout(parseInt(id), otherDriverId);
-          io.to(`driver_${otherDriverId}`).emit('rideTaken', { rideId: updatedRide.id });
-
-          // ← AJOUTE ÇA
-          await createNotification({
-            driverId:      otherDriverId,
-            recipientType: 'DRIVER',
-            type:          'RIDE_TAKEN',
-            title:         '🚫 Trajet non disponible',
-            message:       'Ce trajet a déjà été pris par un autre conducteur.',
-            data:          { rideId: updatedRide.id },
-          });
-        });
-
-    // FIX : persister la notification en base de données
     await createNotification({
       passengerId:   updatedRide.passagerId,
       recipientType: 'PASSENGER',
@@ -426,9 +427,6 @@ export const acceptRide = async (req, res) => {
   }
 };
 
-
-// ── rejectRide ────────────────────────────────────────────────────────────────
-// FIX: émission vers "passenger_${id}" au lieu du driver + persistance BD
 export const rejectRide = async (req, res) => {
   const driverId = req.user.driverId;
   if (!driverId)
@@ -440,33 +438,29 @@ export const rejectRide = async (req, res) => {
     const ride = await prisma.trajet.findUnique({ where: { id: parseInt(id) } });
     if (!ride) return res.status(404).json({ success: false, message: 'Demande de trajet introuvable' });
     if (ride.status !== 'PENDING')
-    return res.status(400).json({ success: false, message: `Impossible de refuser un trajet avec le status ${ride.status}` });
+      return res.status(400).json({ success: false, message: `Impossible de refuser un trajet avec le status ${ride.status}` });
 
-    // Vérifier que le driver était bien notifié pour ce trajet
-    // (il a reçu une notification RIDE_REQUEST)
     const wasNotified = await prisma.notification.findFirst({
       where: {
-       driverId: driverId,
-       type: 'RIDE_REQUEST',
-       data: { path: ['rideId'], equals: parseInt(id) }
+        driverId: driverId,
+        type: 'RIDE_REQUEST',
+        data: { path: ['rideId'], equals: parseInt(id) }
       }
     });
 
-   if (!wasNotified)
-   return res.status(403).json({
-     success: false,
-     message: "Vous n'êtes pas autorisé à refuser ce trajet"
-    });
+    if (!wasNotified)
+      return res.status(403).json({
+        success: false,
+        message: "Vous n'êtes pas autorisé à refuser ce trajet"
+      });
 
-    // AJOUT : annuler le timeout — le driver a répondu explicitement
     clearDriverTimeout(parseInt(id), driverId);
 
-    //  CORRIGÉ — étape 1 : ajouter le driver aux refus
     const updatedRide = await prisma.trajet.update({
       where: { id: parseInt(id) },
       data: {
-       rejectedDriverIds: { push: driverId },
-       updatedAt: new Date(),
+        rejectedDriverIds: { push: driverId },
+        updatedAt: new Date(),
       },
       include: {
         passenger: { select: { id: true, nom: true, prenom: true, photoUrl: true } },
@@ -484,8 +478,6 @@ export const rejectRide = async (req, res) => {
   }
 };
 
-// ── startRide ─────────────────────────────────────────────────────────────────
-// FIX: ajout de l'émission socket + persistance BD (était absent)
 export const startRide = async (req, res) => {
   const { id } = req.params;
   const driverId = req.user?.driverId;
@@ -505,7 +497,6 @@ export const startRide = async (req, res) => {
       return res.status(403).json({ success: false, message: "Vous n'êtes pas autorisé à démarrer ce trajet" });
     }
 
-    // Time gate (Uber-like): allow start only when within 10 minutes of scheduled start time (or later).
     if (ride.dateDepart && typeof ride.heureDepart === 'string' && ride.heureDepart.includes(':')) {
       const [hhRaw, mmRaw] = ride.heureDepart.split(':');
       const hh = Number.parseInt(hhRaw, 10);
@@ -561,7 +552,6 @@ export const startRide = async (req, res) => {
     const title   = '🚗 Trajet démarré';
     const message = `Votre trajet avec ${updatedRide.driver.prenom} a démarré !`;
 
-    // FIX : notifier le passager que le trajet a démarré
     io.to(`passenger_${updatedRide.passenger.id}`).emit('rideStarted', {
       rideId:  updatedRide.id,
       status:  updatedRide.status,
@@ -570,7 +560,6 @@ export const startRide = async (req, res) => {
       message,
     });
 
-    // FIX : persister la notification en base de données
     await createNotification({
       passengerId:   updatedRide.passagerId,
       recipientType: 'PASSENGER',
@@ -588,8 +577,6 @@ export const startRide = async (req, res) => {
   }
 };
 
-// ── completeRide ──────────────────────────────────────────────────────────────
-// FIX: ajout de l'émission socket + persistance BD (était absent)
 export const completeRide = async (req, res) => {
   const { id } = req.params;
   const driverId = req.user?.driverId;
@@ -647,7 +634,6 @@ export const completeRide = async (req, res) => {
     const title   = '🏁 Trajet terminé';
     const message = `Votre trajet est terminé. Donnez votre avis sur ${updatedRide.driver.prenom} !`;
 
-    // FIX : notifier le passager que le trajet est terminé
     io.to(`passenger_${updatedRide.passenger.id}`).emit('rideCompleted', {
       rideId:  updatedRide.id,
       status:  updatedRide.status,
@@ -655,7 +641,6 @@ export const completeRide = async (req, res) => {
       message,
     });
 
-    // FIX : persister la notification en base de données
     await createNotification({
       passengerId:   updatedRide.passagerId,
       recipientType: 'PASSENGER',
@@ -673,8 +658,6 @@ export const completeRide = async (req, res) => {
   }
 };
 
-// ── cancelRide ────────────────────────────────────────────────────────────────
-// FIX: émission vers "driver_${id}" au lieu de updatedRide.driver.id + persistance BD
 export const cancelRide = async (req, res) => {
   const passengerId = req.user.passengerId;
   if (!passengerId)
@@ -699,13 +682,11 @@ export const cancelRide = async (req, res) => {
       },
     });
 
-    // Notifier le driver si le trajet lui était assigné
     if (updatedRide.driver && updatedRide.driverId) {
       const io = getIO();
       const title   = '❌ Trajet annulé';
       const message = `${updatedRide.passenger.prenom} a annulé le trajet.`;
 
-      // FIX CRITIQUE : utiliser le nom de room "driver_${id}"
       io.to(`driver_${updatedRide.driverId}`).emit('rideCancelledByPassenger', {
         rideId:    updatedRide.id,
         status:    updatedRide.status,
@@ -714,7 +695,6 @@ export const cancelRide = async (req, res) => {
         message,
       });
 
-      // FIX : persister la notification en base de données
       await createNotification({
         driverId:      updatedRide.driverId,
         recipientType: 'DRIVER',
@@ -752,7 +732,7 @@ export const getPassengerRideActivity = async (req, res) => {
       where: { passagerId: passengerId },
       include: {
         passenger: { select: { id: true, nom: true, prenom: true, numTel: true, photoUrl: true } },
-        driver:    { select: { id: true, nom: true, prenom: true, numTel: true, avgRating: true , sexe: true } },
+        driver:    { select: { id: true, nom: true, prenom: true, numTel: true, avgRating: true, sexe: true } },
       },
       orderBy: { updatedAt: 'desc' },
     });
@@ -784,32 +764,7 @@ export const getDriverRideActivity = async (req, res) => {
     return res.status(403).json({ success: false, message: "Acces refuse" });
 
   try {
-    const rides = await prisma.trajet.findMany({
-     where: {
-       OR: [
-          { driverId: driverId },
-          {
-           status: 'PENDING',
-           driverId: null,
-           sentDrivers: { has: driverId },
-           NOT: {
-             // MODIFIÉ : exclure aussi les drivers qui ont timeout
-             OR: [
-               { rejectedDriverIds: { has: driverId } },
-               { timedOutDriverIds: { has: driverId } },
-             ]
-            }
-          }
-        ]
-      },
-      include: {
-        driver:    { select: { id: true, nom: true, prenom: true, numTel: true, sexe: true } },
-        passenger: { select: { id: true, nom: true, prenom: true, numTel: true, age: true, photoUrl: true } },
-      },
-      orderBy: { updatedAt: 'desc' },
-    });
-
-    const activity = rides.map((ride) => ({
+    const mapRide = (ride) => ({
       rideId: ride.id, status: ride.status,
       activityAt: ride.updatedAt, createdAt: ride.createdAt,
       updatedAt: ride.updatedAt, completedAt: ride.completedAt,
@@ -819,7 +774,47 @@ export const getDriverRideActivity = async (req, res) => {
       startAddress: ride.startAddress, endAddress: ride.endAddress,
       dateDepart: ride.dateDepart, heureDepart: ride.heureDepart,
       driver: ride.driver || null, passenger: ride.passenger || null,
-    }));
+      rejectedDriverIds: ride.rejectedDriverIds || [],  // ── AJOUT 2 : pour le frontend cancelled-by-you
+    });
+
+    const [rides, rejectedRides] = await Promise.all([
+      prisma.trajet.findMany({
+        where: {
+          OR: [
+            { driverId: driverId },
+            {
+              status: 'PENDING',
+              driverId: null,
+              sentDrivers: { has: driverId },
+              NOT: {
+                OR: [
+                  { rejectedDriverIds: { has: driverId } },
+                  { timedOutDriverIds: { has: driverId } },
+                ]
+              }
+            }
+          ]
+        },
+        include: {
+          driver:    { select: { id: true, nom: true, prenom: true, numTel: true, sexe: true } },
+          passenger: { select: { id: true, nom: true, prenom: true, numTel: true, age: true, photoUrl: true } },
+        },
+        orderBy: { updatedAt: 'desc' },
+      }),
+      prisma.trajet.findMany({
+        where: {
+          sentDrivers: { has: driverId },
+          rejectedDriverIds: { has: driverId },
+        },
+        include: {
+          driver:    { select: { id: true, nom: true, prenom: true, numTel: true, sexe: true } },
+          passenger: { select: { id: true, nom: true, prenom: true, numTel: true, age: true, photoUrl: true } },
+        },
+        orderBy: { updatedAt: 'desc' },
+      }),
+    ]);
+
+    const activity = [...rides.map(mapRide), ...rejectedRides.map(mapRide)];
 
     return res.status(200).json({ success: true, count: activity.length, data: activity });
   } catch (error) {
