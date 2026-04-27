@@ -127,7 +127,7 @@ export default function RegisterDriverScreen() {
         console.log('Error message:', err.message);
         console.log('Has response?', !!err.response);
         console.log('Full error:', JSON.stringify(err, null, 2));
-        
+
         if (err.response?.status === 409) {
           newErrors.email =
             err.response?.data?.message || "This email is already registered. Please use a different email.";
