@@ -106,7 +106,10 @@ export const getRecommendations = async (passenger_id, mlPreferences = {}, authT
     const passengerIdNum = Number(passenger_id);
 
     const [drivers, completedTrajets] = await Promise.all([
-      prisma.driver.findMany({ select: selectDriverForReco }),
+      prisma.driver.findMany({
+        where: { isVerified: true },
+        select: selectDriverForReco
+      }),
       prisma.trajet.findMany({
         where: {
           passagerId: passengerIdNum,
@@ -150,7 +153,10 @@ export const getRecommendations = async (passenger_id, mlPreferences = {}, authT
 
     // Fallback : éviter un écran vide si le ML est down.
     try {
-      const drivers = await prisma.driver.findMany({ select: selectDriverForReco });
+      const drivers = await prisma.driver.findMany({
+        where: { isVerified: true },
+        select: selectDriverForReco
+      });
       return buildFallbackRecommendations(drivers, trajet, top_n);
     } catch (fallbackErr) {
       console.error("❌ [getRecommendations] Fallback DB échoué:", fallbackErr?.message || fallbackErr);
