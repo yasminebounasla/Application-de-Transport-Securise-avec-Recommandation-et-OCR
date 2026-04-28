@@ -69,19 +69,21 @@ export default function NotificationsScreen() {
   const snapshotDone = useRef(false);
 
   useFocusEffect(useCallback(() => {
-    snapshotDone.current = false;
-    return () => { snapshotDone.current = false; };
-  }, []));
-
-  useFocusEffect(useCallback(() => {
-      if (snapshotDone.current || notifications.length === 0) return;
+    // ── ENTER : snapshot one-shot ──────────────────────────
+    if (!snapshotDone.current && notifications.length > 0) {
       snapshotDone.current = true;
       const unread = notifications.filter(n => n.isRead === false);
       const read   = notifications.filter(n => n.isRead !== false);
       setNewNotifs(unread);
       setOldNotifs(read);
-      if (unread.length > 0) markAllAsRead();
-    }, [notifications, markAllAsRead]));
+    }
+
+    // ── EXIT : mark as read seulement quand tu quittes ─────
+    return () => {
+      snapshotDone.current = false;
+      markAllAsRead(); // ✅ appelé au blur, pas au focus
+    };
+  }, [notifications, markAllAsRead]));
 
   const handlePress = async (notif: Notification) => {
     if (!notif.rideId) return;
