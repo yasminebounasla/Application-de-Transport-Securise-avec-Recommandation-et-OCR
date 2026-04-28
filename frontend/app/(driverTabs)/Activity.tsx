@@ -356,9 +356,7 @@ function RideCard({
 
       {/* ── TAGS ── */}
       <View style={s.tagsRow}>
-        {isPending && requestLabel ? (
-          <Tag icon="sparkles-outline" label={`Requested ${requestLabel}`} />
-        ) : null}
+       
         <Tag icon="calendar-outline" label={dateLabel} />
         {item.heureDepart && (
           <Tag icon="time-outline" label={item.heureDepart} />
