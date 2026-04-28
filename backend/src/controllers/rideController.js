@@ -822,3 +822,57 @@ export const getDriverRideActivity = async (req, res) => {
     return res.status(500).json({ success: false, message: "Erreur lors de la recuperation de l'activite conducteur", error: error.message });
   }
 };
+
+export const getPendingFallback = async (req, res) => {
+  const passengerId = req.user.passengerId;
+  if (!passengerId)
+    return res.status(400).json({ success: false, message: "User not found" });
+
+  try {
+    const ride = await prisma.trajet.findFirst({
+      where: {
+        passagerId: passengerId,
+        status: 'PENDING',
+        fallbackStep: 1,
+      },
+    });
+
+    if (!ride) return res.status(200).json({ hasFallback: false });
+
+    const allRecommended = Array.isArray(ride.recommendedDrivers) ? ride.recommendedDrivers : [];
+    const sentSet = new Set(ride.sentDrivers || []);
+    const backupDrivers = allRecommended
+      .filter(d => !sentSet.has(d.id))
+      .sort((a, b) => a.rank - b.rank)
+      .slice(0, 5);
+
+    if (backupDrivers.length === 0)
+      return res.status(200).json({ hasFallback: false });
+
+    const rejCount      = ride.rejectedDriverIds.length;
+    const timedOutCount = ride.timedOutDriverIds.length;
+
+    const reason = rejCount > 0 && timedOutCount === 0 ? 'REJECTED'
+      : rejCount === 0 && timedOutCount > 0             ? 'TIMEOUT'
+      :                                                   'MIXED';
+
+    const message = reason === 'REJECTED'
+      ? "Les conducteurs ont refusé votre demande. Voulez-vous contacter d'autres conducteurs ?"
+      : reason === 'TIMEOUT'
+      ? "Les conducteurs contactés n'ont pas répondu. Voici d'autres conducteurs recommandés."
+      : "Certains conducteurs ont refusé et d'autres n'ont pas répondu.";
+
+    return res.status(200).json({
+      hasFallback: true,
+      rideId: ride.id,
+      backupDrivers,
+      reason,
+      message,
+      type: 'BACKUP_AVAILABLE',
+    });
+
+  } catch (error) {
+    console.error('Erreur getPendingFallback:', error);
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};

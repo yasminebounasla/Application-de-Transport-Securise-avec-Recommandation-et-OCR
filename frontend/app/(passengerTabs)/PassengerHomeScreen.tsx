@@ -13,6 +13,7 @@ import { initSocket, getSocket } from '../../services/socket';
 import { FallbackModal } from '../../components/FallbackModel';
 
 const FEEDBACK_REQUESTED_KEY = 'feedback_requested_rides';
+const API_URL = process.env.EXPO_PUBLIC_API_URL;
 
 export default function Home() {
   const { passengerRides } = useRide();
@@ -30,7 +31,7 @@ export default function Home() {
   const [showFeedbackModal, setShowFeedbackModal] = useState<boolean>(false);
   const [completedRideId, setCompletedRideId] = useState<number | null>(null);
 
-  // États à ajouter pour le fallback 
+  // États à ajouter pour le fallback
   const [fallbackVisible, setFallbackVisible]   = useState(false);
   const [fallbackType, setFallbackType]         = useState<'BACKUP_AVAILABLE' | 'NEW_SEARCH'>('BACKUP_AVAILABLE');
   const [fallbackDrivers, setFallbackDrivers]   = useState<any[]>([]);
@@ -71,6 +72,32 @@ export default function Home() {
       if (current) current.off('fallbackRequired');
     };
   }, []);
+
+  // ── Juste après le useEffect du socket ──
+  useEffect(() => {
+    const checkPendingFallback = async () => {
+      try {
+        const token = await AsyncStorage.getItem('token');
+        const res = await fetch(`${API_URL}/ridesDem/pending-fallback`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+       const data = await res.json();
+
+        if (data.hasFallback) {
+         setFallbackType(data.type);
+         setFallbackDrivers(data.backupDrivers);
+         setCurrentRideId(data.rideId);
+         setFallbackMessage(data.message);
+         setFallbackReason(data.reason);
+         setFallbackVisible(true);
+        }
+      } catch (e) {
+       console.error('checkPendingFallback error:', e);
+     }
+    };
+
+    checkPendingFallback();
+  }, []); // ← [] = s'exécute une seule fois au mount (= au login)
 
   const isFeedbackRequested = async (rideId: number): Promise<boolean> => {
     try {
@@ -177,8 +204,8 @@ useEffect(() => {
         type={fallbackType}
         backupDrivers={fallbackDrivers}
         rideId={currentRideId}
-        message={fallbackMessage}  
-        reason={fallbackReason} 
+        message={fallbackMessage}
+        reason={fallbackReason}
        onClose={async (reason: string) => {
          setFallbackVisible(false);
          if (reason === 'CANCEL_RIDE') {
@@ -194,7 +221,7 @@ useEffect(() => {
           console.log(`✅ Fallback envoyé à ${count} drivers`);
         }}
       />
-  
+
 
       {showMap && (
         <MapView
