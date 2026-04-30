@@ -168,7 +168,7 @@ async function seedDrivers(count = 100) {
       }
     });
   }
-  
+
   try {
     let createdCount = 0;
     let updatedCount = 0;
@@ -191,16 +191,27 @@ async function seedDrivers(count = 100) {
     console.log(`✅ ${updatedCount} drivers mis à jour!\n`);
 
     // Résumé distribution features (doit être 20-80% pour chaque feature)
-    const sample = await prisma.driver.findMany({ take: count });
+    const sample = await prisma.driver.findMany({
+      take: count,
+      include: { preferences: true, workingHours: true }
+    });
     console.log("📊 Distribution features drivers (idéal : 20-80% pour chaque) :");
-    for (const col of ["talkative", "radio_on", "smoking_allowed", "pets_allowed", "car_big",
-      "works_morning", "works_afternoon", "works_evening", "works_night"]) {
-      const yes = sample.filter((d) => d[col] === true).length;
+    for (const [col, accessor] of [
+      ["talkative",       d => d.preferences?.talkative],
+      ["radio",           d => d.preferences?.radio],
+      ["smoking",         d => d.preferences?.smoking],
+      ["pets",            d => d.preferences?.pets],
+      ["luggage_large",   d => d.preferences?.luggage_large],
+      ["works_morning",   d => d.workingHours?.works_morning],
+      ["works_afternoon", d => d.workingHours?.works_afternoon],
+      ["works_evening",   d => d.workingHours?.works_evening],
+      ["works_night",     d => d.workingHours?.works_night],
+    ]) {
+      const yes = sample.filter(accessor).length;
       const pct = Math.round((yes / sample.length) * 100);
       const status = pct >= 15 && pct <= 85 ? "✅" : "⚠️ ";
       console.log(`   ${col.padEnd(20)} : ${pct}%  ${status}`);
     }
-    console.log("\n💡 Si une feature est < 15% ou > 85%, LightFM ne peut pas l'apprendre correctement.");
 
   } catch (error) {
     console.error("❌ Erreur:", error.message);

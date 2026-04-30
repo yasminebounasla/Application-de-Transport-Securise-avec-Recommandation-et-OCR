@@ -49,8 +49,7 @@ model Driver {
   vehicules               Vehicule[]
   verification            Verification?
 
-  preferencesId            Int?
-  preferences              Preferences? @relation(fields: [preferencesId], references: [id])
+  preferences  Preferences?
 
   workingHours             WorkingHours?
 }
@@ -75,9 +74,16 @@ model Preferences {
   luggage_large           Boolean        @default(false)
   femal_driver_pref       Boolean        @default(false)
 
-  trajets                 Trajet[]
-  drivers                 Driver[]
+
+  // One-to-one avec Driver
+  driverId  Int?   @unique
+  driver    Driver? @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  // One-to-one avec Trajet
+  trajetId  Int?   @unique
+  trajet    Trajet? @relation(fields: [trajetId], references: [id], onDelete: Cascade)
 }
+
 
 model Vehicule {
   id        Int      @id @default(autoincrement())
@@ -157,8 +163,7 @@ model Trajet {
   driver               Driver?      @relation(fields: [driverId], references: [id])
   passenger            Passenger?   @relation(fields: [passagerId], references: [id])
 
-  preferencesId        Int?
-  preferences          Preferences? @relation(fields: [preferencesId], references: [id])
+  preferences  Preferences?
 
   @@index([driverId])
   @@index([passagerId])
