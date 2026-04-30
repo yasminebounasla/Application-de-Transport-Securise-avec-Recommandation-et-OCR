@@ -31,19 +31,10 @@ model Driver {
   nom                     String
   prenom                  String
   numTel                  String
-  sexe                    String
+  sexe                    String?
   isVerified              Boolean        @default(false)
   age                     Int
   hasAcceptedPhotoStorage Boolean        @default(false)
-  talkative               Boolean        @default(false)
-  radio_on                Boolean        @default(false)
-  smoking_allowed         Boolean        @default(false)
-  pets_allowed            Boolean        @default(false)
-  car_big                 Boolean        @default(false)
-  works_morning           Boolean        @default(false)
-  works_afternoon         Boolean        @default(false)
-  works_evening           Boolean        @default(false)
-  works_night             Boolean        @default(false)
   avgRating               Float?         @default(0)
   ratingsCount            Int?           @default(0)
   createdAt               DateTime       @default(now())
@@ -57,6 +48,35 @@ model Driver {
   trajets                 Trajet[]
   vehicules               Vehicule[]
   verification            Verification?
+
+  preferencesId            Int?
+  preferences              Preferences? @relation(fields: [preferencesId], references: [id])
+
+  workingHours             WorkingHours?
+}
+
+model WorkingHours {
+  id        Int      @id @default(autoincrement())
+  works_morning           Boolean        @default(false)
+  works_afternoon         Boolean        @default(false)
+  works_evening           Boolean        @default(false)
+  works_night             Boolean        @default(false)
+
+  driverId  Int      @unique
+  driver    Driver   @relation(fields: [driverId], references: [id], onDelete: Cascade)
+}
+
+model Preferences {
+  id        Int      @id @default(autoincrement())
+  talkative               Boolean        @default(false)
+  radio                   Boolean        @default(false)
+  smoking                 Boolean        @default(false)
+  pets                    Boolean        @default(false)
+  luggage_large           Boolean        @default(false)
+  femal_driver_pref       Boolean        @default(false)
+
+  trajets                 Trajet[]
+  drivers                 Driver[]
 }
 
 model Vehicule {
@@ -115,12 +135,6 @@ model Trajet {
   placesDispo          Int
   prix                 Float
   status               TrajetStatus @default(PENDING)
-  quiet_ride           String       @default("no")
-  radio_ok             String       @default("no")
-  smoking_ok           String       @default("no")
-  pets_ok              String       @default("no")
-  luggage_large        String       @default("no")
-  female_driver_pref   String       @default("no")
   createdAt            DateTime     @default(now())
   updatedAt            DateTime     @updatedAt
   completedAt          DateTime?
@@ -142,6 +156,9 @@ model Trajet {
   evaluation           Evaluation?
   driver               Driver?      @relation(fields: [driverId], references: [id])
   passenger            Passenger?   @relation(fields: [passagerId], references: [id])
+
+  preferencesId        Int?
+  preferences          Preferences? @relation(fields: [preferencesId], references: [id])
 
   @@index([driverId])
   @@index([passagerId])
