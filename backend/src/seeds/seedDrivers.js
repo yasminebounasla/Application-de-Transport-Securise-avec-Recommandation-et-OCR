@@ -148,20 +148,27 @@ async function seedDrivers(count = 100) {
       latitude,
       longitude,
       // ✅ Bug 4 FIX : features basées sur le profil, pas randomBool() pur
-      talkative: randomBoolP(profile.probs.talkative),
-      radio_on: randomBoolP(profile.probs.radio_on),
-      smoking_allowed: randomBoolP(profile.probs.smoking_allowed),
-      pets_allowed: randomBoolP(profile.probs.pets_allowed),
-      car_big: randomBoolP(profile.probs.car_big),
-      works_morning: randomBoolP(profile.probs.works_morning),
-      works_afternoon: randomBoolP(profile.probs.works_afternoon),
-      works_evening: randomBoolP(profile.probs.works_evening),
-      works_night: randomBoolP(profile.probs.works_night),
-      avgRating: parseFloat((randomFloat(3.0, 5.0)).toFixed(1)),
-      ratingsCount: randomInt(5, 150),
+      preferences: {
+        create: {
+          talkative:        randomBoolP(profile.probs.talkative),
+          radio:            randomBoolP(profile.probs.radio_on),
+          smoking:          randomBoolP(profile.probs.smoking_allowed),
+          pets:             randomBoolP(profile.probs.pets_allowed),
+          luggage_large:    randomBoolP(profile.probs.car_big),
+          femal_driver_pref: false,
+        }
+      },
+      workingHours: {
+        create: {
+          works_morning:   randomBoolP(profile.probs.works_morning),
+          works_afternoon: randomBoolP(profile.probs.works_afternoon),
+          works_evening:   randomBoolP(profile.probs.works_evening),
+          works_night:     randomBoolP(profile.probs.works_night),
+        }
+      }
     });
   }
-
+  
   try {
     let createdCount = 0;
     let updatedCount = 0;

@@ -41,20 +41,20 @@ const HEURES = ["06:00", "07:30", "08:00", "09:00", "12:00", "14:00", "17:00", "
 function compatibilityScore(driver, prefs) {
   let score = 0;
 
-  if (prefs.quiet_ride && !toBool(driver.talkative)) score++;
-  if (!prefs.quiet_ride && toBool(driver.talkative)) score++;
+  if (prefs.quiet_ride && !toBool(driver.preferences?.talkative)) score++;
+  if (!prefs.quiet_ride && toBool(driver.preferences?.talkative)) score++;
 
-  if (prefs.radio_ok && toBool(driver.radio_on)) score++;
-  if (!prefs.radio_ok && !toBool(driver.radio_on)) score++;
+  if (prefs.radio_ok && toBool(driver.preferences?.radio)) score++;
+  if (!prefs.radio_ok && !toBool(driver.preferences?.radio)) score++;
 
-  if (prefs.smoking_ok && toBool(driver.smoking_allowed)) score++;
-  if (!prefs.smoking_ok && !toBool(driver.smoking_allowed)) score++;
+  if (prefs.smoking_ok && toBool(driver.preferences?.smoking)) score++;
+  if (!prefs.smoking_ok && !toBool(driver.preferences?.smoking)) score++;
 
-  if (prefs.pets_ok && toBool(driver.pets_allowed)) score++;
-  if (!prefs.pets_ok && !toBool(driver.pets_allowed)) score++;
+  if (prefs.pets_ok && toBool(driver.preferences?.pets)) score++;
+  if (!prefs.pets_ok && !toBool(driver.preferences?.pets)) score++;
 
-  if (prefs.luggage_large && toBool(driver.car_big)) score++;
-  if (!prefs.luggage_large && !toBool(driver.car_big)) score++;
+  if (prefs.luggage_large && toBool(driver.preferences?.luggage_large)) score++;
+  if (!prefs.luggage_large && !toBool(driver.preferences?.luggage_large)) score++;
 
   const isFemale = String(driver.sexe || "").toLowerCase() === "f";
   if (prefs.female_driver_pref && isFemale) score++;
@@ -107,13 +107,12 @@ function toBool(val) {
 
 function computeRealisticRating(trajetPrefs, driver) {
   const RULES = [
-    // [prefActive, driverSatisfiesIfYes,                                         weight]
-    [trajetPrefs.quiet_ride, () => !toBool(driver.talkative), 2],
-    [trajetPrefs.radio_ok, () => toBool(driver.radio_on), 1],
-    [trajetPrefs.smoking_ok, () => toBool(driver.smoking_allowed), 2],
-    [trajetPrefs.pets_ok, () => toBool(driver.pets_allowed), 2],
-    [trajetPrefs.luggage_large, () => toBool(driver.car_big), 2],
-    [trajetPrefs.female_driver_pref, () => String(driver.sexe || "").trim().toLowerCase() === "f", 2],
+    [trajetPrefs.quiet_ride, () => !toBool(driver.preferences?.talkative), 2],
+    [trajetPrefs.radio_ok, () => toBool(driver.preferences?.radio), 1],
+    [trajetPrefs.smoking_ok, () => toBool(driver.preferences?.smoking), 2],
+    [trajetPrefs.pets_ok, () => toBool(driver.preferences?.pets), 2],
+    [trajetPrefs.luggage_large, () => toBool(driver.preferences?.luggage_large), 2],
+    [trajetPrefs.female_driver_pref, () => String(driver.sexe || "").trim().toLowerCase() === "f", 2], // ← ajoute
   ];
 
   // prefActive est un booléen (true = oui, false = non)
@@ -157,7 +156,13 @@ async function seedTrajets(trajetsPerPassenger = 10) {
     const passengers = await prisma.passenger.findMany({
       select: { id: true, profile_type: true },
     });
-    const drivers = await prisma.driver.findMany();
+    // Après
+    const drivers = await prisma.driver.findMany({
+      include: {
+        preferences: true,
+        workingHours: true
+      }
+    });
 
     if (passengers.length === 0) {
       console.error("❌ Aucun passager — lancer seed.passengers.js d'abord");
@@ -230,12 +235,16 @@ async function seedTrajets(trajetsPerPassenger = 10) {
               startLng,
               endLat,
               endLng,
-              quiet_ride: trajetPrefs.quiet_ride ? "yes" : "no",
-              radio_ok: trajetPrefs.radio_ok ? "yes" : "no",
-              smoking_ok: trajetPrefs.smoking_ok ? "yes" : "no",
-              pets_ok: trajetPrefs.pets_ok ? "yes" : "no",
-              luggage_large: trajetPrefs.luggage_large ? "yes" : "no",
-              female_driver_pref: trajetPrefs.female_driver_pref ? "yes" : "no",
+              preferences: {
+                create: {
+                  talkative:         trajetPrefs.quiet_ride,
+                  radio:             trajetPrefs.radio_ok,
+                  smoking:           trajetPrefs.smoking_ok,
+                  pets:              trajetPrefs.pets_ok,
+                  luggage_large:     trajetPrefs.luggage_large,
+                  femal_driver_pref: trajetPrefs.female_driver_pref,
+                }
+              },
             },
           });
 

@@ -36,7 +36,7 @@ export async function compareFaces(licenseBuffer, selfieBuffer) {
     });
 
     console.log('📤 Sending face comparison request...');
-    
+
     const { data } = await axios.post(
       `${FACE_SERVICE_URL}/compare`,
       formData,
@@ -55,13 +55,13 @@ export async function compareFaces(licenseBuffer, selfieBuffer) {
       return {
         success: true,
         data: {
-          verdict: data.verdict || (data.verified ? 'MATCH' : 'NO_MATCH'),  
-          similarityScore: data.similarity, 
+          verdict: data.verdict || (data.verified ? 'MATCH' : 'NO_MATCH'),
+          similarityScore: data.similarity,
           threshold: data.threshold,
           margin: data.margin,
           confidence: data.confidence,
-          licenseQuality: data.license_data?.quality_category || 'UNKNOWN',  
-          selfieQuality: data.selfie_data?.quality_category || 'UNKNOWN'     
+          licenseQuality: data.license_data?.quality_category || 'UNKNOWN',
+          selfieQuality: data.selfie_data?.quality_category || 'UNKNOWN'
         }
       };
     }
@@ -73,7 +73,7 @@ export async function compareFaces(licenseBuffer, selfieBuffer) {
   } catch (error) {
     console.error('❌ Face Recognition Service Error:', error.message);
     console.error('Error details:', error.response?.data || error);
-    
+
     if (error.code === 'ECONNREFUSED') {
       return {
         success: false,

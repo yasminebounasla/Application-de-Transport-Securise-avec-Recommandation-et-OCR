@@ -52,10 +52,10 @@ function computeHoursUntilDeparture(dateDepart) {
 }
 
 function workHourMatch(driver, departureHour) {
-  if (departureHour >= 5  && departureHour < 12  && driver.works_morning)   return 1;
-  if (departureHour >= 12 && departureHour < 18  && driver.works_afternoon) return 1;
-  if (departureHour >= 18 && departureHour < 22  && driver.works_evening)   return 1;
-  if ((departureHour >= 22 || departureHour < 5) && driver.works_night)     return 1;
+  if (departureHour >= 5  && departureHour < 12  && driver.workingHours?.works_morning)   return 1;
+  if (departureHour >= 12 && departureHour < 18  && driver.workingHours?.works_afternoon) return 1;
+  if (departureHour >= 18 && departureHour < 22  && driver.workingHours?.works_evening)   return 1;
+  if ((departureHour >= 22 || departureHour < 5) && driver.workingHours?.works_night)     return 1;
   return 0;
 }
 
@@ -92,12 +92,12 @@ function toPref(val) {
 
 function prefMatch(trajet, driver) {
   const RULES = [
-    ["female_driver_pref", () => String(driver.sexe || "").trim().toLowerCase() === "f"],
-    ["smoking_ok", () => toBool(driver.smoking_allowed)],
-    ["luggage_large", () => toBool(driver.car_big)],
-    ["pets_ok", () => toBool(driver.pets_allowed)],
-    ["quiet_ride", () => toBool(driver.talkative)], // special handled below
-    ["radio_ok", () => toBool(driver.radio_on)],
+    ["femal_driver_pref", () => String(driver.sexe || "").trim().toLowerCase() === "f"],
+    ["smoking", () => toBool(driver.preferences?.smoking)],
+    ["luggage_large", () => toBool(driver.preferences?.luggage_large)],
+    ["pets", () => toBool(driver.preferences?.pets)],
+    ["talkative", () => toBool(driver.preferences?.talkative)],
+    ["radio", () => toBool(driver.preferences?.radio)],
   ];
 
   let score = 0;
@@ -105,7 +105,7 @@ function prefMatch(trajet, driver) {
   let strongViolation = false;
 
   for (const [key, getDriverVal] of RULES) {
-    const prefVal = toPref(trajet[key]);
+    const prefVal = toPref(trajet.preferences?.[key]);
     if (prefVal === null) continue;
 
     total++;
@@ -114,8 +114,7 @@ function prefMatch(trajet, driver) {
 
     let match = false;
 
-    if (key === "quiet_ride") {
-      // yes = calme (talkative=false)
+    if (key === "talkative") {
       match = prefVal ? !driverHas : driverHas;
     } else {
       match = prefVal ? driverHas : !driverHas;
@@ -175,7 +174,8 @@ async function exportLightFM() {
     const drivers = await prisma.driver.findMany({
       where: {
         isVerified:true
-      }
+      },
+      include: { preferences: true, workingHours: true }
     });
     const driverMap = {};
     drivers.forEach((d) => { driverMap[d.id] = d; });
@@ -186,8 +186,10 @@ async function exportLightFM() {
         passagerId: { not: null },
         driverId:   { not: null },
       },
-      include: { evaluation: true, passenger: true },
+      include: { evaluation: true, passenger: true, preferences: true },
     });
+
+  
 
     console.log(`✅ ${drivers.length} drivers, ${trajets.length} trajets récupérés`);
 
@@ -237,12 +239,12 @@ async function exportLightFM() {
       trajetRows.push({
         passenger_id:       `P${t.passagerId}`,
         trajet_id:          `T${t.id}`,
-        quiet_ride:         t.quiet_ride         ?? "no",
-        radio_ok:           t.radio_ok           ?? "no",
-        smoking_ok:         t.smoking_ok         ?? "no",
-        pets_ok:            t.pets_ok            ?? "no",
-        luggage_large:      t.luggage_large      ?? "no",
-        female_driver_pref: t.female_driver_pref ?? "no",
+        quiet_ride:         boolToYesNo(t.preferences?.talkative)        ?? "no",
+        radio_ok:           boolToYesNo(t.preferences?.radio)            ?? "no",
+        smoking_ok:         boolToYesNo(t.preferences?.smoking)          ?? "no",
+        pets_ok:            boolToYesNo(t.preferences?.pets)             ?? "no",
+        luggage_large:      boolToYesNo(t.preferences?.luggage_large)    ?? "no",
+        female_driver_pref: boolToYesNo(t.preferences?.femal_driver_pref)?? "no",
         distance_km:        distanceKm   !== null ? distanceKm   : "N/A",
         score_distance:     scoreDistVal !== null ? scoreDistVal : "N/A",
         work_hour_match:    workMatch    !== null ? workMatch    : "N/A",
@@ -263,7 +265,7 @@ async function exportLightFM() {
 
     const dHeader = "driver_id,talkative,radio_on,smoking_allowed,pets_allowed,car_big,driver_gender,avg_rating,works_morning,works_afternoon,works_evening,works_night,latitude,longitude\n";
     const dRows   = drivers
-      .map((d) => `D${d.id},${boolToYesNo(d.talkative)},${boolToYesNo(d.radio_on)},${boolToYesNo(d.smoking_allowed)},${boolToYesNo(d.pets_allowed)},${boolToYesNo(d.car_big)},${d.sexe?.toLowerCase() === "f" ? "female" : "male"},${(d.avgRating || 4.0).toFixed(1)},${boolToYesNo(d.works_morning)},${boolToYesNo(d.works_afternoon)},${boolToYesNo(d.works_evening)},${boolToYesNo(d.works_night)},${d.latitude ?? "N/A"},${d.longitude ?? "N/A"}`)
+      .map((d) => `D${d.id},${boolToYesNo(d.preferences?.talkative)},${boolToYesNo(d.preferences?.radio)},${boolToYesNo(d.preferences?.smoking)},${boolToYesNo(d.preferences?.pets)},${boolToYesNo(d.preferences?.luggage_large)},${d.sexe?.toLowerCase() === "f" ? "female" : "male"},${(d.avgRating || 4.0).toFixed(1)},${boolToYesNo(d.workingHours?.works_morning)},${boolToYesNo(d.workingHours?.works_afternoon)},${boolToYesNo(d.workingHours?.works_evening)},${boolToYesNo(d.workingHours?.works_night)},${d.latitude ?? "N/A"},${d.longitude ?? "N/A"}`)
       .join("\n");
     fs.writeFileSync(path.join(exportDir, "drivers.csv"), dHeader + dRows);
     console.log("✅ drivers.csv créé");

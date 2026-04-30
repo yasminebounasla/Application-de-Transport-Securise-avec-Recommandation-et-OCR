@@ -62,7 +62,6 @@ export const registerDriver = async (req, res) => {
         age,
         numTel,
         sexe: sexe.trim()[0].toUpperCase(),
-        // ✅ fumeur supprimé car pas dans le schema
         isVerified: false,
       },
     });
@@ -201,22 +200,29 @@ export const getAllDrivers = async (req, res) => {
         prenom: true,
         age: true,
         numTel: true,
-        sexe: true,
-        // ✅ fumeur supprimé
-        talkative: true,
-        radio_on: true,
-        smoking_allowed: true,
-        pets_allowed: true,
-        car_big: true,
-        works_morning: true,
-        works_afternoon: true,
-        works_evening: true,
-        works_night: true,
         avgRating: true,
         isVerified: true,
         latitude: true,
         longitude: true,
-      },
+        preferences: {
+          select: {
+            talkative: true,
+            radio: true,
+            smoking: true,
+            pets: true,
+            luggage_large: true,
+            femal_driver_pref: true,
+          }
+        },
+        workingHours: {
+          select: {
+            works_morning: true,
+            works_afternoon: true,
+            works_evening: true,
+            works_night: true,
+          }
+        }
+      }
     });
 
     res.status(200).json({
@@ -263,7 +269,7 @@ export const checkEmailExists = async (req, res) => {
 
   try {
     console.log('🔍 Checking email:', email);
-    
+
     const driverExists = await prisma.driver.findFirst({
       where: {
         email: {

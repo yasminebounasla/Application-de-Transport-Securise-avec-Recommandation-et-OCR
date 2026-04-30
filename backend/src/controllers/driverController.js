@@ -14,12 +14,12 @@ export const addDriverPreferences = async (req, res) => {
 
   try {
     const {
-      fumeur,
       talkative,
-      radio_on,
-      smoking_allowed,
-      pets_allowed,
-      car_big,
+      radio,
+      smoking,
+      pets,
+      luggage_large,
+      femal_driver_pref,
       works_morning,
       works_afternoon,
       works_evening,
@@ -29,18 +29,45 @@ export const addDriverPreferences = async (req, res) => {
     const updatedDriver = await prisma.driver.update({
       where: { id: driverId },
       data: {
-        fumeur,
-        talkative,
-        radio_on,
-        smoking_allowed,
-        pets_allowed,
-        car_big,
-        works_morning,
-        works_afternoon,
-        works_evening,
-        works_night,
+        preferences: {
+          upsert: {
+            create: {
+              talkative,
+              radio,
+              smoking,
+              pets,
+              luggage_large,
+              femal_driver_pref,
+            },
+            update: {
+              talkative,
+              radio,
+              smoking,
+              pets,
+              luggage_large,
+              femal_driver_pref,
+            }
+          }
+        },
+        workingHours: {
+          upsert: {
+            create: {
+              works_morning,
+              works_afternoon,
+              works_evening,
+              works_night,
+            },
+            update: {
+              works_morning,
+              works_afternoon,
+              works_evening,
+              works_night,
+            }
+          }
+        }
       },
     });
+
     const { password, ...driverData } = updatedDriver;
     res.status(200).json({
       message: "Driver preferences updated successfully.",
@@ -87,12 +114,16 @@ export const getDriverDashboardAnalytics = async (req, res) => {
         createdAt: true,
         updatedAt: true,
         completedAt: true,
-        quiet_ride: true,
-        radio_ok: true,
-        smoking_ok: true,
-        pets_ok: true,
-        luggage_large: true,
-        female_driver_pref: true,
+        preferences: {
+          select: {
+            talkative: true,
+            radio: true,
+            smoking: true,
+            pets: true,
+            luggage_large: true,
+            femal_driver_pref: true,
+          }
+        },
       },
       orderBy: { createdAt: 'asc' },
     });
@@ -119,14 +150,16 @@ export const getDriverDashboardAnalytics = async (req, res) => {
       monthCursor.setMonth(monthCursor.getMonth() + 1);
     }
 
+
     const preferenceDefs = [
-      { key: 'quiet_ride', label: 'Quiet ride', color: '#16A34A' },
-      { key: 'radio_ok', label: 'Music allowed', color: '#2563EB' },
-      { key: 'smoking_ok', label: 'Smoking allowed', color: '#DC2626' },
-      { key: 'pets_ok', label: 'Pets allowed', color: '#F59E0B' },
+      { key: 'talkative', label: 'Quiet ride', color: '#16A34A' },
+      { key: 'radio', label: 'Music allowed', color: '#2563EB' },
+      { key: 'smoking', label: 'Smoking allowed', color: '#DC2626' },
+      { key: 'pets', label: 'Pets allowed', color: '#F59E0B' },
       { key: 'luggage_large', label: 'Large luggage', color: '#8B5E3C' },
-      { key: 'female_driver_pref', label: 'Female driver', color: '#EC4899' },
+      { key: 'femal_driver_pref', label: 'Female driver', color: '#EC4899' },
     ];
+
 
     const preferenceCounts = Object.fromEntries(
       preferenceDefs.map((pref) => [pref.key, 0])
@@ -156,7 +189,7 @@ export const getDriverDashboardAnalytics = async (req, res) => {
         completedTrips += 1;
 
         preferenceDefs.forEach((pref) => {
-          if ((ride[pref.key] || '').toLowerCase() === 'yes') {
+          if (ride.preferences?.[pref.key] === true) {
             preferenceCounts[pref.key] += 1;
           }
         });
@@ -243,7 +276,7 @@ export const getDriverRating = async (req, res) => {
             message: "Driver rating retrieved successfully.",
             data: driver
         });
-        
+
     } catch (err) {
         res.status(500).json({
             message: "Failed to retrieve driver rating.",
@@ -311,23 +344,23 @@ export const updateVehicle = async (req, res) => {
   const { vehicleId } = req.params;
 
   if (!driverId) {
-    return res.status(403).json({ 
-      message: "Access restricted to drivers only." 
+    return res.status(403).json({
+      message: "Access restricted to drivers only."
     });
   }
 
   try {
     // Vérifier que le véhicule appartient au conducteur
     const existingVehicle = await prisma.vehicule.findFirst({
-      where: { 
-        id: parseInt(vehicleId), 
-        driverId 
+      where: {
+        id: parseInt(vehicleId),
+        driverId
       },
     });
 
     if (!existingVehicle) {
-      return res.status(404).json({ 
-        message: "Vehicle not found or you don't have permission to update it." 
+      return res.status(404).json({
+        message: "Vehicle not found or you don't have permission to update it."
       });
     }
 
@@ -368,8 +401,8 @@ export const getDriverVehicles = async (req, res) => {
   const driverId = req.user.driverId;
 
   if (!driverId) {
-    return res.status(403).json({ 
-      message: "Access restricted to drivers only." 
+    return res.status(403).json({
+      message: "Access restricted to drivers only."
     });
   }
 
@@ -402,22 +435,22 @@ export const deleteVehicle = async (req, res) => {
   const { vehicleId } = req.params;
 
   if (!driverId) {
-    return res.status(403).json({ 
-      message: "Access restricted to drivers only." 
+    return res.status(403).json({
+      message: "Access restricted to drivers only."
     });
   }
 
   try {
     const existingVehicle = await prisma.vehicule.findFirst({
-      where: { 
-        id: parseInt(vehicleId), 
-        driverId 
+      where: {
+        id: parseInt(vehicleId),
+        driverId
       },
     });
 
     if (!existingVehicle) {
-      return res.status(404).json({ 
-        message: "Vehicle not found or you don't have permission to delete it." 
+      return res.status(404).json({
+        message: "Vehicle not found or you don't have permission to delete it."
       });
     }
 
@@ -442,8 +475,8 @@ export const getDriverPreferences = async (req, res) => {
   const driverId = req.user.driverId;
 
   if (!driverId) {
-    return res.status(403).json({ 
-      message: "Access restricted to drivers only." 
+    return res.status(403).json({
+      message: "Access restricted to drivers only."
     });
   }
 
@@ -452,22 +485,30 @@ export const getDriverPreferences = async (req, res) => {
       where: { id: driverId },
       select: {
         id: true,
-        fumeur: true,
-        talkative: true,
-        radio_on: true,
-        smoking_allowed: true,
-        pets_allowed: true,
-        car_big: true,
-        works_morning: true,
-        works_afternoon: true,
-        works_evening: true,
-        works_night: true,
+        preferences: {
+          select: {
+            talkative: true,
+            radio: true,
+            smoking: true,
+            pets: true,
+            luggage_large: true,
+            femal_driver_pref: true,
+          }
+        },
+        workingHours: {
+          select: {
+            works_morning: true,
+            works_afternoon: true,
+            works_evening: true,
+            works_night: true,
+          }
+        }
       },
     });
 
     if (!driver) {
-      return res.status(404).json({ 
-        message: "Driver not found." 
+      return res.status(404).json({
+        message: "Driver not found."
       });
     }
 
@@ -534,15 +575,15 @@ export const getDriverProfile = async (req, res) => {
       }));
 
     const preferences = {
-      talkative:       driver.talkative,
-      radio_on:        driver.radio_on,
-      smoking_allowed: driver.smoking_allowed,
-      pets_allowed:    driver.pets_allowed,
-      car_big:         driver.car_big,
-      works_morning:   driver.works_morning,
-      works_afternoon: driver.works_afternoon,
-      works_evening:   driver.works_evening,
-      works_night:     driver.works_night,
+      talkative:       driver.preferences.talkative,
+      radio_on:        driver.preferences.radio,
+      smoking_allowed: driver.preferences.smoking,
+      pets_allowed:    driver.preferences.pets,
+      car_big:         driver.preferences.luggage_large,
+      works_morning:   driver.workingHours.works_morning,
+      works_afternoon: driver.workingHours.works_afternoon,
+      works_evening:   driver.workingHours.works_evening,
+      works_night:     driver.workingHours.works_night,
     };
 
     const {
@@ -551,8 +592,8 @@ export const getDriverProfile = async (req, res) => {
       trajets,
       email,
       numTel,
-      latitude,    // 🔒 jamais exposé au passager
-      longitude,   // 🔒 jamais exposé au passager
+      latitude,
+      longitude,
       ...driverData
     } = driver;
 
@@ -609,6 +650,8 @@ export const getMyDriverProfile = async (req, res) => {
           orderBy: { completedAt: "desc" },
           take:    10,
         },
+        preferences: true,
+        workingHours: true,    
       },
     });
 
@@ -633,15 +676,15 @@ export const getMyDriverProfile = async (req, res) => {
       }));
 
     const preferences = {
-      talkative:       driver.talkative,
-      radio_on:        driver.radio_on,
-      smoking_allowed: driver.smoking_allowed,
-      pets_allowed:    driver.pets_allowed,
-      car_big:         driver.car_big,
-      works_morning:   driver.works_morning,
-      works_afternoon: driver.works_afternoon,
-      works_evening:   driver.works_evening,
-      works_night:     driver.works_night,
+      talkative:       driver.preferences.talkative,
+      radio_on:        driver.preferences.radio,
+      smoking_allowed: driver.preferences.smoking,
+      pets_allowed:    driver.preferences.pets,
+      car_big:         driver.preferences.luggage_large,
+      works_morning:   driver.workingHours.works_morning,
+      works_afternoon: driver.workingHours.works_afternoon,
+      works_evening:   driver.workingHours.works_evening,
+      works_night:     driver.workingHours.works_night,
     };
 
     const {
@@ -676,8 +719,8 @@ export const updateDriverProfile = async (req, res) => {
   const driverId = req.user.driverId;
 
   if (!driverId) {
-    return res.status(403).json({ 
-      message: "Access restricted to drivers only." 
+    return res.status(403).json({
+      message: "Access restricted to drivers only."
     });
   }
 
@@ -691,8 +734,8 @@ export const updateDriverProfile = async (req, res) => {
     if (age !== undefined) updateData.age = parseInt(age);
     if (sexe !== undefined) {
       if (sexe !== 'M' && sexe !== 'F') {
-        return res.status(400).json({ 
-          message: "Gender (sexe) must be 'M' or 'F'." 
+        return res.status(400).json({
+          message: "Gender (sexe) must be 'M' or 'F'."
         });
       }
       updateData.sexe = sexe;
@@ -763,7 +806,7 @@ export const updateDriverLocation = async (req, res) => {
        wilaya:          wilayaFromCoords?.nom || driver.wilaya,
      },
     });
-  
+
     res.status(200).json({
       message: "Location updated successfully.",
       data: {

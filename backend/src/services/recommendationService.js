@@ -14,29 +14,6 @@ const haversineKm = (lat1, lng1, lat2, lng2) => {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 };
 
-const selectDriverForReco = {
-  id: true,
-  email: true,
-  nom: true,
-  prenom: true,
-  age: true,
-  numTel: true,
-  sexe: true,
-  talkative: true,
-  radio_on: true,
-  smoking_allowed: true,
-  pets_allowed: true,
-  car_big: true,
-  works_morning: true,
-  works_afternoon: true,
-  works_evening: true,
-  works_night: true,
-  avgRating: true,
-  isVerified: true,
-  latitude: true,
-  longitude: true,
-};
-
 const buildFallbackRecommendations = (drivers = [], trajet = {}, top_n = 5) => {
   const startLat = trajet?.startLat != null ? Number(trajet.startLat) : null;
   const startLng = trajet?.startLng != null ? Number(trajet.startLng) : null;
@@ -108,7 +85,7 @@ export const getRecommendations = async (passenger_id, mlPreferences = {}, authT
     const [drivers, completedTrajets] = await Promise.all([
       prisma.driver.findMany({
         where: { isVerified: true },
-        select: selectDriverForReco
+        include: { preferences: true, workingHours: true }
       }),
       prisma.trajet.findMany({
         where: {
@@ -127,7 +104,30 @@ export const getRecommendations = async (passenger_id, mlPreferences = {}, authT
       interaction_counts[key] = (interaction_counts[key] || 0) + 1;
     }
 
-    const payload = { passenger_id, preferences, trajet, top_n, drivers, interaction_counts };
+    const driversFlat = drivers.map((d) => ({
+      id: d.id,
+      email: d.email,
+      nom: d.nom,
+      prenom: d.prenom,
+      age: d.age,
+      numTel: d.numTel,
+      sexe: d.sexe,
+      avgRating: d.avgRating,
+      isVerified: d.isVerified,
+      latitude: d.latitude,
+      longitude: d.longitude,
+      talkative:        d.preferences?.talkative ?? false,
+      radio_on:         d.preferences?.radio ?? false,
+      smoking_allowed:  d.preferences?.smoking ?? false,
+      pets_allowed:     d.preferences?.pets ?? false,
+      car_big:          d.preferences?.luggage_large ?? false,
+      works_morning:    d.workingHours?.works_morning ?? false,
+      works_afternoon:  d.workingHours?.works_afternoon ?? false,
+      works_evening:    d.workingHours?.works_evening ?? false,
+      works_night:      d.workingHours?.works_night ?? false,
+    }));
+
+    const payload = { passenger_id, preferences, trajet, top_n, drivers: driversFlat, interaction_counts };
 
     const response = await axios.post(`${ML_SERVICE_URL}/recommend`, payload, {
       timeout: 30000,
@@ -155,7 +155,7 @@ export const getRecommendations = async (passenger_id, mlPreferences = {}, authT
     try {
       const drivers = await prisma.driver.findMany({
         where: { isVerified: true },
-        select: selectDriverForReco
+        include: { preferences: true, workingHours: true }
       });
       return buildFallbackRecommendations(drivers, trajet, top_n);
     } catch (fallbackErr) {
