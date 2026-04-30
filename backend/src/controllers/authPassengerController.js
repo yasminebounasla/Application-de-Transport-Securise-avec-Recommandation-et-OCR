@@ -102,6 +102,7 @@ export const validatePassengerLogin = async (req, res) => {
 
 // REGISTER PASSENGER
 export const registerPassenger = async (req, res) => {
+  console.log("📝 registerPassenger called, body:", req.body); // ← ajoute ça
   const { email, password, confirmPassword, nom, prenom, age, numTel, sexe } =
     req.body;
 
