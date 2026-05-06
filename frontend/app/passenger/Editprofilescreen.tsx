@@ -63,17 +63,18 @@ function InputField({ label, icon, value, onChangeText, keyboardType = 'default'
 
 // ── MAIN ──
 export default function Editprofilescreen() {
-  const [loading, setLoading]     = useState(true);
-  const [saving, setSaving]       = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
   const [showToast, setShowToast] = useState(false);
 
-  const [nom, setNom]       = useState('');
+  const [nom, setNom] = useState('');
   const [prenom, setPrenom] = useState('');
-  const [email, setEmail]   = useState('');
+  const [email, setEmail] = useState('');
   const [numTel, setNumTel] = useState('');
-  const [age, setAge]       = useState('');
+  const [age, setAge] = useState('');
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [cropUri, setCropUri] = useState<string | null>(null);
+  const [cropMeta, setCropMeta] = useState<{ name?: string; type?: string } | null>(null);
   const [showCropModal, setShowCropModal] = useState(false);
 
   useEffect(() => { loadData(); }, []);
@@ -102,17 +103,19 @@ export default function Editprofilescreen() {
         Alert.alert('Permission required', 'Permission to access photos is required.');
         return;
       }
-      const result: any = await ImagePicker.launchImageLibraryAsync({
+      const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         quality: 0.8,
         // re-enable native editor for resizing when available
         allowsEditing: true,
         aspect: [1, 1],
       });
-      const uri = result.uri ?? result.assets?.[0]?.uri;
+      const asset = result.assets?.[0];
+      const uri = result.uri ?? asset?.uri;
       if (uri) {
         // show our in-app confirm modal (replace native 'REDIMENSIONNER')
         setCropUri(uri);
+        setCropMeta({ name: asset?.fileName, type: asset?.mimeType });
         setShowCropModal(true);
       }
     } catch (err) {
@@ -121,37 +124,47 @@ export default function Editprofilescreen() {
     }
   };
 
-    const confirmUpload = async () => {
-      if (!cropUri) return;
-      setShowCropModal(false);
-      setAvatarUri(cropUri);
-      try {
-        const formData = new FormData();
-        formData.append('avatar', {
-          uri: cropUri,
-          name: 'avatar.jpg',
-          type: 'image/jpeg',
-        } as any);
-        const res = await api.post('/passengers/avatar', formData, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
-        const photoUrl = res.data?.data?.photoUrl;
-        if (photoUrl) {
-          setAvatarUri(photoUrl);
-          // update stored user for immediate profile reflection
-          const userStr = await AsyncStorage.getItem('user');
-          if (userStr) {
-            const u = JSON.parse(userStr);
-            await AsyncStorage.setItem('user', JSON.stringify({ ...u, photoUrl }));
-          }
+  const confirmUpload = async () => {
+    if (!cropUri) return;
+    setShowCropModal(false);
+    setAvatarUri(cropUri);
+    try {
+      const uriParts = cropUri.split('?')[0].split('/');
+      const fallbackName = uriParts[uriParts.length - 1] || 'avatar.jpg';
+      const ext = (fallbackName.split('.').pop() || 'jpg').toLowerCase();
+      const inferredType =
+        ext === 'png' ? 'image/png' :
+          ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' :
+            'image/jpeg';
+
+      const formData = new FormData();
+      formData.append('avatar', {
+        uri: cropUri,
+        name: cropMeta?.name || fallbackName || 'avatar.jpg',
+        type: cropMeta?.type || inferredType,
+      } as any);
+      // IMPORTANT: don't force Content-Type here; letting RN/axios set the boundary avoids "Network Error" on Android.
+      const res = await api.post('/passengers/avatar', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      const photoUrl = res.data?.data?.photoUrl;
+      if (photoUrl) {
+        setAvatarUri(photoUrl);
+        // update stored user for immediate profile reflection
+        const userStr = await AsyncStorage.getItem('user');
+        if (userStr) {
+          const u = JSON.parse(userStr);
+          await AsyncStorage.setItem('user', JSON.stringify({ ...u, photoUrl }));
         }
-      } catch (err: any) {
-        console.warn('Avatar upload failed:', err?.response?.data || err.message);
-        Alert.alert('Upload failed', 'Could not upload avatar to server. Preview saved locally.');
-      } finally {
-        setCropUri(null);
       }
-    };
+    } catch (err: any) {
+      console.warn('Avatar upload failed:', err?.response?.data || err.message);
+      Alert.alert('Upload failed', 'Could not upload avatar to server. Preview saved locally.');
+    } finally {
+      setCropUri(null);
+      setCropMeta(null);
+    }
+  };
 
   const handleSave = async () => {
     if (!nom.trim() || !prenom.trim() || !numTel.trim()) {
@@ -190,10 +203,12 @@ export default function Editprofilescreen() {
 
   return (
     <>
-      <Stack.Screen options={{ title: "Edit Profile", headerTitle: "Edit Profile" ,headerStyle: { backgroundColor: '#ffffff' },
-          headerTitleStyle: { fontWeight: '800', fontSize: 20 },
-          headerShadowVisible: true,
-          headerBackTitle: '',}} />
+      <Stack.Screen options={{
+        title: "Edit Profile", headerTitle: "Edit Profile", headerStyle: { backgroundColor: '#ffffff' },
+        headerTitleStyle: { fontWeight: '800', fontSize: 20 },
+        headerShadowVisible: true,
+        headerBackTitle: '',
+      }} />
       <KeyboardAvoidingView style={{ flex: 1, backgroundColor: '#F9FAFB' }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
 
@@ -228,7 +243,7 @@ export default function Editprofilescreen() {
               </View>
 
               <View style={{ padding: 16, paddingBottom: 30, backgroundColor: '#fff' }}>
-                <TouchableOpacity onPress={confirmUpload} style={{ backgroundColor: '#111', height: 54, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}> 
+                <TouchableOpacity onPress={confirmUpload} style={{ backgroundColor: '#111', height: 54, borderRadius: 12, alignItems: 'center', justifyContent: 'center' }}>
                   <Text style={{ color: '#fff', fontWeight: '700', fontSize: 16 }}>Done</Text>
                 </TouchableOpacity>
                 <TouchableOpacity onPress={() => { setShowCropModal(false); setCropUri(null); }} style={{ marginTop: 12, alignItems: 'center' }}>
@@ -241,11 +256,11 @@ export default function Editprofilescreen() {
           {/* Personal info — no gender */}
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Personal Information</Text>
-            <InputField label="First name"   icon="person-outline"   value={prenom} onChangeText={setPrenom} placeholder="First name" />
-            <InputField label="Last name"    icon="people-outline"   value={nom}    onChangeText={setNom}    placeholder="Last name" />
-            <InputField label="Email"        icon="mail-outline"     value={email}  editable={false} />
-            <InputField label="Phone number" icon="call-outline"     value={numTel} onChangeText={setNumTel} keyboardType="phone-pad" />
-            <InputField label="Age"          icon="accessibility-outline" value={age}    onChangeText={setAge}    keyboardType="numeric" />
+            <InputField label="First name" icon="person-outline" value={prenom} onChangeText={setPrenom} placeholder="First name" />
+            <InputField label="Last name" icon="people-outline" value={nom} onChangeText={setNom} placeholder="Last name" />
+            <InputField label="Email" icon="mail-outline" value={email} editable={false} />
+            <InputField label="Phone number" icon="call-outline" value={numTel} onChangeText={setNumTel} keyboardType="phone-pad" />
+            <InputField label="Age" icon="accessibility-outline" value={age} onChangeText={setAge} keyboardType="numeric" />
           </View>
 
           <View style={{ paddingHorizontal: 20, marginTop: 8 }}>
@@ -271,7 +286,7 @@ const styles = StyleSheet.create({
     paddingBottom: 14, paddingHorizontal: 16,
     borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
   },
-  backBtn:     { padding: 6, marginRight: 8 },
+  backBtn: { padding: 6, marginRight: 8 },
   topBarTitle: { flex: 1, fontSize: 18, fontWeight: '700', color: '#111' },
 
   avatarSection: {
@@ -298,18 +313,18 @@ const styles = StyleSheet.create({
   sectionTitle: { fontSize: 15, fontWeight: '800', color: '#111', marginBottom: 16, letterSpacing: 0.2 },
 
   fieldWrapper: { marginBottom: 16 },
-  fieldLabel:   { fontSize: 12, fontWeight: '600', color: '#888', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
+  fieldLabel: { fontSize: 12, fontWeight: '600', color: '#888', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
   inputRow: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: '#F9FAFB', borderRadius: 12,
     borderWidth: 1, borderColor: '#E5E7EB', paddingHorizontal: 14, height: 50,
   },
   inputDisabled: { backgroundColor: '#F3F4F6', opacity: 0.7 },
-  input:         { flex: 1, fontSize: 15, color: '#111' },
+  input: { flex: 1, fontSize: 15, color: '#111' },
 
-  saveBtn:         { backgroundColor: '#000', height: 54, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  saveBtn: { backgroundColor: '#000', height: 54, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   saveBtnDisabled: { backgroundColor: '#999' },
-  saveBtnText:     { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.3 },
+  saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '700', letterSpacing: 0.3 },
 
   toast: {
     position: 'absolute', bottom: 40, alignSelf: 'center',

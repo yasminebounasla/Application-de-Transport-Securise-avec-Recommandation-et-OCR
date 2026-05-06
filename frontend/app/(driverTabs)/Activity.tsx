@@ -26,6 +26,7 @@ import api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 import { useRide } from "../../context/RideContext";
 import { formatPhoneNumberForDisplay } from "../../utils/phoneNumber";
+import UserAvatar from "../../components/UserAvatar";
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const CATEGORIES = [
@@ -99,13 +100,6 @@ const SORT_OPTIONS: { key: SortKey; label: string; icon: string }[] = [
 ];
 
 // ─── AVATAR ───────────────────────────────────────────────────────────────────
-function getAvatarColor(sexe?: string) {
-  const val = (sexe ?? "").toLowerCase().trim();
-  if (val === "f" || val === "female" || val === "femme" || val === "woman")
-    return { bg: "#fad0e2", text: "#BE185D" };
-  return { bg: "#d3e4fa", text: "#1B72DA" };
-}
-
 function Avatar({
   prenom,
   nom,
@@ -117,16 +111,15 @@ function Avatar({
   sexe?: string;
   photoUrl?: string;
 }) {
-  const initials = `${prenom?.[0] ?? ""}${nom?.[0] ?? ""}`.toUpperCase() || "?";
-  const colors = getAvatarColor(sexe);
   return (
-    <View style={[s.avatar, { backgroundColor: colors.bg }]}>
-      {photoUrl ? (
-        <Image source={{ uri: photoUrl }} style={s.avatarImg} />
-      ) : (
-        <Text style={[s.avatarText, { color: colors.text }]}>{initials}</Text>
-      )}
-    </View>
+    <UserAvatar
+      prenom={prenom}
+      nom={nom}
+      sexe={sexe}
+      photoUrl={photoUrl}
+      size={36}
+      style={s.avatar}
+    />
   );
 }
 
@@ -296,7 +289,7 @@ function RideCard({
                 prenom={passenger.prenom}
                 nom={passenger.nom}
                 sexe={passenger.sexe}
-                photoUrl={passenger.photoUrl}
+                photoUrl={passenger.photoUrl ?? passenger.photo_url ?? passenger.avatarUrl ?? passenger.avatar_url ?? passenger.photo ?? passenger.image}
               />
               <View>
                 <Text style={s.passengerName} numberOfLines={1}>

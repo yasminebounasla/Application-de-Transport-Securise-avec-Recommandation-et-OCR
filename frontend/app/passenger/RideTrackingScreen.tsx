@@ -421,7 +421,6 @@ export default function RideTrackingScreen() {
         )}
       </MapView>
       <View style={styles.infoContainer}>
-        <Text>Status: {status}</Text>
         {etaMinutes !== null && <Text>ETA: {etaMinutes} min</Text>}
       </View>
     </View>

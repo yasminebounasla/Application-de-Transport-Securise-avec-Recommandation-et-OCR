@@ -215,8 +215,8 @@ export default function MesTrajets() {
         <View style={s.emptyCircle}>
           <Ionicons name="car-outline" size={30} color="#D1D5DB" />
         </View>
-        <Text style={s.emptyTitle}>Aucun trajet actif</Text>
-        <Text style={s.subtle}>Les trajets acceptés apparaîtront ici.</Text>
+        <Text style={s.emptyTitle}>No trips for now</Text>
+        <Text style={s.subtle}>Accepted trips starting in 1 hour or less will appear here.</Text>
       </View>
     );
   }

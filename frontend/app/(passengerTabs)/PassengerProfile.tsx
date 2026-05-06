@@ -7,7 +7,6 @@ import {
   Alert,
   ActivityIndicator,
   RefreshControl,
-  Image,
   Modal,
   Linking,
 } from "react-native";
@@ -16,6 +15,7 @@ import { Ionicons } from "@expo/vector-icons";
 import api from "../../services/api";
 import { useAuth } from "../../context/AuthContext";
 import { formatPhoneNumberForDisplay } from "../../utils/phoneNumber";
+import UserAvatar from "../../components/UserAvatar";
 
 interface PassengerProfile {
   id?: number;
@@ -149,24 +149,15 @@ export default function PassengerProfileScreen() {
 
           {/* Avatar — plus cliquable */}
           <View>
-            {profile.photoUrl ? (
-              <Image
-                source={{ uri: profile.photoUrl }}
-                style={{ width: 100, height: 100, borderRadius: 50 }}
-              />
-            ) : (
-              <View
-                style={{
-                  width: 100,
-                  height: 100,
-                  borderRadius: 50,
-                  backgroundColor: "#111",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}>
-                <Ionicons name='person' size={50} color='#FFF' />
-              </View>
-            )}
+            <UserAvatar
+              prenom={profile.prenom}
+              nom={profile.nom}
+              photoUrl={(profile as any).photoUrl ?? (profile as any).photo_url ?? (profile as any).photo}
+              size={100}
+              backgroundColor="#111"
+              textColor="#FFF"
+              fallback={<Ionicons name='person' size={50} color='#FFF' />}
+            />
           </View>
 
           {/* Nom */}
@@ -264,7 +255,7 @@ export default function PassengerProfileScreen() {
             </View>
             <View>
               <Text style={{ fontSize: 15, fontWeight: "700", color: "#111" }}>
-                My Address
+                My Addresses
               </Text>
               <Text style={{ fontSize: 12, color: "#888", marginTop: 2 }}>
                 Manage your saved places

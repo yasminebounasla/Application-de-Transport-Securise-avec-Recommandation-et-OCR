@@ -12,7 +12,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   Animated,
-  Image,
 } from "react-native";
 import { Stack, router, useFocusEffect } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
@@ -20,6 +19,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import type { KeyboardTypeOptions } from "react-native";
 import { useCallback } from "react";
 import api, { API_URL } from "../../services/api";
+import UserAvatar from "../../components/UserAvatar";
 import {
   buildInternationalPhoneNumber,
   DEFAULT_COUNTRY_PHONE,
@@ -140,42 +140,7 @@ function ToggleField({
 }
 
 // ── GENDER SELECTOR ──
-function GenderSelector({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (v: string) => void;
-}) {
-  return (
-    <View style={styles.fieldWrapper}>
-      <Text style={styles.fieldLabel}>Gender</Text>
-      <View style={{ flexDirection: "row", gap: 12, marginTop: 6 }}>
-        {[
-          { key: "M", label: "Male" },
-          { key: "F", label: "Female" },
-        ].map((opt) => (
-          <TouchableOpacity
-            key={opt.key}
-            onPress={() => onChange(opt.key)}
-            style={[
-              styles.genderBtn,
-              value === opt.key && styles.genderBtnActive,
-            ]}
-            activeOpacity={0.8}>
-            <Text
-              style={[
-                styles.genderBtnText,
-                value === opt.key && styles.genderBtnTextActive,
-              ]}>
-              {opt.label}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
-    </View>
-  );
-}
+
 
 // ── MAIN ──
 export default function EditProfileScreen() {
@@ -193,7 +158,6 @@ export default function EditProfileScreen() {
   const [email, setEmail] = useState("");
   const [numTel, setNumTel] = useState("");
   const [age, setAge] = useState("");
-  const [sexe, setSexe] = useState("M");
 
   // Validation errors
   const [errors, setErrors] = useState({ numTel: '', age: '' });
@@ -240,8 +204,6 @@ export default function EditProfileScreen() {
       setEmail(d.email || "");
       setNumTel(formatPhoneNumberForDisplay(d.numTel || ""));
       setAge(d.age ? String(d.age) : "");
-      const raw = (d.sexe || "").toString().trim().toUpperCase();
-      setSexe(raw === "F" ? "F" : "M");
       setDriverId(d.id);
       try {
         const selfieRes = await api.get(`/verification/driver/${d.id}/selfie`);
@@ -332,7 +294,6 @@ export default function EditProfileScreen() {
         prenom: prenom.trim(),
         numTel: buildInternationalPhoneNumber(numTel.trim(), DEFAULT_COUNTRY_PHONE),
         age: parseInt(age) || 0,
-        sexe,
       });
       await api.put("/drivers/preferences", {
         talkative,
@@ -423,15 +384,15 @@ export default function EditProfileScreen() {
             <>
               <View style={styles.avatarSection}>
                 <View style={styles.avatarCircle}>
-                  {selfieUrl ? (
-                    <Image
-                      source={{ uri: selfieUrl }}
-                      style={{ width: 88, height: 88, borderRadius: 44 }}
-                      onError={() => setSelfieUrl(null)}
-                    />
-                  ) : (
-                    <Ionicons name='person' size={44} color='#fff' />
-                  )}
+                  <UserAvatar
+                    prenom={prenom}
+                    nom={nom}
+                    photoUrl={selfieUrl}
+                    size={88}
+                    backgroundColor="#111"
+                    textColor="#FFF"
+                    fallback={<Ionicons name='person' size={44} color='#fff' />}
+                  />
                 </View>
               </View>
 
@@ -474,7 +435,6 @@ export default function EditProfileScreen() {
                   error={errors.age}
                   onFocus={() => scrollRef.current?.scrollToEnd({ animated: true })}
                 />
-                <GenderSelector value={sexe} onChange={setSexe} />
               </View>
 
               <View style={{ paddingHorizontal: 20, marginTop: 8 }}>
@@ -805,27 +765,6 @@ const styles = StyleSheet.create({
   toggleLabel: {
     fontSize: 14,
     color: "#333",
-  },
-  genderBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#E5E7EB",
-    alignItems: "center",
-    backgroundColor: "#F9FAFB",
-  },
-  genderBtnActive: {
-    backgroundColor: "#111",
-    borderColor: "#111",
-  },
-  genderBtnText: {
-    fontSize: 14,
-    color: "#555",
-    fontWeight: "600",
-  },
-  genderBtnTextActive: {
-    color: "#fff",
   },
   saveBtn: {
     backgroundColor: "#111",

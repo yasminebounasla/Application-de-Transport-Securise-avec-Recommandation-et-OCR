@@ -94,6 +94,7 @@ export default function SavedPlacesScreen() {
     try {
       const res = await api.post('/passengers/saved-places', { label, address, lat, lng });
       setPlaces(prev => [res.data.data, ...prev]);
+      Alert.alert('Success', 'Address added successfully.');
     } catch (e: any) {
       Alert.alert('Error', e.response?.data?.message || e.message);
     }
@@ -645,9 +646,18 @@ function AddressModal({ visible, target, isNew, onClose, onSave, onSetOnMap }: {
           </View>
 
           {/* RESULTS */}
-          <FlatList
+            <FlatList
             data={results}
-            keyExtractor={item => String(item.id)}
+            keyExtractor={(item, index) => {
+              // Prefer a stable `id` when available. Fall back to a composite key
+              // using lat/lon and index to guarantee uniqueness and avoid
+              // the React duplicate key warning when LocationIQ returns
+              // unexpected or missing ids.
+              if (item && item.id !== undefined && item.id !== null && String(item.id) !== '') {
+                return String(item.id);
+              }
+              return `${item?.latitude ?? 'lat'}_${item?.longitude ?? 'lon'}_${index}`;
+            }}
             keyboardShouldPersistTaps="handled"
             ItemSeparatorComponent={() => (
               <View style={{ height: 1, backgroundColor: '#F5F5F5', marginLeft: 60 }} />

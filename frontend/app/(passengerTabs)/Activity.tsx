@@ -11,6 +11,7 @@ import { useAuth } from '../../context/AuthContext';
 
 import { formatDuration, formatDistance } from '../../utils/formatUtils';
 import { formatPhoneNumberForDisplay } from '../../utils/phoneNumber';
+import UserAvatar from '../../components/UserAvatar';
 
 
 
@@ -43,24 +44,8 @@ const SORT_OPTIONS: { key: SortKey; label: string; icon: string }[] = [
 ];
 
 // ─── AVATAR ───────────────────────────────────────────────────────────────────
-function getAvatarColor(sexe?: string) {
-  const val = (sexe ?? '').toLowerCase().trim();
-  if (val === 'f' || val === 'female' || val === 'femme' || val === 'woman')
-    return { bg: '#fad0e2', text: '#BE185D' };
-  return { bg: '#d3e4fa', text: '#1B72DA' };
-}
-
 function Avatar({ prenom, nom, sexe, photoUrl }: { prenom?: string; nom?: string; sexe?: string; photoUrl?: string }) {
-  const initials = `${prenom?.[0] ?? ''}${nom?.[0] ?? ''}`.toUpperCase() || '?';
-  const colors   = getAvatarColor(sexe);
-  return (
-    <View style={[s.avatar, { backgroundColor: colors.bg }]}>
-      {photoUrl
-        ? <Image source={{ uri: photoUrl }} style={s.avatarImg} />
-        : <Text style={[s.avatarText, { color: colors.text }]}>{initials}</Text>
-      }
-    </View>
-  );
+  return <UserAvatar prenom={prenom} nom={nom} sexe={sexe} photoUrl={photoUrl} size={36} style={s.avatar} />;
 }
 
 // ─── TAG ──────────────────────────────────────────────────────────────────────
@@ -133,7 +118,12 @@ function RideCard({ item, highlighted, onPress }: {
             </View>
           ) : (
             <View style={s.headerLeft}>
-              <Avatar prenom={driver.prenom} nom={driver.nom} sexe={driver.sexe} photoUrl={driver.photoUrl} />
+              <Avatar
+                prenom={driver.prenom}
+                nom={driver.nom}
+                sexe={driver.sexe}
+                photoUrl={driver.photoUrl ?? driver.photo_url ?? driver.avatarUrl ?? driver.avatar_url ?? driver.photo ?? driver.image}
+              />
               <View>
                 <Text style={s.driverName} numberOfLines={1}>{driver.prenom} {driver.nom}</Text>
                 <Text style={s.driverSub}>{formatPhoneNumberForDisplay(driver.numTel)}</Text>

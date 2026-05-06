@@ -69,6 +69,19 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
   const storageKey = user?.id ? `app_notifications_${user.id}` : null;
   const unreadKey = user?.id ? `app_notifications_${user.id}_unread` : null;
 
+  const pickPhotoUrl = (entity: any): string | undefined => {
+    if (!entity) return undefined;
+    return (
+      entity.photoUrl ??
+      entity.photo_url ??
+      entity.avatarUrl ??
+      entity.avatar_url ??
+      entity.photo ??
+      entity.image ??
+      entity.selfieUrl
+    );
+  };
+
   // ── 1. Load from cache ──────────────────────────────────────────────────────
   useEffect(() => {
     if (!user) {
@@ -257,7 +270,7 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
           type: "RIDE_ACCEPTED",
           prenom: data.driver?.prenom,
           nom: data.driver?.nom,
-          photoUrl: data.driver?.photoUrl,
+          photoUrl: pickPhotoUrl(data.driver),
         });
       });
       newSocket.on("rideRejectedByDriver", (data) => {
@@ -266,7 +279,7 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
           type: "RIDE_REJECTED",
           prenom: data.driver?.prenom,
           nom: data.driver?.nom,
-          photoUrl: data.driver?.photoUrl,
+          photoUrl: pickPhotoUrl(data.driver),
         });
       });
       newSocket.on("rideStarted", (data) => {
@@ -275,7 +288,7 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
           type: "RIDE_STARTED",
           prenom: data.driver?.prenom,
           nom: data.driver?.nom,
-          photoUrl: data.driver?.photoUrl,
+          photoUrl: pickPhotoUrl(data.driver),
         });
       });
       newSocket.on("rideCompleted", (data) => {
@@ -293,7 +306,7 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
           type: "RIDE_REQUEST",
           prenom: data.passenger?.prenom,
           nom: data.passenger?.nom,
-          photoUrl: data.passenger?.photoUrl,
+          photoUrl: pickPhotoUrl(data.passenger),
         });
       });
       newSocket.on("rideCancelledByPassenger", (data) => {
@@ -302,7 +315,7 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
           type: "RIDE_CANCELLED",
           prenom: data.passenger?.prenom,
           nom: data.passenger?.nom,
-          photoUrl: data.passenger?.photoUrl,
+          photoUrl: pickPhotoUrl(data.passenger),
         });
       });
       newSocket.on("newFeedback", (data) => {
@@ -311,7 +324,7 @@ export const NotificationProvider = ({ children }: { children: ReactNode }) => {
           type: "NEW_FEEDBACK",
           prenom: data.passenger?.prenom,
           nom: data.passenger?.nom,
-          photoUrl: data.passenger?.photoUrl,
+          photoUrl: pickPhotoUrl(data.passenger),
         });
       });
     }

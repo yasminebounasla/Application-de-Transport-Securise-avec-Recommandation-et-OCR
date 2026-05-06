@@ -149,7 +149,7 @@ function buildWeekPeriods(
     1,
     Math.floor(
       (currentWeekStart.getTime() - firstWeekStart.getTime()) /
-        (7 * 24 * 60 * 60 * 1000),
+      (7 * 24 * 60 * 60 * 1000),
     ) + 1,
   );
 
@@ -222,8 +222,8 @@ function buildMonthPeriods(
   const totalMonths = Math.max(
     1,
     (currentMonthStart.getFullYear() - accountMonthStart.getFullYear()) * 12 +
-      (currentMonthStart.getMonth() - accountMonthStart.getMonth()) +
-      1,
+    (currentMonthStart.getMonth() - accountMonthStart.getMonth()) +
+    1,
   );
 
   return Array.from({ length: totalMonths }, (_, index) => {
@@ -746,7 +746,7 @@ export default function HomeScreen() {
       panel: "#ECFDF5",
       track: "#BBF7D0",
       fill: "#16A34A",
-      value: "#166534",
+      valueColor: "#166534",
       hint: "#166534",
       text: "You are finishing your rides well, keep the momentum going.",
     },
@@ -754,7 +754,7 @@ export default function HomeScreen() {
       panel: "#FFF7ED",
       track: "#FED7AA",
       fill: "#F59E0B",
-      value: "#C2410C",
+      valueColor: "#C2410C",
       hint: "#C2410C",
       text: "You are getting movement, one more push can turn it into completed trips.",
     },
@@ -762,28 +762,28 @@ export default function HomeScreen() {
       panel: "#F8FAFC",
       track: "#E5E7EB",
       fill: "#E5E7EB",
-      value: "#94A3B8",
+      valueColor: "#94A3B8",
       hint: "#94A3B8",
       text: "A fresh ride can start this streak at any time.",
     },
   }[progressState];
   const liveCardTheme = inProgressRide
     ? {
-        card: "#FFF7ED",
-        iconBg: "#FED7AA",
-        icon: "#C2410C",
-        title: "#9A3412",
-        subtitle: "#C2410C",
-        arrow: "#C2410C",
-      }
+      card: "#FFF7ED",
+      iconBg: "#FED7AA",
+      icon: "#C2410C",
+      title: "#9A3412",
+      subtitle: "#C2410C",
+      arrow: "#C2410C",
+    }
     : {
-        card: "#F8FAFC",
-        iconBg: "#E5E7EB",
-        icon: "#64748B",
-        title: "#475569",
-        subtitle: "#94A3B8",
-        arrow: "#94A3B8",
-      };
+      card: "#F8FAFC",
+      iconBg: "#E5E7EB",
+      icon: "#64748B",
+      title: "#475569",
+      subtitle: "#94A3B8",
+      arrow: "#94A3B8",
+    };
 
   const handleRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -811,8 +811,8 @@ export default function HomeScreen() {
   const isNewUser =
     accountCreatedAt &&
     (new Date().getTime() - new Date(accountCreatedAt).getTime()) /
-      (1000 * 60 * 60) <
-      1;
+    (1000 * 60 * 60) <
+    1;
 
   return (
     <ScrollView
@@ -869,7 +869,7 @@ export default function HomeScreen() {
               accent='#8B5E3C'
             />
             <HeroStat
-              label='Canceled'
+              label='Cancelled'
               value={activityStats.cancelled}
               accent='#DC2626'
             />
@@ -1083,7 +1083,7 @@ export default function HomeScreen() {
                   : "Monthly completion rhythm"}
               </Text>
               <Text
-                style={[styles.progressValue, { color: progressTheme.value }]}>
+                style={[styles.progressValue, { color: progressTheme.valueColor }]}>
                 {completedCount}/{Math.max(totalCount, 1)}
               </Text>
             </View>
@@ -1294,7 +1294,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 14,
-    backgroundColor: "#E5E7EB" ,
+    backgroundColor: "#E5E7EB",
     alignItems: "center",
     justifyContent: "center",
   },
