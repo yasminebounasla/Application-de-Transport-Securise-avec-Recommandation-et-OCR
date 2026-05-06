@@ -216,18 +216,18 @@ export default function EditProfileScreen() {
         console.log('❌ SELFIE ERROR STATUS:', e?.response?.status);
         console.log('❌ SELFIE ERROR DATA:', JSON.stringify(e?.response?.data));
       }
-      const p = d.preferences ?? d;
-      setTalkative(!!p.talkative);
-      setRadioOn(!!p.radio_on);
-      setSmokingAllowed(!!p.smoking_allowed);
-      setPetsAllowed(!!p.pets_allowed);
-      setCarBig(!!p.car_big);
-      setWorksMorning(!!p.works_morning);
-      setWorksAfternoon(!!p.works_afternoon);
-      setWorksEvening(!!p.works_evening);
-      setWorksNight(!!p.works_night);
-      setWorkZoneAddress(d.workZoneAddress || "");
-      setWilaya(d.wilaya || "");
+      const p = d.preferences ?? {};
+        setTalkative(!!p.talkative);
+        setRadioOn(!!p.radio_on);           // déjà mappé par getMyDriverProfile
+        setSmokingAllowed(!!p.smoking_allowed);
+        setPetsAllowed(!!p.pets_allowed);
+        setCarBig(!!p.car_big);
+        setWorksMorning(!!p.works_morning);
+        setWorksAfternoon(!!p.works_afternoon);
+        setWorksEvening(!!p.works_evening);
+        setWorksNight(!!p.works_night);
+        setWorkZoneAddress(d.workZoneAddress || "");
+        setWilaya(d.wilaya || "");
     } catch (e) {
       Alert.alert("Error", "Failed to load profile.");
     } finally {
@@ -296,15 +296,15 @@ export default function EditProfileScreen() {
         age: parseInt(age) || 0,
       });
       await api.put("/drivers/preferences", {
-        talkative,
-        radio_on,
-        smoking_allowed,
-        pets_allowed,
-        car_big,
-        works_morning,
-        works_afternoon,
-        works_evening,
-        works_night,
+       talkative,
+       radio: radio_on,
+       smoking: smoking_allowed,
+       pets: pets_allowed,
+       luggage_large: car_big,
+       works_morning,
+       works_afternoon,
+       works_evening,
+       works_night,
       });
       await updateUserInStorage();
       setShowToast(true);
