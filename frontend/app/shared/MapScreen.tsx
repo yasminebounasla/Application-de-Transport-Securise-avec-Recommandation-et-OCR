@@ -1206,8 +1206,8 @@ const wzStyles = StyleSheet.create({
     backgroundColor: '#0a3980',
     borderRadius:    50,
     paddingVertical: 14,
-    paddingHorizontal: 170,
     alignSelf:       'center',
+    width:           '100%',
   },
   ctaDisabled: {
     backgroundColor: 'rgba(41,65,144,0.4)',
