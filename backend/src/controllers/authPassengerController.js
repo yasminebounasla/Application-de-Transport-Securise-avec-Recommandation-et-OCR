@@ -114,7 +114,9 @@ export const registerPassenger = async (req, res) => {
     }
 
     const passwordError = validatePassword(password);
-    if (passwordError) return res.status(400).json({ message: passwordError });
+    if (passwordError.length > 0) {
+      return res.status(400).json({ message: passwordError });
+    }
 
     if (password !== confirmPassword) {
       return res.status(400).json({ message: "Passwords do not match." });

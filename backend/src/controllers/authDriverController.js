@@ -5,6 +5,8 @@ import { prisma } from "../config/prisma.js";
 import { getJwtSecrets } from "../utils/jwtConfig.js";
 
 export const registerDriver = async (req, res) => {
+    console.log("🔥 registerDriver CALLED, body:", JSON.stringify(req.body));  // ← ADD THIS
+
   const { email, password, confirmPassword, nom, prenom, age, numTel, sexe } =
     req.body;
 
@@ -16,8 +18,8 @@ export const registerDriver = async (req, res) => {
     }
 
     const passwordError = validatePassword(password);
-    if (passwordError) {
-      return res.status(400).json({ message: passwordError });
+    if (passwordError.length > 0) {  // ← was: if (passwordError)
+      return res.status(400).json({ message: passwordError }); // ← sends message: []
     }
 
     if (password !== confirmPassword) {
