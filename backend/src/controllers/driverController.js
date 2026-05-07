@@ -218,6 +218,17 @@ export const getDriverDashboardAnalytics = async (req, res) => {
       }))
       .filter((item) => item.value > 0);
 
+    // DEBUG - remove after fix
+    const completedRides = rides.filter(r => r.driverId === driverId && r.status === 'COMPLETED');
+    console.log("=== DEBUG PREFERENCES ===");
+    console.log("Total completed rides:", completedRides.length);
+    completedRides.forEach(r => {
+      console.log(`Ride ${r.id} | preferences:`, JSON.stringify(r.preferences));
+    });
+    console.log("preferenceCounts final:", preferenceCounts);
+    console.log("preferenceBreakdown:", preferenceBreakdown);
+    console.log("=========================");
+
     return res.status(200).json({
       success: true,
       data: {
@@ -577,15 +588,15 @@ export const getDriverProfile = async (req, res) => {
       }));
 
     const preferences = {
-      talkative:       driver.preferences?.talkative       ?? false,
-      radio_on:        driver.preferences?.radio            ?? false,
-      smoking_allowed: driver.preferences?.smoking          ?? false,
-      pets_allowed:    driver.preferences?.pets             ?? false,
-      car_big:         driver.preferences?.luggage_large    ?? false,
-      works_morning:   driver.workingHours?.works_morning   ?? false,
-      works_afternoon: driver.workingHours?.works_afternoon ?? false,
-      works_evening:   driver.workingHours?.works_evening   ?? false,
-      works_night:     driver.workingHours?.works_night     ?? false,
+      talkative:       driver.preferences.talkative,
+      radio_on:        driver.preferences.radio,
+      smoking_allowed: driver.preferences.smoking,
+      pets_allowed:    driver.preferences.pets,
+      car_big:         driver.preferences.luggage_large,
+      works_morning:   driver.workingHours.works_morning,
+      works_afternoon: driver.workingHours.works_afternoon,
+      works_evening:   driver.workingHours.works_evening,
+      works_night:     driver.workingHours.works_night,
     };
 
     const {

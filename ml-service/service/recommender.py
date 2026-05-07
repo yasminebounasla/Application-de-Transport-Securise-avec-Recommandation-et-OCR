@@ -286,7 +286,6 @@ if not FORCE_DEFAULT_WEIGHTS:
                 raw_history = json.load(f)
             valid = [e for e in raw_history if set(WEIGHT_KEYS).issubset(set(e.keys()))]
             _scores_history = valid
-            print(f"{len(_scores_history)} feedbacks valides rechargés")
         except Exception as e:
             print(f"[WARNING] Feedbacks: {e}")
 
@@ -297,7 +296,6 @@ if not FORCE_DEFAULT_WEIGHTS:
             loaded_arr = np.array(loaded)
             if len(loaded_arr) == len(WEIGHT_KEYS) and loaded_arr.max() <= 0.95:
                 _optimized_weights = loaded_arr
-                print(f"Poids rechargés: {_optimized_weights}")
             else:
                 print("Poids invalides -> DEFAULT utilisé")
         except Exception as e:
