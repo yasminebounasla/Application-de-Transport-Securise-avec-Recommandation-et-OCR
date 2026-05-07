@@ -94,7 +94,6 @@ export default function SavedPlacesScreen() {
     try {
       const res = await api.post('/passengers/saved-places', { label, address, lat, lng });
       setPlaces(prev => [res.data.data, ...prev]);
-      Alert.alert('Success', 'Address added successfully.');
     } catch (e: any) {
       Alert.alert('Error', e.response?.data?.message || e.message);
     }
