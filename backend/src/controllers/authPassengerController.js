@@ -169,7 +169,6 @@ export const registerPassenger = async (req, res) => {
         prenom: prenom.trim(),
         age,
         numTel,
-        sexe: sexe.trim().toUpperCase(),
       },
     });
 
