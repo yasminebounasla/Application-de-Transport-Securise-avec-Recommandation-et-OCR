@@ -587,17 +587,20 @@ export const getDriverProfile = async (req, res) => {
         date:    t.evaluation.createdAt,
       }));
 
-    const preferences = {
-      talkative:       driver.preferences.talkative,
-      radio_on:        driver.preferences.radio,
-      smoking_allowed: driver.preferences.smoking,
-      pets_allowed:    driver.preferences.pets,
-      car_big:         driver.preferences.luggage_large,
-      works_morning:   driver.workingHours.works_morning,
-      works_afternoon: driver.workingHours.works_afternoon,
-      works_evening:   driver.workingHours.works_evening,
-      works_night:     driver.workingHours.works_night,
-    };
+     const p  = driver.preferences  ?? {};
+     const wh = driver.workingHours ?? {};
+
+      const preferences = {
+        talkative:       p.talkative       ?? false,
+        radio_on:        p.radio           ?? false,
+        smoking_allowed: p.smoking         ?? false,
+        pets_allowed:    p.pets            ?? false,
+        car_big:         p.luggage_large   ?? false,
+        works_morning:   wh.works_morning   ?? false,
+        works_afternoon: wh.works_afternoon ?? false,
+        works_evening:   wh.works_evening   ?? false,
+        works_night:     wh.works_night     ?? false,
+      };
 
     const {
       password,
