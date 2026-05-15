@@ -144,6 +144,7 @@ export { evaluateTrajet };
 
 export const createRide = async (req, res) => {
   console.log("REQ.USER:", req.user);
+  console.log("REQ.BODY:", req.body);
   const passengerId = req.user.passengerId;
 
   if (!passengerId) {
@@ -154,7 +155,14 @@ export const createRide = async (req, res) => {
     startLat, startLng, startAddress,
     endLat, endLng, endAddress,
     departureTime,
+    talkative,
+    radio,
+    smoking,
+    pets,
+    luggage_large,
+    femal_driver_pref,
   } = req.body;
+  console.log("PREFERENCES REÇUES:", { talkative, radio, smoking, pets, luggage_large, femal_driver_pref });
 
   if (!startLat || !startLng || !startAddress ||
     !endLat || !endLng || !endAddress || !departureTime) {
@@ -215,11 +223,22 @@ export const createRide = async (req, res) => {
         distanceKm:  parseFloat(routeResult.distanceKm),
         durationMin: routeResult.durationMin,
         status: 'PENDING',
+        preferences: {
+          create: {
+            talkative:         talkative         ?? false,
+            radio:             radio             ?? false,
+            smoking:           smoking           ?? false,
+            pets:              pets              ?? false,
+            luggage_large:     luggage_large     ?? false,
+            femal_driver_pref: femal_driver_pref ?? false,
+          }
+        },
       },
       include: {
         passenger: {
           select: { id: true, nom: true, prenom: true, numTel: true, email: true },
         },
+          preferences: true,
       },
     });
 

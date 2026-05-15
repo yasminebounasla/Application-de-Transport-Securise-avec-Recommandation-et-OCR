@@ -3,6 +3,7 @@ import { getIO } from '../socket/socket.js';
 import { extractWilayaFromPlaque } from "../utils/algerianPlaque.js";
 import { reverseGeocode } from "../utils/reverseGeocode.js";
 import { extractWilayaFromAddress } from "../utils/extractWilayaFromAddress.js";
+import { createNotification } from "./NotificationController.js";
 
 export const addDriverPreferences = async (req, res) => {
   // On prend l'ID directement depuis le token
@@ -248,6 +249,17 @@ export const getDriverDashboardAnalytics = async (req, res) => {
         value: globalCounts[pref.key] || 0,
         color: pref.color,
       }));
+
+      // DEBUG - remove after fix
+      const completedRides = rides.filter(r => r.driverId === driverId && r.status === 'COMPLETED');
+      console.log("=== DEBUG PREFERENCES ===");
+      console.log("Total completed rides:", completedRides.length);
+      completedRides.forEach(r => {
+        console.log(`Ride ${r.id} | preferences:`, JSON.stringify(r.preferences));
+      });
+      console.log("preferenceCounts final:", preferenceCounts);
+      console.log("preferenceBreakdown:", preferenceBreakdown);
+      console.log("=========================");
 
       return res.status(200).json({
         success: true,
@@ -639,16 +651,19 @@ export const getDriverProfile = async (req, res) => {
         date: t.evaluation.createdAt,
       }));
 
+    const p = driver.preferences ?? {};
+    const wh = driver.workingHours ?? {};
+
     const preferences = {
-      talkative: driver.preferences?.talkative ?? false,
-      radio_on: driver.preferences?.radio ?? false,
-      smoking_allowed: driver.preferences?.smoking ?? false,
-      pets_allowed: driver.preferences?.pets ?? false,
-      car_big: driver.preferences?.luggage_large ?? false,
-      works_morning: driver.workingHours?.works_morning ?? false,
-      works_afternoon: driver.workingHours?.works_afternoon ?? false,
-      works_evening: driver.workingHours?.works_evening ?? false,
-      works_night: driver.workingHours?.works_night ?? false,
+      talkative: p.talkative ?? false,
+      radio_on: p.radio ?? false,
+      smoking_allowed: p.smoking ?? false,
+      pets_allowed: p.pets ?? false,
+      car_big: p.luggage_large ?? false,
+      works_morning: wh.works_morning ?? false,
+      works_afternoon: wh.works_afternoon ?? false,
+      works_evening: wh.works_evening ?? false,
+      works_night: wh.works_night ?? false,
     };
 
     const {
@@ -911,7 +926,7 @@ export const updateDriverLocation = async (req, res) => {
     res.status(200).json({
       message: "Location updated successfully.",
       data: {
-        wilaya: driver.wilaya,
+        wilaya: wilayaFromCoords?.nom || driver.wilaya,
         latitude: parseFloat(latitude),
         longitude: parseFloat(longitude),
         workZoneAddress: workZoneAddress,
@@ -979,5 +994,26 @@ export const notifySelectedDrivers = async (req, res) => {
   } catch (error) {
     console.error('Erreur notifySelectedDrivers:', error);
     return res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+export const upsertWorkingHours = async (req, res) => {
+  try {
+    const driverId = req.user.driverId;
+    if (!driverId) {
+      return res.status(403).json({ message: "Access restricted to drivers only." });
+    }
+    const { works_morning, works_afternoon, works_evening, works_night } = req.body;
+
+    const workingHours = await prisma.workingHours.upsert({
+      where: { driverId },
+      update: { works_morning, works_afternoon, works_evening, works_night },
+      create: { driverId, works_morning, works_afternoon, works_evening, works_night },
+    });
+
+    res.json({ success: true, data: workingHours });
+  } catch (err) {
+    console.error('upsertWorkingHours error:', err);
+    res.status(500).json({ message: 'Failed to save working hours' });
   }
 };

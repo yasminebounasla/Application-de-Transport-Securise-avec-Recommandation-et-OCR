@@ -165,7 +165,15 @@ export default function LicenseUploadScreen() {
 
         currentToken = storedToken;
       } else {
+        console.log(
+          "📦 Registration payload:",
+          JSON.stringify(registrationData, null, 2),
+        );
         const registerResult = await registerAsDriver(registrationData);
+        console.log(
+          "📦 Register result:",
+          JSON.stringify(registerResult, null, 2),
+        );
         if (!registerResult.success) {
           throw new Error(registerResult.message || "Account creation failed");
         }
@@ -303,7 +311,6 @@ export default function LicenseUploadScreen() {
         <Text className='text-sm text-gray-500 text-center mb-6 px-4 leading-5'>
           We'll use this to verify your identity.
         </Text>
-
 
         <View className='rounded-2xl p-5 mb-6 border bg-zinc-50 border-l-4 border-l-black border-gray-300'>
           {[

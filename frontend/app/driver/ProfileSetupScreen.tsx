@@ -147,17 +147,19 @@ export default function ProfileSetupScreen() {
   });
 
   const [preferences, setPreferences] = useState({
-    talkative:       false,
-    radio_on:        false,
-    smoking_allowed: false,
-    pets_allowed:    false,
-    car_big:         false,
+   talkative:    false,
+   radio:        false,
+   smoking:      false,
+   pets:         false,
+   luggage_large: false,
+  });
+
+  const [workingHours, setWorkingHours] = useState({
     works_morning:   false,
     works_afternoon: false,
     works_evening:   false,
     works_night:     false,
   });
-
   const [errors, setErrors] = useState({
     marque:  '',
     modele:  '',
@@ -181,8 +183,12 @@ export default function ProfileSetupScreen() {
   );
 
   const toggle = (key: string) => {
-    setPreferences((p: any) => ({ ...p, [key]: !p[key] }));
-    if (key.startsWith('works_')) setHoursError(false);
+    if (key.startsWith('works_')) {
+      setWorkingHours((h: any) => ({ ...h, [key]: !h[key] }));
+      setHoursError(false);
+    } else {
+     setPreferences((p: any) => ({ ...p, [key]: !p[key] }));
+    }
   };
 
   // ── Vehicle handlers ──────────────────────────────────────────────────────
@@ -291,24 +297,23 @@ export default function ProfileSetupScreen() {
 
   // ── Step 3 ────────────────────────────────────────────────────────────────
   const handleCompleteSetup = async () => {
-    const hasWorkingHours =
-      preferences.works_morning || preferences.works_afternoon ||
-      preferences.works_evening || preferences.works_night;
+   const hasWorkingHours =
+    workingHours.works_morning || workingHours.works_afternoon ||
+    workingHours.works_evening || workingHours.works_night;
+   if (!hasWorkingHours) { setHoursError(true); return; }
 
-    if (!hasWorkingHours) {
-      setHoursError(true);
-      return;
-    }
-
-    setHoursError(false);
-    setLoading(true);
-    try {
-      await api.put('/drivers/preferences', preferences);
-      router.replace('/(driverTabs)/DriverHomeScreen');
+   setHoursError(false);
+   setLoading(true);
+   try {
+     // Preferences table (ride style only)
+     await api.put('/drivers/preferences', preferences);
+     // Working hours table (separate)
+     await api.put('/drivers/working-hours', workingHours);
+     router.replace('/(driverTabs)/DriverHomeScreen');
     } catch (err: any) {
-      Alert.alert('Error', err.response?.data?.message || 'Failed to save preferences');
+     Alert.alert('Error', err.response?.data?.message || 'Failed to save preferences');
     } finally {
-      setLoading(false);
+     setLoading(false);
     }
   };
 
@@ -382,65 +387,113 @@ export default function ProfileSetupScreen() {
 
   // ── STEP 3 — Preferences ─────────────────────────────────────────────────
   const renderPreferencesForm = () => (
-    <View>
-      <View style={s.headerWrap}>
-        <View style={[s.headerBadge, { backgroundColor: '#111' }]}>
-          <Ionicons name="options-outline" size={20} color="#fff" />
-        </View>
-        <Text style={s.headerTitle}>Your Preferences</Text>
-        <Text style={s.headerSub}>Help passengers know what to expect</Text>
+  <View>
+    <View style={s.headerWrap}>
+      <View style={[s.headerBadge, { backgroundColor: '#111' }]}>
+        <Ionicons name="options-outline" size={20} color="#fff" />
       </View>
-
-      <Text style={s.sectionLabel}>RIDE STYLE</Text>
-      <View style={s.card}>
-        <ToggleRow icon="chatbubbles-outline"   label="Talkative"       value={preferences.talkative}       onToggle={() => toggle('talkative')} />
-        <ToggleRow icon="musical-notes-outline" label="Radio on"        value={preferences.radio_on}        onToggle={() => toggle('radio_on')} />
-        <ToggleRow icon="flame-outline"         label="Smoking allowed" value={preferences.smoking_allowed} onToggle={() => toggle('smoking_allowed')} />
-        <ToggleRow icon="paw-outline"           label="Pets welcome"    value={preferences.pets_allowed}    onToggle={() => toggle('pets_allowed')} />
-        <ToggleRow icon="car-sport-outline"     label="Large car"       value={preferences.car_big}         onToggle={() => toggle('car_big')} />
-      </View>
-
-      {/* Working hours — required */}
-      <View style={s.sectionLabelRow}>
-        <Text style={s.sectionLabel}>WORKING HOURS</Text>
-        <Text style={s.sectionRequired}> *</Text>
-      </View>
-      <View style={[s.card, hoursError && s.cardError]}>
-        <ToggleRow icon="sunny-outline"        label="Morning  6am – 12pm"  value={preferences.works_morning}   onToggle={() => toggle('works_morning')} />
-        <ToggleRow icon="partly-sunny-outline" label="Afternoon 12pm – 6pm" value={preferences.works_afternoon} onToggle={() => toggle('works_afternoon')} />
-        <ToggleRow icon="moon-outline"         label="Evening  6pm – 10pm"  value={preferences.works_evening}   onToggle={() => toggle('works_evening')} />
-        <ToggleRow icon="cloudy-night-outline" label="Night  10pm – 6am"    value={preferences.works_night}     onToggle={() => toggle('works_night')} />
-      </View>
-
-      {/* Inline error */}
-      {hoursError && (
-        <View style={s.hoursErrorBox}>
-          <View style={s.hoursErrorIcon}>
-            <Ionicons name="alert-circle" size={18} color="#EF4444" />
-          </View>
-          <Text style={s.hoursErrorText}>
-            Please select at least one working time slot to continue
-          </Text>
-        </View>
-      )}
-
-      <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
-        <TouchableOpacity style={s.ctaBack} onPress={() => setCurrentStep(2)} activeOpacity={0.7}>
-          <Ionicons name="arrow-back" size={18} color="#111" />
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[s.cta, { flex: 1 }, loading && s.ctaDisabled]}
-          onPress={handleCompleteSetup}
-          disabled={loading}
-          activeOpacity={0.85}
-        >
-          <Text style={s.ctaText}>{loading ? 'Saving...' : 'Complete setup'}</Text>
-          <Ionicons name="checkmark" size={18} color="#fff" />
-        </TouchableOpacity>
-      </View>
+      <Text style={s.headerTitle}>Your Preferences</Text>
+      <Text style={s.headerSub}>Help passengers know what to expect</Text>
     </View>
-  );
 
+    <Text style={s.sectionLabel}>RIDE STYLE</Text>
+    <View style={s.card}>
+      <ToggleRow
+        icon="chatbubbles-outline"
+        label="Talkative"
+        value={preferences.talkative}
+        onToggle={() => toggle('talkative')}
+      />
+      <ToggleRow
+        icon="musical-notes-outline"
+        label="Radio on"
+        value={preferences.radio}
+        onToggle={() => toggle('radio')}
+      />
+      <ToggleRow
+        icon="flame-outline"
+        label="Smoking allowed"
+        value={preferences.smoking}
+        onToggle={() => toggle('smoking')}
+      />
+      <ToggleRow
+        icon="paw-outline"
+        label="Pets welcome"
+        value={preferences.pets}
+        onToggle={() => toggle('pets')}
+      />
+      <ToggleRow
+        icon="car-sport-outline"
+        label="Large car"
+        value={preferences.luggage_large}
+        onToggle={() => toggle('luggage_large')}
+      />
+    </View>
+
+    {/* Working hours — required */}
+    <View style={s.sectionLabelRow}>
+      <Text style={s.sectionLabel}>WORKING HOURS</Text>
+      <Text style={s.sectionRequired}> *</Text>
+    </View>
+    <View style={[s.card, hoursError && s.cardError]}>
+      <ToggleRow
+        icon="sunny-outline"
+        label="Morning  6am – 12pm"
+        value={workingHours.works_morning}
+        onToggle={() => toggle('works_morning')}
+      />
+      <ToggleRow
+        icon="partly-sunny-outline"
+        label="Afternoon 12pm – 6pm"
+        value={workingHours.works_afternoon}
+        onToggle={() => toggle('works_afternoon')}
+      />
+      <ToggleRow
+        icon="moon-outline"
+        label="Evening  6pm – 10pm"
+        value={workingHours.works_evening}
+        onToggle={() => toggle('works_evening')}
+      />
+      <ToggleRow
+        icon="cloudy-night-outline"
+        label="Night  10pm – 6am"
+        value={workingHours.works_night}
+        onToggle={() => toggle('works_night')}
+      />
+    </View>
+
+    {/* Inline error */}
+    {hoursError && (
+      <View style={s.hoursErrorBox}>
+        <View style={s.hoursErrorIcon}>
+          <Ionicons name="alert-circle" size={18} color="#EF4444" />
+        </View>
+        <Text style={s.hoursErrorText}>
+          Please select at least one working time slot to continue
+        </Text>
+      </View>
+    )}
+
+    <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+      <TouchableOpacity
+        style={s.ctaBack}
+        onPress={() => setCurrentStep(2)}
+        activeOpacity={0.7}
+      >
+        <Ionicons name="arrow-back" size={18} color="#111" />
+      </TouchableOpacity>
+      <TouchableOpacity
+        style={[s.cta, { flex: 1 }, loading && s.ctaDisabled]}
+        onPress={handleCompleteSetup}
+        disabled={loading}
+        activeOpacity={0.85}
+      >
+        <Text style={s.ctaText}>{loading ? 'Saving...' : 'Complete setup'}</Text>
+        <Ionicons name="checkmark" size={18} color="#fff" />
+      </TouchableOpacity>
+    </View>
+  </View>
+  );
   return (
     <>
       <Stack.Screen options={{ title: 'Complete your profile', headerBackVisible: false, headerShadowVisible: false }} />

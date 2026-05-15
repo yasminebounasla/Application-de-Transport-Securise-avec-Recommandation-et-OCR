@@ -179,16 +179,19 @@ async function seedTrajets(trajetsPerPassenger = 10) {
     }
 
     console.log(`✅ ${passengers.length} passagers | ${drivers.length} drivers\n`);
+    // ← AJOUTER ICI — supprime tout avant de recréer
+    console.log("🗑️  Suppression des anciens trajets...");
+    await prisma.evaluation.deleteMany({});
+    await prisma.preferences.deleteMany({ where: { trajetId: { not: null } } });
+    await prisma.trajet.deleteMany({});
+    console.log("✅ Anciens trajets supprimés\n");
 
     let created = 0;
     let skipped = 0;
 
     for (const passenger of passengers) {
       const profile = PROFILE_MAP[passenger.profile_type] ?? NEUTRAL_PROFILE;
-      const nbTrajets = randomInt(
-        Math.max(1, trajetsPerPassenger - 2),
-        trajetsPerPassenger + 3,
-      );
+      const nbTrajets = randomInt(5, trajetsPerPassenger * 2);
 
 
       for (let t = 0; t < nbTrajets; t++) {
@@ -235,16 +238,18 @@ async function seedTrajets(trajetsPerPassenger = 10) {
               startLng,
               endLat,
               endLng,
-              preferences: {
-                create: {
-                  talkative:         trajetPrefs.quiet_ride,
-                  radio:             trajetPrefs.radio_ok,
-                  smoking:           trajetPrefs.smoking_ok,
-                  pets:              trajetPrefs.pets_ok,
-                  luggage_large:     trajetPrefs.luggage_large,
-                  femal_driver_pref: trajetPrefs.female_driver_pref,
-                }
-              },
+            },
+          });
+
+          await prisma.preferences.create({
+            data: {
+              trajetId:          trajet.id,
+              talkative:         trajetPrefs.quiet_ride,
+              radio:             trajetPrefs.radio_ok,
+              smoking:           trajetPrefs.smoking_ok,
+              pets:              trajetPrefs.pets_ok,
+              luggage_large:     trajetPrefs.luggage_large,
+              femal_driver_pref: trajetPrefs.female_driver_pref,
             },
           });
 
@@ -289,6 +294,6 @@ async function seedTrajets(trajetsPerPassenger = 10) {
   }
 }
 
-seedTrajets(10);
+seedTrajets(32);
 
 export { seedTrajets };

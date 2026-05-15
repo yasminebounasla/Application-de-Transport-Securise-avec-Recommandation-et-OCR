@@ -185,6 +185,7 @@ export const AuthProvider = ({ children }) => {
   const registerAsDriver = async (driverData) => {
     setLoading(true);
     try {
+      console.log("REGISTER DRIVER DATA:", JSON.stringify(driverData)); // ADD THIS
       const response = await registerDriver(driverData);
       const responseData = response.data.data || response.data;
       const { newDriver, accessToken, refreshToken } = responseData;

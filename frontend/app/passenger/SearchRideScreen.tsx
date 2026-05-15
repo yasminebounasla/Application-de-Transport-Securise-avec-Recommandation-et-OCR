@@ -771,6 +771,12 @@ export default function SearchRideScreen() {
         endAddress:    endAddress   || "Destination",
         departureTime: dateDepart.toISOString(),
         placesDispo:   nbPassagers,
+        talkative:         quiet_ride,
+        radio:             radio_ok,
+        smoking:           smoking_ok,
+        pets:              pets_ok,
+        luggage_large:     luggage_large,
+        femal_driver_pref: female_driver_pref,
       });
 
       if (!newRide) {

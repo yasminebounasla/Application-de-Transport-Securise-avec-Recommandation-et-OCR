@@ -24,8 +24,8 @@ export const registerDriver = async (req, res) => {
     }
 
     const passwordError = validatePassword(password);
-    if (passwordError) {
-      return res.status(400).json({ message: passwordError });
+    if (passwordError.length > 0) {  // ← was: if (passwordError)
+      return res.status(400).json({ message: passwordError }); // ← sends message: []
     }
 
     if (password !== confirmPassword) {

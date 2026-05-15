@@ -41,10 +41,6 @@ logger.info(f"Trajets     : {len(t_df)}")
 logger.info(f"Drivers     : {len(d_df)}")
 logger.info(f"Interactions: {len(i_df)}")
 
-if len(i_df) < 1000:
-    logger.info("⚠️ Moins de 1000 interactions — entraînement ignoré")
-    logger.info("   Le système utilise le cold start jusqu'au seuil minimum")
-    exit(0)
 
 # ── 2. NETTOYAGE ──────────────────────────────────────────────────────────────
 yes_no_cols = [

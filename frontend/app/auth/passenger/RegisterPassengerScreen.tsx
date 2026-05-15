@@ -390,9 +390,9 @@ export default function RegisterPassengerScreen() {
             <Pressable
               style={{ flex: 1, backgroundColor: 'rgba(17,24,39,0.35)', justifyContent: 'center', alignItems: 'center' }}
               onPress={() => setPhonePrefModalVisible(false)}>
-                <Pressable
+              <Pressable
                 style={{ width: '86%', backgroundColor: '#fff', borderRadius: 16, padding: 18 }}
-                onPress={() => {}}>
+                onPress={() => { }}>
                 <Text style={{ fontSize: 17, fontWeight: '700', color: '#111827', marginBottom: 8 }}>Phone number preference</Text>
                 <Text style={{ fontSize: 13, color: '#6B7280', marginBottom: 18 }}>
                   This app is currently available only in Algeria. We recommend using an Algerian number (+213). However, you may keep your selected country if necessary.

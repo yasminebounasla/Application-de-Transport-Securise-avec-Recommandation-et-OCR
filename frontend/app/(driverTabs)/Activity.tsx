@@ -349,7 +349,7 @@ function RideCard({
 
       {/* ── TAGS ── */}
       <View style={s.tagsRow}>
-       
+
         <Tag icon="calendar-outline" label={dateLabel} />
         {item.heureDepart && (
           <Tag icon="time-outline" label={item.heureDepart} />
@@ -401,6 +401,70 @@ function RideCard({
   );
 
 
+}
+//______ confirma model _______
+function ConfirmModal({
+  visible,
+  action,
+  onConfirm,
+  onCancel,
+}: {
+  visible: boolean;
+  action: "accept" | "reject" | null;
+  onConfirm: () => void;
+  onCancel: () => void;
+}) {
+  const isAccept = action === "accept";
+  return (
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onCancel}
+      statusBarTranslucent
+    >
+      <Pressable style={s.modalOverlay} onPress={onCancel}>
+        <Pressable style={s.confirmBox} onPress={() => {}}>
+          {/* Icon */}
+          <View style={[s.confirmIconWrap, { backgroundColor: isAccept ? "#F0FDF4" : "#FEF2F2" }]}>
+            <Ionicons
+              name={isAccept ? "checkmark-circle" : "close-circle"}
+              size={36}
+              color={isAccept ? "#16A34A" : "#DC2626"}
+            />
+          </View>
+
+          <Text style={s.confirmTitle}>
+            {isAccept ? "Accept this ride?" : "Reject this ride?"}
+          </Text>
+          <Text style={s.confirmSub}>
+            {isAccept
+              ? "This ride will be assigned to you and the passenger will be notified."
+              : "You'll pass on this request. The passenger won't be notified."}
+          </Text>
+
+          <View style={s.confirmActions}>
+            <TouchableOpacity style={s.confirmCancelBtn} onPress={onCancel}>
+              <Text style={s.confirmCancelText}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[s.confirmActionBtn, { backgroundColor: isAccept ? "#111" : "#DC2626" }]}
+              onPress={onConfirm}
+            >
+              <Ionicons
+                name={isAccept ? "checkmark" : "close"}
+                size={15}
+                color="#fff"
+              />
+              <Text style={s.confirmActionText}>
+                {isAccept ? "Accept" : "Reject"}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Pressable>
+    </Modal>
+  );
 }
 
 // ─── FILTER MODAL ─────────────────────────────────────────────────────────────
@@ -657,7 +721,7 @@ export default function DriverActivityScreen() {
         await acceptRide(rideId);
         showFlashMsg("success", "Ride accepted!");
         // Move user to My Rides (MesTrajets) rather than an Active tab
-        router.push("/(driverTabs)/MesTrajets");
+        router.push("/(driverTabs)/DriverHomeScreen");
       } else {
         await rejectRide(rideId);
         showFlashMsg("error", "Ride rejected.");
@@ -675,21 +739,13 @@ export default function DriverActivityScreen() {
     }
   };
 
+  const [confirmModal, setConfirmModal] = useState<{
+    rideId: number;
+    action: "accept" | "reject";
+  } | null>(null);
+
   const confirmAction = (rideId: number, action: "accept" | "reject") => {
-    Alert.alert(
-      action === "accept" ? "Accept ride?" : "Reject ride?",
-      action === "accept"
-        ? "This ride will be assigned to you."
-        : "This ride will be rejected.",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: action === "accept" ? "Accept" : "Reject",
-          style: action === "reject" ? "destructive" : "default",
-          onPress: () => handleRideAction(rideId, action),
-        },
-      ],
-    );
+    setConfirmModal({ rideId, action });
   };
 
 
@@ -718,6 +774,18 @@ export default function DriverActivityScreen() {
           setNameQuery("");
         }}
         onClose={() => setShowFilter(false)}
+      />
+
+      <ConfirmModal
+        visible={!!confirmModal}
+        action={confirmModal?.action ?? null}
+        onCancel={() => setConfirmModal(null)}
+        onConfirm={() => {
+          if (confirmModal) {
+            handleRideAction(confirmModal.rideId, confirmModal.action);
+            setConfirmModal(null);
+          }
+        }}
       />
 
       <FlatList
@@ -766,7 +834,7 @@ export default function DriverActivityScreen() {
                       <Text style={[s.tabText, active && s.tabTextActive]}>
                         {cat.label}
                       </Text>
-                      {count > 0 && (
+                      {count > 0 && (cat.key === "pending" || cat.key === "accepted") && (
                         <View style={[s.tabBadge, active && s.tabBadgeActive]}>
                           <Text
                             style={[
@@ -778,6 +846,7 @@ export default function DriverActivityScreen() {
                           </Text>
                         </View>
                       )}
+
                     </TouchableOpacity>
                   );
                 })}
@@ -1122,7 +1191,7 @@ const s = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.35)",
-    justifyContent: "flex-end",
+    justifyContent: "center",
   },
   modalBox: {
     backgroundColor: "#fff",
@@ -1195,4 +1264,68 @@ const s = StyleSheet.create({
     justifyContent: "center",
   },
   modalDoneText: { fontSize: 14, fontWeight: "700", color: "#fff" },
+
+  confirmBox: {
+  backgroundColor: "#fff",
+  borderRadius: 24,
+  padding: 24,
+  margin: 24,
+  alignItems: "center",
+  gap: 8,
+},
+confirmIconWrap: {
+  width: 72,
+  height: 72,
+  borderRadius: 36,
+  alignItems: "center",
+  justifyContent: "center",
+  marginBottom: 4,
+},
+confirmTitle: {
+  fontSize: 18,
+  fontWeight: "800",
+  color: "#111",
+  textAlign: "center",
+},
+confirmSub: {
+  fontSize: 13,
+  color: "#6B7280",
+  textAlign: "center",
+  lineHeight: 19,
+  marginBottom: 8,
+},
+confirmActions: {
+  flexDirection: "row",
+  gap: 10,
+  width: "100%",
+  marginTop: 8,
+},
+confirmCancelBtn: {
+  flex: 1,
+  height: 48,
+  borderRadius: 14,
+  borderWidth: 1.5,
+  borderColor: "#E5E7EB",
+  alignItems: "center",
+  justifyContent: "center",
+},
+confirmCancelText: {
+  fontSize: 14,
+  fontWeight: "700",
+  color: "#374151",
+},
+confirmActionBtn: {
+  flex: 1,
+  height: 48,
+  borderRadius: 14,
+  flexDirection: "row",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 6,
+},
+confirmActionText: {
+  fontSize: 14,
+  fontWeight: "700",
+  color: "#fff",
+},
 });
