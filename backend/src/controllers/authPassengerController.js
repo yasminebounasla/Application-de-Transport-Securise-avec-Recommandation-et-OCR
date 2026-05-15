@@ -101,10 +101,18 @@ export const validatePassengerLogin = async (req, res) => {
 };
 
 // REGISTER PASSENGER
+const computeAgeFromBirthdate = (birthdate) => {
+  if (!birthdate) return null;
+  const bd = new Date(birthdate);
+  if (isNaN(bd.getTime())) return null;
+  const diffMs = Date.now() - bd.getTime();
+  const ageDt = new Date(diffMs);
+  return Math.abs(ageDt.getUTCFullYear() - 1970);
+};
+
 export const registerPassenger = async (req, res) => {
-  console.log("📝 registerPassenger called, body:", req.body); // ← ajoute ça
-  const { email, password, confirmPassword, nom, prenom, age, numTel, sexe } =
-    req.body;
+  console.log("📝 registerPassenger called, body:", req.body);
+  const { email, password, confirmPassword, nom, prenom, birthdate, numTel, sexe } = req.body;
 
   try {
     const { accessSecret, refreshSecret } = getJwtSecrets();
@@ -120,16 +128,17 @@ export const registerPassenger = async (req, res) => {
       return res.status(400).json({ message: "Passwords do not match." });
     }
 
-    if (age < 18) {
-      return res
-        .status(400)
-        .json({ message: "You must be at least 18 years old to register." });
+    const computedAge = computeAgeFromBirthdate(birthdate);
+    if (computedAge === null) {
+      return res.status(400).json({ message: "Valid birthdate is required (YYYY-MM-DD)." });
     }
 
-    if (age > 100) {
-      return res
-        .status(400)
-        .json({ message: "Age must be 100 or less." });
+    if (computedAge < 18) {
+      return res.status(400).json({ message: "You must be at least 18 years old to register." });
+    }
+
+    if (computedAge > 100) {
+      return res.status(400).json({ message: "Age must be 100 or less." });
     }
 
     if (!sexe?.trim()) {
@@ -137,9 +146,7 @@ export const registerPassenger = async (req, res) => {
     }
 
     if (!["m", "f"].includes(sexe.trim().toLowerCase())) {
-      return res
-        .status(400)
-        .json({ message: 'Gender must be "Male" or "Female".' });
+      return res.status(400).json({ message: 'Gender must be "Male" or "Female".' });
     }
 
     const existingPassenger = await prisma.passenger.findFirst({
@@ -155,8 +162,6 @@ export const registerPassenger = async (req, res) => {
       return res.status(400).json({ message: "This email is already in use." });
     }
 
-    // Phone numbers are not required to be unique; allow duplicates.
-
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const newPassenger = await prisma.passenger.create({
@@ -165,13 +170,13 @@ export const registerPassenger = async (req, res) => {
         password: hashedPassword,
         nom: nom.trim(),
         prenom: prenom.trim(),
-        age,
+        age: computedAge,
+        birthdate: new Date(birthdate),
         numTel,
         sexe: sexe.trim().toUpperCase(),
       },
     });
 
-    // Utiliser passengerId au lieu de id
     const accessToken = jwt.sign(
       {
         passengerId: newPassenger.id,
@@ -195,9 +200,8 @@ export const registerPassenger = async (req, res) => {
       data: { passenger: newPassenger, accessToken, refreshToken },
     });
   } catch (err) {
-    res
-      .status(500)
-      .json({ message: "Failed to register passenger.", error: err.message });
+    console.error("❌ registerPassenger error:", err);
+    res.status(500).json({ message: "Failed to register passenger.", error: err.message });
   }
 };
 

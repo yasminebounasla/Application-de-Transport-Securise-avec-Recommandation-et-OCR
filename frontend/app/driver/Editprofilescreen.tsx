@@ -20,6 +20,7 @@ import type { KeyboardTypeOptions } from "react-native";
 import { useCallback } from "react";
 import api, { API_URL } from "../../services/api";
 import UserAvatar from "../../components/UserAvatar";
+import DatePickerField from "../../components/DatePickerField";
 import {
   buildInternationalPhoneNumber,
   DEFAULT_COUNTRY_PHONE,
@@ -53,7 +54,7 @@ function Toast({ visible }: { visible: boolean }) {
   return (
     <Animated.View style={[styles.toast, { opacity }]}>
       <Ionicons name='checkmark-circle' size={18} color='#fff' />
-      <Text style={styles.toastText}>Changes saved!</Text>
+      <Text style={styles.toastText}>Changes saved !</Text>
     </Animated.View>
   );
 }
@@ -157,10 +158,10 @@ export default function EditProfileScreen() {
   const [prenom, setPrenom] = useState("");
   const [email, setEmail] = useState("");
   const [numTel, setNumTel] = useState("");
-  const [age, setAge] = useState("");
+  const [birthdate, setBirthdate] = useState("");
 
   // Validation errors
-  const [errors, setErrors] = useState({ numTel: '', age: '' });
+  const [errors, setErrors] = useState({ numTel: '', birthdate: '' });
 
   // Preferences
   const [talkative, setTalkative] = useState(false);
@@ -188,10 +189,20 @@ export default function EditProfileScreen() {
   // ── Refresh work zone quand on revient de MapScreen ──
   useFocusEffect(
     useCallback(() => {
-      setShowToast(false); // ← reset toast quand on revient
-      if (activeTab === "zone") {
-        loadZone();
-      }
+      (async () => {
+        try {
+          const flag = await AsyncStorage.getItem('workZoneSaved');
+          if (flag) {
+            setShowToast(true);
+            await AsyncStorage.removeItem('workZoneSaved');
+          } else {
+            setShowToast(false);
+          }
+        } catch (e) {}
+        if (activeTab === "zone") {
+          loadZone();
+        }
+      })();
     }, [activeTab]),
   );
 
@@ -203,7 +214,14 @@ export default function EditProfileScreen() {
       setPrenom(d.prenom || "");
       setEmail(d.email || "");
       setNumTel(formatPhoneNumberForDisplay(d.numTel || ""));
-      setAge(d.age ? String(d.age) : "");
+      if (d.birthdate) {
+        setBirthdate(String(d.birthdate).slice(0, 10));
+      } else if (d.age) {
+        const approxYear = new Date().getFullYear() - Number(d.age);
+        setBirthdate(`${approxYear}-01-01`);
+      } else {
+        setBirthdate("");
+      }
       setDriverId(d.id);
       try {
         const selfieRes = await api.get(`/verification/driver/${d.id}/selfie`);
@@ -267,15 +285,23 @@ export default function EditProfileScreen() {
     else setErrors(e => ({ ...e, numTel: '' }));
   };
 
-  // ── Age validation ──
-  const handleAgeChange = (text: string) => {
-    const digits = text.replace(/\D/g, '');
-    setAge(digits);
-    const num = parseInt(digits);
-    if (digits.length === 0) setErrors(e => ({ ...e, age: '' }));
-    else if (num < 18) setErrors(e => ({ ...e, age: 'Age must be at least 18' }));
-    else if (num > 100) setErrors(e => ({ ...e, age: 'Age must not exceed 100' }));
-    else setErrors(e => ({ ...e, age: '' }));
+  // ── Birthdate validation
+  const handleBirthdateChange = (dateStr: string) => {
+    setBirthdate(dateStr);
+    if (!dateStr) {
+      setErrors(e => ({ ...e, birthdate: '' }));
+      return;
+    }
+    const bd = new Date(dateStr);
+    if (isNaN(bd.getTime())) {
+      setErrors(e => ({ ...e, birthdate: 'Invalid birthdate' }));
+      return;
+    }
+    const diffMs = Date.now() - bd.getTime();
+    const ageYears = Math.abs(new Date(diffMs).getUTCFullYear() - 1970);
+    if (ageYears < 18) setErrors(e => ({ ...e, birthdate: 'Age must be at least 18' }));
+    else if (ageYears > 100) setErrors(e => ({ ...e, birthdate: 'Age must not exceed 100' }));
+    else setErrors(e => ({ ...e, birthdate: '' }));
   };
 
   const handleSave = async () => {
@@ -283,7 +309,7 @@ export default function EditProfileScreen() {
       Alert.alert("Validation", "Please fill in all required fields.");
       return;
     }
-    if (errors.numTel || errors.age) {
+    if (errors.numTel || errors.birthdate) {
       Alert.alert('Validation', 'Please fix the errors before saving.');
       return;
     }
@@ -293,7 +319,7 @@ export default function EditProfileScreen() {
         nom: nom.trim(),
         prenom: prenom.trim(),
         numTel: buildInternationalPhoneNumber(numTel.trim(), DEFAULT_COUNTRY_PHONE),
-        age: parseInt(age) || 0,
+        birthdate: birthdate || null,
       });
       await api.put("/drivers/preferences", {
        talkative,
@@ -426,15 +452,10 @@ export default function EditProfileScreen() {
                   keyboardType='phone-pad'
                   error={errors.numTel}
                 />
-                <InputField
-                  label='Age'
-                  icon='accessibility-outline'
-                  value={age}
-                  onChangeText={handleAgeChange}
-                  keyboardType='numeric'
-                  error={errors.age}
-                  onFocus={() => scrollRef.current?.scrollToEnd({ animated: true })}
-                />
+                <View style={styles.fieldWrapper}>
+                  <Text style={styles.fieldLabel}>Birthdate</Text>
+                  <DatePickerField value={birthdate} onChange={handleBirthdateChange} icon='calendar-outline' error={errors.birthdate} />
+                </View>
               </View>
 
               <View style={{ paddingHorizontal: 20, marginTop: 8 }}>

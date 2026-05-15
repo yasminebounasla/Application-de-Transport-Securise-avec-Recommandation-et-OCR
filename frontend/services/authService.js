@@ -13,7 +13,7 @@ export const registerDriver = async (driverData) => {
     confirmPassword: driverData.confirmPassword,
     prenom: driverData.firstName,
     nom: driverData.familyName,
-    age: parseInt(driverData.age),
+    birthdate: driverData.birthdate,
     numTel: buildInternationalPhoneNumber(driverData.phoneNumber, selectedCountry),
     sexe: driverData.sexe === "Male" ? "M" : "F",
   };
@@ -29,7 +29,7 @@ export const registerPassenger = async (passengerData) => {
     confirmPassword: passengerData.confirmPassword,
     prenom: passengerData.firstName,
     nom: passengerData.familyName,
-    age: parseInt(passengerData.age),
+    birthdate: passengerData.birthdate,
     numTel: buildInternationalPhoneNumber(passengerData.phoneNumber, selectedCountry),
     sexe: passengerData.sexe === "Male" ? "M" : "F",
   };

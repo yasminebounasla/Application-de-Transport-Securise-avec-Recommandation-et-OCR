@@ -12,6 +12,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import api from "../../../services/api";
 import ProgressSteps from "../../../components/ProgressSteps";
 import CountryCodePicker from "../../../components/CountryCodePicker";
+import DatePickerField from "../../../components/DatePickerField";
 import {
   getPasswordNeedsMessage,
 } from "../../../utils/passwordValidation";
@@ -23,12 +24,12 @@ import {
   validatePhoneNumberForCountry,
 } from "../../../utils/phoneNumber";
 
-const AGE_INPUT_REGEX = /^$|^\d$|^\d\d$/;
+const BIRTHDATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 type FieldErrors = {
   firstName: string;
   familyName: string;
-  age: string;
+  birthdate: string;
   sexe: string;
   email: string;
   phoneNumber: string;
@@ -40,7 +41,7 @@ type FieldErrors = {
 const emptyErrors = (): FieldErrors => ({
   firstName: "",
   familyName: "",
-  age: "",
+  birthdate: "",
   sexe: "",
   email: "",
   phoneNumber: "",
@@ -55,7 +56,7 @@ export default function RegisterDriverScreen() {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [firstName, setFirstName] = useState("");
   const [familyName, setFamilyName] = useState("");
-  const [age, setAge] = useState("");
+  const [birthdate, setBirthdate] = useState("");
   const [sexe, setSexe] = useState("");
   const [phoneNumber, setPhoneNumber] = useState("");
   const [phoneCountryCode, setPhoneCountryCode] = useState(DEFAULT_COUNTRY_PHONE.code);
@@ -95,12 +96,20 @@ export default function RegisterDriverScreen() {
       newErrors.familyName = "Family name must be at least 3 characters.";
     }
 
-    if (!age.trim()) {
-      newErrors.age = "Age is required.";
-    } else if (parseInt(age, 10) < 18) {
-      newErrors.age = "You must be at least 18 years old to register.";
-    } else if (parseInt(age, 10) > 100) {
-      newErrors.age = "Age must be 100 or less.";
+    if (!birthdate.trim()) {
+      newErrors.birthdate = "Birthdate is required.";
+    } else if (!BIRTHDATE_REGEX.test(birthdate.trim())) {
+      newErrors.birthdate = "Birthdate must be YYYY-MM-DD.";
+    } else {
+      const bd = new Date(birthdate.trim());
+      if (isNaN(bd.getTime())) {
+        newErrors.birthdate = "Invalid birthdate.";
+      } else {
+        const diffMs = Date.now() - bd.getTime();
+        const ageYears = Math.abs(new Date(diffMs).getUTCFullYear() - 1970);
+        if (ageYears < 18) newErrors.birthdate = "You must be at least 18 years old to register.";
+        if (ageYears > 100) newErrors.birthdate = "Age must be 100 or less.";
+      }
     }
 
     if (!sexe.trim()) {
@@ -178,7 +187,7 @@ export default function RegisterDriverScreen() {
       confirmPassword,
       firstName,
       familyName,
-      age,
+      birthdate,
       sexe,
       phoneNumber,
       phoneCountryCode,
@@ -249,23 +258,18 @@ export default function RegisterDriverScreen() {
           </View>
 
           <View className="mb-4">
-            <Text className="text-sm font-medium text-black mb-2">Age</Text>
-            <TextInput
-              value={age}
-              onChangeText={(v) => {
-                const digits = v.replace(/\D/g, "");
-                if (AGE_INPUT_REGEX.test(digits)) {
-                  setAge(digits);
-                  clearError("age");
-                }
+            <Text className="text-sm font-medium text-black mb-2">Birthdate</Text>
+            <DatePickerField
+              value={birthdate}
+              onChange={(v) => {
+                setBirthdate(v);
+                clearError("birthdate");
               }}
-              placeholder="25"
-              keyboardType="numeric"
-              maxLength={2}
-              className={`bg-gray-50 border ${border("age")} rounded-xl px-4 py-4 text-base`}
-              placeholderTextColor="#9CA3AF"
+              placeholder="YYYY-MM-DD"
+              icon="calendar-outline"
+              error={errors.birthdate}
             />
-            <ErrorText field="age" />
+            <ErrorText field="birthdate" />
           </View>
 
           <View className="mb-4">
@@ -335,6 +339,8 @@ export default function RegisterDriverScreen() {
               <View style={{ marginRight: 12 }}>
                 <CountryCodePicker
                   value={phoneCountryCode}
+                  locked={true}
+                  lockedCode={'DZ'}
                   onChange={(code) => {
                     setPhoneCountryCode(code);
                     setPhoneNumber((current) =>

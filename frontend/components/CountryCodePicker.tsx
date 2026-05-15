@@ -18,27 +18,33 @@ type Props = {
   value: string;
   onChange: (countryCode: string) => void;
   hasError?: boolean;
+  locked?: boolean;
+  lockedCode?: string;
 };
 
 export default function CountryCodePicker({
   value,
   onChange,
   hasError = false,
+  locked = false,
+  lockedCode,
 }: Props) {
   const [visible, setVisible] = useState(false);
   const selectedCountry = useMemo(() => getCountryPhoneOption(value), [value]);
+  const displayedCountry = useMemo(() => getCountryPhoneOption(locked ? lockedCode || 'DZ' : value), [value, locked, lockedCode]);
 
   return (
     <>
       <TouchableOpacity
         activeOpacity={0.85}
         style={[styles.trigger, hasError && styles.triggerError]}
-        onPress={() => setVisible(true)}>
-        <Text style={styles.flag}>{selectedCountry.flag}</Text>
+        onPress={() => !locked && setVisible(true)}
+        disabled={locked}>
+        <Text style={styles.flag}>{displayedCountry.flag}</Text>
         <Text style={styles.code} numberOfLines={1}>
-          {selectedCountry.dialCode}
+          {displayedCountry.dialCode}
         </Text>
-        <MaterialIcons name="keyboard-arrow-down" size={20} color="#6B7280" />
+        {!locked && <MaterialIcons name="keyboard-arrow-down" size={20} color="#6B7280" />}
       </TouchableOpacity>
 
       <Modal

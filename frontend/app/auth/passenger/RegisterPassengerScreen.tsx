@@ -1,10 +1,11 @@
-﻿import { View, Text, TextInput, TouchableOpacity, ScrollView } from 'react-native';
+﻿import { View, Text, TextInput, TouchableOpacity, ScrollView, Modal, Pressable } from 'react-native';
 import { useState } from 'react';
 import { Stack, router } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useAuth } from '../../../context/AuthContext';
 import api from '../../../services/api';
 import CountryCodePicker from '../../../components/CountryCodePicker';
+import DatePickerField from '../../../components/DatePickerField';
 import { getPasswordNeedsMessage } from '../../../utils/passwordValidation';
 import {
   buildInternationalPhoneNumber,
@@ -14,12 +15,12 @@ import {
   validatePhoneNumberForCountry,
 } from '../../../utils/phoneNumber';
 
-const AGE_INPUT_REGEX = /^$|^\d$|^\d\d$/;
+const BIRTHDATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 
 type FieldErrors = {
   firstName: string;
   familyName: string;
-  age: string;
+  birthdate: string;
   sexe: string;
   email: string;
   phoneNumber: string;
@@ -34,17 +35,19 @@ export default function RegisterPassengerScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [firstName, setFirstName] = useState('');
   const [familyName, setFamilyName] = useState('');
-  const [age, setAge] = useState('');
+  const [birthdate, setBirthdate] = useState('');
   const [sexe, setSexe] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [phoneCountryCode, setPhoneCountryCode] = useState(DEFAULT_COUNTRY_PHONE.code);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [phonePrefModalVisible, setPhonePrefModalVisible] = useState(false);
+  const [pendingCountry, setPendingCountry] = useState<string | null>(null);
 
   const [errors, setErrors] = useState<FieldErrors>({
     firstName: '',
     familyName: '',
-    age: '',
+    birthdate: '',
     sexe: '',
     email: '',
     phoneNumber: '',
@@ -65,7 +68,7 @@ export default function RegisterPassengerScreen() {
     const newErrors: FieldErrors = {
       firstName: '',
       familyName: '',
-      age: '',
+      birthdate: '',
       sexe: '',
       email: '',
       phoneNumber: '',
@@ -89,12 +92,20 @@ export default function RegisterPassengerScreen() {
       newErrors.familyName = 'Family name must be at least 3 characters.';
     }
 
-    if (!age.trim()) {
-      newErrors.age = 'Age is required.';
-    } else if (parseInt(age, 10) < 18) {
-      newErrors.age = 'You must be at least 18 years old to register.';
-    } else if (parseInt(age, 10) > 100) {
-      newErrors.age = 'Age must be 100 or less.';
+    if (!birthdate.trim()) {
+      newErrors.birthdate = 'Birthdate is required.';
+    } else if (!BIRTHDATE_REGEX.test(birthdate.trim())) {
+      newErrors.birthdate = 'Birthdate must be YYYY-MM-DD.';
+    } else {
+      const bd = new Date(birthdate.trim());
+      if (isNaN(bd.getTime())) {
+        newErrors.birthdate = 'Invalid birthdate.';
+      } else {
+        const diffMs = Date.now() - bd.getTime();
+        const ageYears = Math.abs(new Date(diffMs).getUTCFullYear() - 1970);
+        if (ageYears < 18) newErrors.birthdate = 'You must be at least 18 years old to register.';
+        if (ageYears > 100) newErrors.birthdate = 'Age must be 100 or less.';
+      }
     }
 
     if (!sexe.trim()) {
@@ -158,7 +169,7 @@ export default function RegisterPassengerScreen() {
       confirmPassword,
       firstName,
       familyName,
-      age,
+      birthdate,
       sexe,
       phoneNumber,
       phoneCountryCode,
@@ -204,23 +215,18 @@ export default function RegisterPassengerScreen() {
           </View>
 
           <View className="mb-4">
-            <Text className="text-sm font-medium text-black mb-2">Age</Text>
-            <TextInput
-              value={age}
-              onChangeText={(v) => {
-                const digits = v.replace(/\D/g, '');
-                if (AGE_INPUT_REGEX.test(digits)) {
-                  setAge(digits);
-                  setErrors((p) => ({ ...p, age: '' }));
-                }
+            <Text className="text-sm font-medium text-black mb-2">Birthdate</Text>
+            <DatePickerField
+              value={birthdate}
+              onChange={(v) => {
+                setBirthdate(v);
+                setErrors((p) => ({ ...p, birthdate: '' }));
               }}
-              placeholder="25"
-              keyboardType="numeric"
-              maxLength={2}
-              className={`bg-gray-50 border ${inputBorder('age')} rounded-xl px-4 py-4 text-base`}
-              placeholderTextColor="#9CA3AF"
+              placeholder="YYYY-MM-DD"
+              icon="calendar-outline"
+              error={errors.birthdate}
             />
-            <ErrorText field="age" />
+            <ErrorText field="birthdate" />
           </View>
 
           <View className="mb-4">
@@ -286,11 +292,17 @@ export default function RegisterPassengerScreen() {
                 <CountryCodePicker
                   value={phoneCountryCode}
                   onChange={(code) => {
-                    setPhoneCountryCode(code);
-                    setPhoneNumber((current) =>
-                      normalizeLocalPhoneNumber(current, getCountryPhoneOption(code)),
-                    );
-                    setErrors((p) => ({ ...p, phoneNumber: '' }));
+                    const selected = code;
+                    if (selected !== 'DZ') {
+                      setPendingCountry(selected);
+                      setPhonePrefModalVisible(true);
+                    } else {
+                      setPhoneCountryCode('DZ');
+                      setPhoneNumber((current) =>
+                        normalizeLocalPhoneNumber(current, getCountryPhoneOption('DZ')),
+                      );
+                      setErrors((p) => ({ ...p, phoneNumber: '' }));
+                    }
                   }}
                   hasError={!!errors.phoneNumber}
                 />
@@ -370,6 +382,56 @@ export default function RegisterPassengerScreen() {
           </View>
 
           <View className="h-8" />
+          <Modal
+            visible={phonePrefModalVisible}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setPhonePrefModalVisible(false)}>
+            <Pressable
+              style={{ flex: 1, backgroundColor: 'rgba(17,24,39,0.35)', justifyContent: 'center', alignItems: 'center' }}
+              onPress={() => setPhonePrefModalVisible(false)}>
+                <Pressable
+                style={{ width: '86%', backgroundColor: '#fff', borderRadius: 16, padding: 18 }}
+                onPress={() => {}}>
+                <Text style={{ fontSize: 17, fontWeight: '700', color: '#111827', marginBottom: 8 }}>Phone number preference</Text>
+                <Text style={{ fontSize: 13, color: '#6B7280', marginBottom: 18 }}>
+                  This app is currently available only in Algeria. We recommend using an Algerian number (+213). However, you may keep your selected country if necessary.
+                </Text>
+
+                <TouchableOpacity
+                  onPress={() => {
+                    if (pendingCountry) {
+                      setPhoneCountryCode(pendingCountry);
+                      setPhoneNumber((current) =>
+                        normalizeLocalPhoneNumber(current, getCountryPhoneOption(pendingCountry)),
+                      );
+                      setErrors((p) => ({ ...p, phoneNumber: '' }));
+                    }
+                    setPhonePrefModalVisible(false);
+                    setPendingCountry(null);
+                  }}
+                  activeOpacity={0.85}
+                  style={{ borderRadius: 12, paddingVertical: 14, alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#fff', marginBottom: 12 }}>
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: '#111827' }}>Keep Selected</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  onPress={() => {
+                    setPhoneCountryCode('DZ');
+                    setPhoneNumber((current) =>
+                      normalizeLocalPhoneNumber(current, getCountryPhoneOption('DZ')),
+                    );
+                    setErrors((p) => ({ ...p, phoneNumber: '' }));
+                    setPhonePrefModalVisible(false);
+                    setPendingCountry(null);
+                  }}
+                  activeOpacity={0.85}
+                  style={{ borderRadius: 12, paddingVertical: 14, alignItems: 'center', backgroundColor: '#111827' }}>
+                  <Text style={{ fontSize: 15, fontWeight: '700', color: '#fff' }}>Use Algeria (+213)</Text>
+                </TouchableOpacity>
+              </Pressable>
+            </Pressable>
+          </Modal>
         </View>
       </ScrollView>
     </>

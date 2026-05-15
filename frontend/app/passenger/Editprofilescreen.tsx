@@ -8,6 +8,7 @@ import { Stack, router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import api from '../../services/api';
+import DatePickerField from '../../components/DatePickerField';
 import * as ImagePicker from 'expo-image-picker';
 import { Image } from 'react-native';
 import type { KeyboardTypeOptions } from 'react-native';
@@ -35,7 +36,7 @@ function Toast({ visible }: { visible: boolean }) {
   return (
     <Animated.View style={[styles.toast, { opacity }]}>
       <Ionicons name="checkmark-circle" size={18} color="#fff" />
-      <Text style={styles.toastText}>Changes saved!</Text>
+      <Text style={styles.toastText}>Changes saved !</Text>
     </Animated.View>
   );
 }
@@ -71,7 +72,7 @@ export default function Editprofilescreen() {
   const [prenom, setPrenom] = useState('');
   const [email, setEmail] = useState('');
   const [numTel, setNumTel] = useState('');
-  const [age, setAge] = useState('');
+  const [birthdate, setBirthdate] = useState('');
   const [avatarUri, setAvatarUri] = useState<string | null>(null);
   const [cropUri, setCropUri] = useState<string | null>(null);
   const [cropMeta, setCropMeta] = useState<{ name?: string; type?: string } | null>(null);
@@ -87,7 +88,14 @@ export default function Editprofilescreen() {
       setPrenom(d.prenom || '');
       setEmail(d.email || '');
       setNumTel(formatPhoneNumberForDisplay(d.numTel || ''));
-      setAge(d.age ? String(d.age) : '');
+      if (d.birthdate) {
+        setBirthdate(String(d.birthdate).slice(0, 10));
+      } else if (d.age) {
+        const approxYear = new Date().getFullYear() - Number(d.age);
+        setBirthdate(`${approxYear}-01-01`);
+      } else {
+        setBirthdate('');
+      }
       if (d.photoUrl) setAvatarUri(d.photoUrl);
     } catch (e) {
       Alert.alert('Error', 'Failed to load profile.');
@@ -175,7 +183,7 @@ export default function Editprofilescreen() {
     try {
       await api.put('/passengers/profile', {
         nom: nom.trim(), prenom: prenom.trim(),
-        numTel: buildInternationalPhoneNumber(numTel.trim(), DEFAULT_COUNTRY_PHONE), age: parseInt(age) || 0,
+        numTel: buildInternationalPhoneNumber(numTel.trim(), DEFAULT_COUNTRY_PHONE), birthdate: birthdate || null,
       });
 
       const userStr = await AsyncStorage.getItem('user');
@@ -260,7 +268,10 @@ export default function Editprofilescreen() {
             <InputField label="Last name" icon="people-outline" value={nom} onChangeText={setNom} placeholder="Last name" />
             <InputField label="Email" icon="mail-outline" value={email} editable={false} />
             <InputField label="Phone number" icon="call-outline" value={numTel} onChangeText={setNumTel} keyboardType="phone-pad" />
-            <InputField label="Age" icon="accessibility-outline" value={age} onChangeText={setAge} keyboardType="numeric" />
+            <View style={{ marginBottom: 16 }}>
+              <Text style={styles.fieldLabel}>Birthdate</Text>
+              <DatePickerField value={birthdate} onChange={setBirthdate} icon="calendar-outline" placeholder="YYYY-MM-DD" />
+            </View>
           </View>
 
           <View style={{ paddingHorizontal: 20, marginTop: 8 }}>

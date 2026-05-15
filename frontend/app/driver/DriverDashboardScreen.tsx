@@ -210,7 +210,7 @@ function PreferenceBars({
 
   return (
     <View style={[styles.card, { backgroundColor: '#F5F3FF' }]}>
-      <Text style={styles.cardTitle}>Passenger preferences</Text>
+    <Text style={styles.cardTitle}>Passengers preferences</Text>
       <Text style={styles.cardSub}>Most selected by passengers</Text>
 
       <View style={{ marginTop: 16, gap: 12 }}>

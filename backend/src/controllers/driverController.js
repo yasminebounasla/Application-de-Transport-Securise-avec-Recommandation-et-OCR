@@ -1,8 +1,8 @@
 import { prisma } from "../config/prisma.js";
 import { getIO } from '../socket/socket.js';
 import { extractWilayaFromPlaque } from "../utils/algerianPlaque.js";
-import { reverseGeocode }           from "../utils/reverseGeocode.js";
-import { extractWilayaFromAddress }  from "../utils/extractWilayaFromAddress.js";
+import { reverseGeocode } from "../utils/reverseGeocode.js";
+import { extractWilayaFromAddress } from "../utils/extractWilayaFromAddress.js";
 
 export const addDriverPreferences = async (req, res) => {
   // On prend l'ID directement depuis le token
@@ -170,6 +170,7 @@ export const getDriverDashboardAnalytics = async (req, res) => {
     let acceptedTrips = 0;
     let cancelledTrips = 0;
 
+    // Count driver-related metrics (monthly/earnings/requests)
     rides.forEach((ride) => {
       const requestDate = ride.createdAt || ride.updatedAt;
       const requestKey = `${requestDate.getFullYear()}-${String(requestDate.getMonth() + 1).padStart(2, '0')}`;
@@ -209,34 +210,96 @@ export const getDriverDashboardAnalytics = async (req, res) => {
       earnings: Number(item.earnings.toFixed(2)),
     }));
 
-    const preferenceBreakdown = preferenceDefs
-      .map((pref) => ({
+    // Always include all preference definitions in the breakdown so the
+    // frontend can display the full list (even when counts are zero).
+    // The dashboard should also show overall passenger preferences across
+    // all trips in the system so drivers can know global trends. Fetch
+    // all trajets' preferences and aggregate them.
+    try {
+      const allPrefs = await prisma.trajet.findMany({
+        select: {
+          preferences: {
+            select: {
+              talkative: true,
+              radio: true,
+              smoking: true,
+              pets: true,
+              luggage_large: true,
+              femal_driver_pref: true,
+            }
+          }
+        }
+      });
+
+      // Reset counts and aggregate from all trips
+      const globalCounts = Object.fromEntries(preferenceDefs.map((p) => [p.key, 0]));
+      allPrefs.forEach((r) => {
+        preferenceDefs.forEach((pref) => {
+          if (r.preferences?.[pref.key] === true) {
+            globalCounts[pref.key] = (globalCounts[pref.key] || 0) + 1;
+          }
+        });
+      });
+
+      // Use global counts for the breakdown shown on the dashboard
+      const preferenceBreakdown = preferenceDefs.map((pref) => ({
         key: pref.key,
         label: pref.label,
-        value: preferenceCounts[pref.key],
+        value: globalCounts[pref.key] || 0,
         color: pref.color,
-      }))
-      .filter((item) => item.value > 0);
+      }));
 
-    return res.status(200).json({
-      success: true,
-      data: {
-        driver: {
-          id: driver.id,
-          prenom: driver.prenom,
-          nom: driver.nom,
-          createdAt: driver.createdAt,
+      return res.status(200).json({
+        success: true,
+        data: {
+          driver: {
+            id: driver.id,
+            prenom: driver.prenom,
+            nom: driver.nom,
+            createdAt: driver.createdAt,
+          },
+          summary: {
+            totalEarnings: Number(totalEarnings.toFixed(2)),
+            completedTrips,
+            acceptedTrips,
+            cancelledTrips,
+          },
+          monthly,
+          preferences: preferenceBreakdown,
         },
-        summary: {
-          totalEarnings: Number(totalEarnings.toFixed(2)),
-          completedTrips,
-          acceptedTrips,
-          cancelledTrips,
+      });
+    } catch (err) {
+      console.error('Error aggregating global preferences:', err);
+      // Fallback to per-driver counts if global aggregation fails
+      const preferenceBreakdown = preferenceDefs.map((pref) => ({
+        key: pref.key,
+        label: pref.label,
+        value: preferenceCounts[pref.key] || 0,
+        color: pref.color,
+      }));
+
+      return res.status(200).json({
+        success: true,
+        data: {
+          driver: {
+            id: driver.id,
+            prenom: driver.prenom,
+            nom: driver.nom,
+            createdAt: driver.createdAt,
+          },
+          summary: {
+            totalEarnings: Number(totalEarnings.toFixed(2)),
+            completedTrips,
+            acceptedTrips,
+            cancelledTrips,
+          },
+          monthly,
+          preferences: preferenceBreakdown,
         },
-        monthly,
-        preferences: preferenceBreakdown,
-      },
-    });
+      });
+    }
+
+
   } catch (error) {
     console.error("Error retrieving driver dashboard analytics:", error);
     return res.status(500).json({
@@ -249,40 +312,40 @@ export const getDriverDashboardAnalytics = async (req, res) => {
 
 // Feedback related controllers
 export const getDriverRating = async (req, res) => {
-    const driverId = req.user.driverId;
+  const driverId = req.user.driverId;
 
-    if (!driverId) {
-        return res.status(403).json({ message: "Access restricted to drivers only." });
+  if (!driverId) {
+    return res.status(403).json({ message: "Access restricted to drivers only." });
+  }
+
+  try {
+    const driver = await prisma.driver.findUnique({
+      where: {
+        id: driverId
+      },
+      select: {
+        rating: true,
+        ratingsCount: true
+      }
+    });
+
+    if (!driver) {
+      return res.status(404).json({
+        message: "Driver not found."
+      });
     }
 
-    try {
-        const driver = await prisma.driver.findUnique({
-            where: {
-                id: driverId
-            },
-            select: {
-                rating: true,
-                ratingsCount: true
-            }
-        });
+    res.status(200).json({
+      message: "Driver rating retrieved successfully.",
+      data: driver
+    });
 
-        if (!driver) {
-            return res.status(404).json({
-                message: "Driver not found."
-            });
-        }
-
-        res.status(200).json({
-            message: "Driver rating retrieved successfully.",
-            data: driver
-        });
-
-    } catch (err) {
-        res.status(500).json({
-            message: "Failed to retrieve driver rating.",
-            error: err.message
-        });
-    }
+  } catch (err) {
+    res.status(500).json({
+      message: "Failed to retrieve driver rating.",
+      error: err.message
+    });
+  }
 };
 /**
  * @route   POST /api/drivers/vehicle
@@ -316,18 +379,18 @@ export const addVehicle = async (req, res) => {
       data: {
         driverId,
         marque,
-        modele:   modele   || null,
-        annee:    annee    ? parseInt(annee)    : null,
+        modele: modele || null,
+        annee: annee ? parseInt(annee) : null,
         nbPlaces: nbPlaces ? parseInt(nbPlaces) : null,
-        plaque:   plaque   || null,
-        couleur:  couleur  || null,
+        plaque: plaque || null,
+        couleur: couleur || null,
       },
     });
 
     res.status(201).json({
       message: "Vehicle added successfully.",
-      data:    vehicle,
-      wilaya:  wilayaInfo ? wilayaInfo.nom : null,
+      data: vehicle,
+      wilaya: wilayaInfo ? wilayaInfo.nom : null,
     });
   } catch (err) {
     console.error("Error adding vehicle:", err);
@@ -531,27 +594,27 @@ export const getDriverProfile = async (req, res) => {
 
   try {
     const driver = await prisma.driver.findUnique({
-      where:   { id: parseInt(id) },
+      where: { id: parseInt(id) },
       include: {
         vehicules: {
           select: {
-            id:        true,
-            marque:    true,
-            modele:    true,
-            annee:     true,
-            nbPlaces:  true,
-            plaque:    true,
-            couleur:   true,
+            id: true,
+            marque: true,
+            modele: true,
+            annee: true,
+            nbPlaces: true,
+            plaque: true,
+            couleur: true,
             createdAt: true,
           },
         },
         trajets: {
-          where:   { status: "COMPLETED" },
+          where: { status: "COMPLETED" },
           include: { evaluation: true },
           orderBy: { completedAt: "desc" },
-          take:    5,
+          take: 5,
         },
-        preferences:  true,
+        preferences: true,
         workingHours: true,
       },
     });
@@ -563,29 +626,29 @@ export const getDriverProfile = async (req, res) => {
     }
 
     const stats = {
-      avgRating:      parseFloat((driver.avgRating || 0).toFixed(1)),
-      ratingsCount:   driver.ratingsCount || 0,
+      avgRating: parseFloat((driver.avgRating || 0).toFixed(1)),
+      ratingsCount: driver.ratingsCount || 0,
       completedRides: driver.trajets.length,
     };
 
     const recentFeedbacks = driver.trajets
       .filter((t) => t.evaluation)
       .map((t) => ({
-        rating:  t.evaluation.rating,
+        rating: t.evaluation.rating,
         comment: t.evaluation.comment,
-        date:    t.evaluation.createdAt,
+        date: t.evaluation.createdAt,
       }));
 
     const preferences = {
-      talkative:       driver.preferences?.talkative       ?? false,
-      radio_on:        driver.preferences?.radio            ?? false,
-      smoking_allowed: driver.preferences?.smoking          ?? false,
-      pets_allowed:    driver.preferences?.pets             ?? false,
-      car_big:         driver.preferences?.luggage_large    ?? false,
-      works_morning:   driver.workingHours?.works_morning   ?? false,
+      talkative: driver.preferences?.talkative ?? false,
+      radio_on: driver.preferences?.radio ?? false,
+      smoking_allowed: driver.preferences?.smoking ?? false,
+      pets_allowed: driver.preferences?.pets ?? false,
+      car_big: driver.preferences?.luggage_large ?? false,
+      works_morning: driver.workingHours?.works_morning ?? false,
       works_afternoon: driver.workingHours?.works_afternoon ?? false,
-      works_evening:   driver.workingHours?.works_evening   ?? false,
-      works_night:     driver.workingHours?.works_night     ?? false,
+      works_evening: driver.workingHours?.works_evening ?? false,
+      works_night: driver.workingHours?.works_night ?? false,
     };
 
     const {
@@ -596,18 +659,31 @@ export const getDriverProfile = async (req, res) => {
       numTel,
       latitude,
       longitude,
+      birthdate,
       ...driverData
     } = driver;
+
+    const computeAgeFromBirthdate = (bd) => {
+      if (!bd) return null;
+      const d = new Date(bd);
+      if (isNaN(d.getTime())) return null;
+      const diffMs = Date.now() - d.getTime();
+      const ageDt = new Date(diffMs);
+      return Math.abs(ageDt.getUTCFullYear() - 1970);
+    };
+
+    const returnedAge = birthdate ? computeAgeFromBirthdate(birthdate) : driverData.age;
 
     res.status(200).json({
       message: "Driver profile retrieved successfully.",
       data: {
         ...driverData,
-        vehicules:       driver.vehicules,
+        age: returnedAge,
+        vehicules: driver.vehicules,
         preferences,
         stats,
         recentFeedbacks: [],
-        feedbackNote:    "For all feedbacks, use GET /api/feedback/my-feedbacks",
+        feedbackNote: "For all feedbacks, use GET /api/feedback/my-feedbacks",
       },
     });
 
@@ -615,7 +691,7 @@ export const getDriverProfile = async (req, res) => {
     console.error("Error retrieving driver profile:", err);
     res.status(500).json({
       message: "Failed to retrieve driver profile.",
-      error:   err.message,
+      error: err.message,
     });
   }
 };
@@ -636,21 +712,21 @@ export const getMyDriverProfile = async (req, res) => {
       include: {
         vehicules: {
           select: {
-            id:        true,
-            marque:    true,
-            modele:    true,
-            annee:     true,
-            nbPlaces:  true,
-            plaque:    true,
-            couleur:   true,
+            id: true,
+            marque: true,
+            modele: true,
+            annee: true,
+            nbPlaces: true,
+            plaque: true,
+            couleur: true,
             createdAt: true,
           },
         },
         trajets: {
-          where:   { status: "COMPLETED" },
+          where: { status: "COMPLETED" },
           include: { evaluation: true },
           orderBy: { completedAt: "desc" },
-          take:    10,
+          take: 10,
         },
         preferences: true,
         workingHours: true,
@@ -664,43 +740,56 @@ export const getMyDriverProfile = async (req, res) => {
     }
 
     const stats = {
-      avgRating:      parseFloat((driver.avgRating || 0).toFixed(1)),
-      ratingsCount:   driver.ratingsCount || 0,
+      avgRating: parseFloat((driver.avgRating || 0).toFixed(1)),
+      ratingsCount: driver.ratingsCount || 0,
       completedRides: driver.trajets.length,
     };
 
     const recentFeedbacks = driver.trajets
       .filter((t) => t.evaluation)
       .map((t) => ({
-        rating:  t.evaluation.rating,
+        rating: t.evaluation.rating,
         comment: t.evaluation.comment,
-        date:    t.evaluation.createdAt,
+        date: t.evaluation.createdAt,
       }));
 
     const preferences = {
-      talkative:       driver.preferences?.talkative       ?? false,
-      radio_on:        driver.preferences?.radio            ?? false,
-      smoking_allowed: driver.preferences?.smoking          ?? false,
-      pets_allowed:    driver.preferences?.pets             ?? false,
-      car_big:         driver.preferences?.luggage_large    ?? false,
-      works_morning:   driver.workingHours?.works_morning   ?? false,
+      talkative: driver.preferences?.talkative ?? false,
+      radio_on: driver.preferences?.radio ?? false,
+      smoking_allowed: driver.preferences?.smoking ?? false,
+      pets_allowed: driver.preferences?.pets ?? false,
+      car_big: driver.preferences?.luggage_large ?? false,
+      works_morning: driver.workingHours?.works_morning ?? false,
       works_afternoon: driver.workingHours?.works_afternoon ?? false,
-      works_evening:   driver.workingHours?.works_evening   ?? false,
-      works_night:     driver.workingHours?.works_night     ?? false,
+      works_evening: driver.workingHours?.works_evening ?? false,
+      works_night: driver.workingHours?.works_night ?? false,
     };
 
     const {
       password,
       hasAcceptedPhotoStorage,
       trajets,
+      birthdate,
       ...driverData
     } = driver;
+
+    const computeAgeFromBirthdate = (bd) => {
+      if (!bd) return null;
+      const d = new Date(bd);
+      if (isNaN(d.getTime())) return null;
+      const diffMs = Date.now() - d.getTime();
+      const ageDt = new Date(diffMs);
+      return Math.abs(ageDt.getUTCFullYear() - 1970);
+    };
+
+    const returnedAge = birthdate ? computeAgeFromBirthdate(birthdate) : driverData.age;
 
     res.status(200).json({
       message: "Your driver profile retrieved successfully.",
       data: {
         ...driverData,
-        vehicules:    driver.vehicules,
+        age: returnedAge,
+        vehicules: driver.vehicules,
         preferences,
         stats,
         recentFeedbacks,
@@ -712,7 +801,7 @@ export const getMyDriverProfile = async (req, res) => {
     console.error("Error retrieving driver profile:", err);
     res.status(500).json({
       message: "Failed to retrieve driver profile.",
-      error:   err.message,
+      error: err.message,
     });
   }
 };
@@ -727,13 +816,23 @@ export const updateDriverProfile = async (req, res) => {
   }
 
   try {
-    const { nom, prenom, numTel, age, sexe } = req.body;
+    const { nom, prenom, numTel, birthdate, sexe } = req.body;
 
     const updateData = {};
     if (nom !== undefined) updateData.nom = nom;
     if (prenom !== undefined) updateData.prenom = prenom;
     if (numTel !== undefined) updateData.numTel = numTel;
-    if (age !== undefined) updateData.age = parseInt(age);
+    if (birthdate !== undefined) {
+      const bd = new Date(birthdate);
+      if (isNaN(bd.getTime())) {
+        return res.status(400).json({ message: 'Invalid birthdate format.' });
+      }
+      const diffMs = Date.now() - bd.getTime();
+      const ageDt = new Date(diffMs);
+      const computedAge = Math.abs(ageDt.getUTCFullYear() - 1970);
+      updateData.birthdate = bd;
+      updateData.age = computedAge;
+    }
     if (sexe !== undefined) {
       if (sexe !== 'M' && sexe !== 'F') {
         return res.status(400).json({
@@ -779,7 +878,7 @@ export const updateDriverLocation = async (req, res) => {
     }
 
     const driver = await prisma.driver.findUnique({
-      where:  { id: driverId },
+      where: { id: driverId },
       select: { wilaya: true },
     });
 
@@ -802,18 +901,18 @@ export const updateDriverLocation = async (req, res) => {
     await prisma.driver.update({
       where: { id: driverId },
       data: {
-       latitude:        parseFloat(latitude),
-       longitude:       parseFloat(longitude),
-       workZoneAddress: workZoneAddress,
-       wilaya:          wilayaFromCoords?.nom || driver.wilaya,
-     },
+        latitude: parseFloat(latitude),
+        longitude: parseFloat(longitude),
+        workZoneAddress: workZoneAddress,
+        wilaya: wilayaFromCoords?.nom || driver.wilaya,
+      },
     });
 
     res.status(200).json({
       message: "Location updated successfully.",
       data: {
-        wilaya:    driver.wilaya,
-        latitude:  parseFloat(latitude),
+        wilaya: driver.wilaya,
+        latitude: parseFloat(latitude),
         longitude: parseFloat(longitude),
         workZoneAddress: workZoneAddress,
       },
@@ -852,25 +951,25 @@ export const notifySelectedDrivers = async (req, res) => {
     // ← use for...of so await works correctly
     for (const driverId of driverIds) {
       io.to(`driver_${driverId}`).emit('rideRequest', {
-        rideId:       ride.id,
-        passenger:    ride.passenger,
+        rideId: ride.id,
+        passenger: ride.passenger,
         startAddress: ride.startAddress,
-        endAddress:   ride.endAddress,
-        prix:         ride.prix,
-        dateDepart:   ride.dateDepart,
-        startLat:     ride.startLat,
-        startLng:     ride.startLng,
-        endLat:       ride.endLat,
-        endLng:       ride.endLng,
+        endAddress: ride.endAddress,
+        prix: ride.prix,
+        dateDepart: ride.dateDepart,
+        startLat: ride.startLat,
+        startLng: ride.startLng,
+        endLat: ride.endLat,
+        endLng: ride.endLng,
       });
 
       // ← persist one notif per driver so acceptRide can find them later
       await createNotification({
-        driverId:      Number(driverId),
+        driverId: Number(driverId),
         recipientType: 'DRIVER',
-        type:          'RIDE_REQUEST',
-        title:         '🚗 Nouvelle demande',
-        message:       `${ride.passenger.prenom} cherche un trajet.`,
+        type: 'RIDE_REQUEST',
+        title: '🚗 Nouvelle demande',
+        message: `${ride.passenger.prenom} cherche un trajet.`,
         data: { rideId: ride.id, passenger: { prenom: ride.passenger.prenom, nom: ride.passenger.nom, photoUrl: ride.passenger.photoUrl } },
       });
     }

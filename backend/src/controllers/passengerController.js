@@ -59,16 +59,29 @@ export const getMyPassengerProfile = async (req, res) => {
       completedRides: passenger.trajets.filter(t => t.status === 'COMPLETED').length,
     };
 
-    const { 
-      password, 
+    const {
+      password,
       trajets,
-      ...passengerData 
+      birthdate,
+      ...passengerData
     } = passenger;
+
+    const computeAgeFromBirthdate = (bd) => {
+      if (!bd) return null;
+      const d = new Date(bd);
+      if (isNaN(d.getTime())) return null;
+      const diffMs = Date.now() - d.getTime();
+      const ageDt = new Date(diffMs);
+      return Math.abs(ageDt.getUTCFullYear() - 1970);
+    };
+
+    const returnedAge = birthdate ? computeAgeFromBirthdate(birthdate) : passengerData.age;
 
     res.status(200).json({
       message: "Your passenger profile retrieved successfully.",
       data: {
         ...passengerData,
+        age: returnedAge,
         stats,
         ridesHistory,
       },
@@ -97,17 +110,30 @@ export const getPassengerProfile = async (req, res) => {
       });
     }
 
-    const { 
-      password, 
+    const {
+      password,
       email,
       numTel,
-      ...publicData 
+      birthdate,
+      ...publicData
     } = passenger;
+
+    const computeAgeFromBirthdate = (bd) => {
+      if (!bd) return null;
+      const d = new Date(bd);
+      if (isNaN(d.getTime())) return null;
+      const diffMs = Date.now() - d.getTime();
+      const ageDt = new Date(diffMs);
+      return Math.abs(ageDt.getUTCFullYear() - 1970);
+    };
+
+    const returnedAge = birthdate ? computeAgeFromBirthdate(birthdate) : publicData.age;
 
     res.status(200).json({
       message: "Passenger profile retrieved successfully.",
       data: {
         ...publicData,
+        age: returnedAge,
       },
     });
   } catch (err) {
@@ -130,13 +156,23 @@ export const updatePassengerProfile = async (req, res) => {
   }
 
   try {
-    const { nom, prenom, numTel, age } = req.body;
+    const { nom, prenom, numTel, birthdate } = req.body;
 
     const updateData = {};
     if (nom !== undefined) updateData.nom = nom;
     if (prenom !== undefined) updateData.prenom = prenom;
     if (numTel !== undefined) updateData.numTel = numTel;
-    if (age !== undefined) updateData.age = parseInt(age);
+    if (birthdate !== undefined) {
+      const bd = new Date(birthdate);
+      if (isNaN(bd.getTime())) {
+        return res.status(400).json({ message: 'Invalid birthdate format.' });
+      }
+      const diffMs = Date.now() - bd.getTime();
+      const ageDt = new Date(diffMs);
+      const computedAge = Math.abs(ageDt.getUTCFullYear() - 1970);
+      updateData.birthdate = bd;
+      updateData.age = computedAge;
+    }
 
     const updatedPassenger = await prisma.passenger.update({
       where: { id: passengerId },

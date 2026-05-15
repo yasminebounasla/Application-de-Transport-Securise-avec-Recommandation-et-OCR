@@ -5,8 +5,16 @@ import { prisma } from "../config/prisma.js";
 import { getJwtSecrets } from "../utils/jwtConfig.js";
 
 export const registerDriver = async (req, res) => {
-  const { email, password, confirmPassword, nom, prenom, age, numTel, sexe } =
-    req.body;
+  const { email, password, confirmPassword, nom, prenom, birthdate, numTel, sexe } = req.body;
+
+  const computeAgeFromBirthdate = (birthdate) => {
+    if (!birthdate) return null;
+    const bd = new Date(birthdate);
+    if (isNaN(bd.getTime())) return null;
+    const diffMs = Date.now() - bd.getTime();
+    const ageDt = new Date(diffMs);
+    return Math.abs(ageDt.getUTCFullYear() - 1970);
+  };
 
   try {
     const { accessSecret, refreshSecret } = getJwtSecrets();
@@ -24,16 +32,17 @@ export const registerDriver = async (req, res) => {
       return res.status(400).json({ message: "Passwords do not match." });
     }
 
-    if (age < 18) {
-      return res
-        .status(400)
-        .json({ message: "You must be at least 18 years old to register." });
+    const computedAge = computeAgeFromBirthdate(birthdate);
+    if (computedAge === null) {
+      return res.status(400).json({ message: "Valid birthdate is required (YYYY-MM-DD)." });
     }
 
-    if (age > 100) {
-      return res
-        .status(400)
-        .json({ message: "Age must be 100 or less." });
+    if (computedAge < 18) {
+      return res.status(400).json({ message: "You must be at least 18 years old to register." });
+    }
+
+    if (computedAge > 100) {
+      return res.status(400).json({ message: "Age must be 100 or less." });
     }
 
     const existingDriver = await prisma.driver.findFirst({
@@ -59,7 +68,8 @@ export const registerDriver = async (req, res) => {
         password: hashedPassword,
         nom: nom.trim(),
         prenom: prenom.trim(),
-        age,
+        age: computedAge,
+        birthdate: new Date(birthdate),
         numTel,
         sexe: sexe.trim()[0].toUpperCase(),
         isVerified: false,
