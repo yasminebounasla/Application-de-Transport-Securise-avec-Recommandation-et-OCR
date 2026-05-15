@@ -13,7 +13,7 @@ export default function Layout() {
           headerBackTitle: '',
         }}
       />
-      <Stack.Screen name="HomeScreen" />
+      {/* <Stack.Screen name="HomeScreen" /> */}
       <Stack.Screen name="ActiveRideScreen" />
       <Stack.Screen
         name="DriverDashboardScreen"

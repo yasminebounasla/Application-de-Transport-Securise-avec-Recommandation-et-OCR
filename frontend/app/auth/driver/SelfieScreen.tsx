@@ -162,7 +162,7 @@ export default function SelfieScreen() {
           <ActivityIndicator size='large' color='#000' />
 
           <View className='mt-8 items-center'>
-            <MaterialIcons name='how-to-reg' size={64} color='#000' />
+
 
             <Text className='text-xl font-semibold text-black mt-6 mb-2 text-center'>
               Verifying Your Face

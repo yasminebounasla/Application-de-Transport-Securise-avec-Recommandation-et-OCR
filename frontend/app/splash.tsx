@@ -4,7 +4,7 @@ import { router, Stack, useLocalSearchParams } from "expo-router";
 import { useAuth } from "../context/AuthContext";
 
 export default function SplashScreen() {
-  const { loading, isAuthenticated, user } = useAuth();
+  const { loading, initialLoading, isAuthenticated, user } = useAuth(); // ← add initialLoading
   const params = useLocalSearchParams<{ target?: string; mode?: string }>();
   const hasNavigatedRef = useRef(false);
 
@@ -23,7 +23,7 @@ export default function SplashScreen() {
   }, [isAuthenticated, params.target, user?.role]);
 
   useEffect(() => {
-    if (loading || hasNavigatedRef.current) return;
+    if (loading || initialLoading || hasNavigatedRef.current) return;
 
     const delay = params.mode === "transition" ? 900 : 1800;
     const timeout = setTimeout(() => {
@@ -32,7 +32,7 @@ export default function SplashScreen() {
     }, delay);
 
     return () => clearTimeout(timeout);
-  }, [loading, nextRoute, params.mode]);
+  }, [loading, initialLoading, nextRoute, params.mode]);
 
   return (
     <>

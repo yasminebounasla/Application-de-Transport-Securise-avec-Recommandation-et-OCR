@@ -129,7 +129,7 @@ export default function DriverProfileScreen() {
     setRefreshing(false);
   };
 
-  const goToEdit = () => router.push("../driver/Editprofilescreen");
+  const goToEdit = () => router.push("/driver/Editprofilescreen");
 
   const [logoutModal, setLogoutModal] = useState(false);
 
