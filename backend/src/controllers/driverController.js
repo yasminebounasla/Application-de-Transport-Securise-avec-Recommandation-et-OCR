@@ -896,3 +896,21 @@ export const notifySelectedDrivers = async (req, res) => {
     return res.status(500).json({ success: false, message: error.message });
   }
 };
+
+export const upsertWorkingHours = async (req, res) => {
+  try {
+    const driverId = req.user.id;
+    const { works_morning, works_afternoon, works_evening, works_night } = req.body;
+
+    const workingHours = await prisma.workingHours.upsert({
+      where:  { driverId },
+      update: { works_morning, works_afternoon, works_evening, works_night },
+      create: { driverId, works_morning, works_afternoon, works_evening, works_night },
+    });
+
+    res.json({ success: true, data: workingHours });
+  } catch (err) {
+    console.error('upsertWorkingHours error:', err);
+    res.status(500).json({ message: 'Failed to save working hours' });
+  }
+};

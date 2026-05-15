@@ -11,13 +11,15 @@ import { addDriverPreferences, getDriverRating ,
   getMyDriverProfile,
   updateDriverProfile ,
   updateDriverLocation ,
+  upsertWorkingHours,
 } from "../controllers/driverController.js";
 
 const router = express.Router();
 
-router.put("/preferences", authenticate, addDriverPreferences);  
+router.put("/preferences", authenticate, addDriverPreferences);
 router.get("/:driverId/rating", authenticate, getDriverRating);
 router.get("/preferences", authenticate, getDriverPreferences);
+router.put("/working-hours", authenticate, upsertWorkingHours); 
 router.get("/dashboard/analytics", authenticate, getDriverDashboardAnalytics);
 
 router.post("/vehicle", authenticate, addVehicle);
@@ -27,7 +29,7 @@ router.delete("/vehicle/:vehicleId", authenticate, deleteVehicle);
 
 router.get("/me", authenticate, getMyDriverProfile);
 router.put("/profile", authenticate, updateDriverProfile);
-router.get("/:id", authenticate, getDriverProfile); 
+router.get("/:id", authenticate, getDriverProfile);
 
 router.patch("/profile/location", authenticate, updateDriverLocation);
 
