@@ -131,27 +131,24 @@ export default function DriverProfileScreen() {
 
   const goToEdit = () => router.push("../driver/Editprofilescreen");
 
+  const [logoutModal, setLogoutModal] = useState(false);
+
   const handleLogout = () => {
-    Alert.alert("Log out", "Are you sure you want to log out?", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Log out",
-        style: "destructive",
-        onPress: async () => {
-          setSettings(false);
-          setLoggingOut(true);
-          try {
-            await api.post("/auth/logout");
-          } catch (e) {
-            // ignore logout API errors
-          } finally {
-            await logout();
-            setLoggingOut(false);
-            router.replace("/");
-          }
-        },
-      },
-    ]);
+    setSettings(false);
+    setTimeout(() => setLogoutModal(true), 300);
+  };
+
+  const confirmLogout = async () => {
+    setLogoutModal(false);
+    setLoggingOut(true);
+    try {
+      await api.post("/auth/logout");
+    } catch (e) {}
+    finally {
+      await logout();
+      setLoggingOut(false);
+      router.replace("/");
+    }
   };
 
   if (loading || loggingOut) {
@@ -247,6 +244,67 @@ export default function DriverProfileScreen() {
 
   return (
     <>
+      <Modal
+        visible={logoutModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setLogoutModal(false)}
+        statusBarTranslucent
+      >
+        <TouchableOpacity
+          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.35)", justifyContent: "center" }}
+          activeOpacity={1}
+          onPress={() => setLogoutModal(false)}
+        >
+          <TouchableOpacity activeOpacity={1} style={{
+            backgroundColor: "#fff",
+            borderRadius: 24,
+            padding: 24,
+            margin: 24,
+            alignItems: "center",
+            gap: 8,
+          }}>
+            <View style={{
+              width: 72, height: 72, borderRadius: 36,
+              backgroundColor: "#FEF2F2",
+              alignItems: "center", justifyContent: "center",
+              marginBottom: 4,
+            }}>
+              <Ionicons name="log-out-outline" size={36} color="#DC2626" />
+            </View>
+
+            <Text style={{ fontSize: 18, fontWeight: "800", color: "#111" }}>
+              Log out?
+            </Text>
+            <Text style={{ fontSize: 13, color: "#6B7280", textAlign: "center", lineHeight: 19, marginBottom: 8 }}>
+              You'll need to sign in again to access your account.
+            </Text>
+
+            <View style={{ flexDirection: "row", gap: 10, width: "100%", marginTop: 8 }}>
+              <TouchableOpacity
+                onPress={() => setLogoutModal(false)}
+                style={{
+                  flex: 1, height: 48, borderRadius: 14,
+                  borderWidth: 1.5, borderColor: "#E5E7EB",
+                  alignItems: "center", justifyContent: "center",
+                }}>
+                <Text style={{ fontSize: 14, fontWeight: "700", color: "#374151" }}>Cancel</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={confirmLogout}
+                style={{
+                  flex: 1, height: 48, borderRadius: 14,
+                  backgroundColor: "#DC2626",
+                  flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6,
+                }}>
+                <Ionicons name="log-out-outline" size={15} color="#fff" />
+                <Text style={{ fontSize: 14, fontWeight: "700", color: "#fff" }}>Log out</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
       <ScrollView
         style={{ flex: 1, backgroundColor: "#F5F5F5" }}
         contentContainerStyle={{ paddingBottom: 100 }}
