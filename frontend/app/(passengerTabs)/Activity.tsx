@@ -398,7 +398,7 @@ useEffect(() => {
                       onPress={() => setActiveCategory(cat.key)}
                     >
                       <Text style={[s.tabText, active && s.tabTextActive]}>{cat.label}</Text>
-                      {count > 0 && (
+                      {count > 0 && (cat.key === "pending" || cat.key === "active") && (
                         <View style={[s.tabBadge, active && s.tabBadgeActive]}>
                           <Text style={[s.tabBadgeText, active && s.tabBadgeTextActive]}>{count}</Text>
                         </View>
