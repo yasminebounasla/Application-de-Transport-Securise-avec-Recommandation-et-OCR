@@ -55,22 +55,6 @@ const evaluateTrajet = async (trajetId) => {
       : rejCount === 0 && timedOutCount > 0 ? 'TIMEOUT'
       : 'MIXED';
 
-    // ── AJOUT 1 : notif + socket refus pour que le passager reçoive la notif ──
-    await createNotification({
-      passengerId:   ride.passagerId,
-      recipientType: 'PASSENGER',
-      type:          'RIDE_REJECTED',
-      title:         '❌ Demande refusée',
-      message:       'Les conducteurs ont refusé votre demande.',
-      data:          { rideId: ride.id },
-    });
-
-    io.to(`passenger_${ride.passagerId}`).emit('rideRejectedByDriver', {
-      rideId:  ride.id,
-      title:   '❌ Demande refusée',
-      message: 'Les conducteurs ont refusé votre demande.',
-    });
-    // ── FIN AJOUT 1 ────────────────────────────────────────────────────────────
 
     io.to(`passenger_${ride.passagerId}`).emit('fallbackRequired', {
       rideId:        ride.id,
