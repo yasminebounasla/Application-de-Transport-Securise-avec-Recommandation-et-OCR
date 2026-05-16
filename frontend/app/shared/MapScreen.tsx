@@ -11,9 +11,8 @@ import {
 } from "react-native";
 import MapView, { Marker, Polyline } from "react-native-maps";
 import { LocationContext } from "../../context/LocationContext";
-import { reverseGeocode, reverseGeocodeDetailed } from "../../utils/reverseGeocode";
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { validateLocationsInAlgeria, getAlgeriaBounds } from "../../utils/Geovalidation";
+import { reverseGeocode } from "../../utils/reverseGeocode";
+import { validateLocationsInAlgeria } from "../../utils/Geovalidation";
 import { formatDuration, formatDistance } from "../../utils/formatUtils";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Ionicons } from '@expo/vector-icons';
@@ -79,7 +78,6 @@ export default function MapScreen() {
   const [selectedAddress, setSelectedAddress]   = useState("");
   const [loadingAddress, setLoadingAddress]     = useState(false);
   const [savingAddress, setSavingAddress]       = useState(false);
-  const [addressOk, setAddressOk]               = useState(true);
 
   const [routeCoordinates, setRouteCoordinates] = useState([]);
   const [loadingRoute, setLoadingRoute]         = useState(false);
@@ -198,43 +196,18 @@ export default function MapScreen() {
   type Coords = { latitude: number; longitude: number };
 
   const fetchAddress = async (coords: Coords) => {
-    if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
-    debounceTimeout.current = setTimeout(async () => {
-      setLoadingAddress(true);
-      try {
-        // Fast local bounding-box check: if outside the Algeria box, show
-        // the explicit message. This prevents false negatives when tapping
-        // while zoomed out (provider responses can be ambiguous).
-        const bounds = getAlgeriaBounds();
-        const inBox = coords.latitude >= bounds.minLat && coords.latitude <= bounds.maxLat && coords.longitude >= bounds.minLng && coords.longitude <= bounds.maxLng;
-        if (!inBox) {
-          setSelectedAddress('Please select a location in Algeria');
-          setAddressOk(false);
-        } else {
-          // Inside the bounding box — run reverse geocoding and decide
-          // whether the result is precise enough or the user should zoom.
-          const { result, ok, code } = await reverseGeocodeDetailed(coords);
-          const codeNorm = (code || '').toString().toUpperCase();
-
-          let display = result;
-          if (!ok) {
-            if (codeNorm === 'WATER') display = 'Over water — move pin to land';
-            else if (codeNorm === 'RATE_LIMIT') display = 'Service busy — try again';
-            else if (codeNorm.includes('TIMEOUT') || codeNorm.startsWith('HTTP') || codeNorm === 'REGION') display = 'Zoom in to get address';
-            else display = result || 'Zoom in to get address';
-          }
-
-          setSelectedAddress(display);
-          setAddressOk(!!ok);
-        }
-      } catch (e) {
-        setSelectedAddress('Error loading address');
-        setAddressOk(false);
-      } finally {
-        setLoadingAddress(false);
-      }
-    }, 500) as unknown as ReturnType<typeof setTimeout>;
-  };
+  if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+  debounceTimeout.current = setTimeout(async () => {
+    setLoadingAddress(true);
+    try {
+      setSelectedAddress(await reverseGeocode(coords));
+    } catch {
+      setSelectedAddress("Error loading address");
+    } finally {
+      setLoadingAddress(false);
+    }
+  }, 500) as unknown as ReturnType<typeof setTimeout>;
+ };
 
   const handleMapPress = (e: { nativeEvent: { coordinate: Coords } }) => {
   if (selectionType === "route") return;
@@ -272,9 +245,7 @@ export default function MapScreen() {
       } else {
         await api.post('/passengers/saved-places', { label, address, lat, lng });
       }
-      Alert.alert('Success', 'Address added successfully.', [
-        { text: 'OK', onPress: () => router.back() }
-      ]);
+      router.back();
     } catch (e) {
       console.error("❌ Error saving address:", e);
       Alert.alert("Error", "Failed to save address. Please try again.");
@@ -292,10 +263,6 @@ export default function MapScreen() {
         latitude:  selectedLocation.latitude,
         longitude: selectedLocation.longitude,
       });
-      try {
-        await AsyncStorage.setItem('workZoneSaved', '1');
-      } catch {}
-      setSavingAddress(false);
       router.back();
     } catch (e: any) {
       Alert.alert('Error', e.response?.data?.message || 'Failed to save location.');
@@ -388,9 +355,9 @@ export default function MapScreen() {
             </Text>
           )}
           <TouchableOpacity
-            style={[styles.confirmBtn, (!selectedLocation || loadingAddress || savingAddress || !addressOk) && styles.confirmBtnDisabled]}
+            style={[styles.confirmBtn, (!selectedLocation || loadingAddress || savingAddress) && styles.confirmBtnDisabled]}
             onPress={handleConfirmSavedAddress}
-            disabled={!selectedLocation || loadingAddress || savingAddress || !addressOk}
+            disabled={!selectedLocation || loadingAddress || savingAddress}
             activeOpacity={0.8}
           >
             {savingAddress
@@ -451,9 +418,9 @@ export default function MapScreen() {
       {/* Bottom CTA */}
       <View style={wzStyles.bottomBar}>
         <TouchableOpacity
-          style={[wzStyles.cta, (!selectedLocation || loadingAddress || savingAddress || !addressOk) && wzStyles.ctaDisabled]}
+          style={[wzStyles.cta, (!selectedLocation || loadingAddress || savingAddress) && wzStyles.ctaDisabled]}
           onPress={handleConfirmWorkZone}
-          disabled={!selectedLocation || loadingAddress || savingAddress || !addressOk}
+          disabled={!selectedLocation || loadingAddress || savingAddress}
           activeOpacity={0.85}
         >
           {savingAddress ? (
@@ -627,9 +594,9 @@ export default function MapScreen() {
           <Text style={styles.address}>{selectedAddress || "Tap on map"}</Text>
         )}
         <TouchableOpacity
-          style={[styles.confirmBtn, (!selectedLocation || loadingAddress || !addressOk) && styles.confirmBtnDisabled]}
+          style={[styles.confirmBtn, (!selectedLocation || loadingAddress) && styles.confirmBtnDisabled]}
           onPress={handleConfirm}
-          disabled={!selectedLocation || loadingAddress || !addressOk}
+          disabled={!selectedLocation || loadingAddress}
           activeOpacity={0.8}
         >
           <Text style={styles.confirmText}>Confirm</Text>
